@@ -18,6 +18,8 @@
     "i18n:check": "bun run scripts/i18n-check.ts",
     "db:generate": "bun --filter @toon/api db:generate",
     "db:migrate": "bun --filter @toon/api db:migrate",
+    "seed": "bun --filter @toon/api seed",
+    "auth:reset-password": "bun --filter @toon/api auth:reset-password --",
     "db:studio": "bun --filter @toon/api db:studio"
   },
   "devDependencies": {
