@@ -1344,3 +1344,67 @@ helpers from `@/lib/share` (its own `lib/hooks.ts` drops the share block, `canMo
 module); the headless check that a disabled
 `recipe` redirects `/recipe` to Home with the toast; keep `API_MODULES`/`WEB_MODULES` reads inside
 functions (risk 2). M0's M2/M3 obligations stand unchanged.
+
+## 7. Integration record (M1-T12, 2026-10-13)
+
+Run on the merged tree at `80d273b` plus the new `apps/api/test/core-walkthrough.test.ts`. No
+integration fix was needed, so there is no repair commit.
+
+**Gates** (each with its own log, last line `exit=$?`):
+
+| Gate | Result |
+| --- | --- |
+| `bun install --frozen-lockfile` | `Checked 431 installs across 620 packages (no changes)`, exit 0 |
+| `bun run typecheck` | all five tsc projects, `[typecheck] OK`, exit 0 |
+| `bun test` | 426 pass, 0 fail, 1949 expect() calls, 30 files, exit 0 (was 214 in 16 files at M0) |
+| `bun test apps/api/test/core-walkthrough.test.ts` | 9 pass, 0 fail |
+| `bun run build` | Vite build + PWA generateSW, `precache 29 entries (752.22 KiB)`, exit 0 |
+| `bun run i18n:check` | exit 1 by design; half 1/2 (German catalog parity) `OK`; half 2/2 lists 16 hits |
+
+**i18n:check half 2/2, every hit classified.** All 16 are the "comment quote" class (a German UI
+label or an umlaut example quoted inside a doc comment; no German string literal reaches `t()`-less
+UI code): `ModuleCards.tsx:17` ("Verfügbare Module", new Home copy quoted in a comment),
+`InstallPrompt.tsx:8`, `ConfirmDialog.tsx:21`, `Chip.tsx:26`, `pwa.ts:3`, `validation.ts:12`,
+`storage.ts:17` (inherited from toon-recipe, were 11 hits at M0), `db/schema/core.ts:13`,
+`passwordReset.ts:8`, `mail/index.ts:71`, `mail/smtp.ts:24,440,441` and `households/support.ts:59,60,62`
+(ported with the auth and household services). There is no content-class hit (the `"Rezepte"`
+fallback and the seed's demo names do not trip the heuristic) and no parity failure.
+
+**Real server.** `data/m1.db` fresh: `bun run db:migrate` exit 0, `bun run seed` exit 0 (demo login
+printed), `bun run dev` with `SESSION_SECRET` set; `curl` with cookie jars (`-c`/`-b`), status
+line per call:
+
+```
+200 GET /api/health                       {"ok":true,"status":"ok",...,"modules":[],"features":{"verifiedEmailRequired":false}}
+404 GET /uploads/x.png                    {"error":{"code":"not_found",...}}
+200 POST /api/auth/login (demo)           200 GET /api/auth/me (demo)
+201 POST /api/auth/register (A)           204 POST /api/auth/logout        401 GET /api/auth/me (old cookie)
+200 POST /api/auth/login (A)              201 POST /api/households {name:"WG"}  (modules ["recipe"])
+201 POST /api/households/:WG/invites      201 POST /api/auth/register (B, no invite)
+200 POST /api/households/invites/accept   200 PATCH /api/auth/me {activeHouseholdId:WG}
+200 POST /api/households/:WG/modules/finance (A)  modules ["recipe","finance"]
+403 POST /api/households/:WG/modules/finance (B)  forbidden
+200 GET  /api/households/:WG (B)          modules ["recipe","finance"]
+204 DELETE /api/households/:WG/modules/recipe (A)
+200 GET  /api/auth/me (B)                 WG modules ["finance"]
+200 GET  http://localhost:5173/api/health (through the Vite proxy)  modules []
+```
+
+**Headless** (playwright 1.64 + the cached chromium 1248, installed in a scratch dir outside the
+repo, `bun add` log ends `exit=0`; demo login via `fetch("/api/auth/login")` from the page), 34
+checks, all pass, at 390x844 and 1440x900: logged-out `/` lands on `/login`; Home shows "Familie"
+and "Noch keine Module aktiviert"; at 390 the tab bar (`nav.fixed`) is exactly "Start", "Profil"
+and the sidebar is hidden; at 1440 the sidebar (`aside[data-app-shell]`) is visible with the
+household switcher ("Familie", "1 Mitglied") and "Gruppen" under ORGANISIEREN, the tab bar is
+hidden; `/settings` shows the cards "Dein Konto", "Sprache", "Aussehen", "E-Mail-Adresse",
+"Gruppen"; `/households` lists "Familie"; no console error while logged in. Two measurement notes:
+(1) `<html>` carries `scrollbar-gutter: stable` (inherited verbatim from toon-recipe), so under
+classic desktop scrollbars `scrollWidth` is 375 / 1425 against `clientWidth` 390 / 1440; the check is
+therefore `scrollWidth <= clientWidth` (no horizontal overflow), not strict equality; (2) the only
+console error on the logged-out `/login` visit is the browser's own line for the `401` of the
+`/api/auth/me` session probe, expected and filtered to that single class.
+
+**Exit criteria (§1).** Five gates green (typecheck, test, build, install; i18n:check parity OK,
+leftover hits all comment quotes); walkthrough in tests and curl; Home empty state at 390 and
+1440 px; `GET /api/households/:id` returns `modules`; `moduleGuard` and `moduleLayoutComponent`
+tests are part of the 426 passing tests. M1 exit criteria met.

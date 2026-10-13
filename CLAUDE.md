@@ -97,9 +97,12 @@ Run from the repo root. Bun 1.4.2 (`.bun-version`); `bun install --frozen-lockfi
 - `bun run db:generate`: drizzle-kit generates a migration from `apps/api/src/db/schema`.
 - `bun run db:migrate`: applies the migrations to `DATABASE_URL` (e.g. `file:./data/m0.db`).
 - `bun run db:studio`: drizzle-kit studio on the configured DB.
+- `bun run seed`: idempotent demo data on `DATABASE_URL` (migrates first; needs `SESSION_SECRET`):
+  user `demo@toon.local` / `demo1234` and the household "Familie" with the default module rows.
+- `bun run auth:reset-password <email> [--send]`: prints a password-reset link for a locked-out
+  account (works without mail; `--send` also mails it when a transport is configured).
 
-Arrive later: `bun run seed` and `bun run auth:reset-password` (M1), `bun run uploads:gc` (M2),
-`bun run plan:run` (M3), `bun run migrate:legacy` (M5).
+Arrive later: `bun run uploads:gc` (M2), `bun run plan:run` (M3), `bun run migrate:legacy` (M5).
 
 ## Conventions
 
