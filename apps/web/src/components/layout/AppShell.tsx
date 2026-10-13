@@ -4,10 +4,11 @@ import { BottomTabBar } from "./BottomTabBar";
 import { InstallPrompt } from "./InstallPrompt";
 import { OfflineBanner } from "./OfflineBanner";
 import { SideNav } from "./SideNav";
+import { UnverifiedEmailBanner } from "./UnverifiedEmailBanner";
 import { UpdateBanner } from "./UpdateBanner";
 
 /**
- * The app frame (no auth guard until M1, which also restores `UnverifiedEmailBanner`).
+ * The authenticated app frame (`RequireAuth` wraps it in router.tsx).
  *  - phones: fixed bottom tab bar, content padded for it (no more sticky top bar — see
  *    the note below),
  *  - >= lg: fixed sidebar + centred content column.
@@ -24,7 +25,7 @@ import { UpdateBanner } from "./UpdateBanner";
  * the root at its content height, 493px of 695 — the bar then floats mid-screen).
  *
  * `TopBar` is gone (no artboard draws a global phone top bar — each screen's own header
- * carries the household chip and its primary action instead, via `PhoneHeaderRow` (M1)), so
+ * carries the household chip and its primary action instead, via `PhoneHeaderRow`), so
  * `pt-safe` moves here, onto the inner column, or a home-screen install renders the
  * first banner under the status bar. `lg:pt-0` because from `lg` the sidebar owns the
  * top edge and the inset is 0 there anyway.
@@ -35,6 +36,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <SideNav />
       <div className="flex min-h-dvh flex-col pt-safe lg:pl-sidebar lg:pt-0">
         <OfflineBanner />
+        <UnverifiedEmailBanner />
         <UpdateBanner />
         {/*
           The wider desktop gutter is `--gutter`, NOT `lg:px-8`: the hand-written
