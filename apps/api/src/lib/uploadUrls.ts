@@ -27,9 +27,10 @@
  *
  * IMPORT SOURCE SCANS ARE NOT SIGNED ANYWHERE. Photos and PDFs uploaded for an
  * import are the private half of UPLOAD_DIR, and they are served only by the
- * membership-checked `GET /api/groups/:groupId/imports/:draftId/source`. Because
- * nothing mints a signature for `sourceMeta.storedPath`, no `/uploads/` URL for
- * one can exist. Do not "fix" that by signing it.
+ * membership-checked
+ * `GET /api/households/:householdId/recipe/imports/:draftId/source` (M2). Because nothing mints
+ * a signature for `sourceMeta.storedPath`, no `/uploads/` URL for one can exist. Do not "fix"
+ * that by signing it.
  */
 import { env } from "../env.ts";
 import { timingSafeEqualHex } from "./timingSafe.ts";
