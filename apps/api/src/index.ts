@@ -7,15 +7,23 @@
  * `src/modules/index.ts` (SPEC §2) — nobody needs to edit this file to add a
  * module route.
  */
+import { existsSync } from "node:fs";
+import { join, normalize } from "node:path";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { isVerifiedEmailRequired } from "./core/services/auth/verifiedEmail.ts";
+import { resolveThumbnail } from "./core/services/media/thumbnails.ts";
 import { dbReady } from "./db/client.ts";
 import { env } from "./env.ts";
 import { notFoundHandler, onErrorHandler } from "./lib/errors.ts";
 import { localeMiddleware } from "./lib/locale.ts";
 import type { AppEnv } from "./lib/types.ts";
+import {
+  UPLOAD_EXP_PARAM,
+  UPLOAD_SIG_PARAM,
+  verifyUploadSignature,
+} from "./lib/uploadUrls.ts";
 import { webAppMiddleware } from "./middleware/staticWeb.ts";
 import { API_MODULES } from "./modules/index.ts";
 import { mountModules } from "./modules/mount.ts";
@@ -71,8 +79,67 @@ app.get("/api/health", (c) =>
 );
 
 // --- uploads ----------------------------------------------------------------
-// M1: `GET /uploads/:filename` (signed URLs, lib/uploadUrls.ts) returns here with
-// the media service and its thumbnails.
+/**
+ * Uploaded images (recipe photos, avatars, group covers).
+ *
+ * NOT public: every URL must carry `?exp&sig` minted by the API when the owning
+ * row was serialised (see lib/uploadUrls.ts for the scheme and for why a cookie
+ * check cannot work here — a cross-origin `<img>` sends no credentials). An
+ * unsigned, forged or expired request is a 404, exactly like a missing file, so
+ * this route never confirms that a given UUID exists.
+ *
+ * Import SOURCE scans are not reachable here at all: nothing mints a signature for
+ * them, and they are served by the membership-checked
+ * `GET /api/households/:householdId/recipe/imports/:draftId/source` (M2).
+ *
+ * Path traversal is blocked by normalising and re-checking the prefix.
+ *
+ * `<name>.thumb.webp` is the list thumbnail of `<name>` and is generated here on
+ * first request (services/media/thumbnails.ts).
+ */
+app.get("/uploads/:filename", async (c) => {
+  const requested = normalize(c.req.param("filename"));
+  if (requested.includes("..") || requested.startsWith("/")) return c.notFound();
+
+  const verdict = verifyUploadSignature(
+    requested,
+    c.req.query(UPLOAD_EXP_PARAM),
+    c.req.query(UPLOAD_SIG_PARAM),
+  );
+  if (verdict !== "ok") return c.notFound();
+
+  const absolute = join(env.uploadDir, requested);
+  if (!absolute.startsWith(env.uploadDir)) return c.notFound();
+
+  // A `<name>.thumb.webp` is DERIVED: the URL is minted from the row, which knows
+  // nothing about the disk, so the first request for one builds it. If it cannot be
+  // built the original is served instead — a 404 here would be a broken <img> on a
+  // recipe that is perfectly fine. See services/media/thumbnails.ts.
+  let path = absolute;
+  let derivedFallback = false;
+  if (!existsSync(absolute)) {
+    const resolved = await resolveThumbnail(requested);
+    if (resolved === undefined) return c.notFound();
+    path = resolved.path;
+    derivedFallback = resolved.fallback;
+  }
+
+  const file = Bun.file(path);
+  return new Response(file, {
+    headers: {
+      "Content-Type": file.type || "application/octet-stream",
+      // `private` because the URL is now a capability, not a public address: a
+      // shared proxy must not hand one client's signed response to another. The
+      // max-age stays inside the signature's own lifetime.
+      //
+      // The fallback is deliberately NOT immutable: it is the wrong (full-size)
+      // answer, so it must expire quickly enough to heal once sharp can convert.
+      "Cache-Control": derivedFallback
+        ? "private, max-age=300"
+        : "private, max-age=21600, immutable",
+    },
+  });
+});
 
 // --- core routers -----------------------------------------------------------
 // M1: app.route("/api/auth", authRoutes);
