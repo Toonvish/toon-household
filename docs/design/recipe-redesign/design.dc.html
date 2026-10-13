@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="./image-slot.js"></script>
+<style>
+body{margin:0;background:#0f0c0a;font-family:Figtree,system-ui,sans-serif;color:#f6ece1;-webkit-font-smoothing:antialiased}
+a{color:#eb9d84;text-decoration:none}a:hover{color:#f6c5b4}
+*{box-sizing:border-box}
+</style>
+</helmet>
+
+<section id="t1" style="padding:48px 56px 64px;display:flex;flex-direction:column;gap:40px">
+
+<div style="max-width:880px;display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;align-items:baseline;gap:12px"><a href="#t1" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 8px;background:#f6ece1;color:#17120f;border-radius:4px">1</a><span style="font:600 14px/1.2 Figtree,sans-serif;color:#f6ece1">Rezepte redesign · library, detail, shopping</span></div>
+  <h1 style="margin:0;font:500 44px/1.05 Newsreader,Georgia,serif;letter-spacing:-0.01em">A warmer, denser Rezepte.</h1>
+  <p style="margin:0;font-size:15px;line-height:1.55;color:#b8a693;text-wrap:pretty">Dark mode kept, paprika kept. The brand evolves from paprika-on-black buttons to a paprika <em>and honey</em> palette with a real display serif (Newsreader) and a friendlier sans (Figtree). Everything is grounded in <code style="font-size:13px;color:#eab54f">theme.css</code> tokens from the repo.</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;font-size:14px;line-height:1.55;color:#b8a693">
+    <div><strong style="color:#f6ece1">Fixing the pains</strong><ul style="margin:6px 0 0;padding-left:18px"><li>Tag clutter: cards show <strong style="color:#f6ece1">one</strong> category; tags move to the filter rail on the left.</li><li>Empty space: content spans the full width with a filter rail, planner strip and a two-column shopping layout.</li><li>Frequently bought: 8 chips max, alphabetical, one "show all" — no per-chip ×.</li><li>Titles never truncate: editorial rows give titles a full line.</li></ul></div>
+    <div><strong style="color:#f6ece1">New</strong><ul style="margin:6px 0 0;padding-left:18px"><li>Week planner strip on the library, and a dedicated Plan destination.</li><li>Check-off with a "Bought today" section and bought history per list.</li><li>Recently cooked carousel; "Cooked" action on the detail page feeds it.</li><li>Shopping overview becomes a real home: lists, this week, loyalty cards side by side.</li></ul></div>
+  </div>
+</div>
+
+<!-- ============ DESKTOP: LIBRARY ============ -->
+<div id="1a" style="display:flex;flex-direction:column;gap:10px;scroll-margin-top:16px">
+  <div style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9c8b79"><a href="#1a" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:#2a221c;color:#f6ece1;border-radius:5px">1a</a>Recipe library · desktop 1440</div>
+  <div data-screen-label="Library desktop" style="width:1440px;height:940px;background:#17120f;border:1px solid #382e26;border-radius:14px;overflow:hidden;display:grid;grid-template-columns:236px 1fr;color:#f6ece1">
+    <!-- sidebar -->
+    <aside style="background:#130f0c;border-right:1px solid #2a221c;display:flex;flex-direction:column;padding:20px 14px;gap:22px">
+      <div style="display:flex;align-items:center;gap:10px;padding:0 6px"><svg viewBox="0 0 48 48" width="32" height="32"><rect width="48" height="48" rx="12" fill="#dc7051"></rect><g fill="none" stroke="#24120a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 16.2c1.9-1.5 1.9-3 0-4.5s-1.9-3 0-4.5"></path><path d="M24 16.2c2.1-1.7 2.1-3.4 0-5.1s-2.1-3.4 0-5.1"></path><path d="M30 16.2c1.9-1.5 1.9-3 0-4.5s-1.9-3 0-4.5"></path><path d="M11.5 19.5h25"></path><path d="M14 19.5h21l-1.7 15.2A4 4 0 0 1 29.3 38h-9.6a4 4 0 0 1-4-3.3Z"></path><path d="M36.5 22.5h3.2a2.6 2.6 0 0 1 0 5.2h-3.7"></path><path d="M11.5 22.5H8.3a2.6 2.6 0 0 0 0 5.2h3.7"></path></g></svg><span style="font:500 22px Newsreader,Georgia,serif">Rezepte</span></div>
+      <button style="display:flex;align-items:center;gap:10px;background:#201a15;border:1px solid #382e26;border-radius:10px;padding:8px 10px;text-align:left;color:inherit;font:inherit;cursor:pointer"><span style="width:28px;height:28px;border-radius:8px;background:#3b1f13;color:#f6c5b4;display:grid;place-items:center;font-size:12px;font-weight:700">MR</span><span style="flex:1;min-width:0"><span style="display:block;font-size:13px;font-weight:600">Meine Rezepte</span><span style="display:block;font-size:11.5px;color:#9c8b79">2 members · 37 recipes</span></span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9c8b79" stroke-width="2"><path d="m6 9 6 6 6-6"></path></svg></button>
+      <nav style="display:flex;flex-direction:column;gap:2px">
+        <a style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;background:#3b1f13;color:#f6c5b4;font-size:14px;font-weight:600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>Recipes<span style="margin-left:auto;font-size:12px;font-weight:500;color:#eb9d84">37</span></a>
+        <a style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;color:#b8a693;font-size:14px;font-weight:500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>Plan<span style="margin-left:auto;font-size:11px;font-weight:600;color:#eab54f;background:#3a2c0f;padding:2px 7px;border-radius:99px">New</span></a>
+        <a style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;color:#b8a693;font-size:14px;font-weight:500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 11 4-7M19 11l-4-7M2 11h20l-1.6 7.4a2 2 0 0 1-2 1.6H5.6a2 2 0 0 1-2-1.6z"></path><path d="M12 15v3M8 15l.5 3M16 15l-.5 3"></path></svg>Shopping<span style="margin-left:auto;font-size:12px;color:#9c8b79">10</span></a>
+        <a style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;color:#b8a693;font-size:14px;font-weight:500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 8h10M7 12h10M7 16h6"></path></svg>Import</a>
+      </nav>
+      <div style="display:flex;flex-direction:column;gap:2px;border-top:1px solid #2a221c;padding-top:14px">
+        <span style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#6b5c4b;padding:0 12px 6px">Organise</span>
+        <a style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:10px;color:#b8a693;font-size:13.5px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9L9.2 3.9A2 2 0 0 0 7.5 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>Collections</a>
+        <a style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:10px;color:#b8a693;font-size:13.5px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2H2v10l9.3 9.3a1 1 0 0 0 1.4 0l8.6-8.6a1 1 0 0 0 0-1.4z"></path><path d="M7 7h.01"></path></svg>Tags</a>
+        <a style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:10px;color:#b8a693;font-size:13.5px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"></path></svg>Groups</a>
+      </div>
+      <div style="margin-top:auto;display:flex;align-items:center;gap:10px;padding:10px 8px;border-top:1px solid #2a221c"><span style="width:32px;height:32px;border-radius:99px;background:#eab54f;color:#24120a;display:grid;place-items:center;font-size:12px;font-weight:700">ES</span><span style="flex:1;min-width:0"><span style="display:block;font-size:13px;font-weight:600">Eric Stampa</span><span style="display:block;font-size:11.5px;color:#9c8b79;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">eric.stampa@t-online.de</span></span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9c8b79" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg></div>
+    </aside>
+    <main style="overflow:hidden;display:flex;flex-direction:column">
+      <header style="display:flex;align-items:center;gap:10px;padding:14px 32px;border-bottom:1px solid #2a221c;font-size:13px;color:#9c8b79"><a style="color:#9c8b79">Recipes</a><span>/</span><span style="color:#b8a693">Minis Schmorgurken von minikruemelmonster</span>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button style="display:flex;align-items:center;gap:8px;height:38px;padding:0 14px;border-radius:10px;border:1px solid #382e26;background:#201a15;color:#f6ece1;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>Plan for a day</button>
+          <button style="display:flex;align-items:center;gap:8px;height:38px;padding:0 14px;border-radius:10px;border:1px solid #382e26;background:#201a15;color:#f6ece1;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 11 4-7M19 11l-4-7M2 11h20l-1.6 7.4a2 2 0 0 1-2 1.6H5.6a2 2 0 0 1-2-1.6z"></path></svg>Add to shopping</button>
+          <button style="display:flex;align-items:center;gap:8px;height:38px;padding:0 14px;border-radius:10px;border:1px solid #26301b;background:#26301b;color:#a9c68c;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"></path></svg>Cooked</button>
+          <button style="width:38px;height:38px;border-radius:10px;border:1px solid #382e26;background:#201a15;color:#b8a693;display:grid;place-items:center;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="12" cy="19" r="1.8"></circle></svg></button>
+        </div>
+      </header>
+      <div style="padding:28px 32px 0;display:grid;grid-template-columns:1fr 420px;gap:36px;align-items:start">
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <span style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#eab54f">Hauptspeise · Eintopf</span>
+          <h1 style="margin:0;font:500 46px/1.05 Newsreader,Georgia,serif;letter-spacing:-0.01em;text-wrap:balance">Minis Schmorgurken von minikruemelmonster</h1>
+          <p style="margin:0;font-size:16px;line-height:1.55;color:#b8a693;max-width:640px;text-wrap:pretty">Minis Schmorgurken - himmlisch leichtes Sommeressen. Über 167 Bewertungen und für sehr gut befunden.</p>
+          <div style="display:flex;gap:28px;padding:14px 0;border-top:1px solid #2a221c;border-bottom:1px solid #2a221c;font-size:14px">
+            <span><span style="display:block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6b5c4b">Servings</span><span style="font:500 20px Newsreader,serif">4 Portionen</span></span>
+            <span><span style="display:block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6b5c4b">Prep</span><span style="font:500 20px Newsreader,serif">35 min</span></span>
+            <span><span style="display:block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6b5c4b">Cook</span><span style="font:500 20px Newsreader,serif">40 min</span></span>
+            <span><span style="display:block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6b5c4b">Total</span><span style="font:500 20px Newsreader,serif">1 h 15 min</span></span>
+            <span style="margin-left:auto;text-align:right"><span style="display:block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6b5c4b">Last cooked</span><span style="font:500 20px Newsreader,serif;color:#a9c68c">3 days ago</span></span>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;font-size:12px;color:#9c8b79"><span>Deutsch</span><span>·</span><span>Gemüse</span><span>·</span><span>Rind</span><span>·</span><span>Schmoren</span><span>·</span><span>Sommer</span><span>·</span><span>raffiniert oder preiswert</span><span style="color:#6b5c4b">· by Eric Stampa, 2 hours ago</span></div>
+        </div>
+        <div style="aspect-ratio:4/3;border-radius:16px;overflow:hidden;background:#3b2a1a"><image-slot id="detail-hero" shape="rect" placeholder="Schmorgurken photo"></image-slot></div>
+      </div>
+      <div style="padding:30px 32px 32px;display:grid;grid-template-columns:400px 1fr;gap:40px;align-items:start">
+        <div style="background:#201a15;border:1px solid #2a221c;border-radius:16px;padding:20px 22px;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:center;gap:12px"><h2 style="margin:0;font:500 24px Newsreader,Georgia,serif">Ingredients</h2><span style="font-size:13px;color:#9c8b79">15</span>
+            <div style="margin-left:auto;display:flex;align-items:center;background:#17120f;border:1px solid #382e26;border-radius:10px;height:36px"><button style="width:36px;height:100%;border:none;background:none;color:#f6ece1;font-size:18px;cursor:pointer">−</button><span style="font-size:13.5px;font-weight:600;padding:0 4px">4 Portionen</span><button style="width:36px;height:100%;border:none;background:none;color:#f6ece1;font-size:18px;cursor:pointer">+</button></div></div>
+          <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column">
+            <sc-for list="{{ ingredients }}" as="i" hint-placeholder-count="8">
+              <li style="display:grid;grid-template-columns:78px 1fr;gap:12px;padding:9px 0;border-top:1px solid #2a221c;font-size:15px;line-height:1.35"><span style="text-align:right;font-weight:600;font-variant-numeric:tabular-nums;color:{{ i.qtyColor }}">{{ i.qty }}</span><span>{{ i.name }} <span style="color:#9c8b79">{{ i.note }}</span></span></li>
+            </sc-for>
+          </ul>
+          <button style="display:flex;align-items:center;justify-content:center;gap:8px;height:42px;border-radius:10px;border:1px solid #382e26;background:#17120f;color:#f6ece1;font:inherit;font-size:14px;font-weight:600;cursor:pointer">Add all 15 to Einkaufsliste</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:18px">
+          <div style="display:flex;align-items:center;gap:12px"><h2 style="margin:0;font:500 24px Newsreader,Georgia,serif">Method</h2><span style="font-size:13px;color:#9c8b79">6 steps</span><button style="margin-left:auto;display:flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:10px;border:none;background:#dc7051;color:#24120a;font:inherit;font-size:14px;font-weight:700;cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5v14l11-7z"></path></svg>Cook mode</button></div>
+          <ol style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:22px">
+            <sc-for list="{{ steps }}" as="s" hint-placeholder-count="3">
+              <li style="display:grid;grid-template-columns:44px 1fr;gap:16px"><span style="font:500 30px/1 Newsreader,Georgia,serif;color:#dc7051;padding-top:2px">{{ s.n }}</span><p style="margin:0;font-size:16.5px;line-height:1.6;color:#e8dccd;text-wrap:pretty">{{ s.text }}</p></li>
+            </sc-for>
+          </ol>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ============ DESKTOP: SHOPPING OVERVIEW ============ -->
+<div id="1c" style="display:flex;flex-direction:column;gap:10px;scroll-margin-top:16px">
+  <div style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9c8b79"><a href="#1c" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:#2a221c;color:#f6ece1;border-radius:5px">1c</a>Shopping overview · desktop 1440 · lists as previews, week's ingredients, cards, history</div>
+  <div data-screen-label="Shopping overview desktop" style="width:1440px;height:760px;background:#17120f;border:1px solid #382e26;border-radius:14px;overflow:hidden;display:grid;grid-template-columns:236px 1fr;color:#f6ece1">
+    <aside style="background:#130f0c;border-right:1px solid #2a221c;display:flex;flex-direction:column;padding:20px 14px;gap:22px">
+      <div style="display:flex;align-items:center;gap:10px;padding:0 6px"><svg viewBox="0 0 48 48" width="32" height="32"><rect width="48" height="48" rx="12" fill="#dc7051"></rect><g fill="none" stroke="#24120a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 16.2c1.9-1.5 1.9-3 0-4.5s-1.9-3 0-4.5"></path><path d="M24 16.2c2.1-1.7 2.1-3.4 0-5.1s-2.1-3.4 0-5.1"></path><path d="M30 16.2c1.9-1.5 1.9-3 0-4.5s-1.9-3 0-4.5"></path><path d="M11.5 19.5h25"></path><path d="M14 19.5h21l-1.7 15.2A4 4 0 0 1 29.3 38h-9.6a4 4 0 0 1-4-3.3Z"></path><path d="M36.5 22.5h3.2a2.6 2.6 0 0 1 0 5.2h-3.7"></path><path d="M11.5 22.5H8.3a2.6 2.6 0 0 0 0 5.2h3.7"></path></g></svg><span style="font:500 22px Newsreader,Georgia,serif">Rezepte</span></div>
+      <button style="display:flex;align-items:center;gap:10px;background:#201a15;border:1px solid #382e26;border-radius:10px;padding:8px 10px;text-align:left;color:inherit;font:inherit;cursor:pointer"><span style="width:28px;height:28px;border-radius:8px;background:#3b1f13;color:#f6c5b4;display:grid;place-items:center;font-size:12px;font-weight:700">MR</span><span style="flex:1;min-width:0"><span style="display:block;font-size:13px;font-weight:600">Meine Rezepte</span><span style="display:block;font-size:11.5px;color:#9c8b79">2 members · 37 recipes</span></span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9c8b79" stroke-width="2"><path d="m6 9 6 6 6-6"></path></svg></button>
+      <nav style="display:flex;flex-direction:column;gap:2px">
+        <a style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;color:#b8a693;font-size:14px;font-weight:500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>Recipes<span style="margin-left:auto;font-size:12px;color:#9c8b79">37</span></a>
+        <a style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;color:#b8a693;font-size:14px;font-weight:500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>Plan<span style="margin-left:auto;font-size:11px;font-weight:600;color:#eab54f;background:#3a2c0f;padding:2px 7px;border-radius:99px">New</span></a>
+        <a style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;background:#3b1f13;color:#f6c5b4;font-size:14px;font-weight:600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 11 4-7M19 11l-4-7M2 11h20l-1.6 7.4a2 2 0 0 1-2 1.6H5.6a2 2 0 0 1-2-1.6z"></path><path d="M12 15v3M8 15l.5 3M16 15l-.5 3"></path></svg>Shopping<span style="margin-left:auto;font-size:12px;font-weight:500;color:#eb9d84">10</span></a>
+        <a style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;color:#b8a693;font-size:14px;font-weight:500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 8h10M7 12h10M7 16h6"></path></svg>Import</a>
+      </nav>
+      <div style="display:flex;flex-direction:column;gap:2px;border-top:1px solid #2a221c;padding-top:14px">
+        <span style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#6b5c4b;padding:0 12px 6px">Organise</span>
+        <a style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:10px;color:#b8a693;font-size:13.5px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9L9.2 3.9A2 2 0 0 0 7.5 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>Collections</a>
+        <a style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:10px;color:#b8a693;font-size:13.5px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2H2v10l9.3 9.3a1 1 0 0 0 1.4 0l8.6-8.6a1 1 0 0 0 0-1.4z"></path><path d="M7 7h.01"></path></svg>Tags</a>
+        <a style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:10px;color:#b8a693;font-size:13.5px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"></path></svg>Groups</a>
+      </div>
+      <div style="margin-top:auto;display:flex;align-items:center;gap:10px;padding:10px 8px;border-top:1px solid #2a221c"><span style="width:32px;height:32px;border-radius:99px;background:#eab54f;color:#24120a;display:grid;place-items:center;font-size:12px;font-weight:700">ES</span><span style="flex:1;min-width:0"><span style="display:block;font-size:13px;font-weight:600">Eric Stampa</span><span style="display:block;font-size:11.5px;color:#9c8b79;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">eric.stampa@t-online.de</span></span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9c8b79" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg></div>
+    </aside>
+    <main style="padding:30px 32px;display:flex;flex-direction:column;gap:24px;overflow:hidden">
+      <div style="display:flex;align-items:flex-end;gap:16px"><div><h1 style="margin:0;font:500 38px/1.1 Newsreader,Georgia,serif">Shopping</h1><p style="margin:6px 0 0;font-size:14px;color:#9c8b79">Shared with Meine Rezepte · 2 members · synced 2 min ago</p></div>
+        <button style="margin-left:auto;display:flex;align-items:center;gap:8px;height:42px;padding:0 16px;border-radius:12px;border:none;background:#dc7051;color:#24120a;font:inherit;font-size:14px;font-weight:700;cursor:pointer">+ New list</button></div>
+      <div style="display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:16px;align-items:start">
+        <!-- main list preview -->
+        <a style="display:flex;flex-direction:column;gap:14px;background:#201a15;border:1px solid #382e26;border-radius:16px;padding:20px 22px;color:#f6ece1">
+          <div style="display:flex;align-items:center;gap:12px"><span style="width:40px;height:40px;border-radius:12px;background:#3b1f13;color:#eb9d84;display:grid;place-items:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 11 4-7M19 11l-4-7M2 11h20l-1.6 7.4a2 2 0 0 1-2 1.6H5.6a2 2 0 0 1-2-1.6z"></path></svg></span><div><span style="display:block;font:500 22px Newsreader,serif">Einkaufsliste</span><span style="font-size:13px;color:#9c8b79">10 to buy · 4 bought today</span></div><span style="margin-left:auto;font-size:13px;color:#eb9d84;font-weight:600">Open →</span></div>
+          <div style="height:6px;border-radius:99px;background:#2a221c;overflow:hidden"><span style="display:block;width:29%;height:100%;background:#7ba05b"></span></div>
+          <ul style="list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;font-size:14px;color:#e8dccd">
+            <sc-for list="{{ previewItems }}" as="p" hint-placeholder-count="8"><li style="display:flex;gap:8px;align-items:baseline;overflow:hidden;white-space:nowrap;text-overflow:ellipsis"><span style="color:#9c8b79;font-variant-numeric:tabular-nums;min-width:38px">{{ p.qty }}</span>{{ p.name }}</li></sc-for>
+          </ul>
+          <span style="font-size:13px;color:#9c8b79">+2 more</span>
+        </a>
+        <!-- from this week -->
+        <div style="display:flex;flex-direction:column;gap:14px;background:#201a15;border:1px solid #382e26;border-radius:16px;padding:20px 22px">
+          <div><span style="display:block;font:500 22px Newsreader,serif">From this week's plan</span><span style="font-size:13px;color:#9c8b79">3 recipes · 22 ingredients not yet on a list</span></div>
+          <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;font-size:14px">
+            <li style="display:flex;align-items:center;gap:10px"><span style="width:36px;height:36px;border-radius:8px;background:#4a3320;flex:none"></span><span style="flex:1;min-width:0"><span style="display:block;font:500 15px Newsreader,serif">Tomaten Kritharaki</span><span style="font-size:12px;color:#9c8b79">Tue · 9 ingredients</span></span><span style="font-size:12px;font-weight:600;color:#eb9d84">Add</span></li>
+            <li style="display:flex;align-items:center;gap:10px"><span style="width:36px;height:36px;border-radius:8px;background:#2f3a22;flex:none"></span><span style="flex:1;min-width:0"><span style="display:block;font:500 15px Newsreader,serif">Kraut-Udon-Nudeln</span><span style="font-size:12px;color:#9c8b79">Thu · 7 ingredients</span></span><span style="font-size:12px;font-weight:600;color:#eb9d84">Add</span></li>
+            <li style="display:flex;align-items:center;gap:10px"><span style="width:36px;height:36px;border-radius:8px;background:#3a2b1e;flex:none"></span><span style="flex:1;min-width:0"><span style="display:block;font:500 15px Newsreader,serif">Griechischer Hackauflauf</span><span style="font-size:12px;color:#9c8b79">Sat · 6 ingredients</span></span><span style="font-size:12px;font-weight:600;color:#eb9d84">Add</span></li>
+          </ul>
+          <button style="height:40px;border-radius:10px;border:1px solid #382e26;background:#17120f;color:#f6ece1;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer">Add all to Einkaufsliste</button>
+        </div>
+        <!-- cards + history -->
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;flex-direction:column;gap:12px;background:#201a15;border:1px solid #382e26;border-radius:16px;padding:20px 22px">
+            <div style="display:flex;align-items:baseline"><span style="font:500 22px Newsreader,serif">Loyalty cards</span><a style="margin-left:auto;font-size:13px;font-weight:600">Manage</a></div>
+            <div style="display:flex;gap:10px"><span style="flex:1;aspect-ratio:1.6;border-radius:10px;background:linear-gradient(135deg,#2a5ea8,#1d3f75);display:flex;align-items:flex-end;padding:10px;font-size:13px;font-weight:700;color:#fff">Payback</span><span style="flex:1;aspect-ratio:1.6;border-radius:10px;border:1.5px dashed #4a3d33;display:grid;place-items:center;font-size:13px;color:#9c8b79">+ Add card</span></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;background:#201a15;border:1px solid #382e26;border-radius:16px;padding:20px 22px">
+            <div style="display:flex;align-items:baseline"><span style="font:500 22px Newsreader,serif">Bought history</span><a style="margin-left:auto;font-size:13px;font-weight:600">All</a></div>
+            <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;font-size:13.5px;color:#b8a693">
+              <li style="display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid #2a221c"><span>Today</span><span style="color:#9c8b79">4 items · Eric</span></li>
+              <li style="display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid #2a221c"><span>Sat 30 Aug</span><span style="color:#9c8b79">17 items · Lena</span></li>
+              <li style="display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid #2a221c"><span>Wed 27 Aug</span><span style="color:#9c8b79">6 items · Eric</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ============ DESKTOP: SHOPPING LIST ============ -->
+<div id="1d" style="display:flex;flex-direction:column;gap:10px;scroll-margin-top:16px">
+  <div style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9c8b79"><a href="#1d" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:#2a221c;color:#f6ece1;border-radius:5px">1d</a>Shopping list · desktop 1440 · check-off stays visible, quiet suggestions, add bar on top</div>
+  <div data-screen-label="Shopping list desktop" style="width:1440px;height:900px;background:#17120f;border:1px solid #382e26;border-radius:14px;overflow:hidden;display:grid;grid-template-columns:236px 1fr;color:#f6ece1">
+    <aside style="background:#130f0c;border-right:1px solid #2a221c;display:flex;flex-direction:column;padding:20px 14px;gap:22px">
+      <div style="display:flex;align-items:center;gap:10px;padding:0 6px"><svg viewBox="0 0 48 48" width="32" height="32"><rect width="48" height="48" rx="12" fill="#dc7051"></rect><g fill="none" stroke="#24120a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 16.2c1.9-1.5 1.9-3 0-4.5s-1.9-3 0-4.5"></path><path d="M24 16.2c2.1-1.7 2.1-3.4 0-5.1s-2.1-3.4 0-5.1"></path><path d="M30 16.2c1.9-1.5 1.9-3 0-4.5s-1.9-3 0-4.5"></path><path d="M11.5 19.5h25"></path><path d="M14 19.5h21l-1.7 15.2A4 4 0 0 1 29.3 38h-9.6a4 4 0 0 1-4-3.3Z"></path><path d="M36.5 22.5h3.2a2.6 2.6 0 0 1 0 5.2h-3.7"></path><path d="M11.5 22.5H8.3a2.6 2.6 0 0 0 0 5.2h3.7"></path></g></svg><span style="font:500 22px Newsreader,Georgia,serif">Rezepte</span></div>
+      <button style="display:flex;align-items:center;gap:10px;background:#201a15;border:1px solid #382e26;border-radius:10px;padding:8px 10px;text-align:left;color:inherit;font:inherit;cursor:pointer"><span style="width:28px;height:28px;border-radius:8px;background:#3b1f13;color:#f6c5b4;display:grid;place-items:center;font-size:12px;font-weight:700">MR</span><span style="flex:1;min-width:0"><span style="display:block;font-size:13px;font-weight:600">Meine Rezepte</span><span style="display:block;font-size:11.5px;color:#9c8b79">2 members · 37 recipes</span></span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9c8b79" stroke-width="2"><path d="m6 9 6 6 6-6"></path></svg></button>
+      <nav style="display:flex;flex-direction:column;gap:2px">
+        <a style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;color:#b8a693;font-size:14px;font-weight:500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>Recipes<span style="margin-left:auto;font-size:12px;color:#9c8b79">37</span></a>
+        <a style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;color:#b8a693;font-size:14px;font-weight:500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>Plan<span style="margin-left:auto;font-size:11px;font-weight:600;color:#eab54f;background:#3a2c0f;padding:2px 7px;border-radius:99px">New</span></a>
+        <a style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;background:#3b1f13;color:#f6c5b4;font-size:14px;font-weight:600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 11 4-7M19 11l-4-7M2 11h20l-1.6 7.4a2 2 0 0 1-2 1.6H5.6a2 2 0 0 1-2-1.6z"></path><path d="M12 15v3M8 15l.5 3M16 15l-.5 3"></path></svg>Shopping<span style="margin-left:auto;font-size:12px;font-weight:500;color:#eb9d84">10</span></a>
+        <a style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;color:#b8a693;font-size:14px;font-weight:500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 8h10M7 12h10M7 16h6"></path></svg>Import</a>
+      </nav>
+      <div style="display:flex;flex-direction:column;gap:2px;border-top:1px solid #2a221c;padding-top:14px">
+        <span style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#6b5c4b;padding:0 12px 6px">Organise</span>
+        <a style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:10px;color:#b8a693;font-size:13.5px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9L9.2 3.9A2 2 0 0 0 7.5 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>Collections</a>
+        <a style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:10px;color:#b8a693;font-size:13.5px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2H2v10l9.3 9.3a1 1 0 0 0 1.4 0l8.6-8.6a1 1 0 0 0 0-1.4z"></path><path d="M7 7h.01"></path></svg>Tags</a>
+        <a style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:10px;color:#b8a693;font-size:13.5px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"></path></svg>Groups</a>
+      </div>
+      <div style="margin-top:auto;display:flex;align-items:center;gap:10px;padding:10px 8px;border-top:1px solid #2a221c"><span style="width:32px;height:32px;border-radius:99px;background:#eab54f;color:#24120a;display:grid;place-items:center;font-size:12px;font-weight:700">ES</span><span style="flex:1;min-width:0"><span style="display:block;font-size:13px;font-weight:600">Eric Stampa</span><span style="display:block;font-size:11.5px;color:#9c8b79;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">eric.stampa@t-online.de</span></span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9c8b79" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg></div>
+    </aside>
+    <main style="padding:24px 32px 32px;display:grid;grid-template-columns:1fr 340px;gap:40px;overflow:hidden;align-content:start">
+      <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
+        <a style="font-size:13px;color:#9c8b79">← All lists</a>
+        <div style="display:flex;align-items:flex-end;gap:16px"><div><h1 style="margin:0;font:500 38px/1.1 Newsreader,Georgia,serif">Einkaufsliste</h1><p style="margin:6px 0 0;font-size:14px;color:#9c8b79">10 to buy · 4 bought today · tap an item to mark it bought</p></div>
+          <div style="margin-left:auto;display:flex;gap:8px"><button style="height:38px;padding:0 14px;border-radius:10px;border:1px solid #382e26;background:#201a15;color:#f6ece1;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer">Sort: newest</button><button style="height:38px;padding:0 14px;border-radius:10px;border:1px solid #382e26;background:#201a15;color:#f6ece1;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer">Share</button></div></div>
+        <label style="display:flex;align-items:center;gap:10px;background:#201a15;border:1px solid #4a3d33;border-radius:12px;padding:0 6px 0 16px;height:52px;color:#9c8b79;font-size:15px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>Add items — "500 g flour, 2 lemons, milk"<span style="margin-left:auto;height:40px;padding:0 16px;border-radius:9px;background:#dc7051;color:#24120a;font-size:14px;font-weight:700;display:grid;place-items:center">Add</span></label>
+        <!-- to buy -->
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;align-items:center;gap:10px;padding:14px 0 6px"><span style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6b5c4b">To buy</span><span style="flex:1;height:1px;background:#2a221c"></span><span style="font-size:12px;color:#6b5c4b">10</span></div>
+            <sc-for list="{{ items }}" as="it" hint-placeholder-count="8">
+              <div style="display:grid;grid-template-columns:64px 1fr auto;gap:14px;align-items:center;min-height:56px;padding:8px 16px;border-radius:12px;background:#201a15;border:1px solid #2a221c;cursor:pointer" style-hover="border-color:#4a3d33">
+                <span style="font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;color:#eab54f;text-align:right">{{ it.qty }}</span>
+                <span style="min-width:0"><span style="display:block;font-size:16px;font-weight:500">{{ it.name }}</span><span style="display:block;font-size:12.5px;color:#9c8b79;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">{{ it.note }}</span></span>
+                <span style="font-size:12px;color:#6b5c4b">{{ it.from }}</span>
+              </div>
+            </sc-for>
+          <!-- bought today -->
+          <div style="display:flex;align-items:center;gap:10px;padding:18px 0 6px"><span style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#7ba05b">Bought today</span><span style="flex:1;height:1px;background:#2a221c"></span><a style="font-size:12px;font-weight:600">Clear bought</a></div>
+          <sc-for list="{{ bought }}" as="b" hint-placeholder-count="4">
+            <div style="display:grid;grid-template-columns:64px 1fr auto;gap:14px;align-items:center;min-height:44px;padding:4px 16px;border-radius:12px;color:#9c8b79">
+              <span style="font-size:14px;font-variant-numeric:tabular-nums;text-align:right">{{ b.qty }}</span>
+              <span style="font-size:15px;text-decoration:line-through">{{ b.name }}</span>
+              <span style="font-size:12px;color:#6b5c4b">{{ b.who }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <!-- right column -->
+      <aside style="display:flex;flex-direction:column;gap:26px;padding-top:44px">
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:baseline"><span style="font:500 20px Newsreader,serif">Frequently bought</span><a style="margin-left:auto;font-size:12.5px;font-weight:600">Show all 24</a></div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <sc-for list="{{ frequent }}" as="f" hint-placeholder-count="8"><button style="display:flex;align-items:center;gap:6px;height:38px;padding:0 14px 0 10px;border-radius:99px;border:1px solid #382e26;background:#201a15;color:#e8dccd;font:inherit;font-size:13.5px;font-weight:500;cursor:pointer" style-hover="border-color:#dc7051;color:#f6c5b4"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9c8b79" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>{{ f }}</button></sc-for>
+          </div>
+          <span style="font-size:12px;color:#6b5c4b">Right-click or long-press a chip to hide it.</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <span style="font:500 20px Newsreader,serif">Recipes on this list</span>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;background:#201a15;border:1px solid #2a221c"><span style="width:44px;height:44px;border-radius:9px;background:#4a3320;flex:none"></span><span style="flex:1;min-width:0"><span style="display:block;font:500 15px Newsreader,serif">Minis Schmorgurken</span><span style="font-size:12px;color:#9c8b79">5 of 5 ingredients · 4 Portionen</span></span><span style="font-size:12px;color:#9c8b79">Remove</span></div>
+          <button style="height:42px;border-radius:10px;border:1px dashed #4a3d33;background:none;color:#b8a693;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer">+ Add a recipe's ingredients</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:#9c8b79">
+          <span style="font:500 20px Newsreader,serif;color:#f6ece1">Loyalty cards</span>
+          <span style="display:inline-flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:linear-gradient(135deg,#2a5ea8,#1d3f75);color:#fff;font-weight:700">Payback<span style="margin-left:auto;font-size:11px;font-weight:500;opacity:.8">Show barcode</span></span>
+        </div>
+      </aside>
+    </main>
+  </div>
+</div>
+
+<!-- ============ MOBILE ROW ============ -->
+<div style="display:flex;flex-direction:column;gap:10px">
+  <div style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9c8b79"><a href="#1e" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:#2a221c;color:#f6ece1;border-radius:5px">1e</a><a href="#1f" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:#2a221c;color:#f6ece1;border-radius:5px">1f</a><a href="#1g" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:#2a221c;color:#f6ece1;border-radius:5px">1g</a><a href="#1h" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:#2a221c;color:#f6ece1;border-radius:5px">1h</a>Mobile 390 · library, detail, shopping overview, shopping list</div>
+  <div style="display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start">
+
+    <!-- mobile library -->
+    <div id="1e" data-screen-label="Library mobile" style="width:390px;height:844px;background:#17120f;border:1px solid #382e26;border-radius:32px;overflow:hidden;display:flex;flex-direction:column;position:relative;scroll-margin-top:16px">
+      <div style="padding:52px 20px 0;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;align-items:center;gap:10px"><span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#b8a693"><span style="width:22px;height:22px;border-radius:6px;background:#3b1f13;color:#f6c5b4;display:grid;place-items:center;font-size:9px;font-weight:700">MR</span>Meine Rezepte ▾</span><span style="margin-left:auto;width:40px;height:40px;border-radius:12px;background:#dc7051;color:#24120a;display:grid;place-items:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></span></div>
+        <h1 style="margin:0;font:500 34px/1.05 Newsreader,Georgia,serif">Recipes</h1>
+        <label style="display:flex;align-items:center;gap:10px;background:#201a15;border:1px solid #382e26;border-radius:12px;padding:0 14px;height:46px;color:#9c8b79;font-size:14.5px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>Search 37 recipes<span style="margin-left:auto;font-size:12px;font-weight:600;color:#eb9d84">Filters</span></label>
+      </div>
+      <div style="padding:18px 0 0 20px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:baseline;gap:10px;padding-right:20px"><span style="font:500 20px Newsreader,serif">This week</span><span style="margin-left:auto;font-size:12.5px;font-weight:600;color:#eb9d84">Plan →</span></div>
+        <div style="display:flex;gap:8px;overflow:hidden">
+          <sc-for list="{{ weekMobile }}" as="d" hint-placeholder-count="4">
+            <div style="flex:none;width:132px;border-radius:12px;border:1px solid {{ d.border }};background:{{ d.bg }};padding:10px;min-height:86px;display:flex;flex-direction:column;gap:5px"><span style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:{{ d.dayColor }}">{{ d.day }} {{ d.date }}</span><span style="font:500 13.5px/1.25 Newsreader,serif;color:{{ d.titleColor }}">{{ d.title }}</span></div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="padding:22px 20px 90px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:baseline;gap:10px"><span style="font:500 20px Newsreader,serif">All recipes</span><span style="font-size:12.5px;color:#9c8b79">37</span></div>
+        <sc-for list="{{ recipesMobile }}" as="r" hint-placeholder-count="5">
+          <a style="display:grid;grid-template-columns:84px 1fr;gap:14px;color:#f6ece1;align-items:center">
+            <div style="aspect-ratio:1;border-radius:12px;background:{{ r.tone }}"></div>
+            <div style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#eab54f">{{ r.category }}</span><span style="font:500 17px/1.2 Newsreader,serif;text-wrap:pretty">{{ r.title }}</span><span style="font-size:12.5px;color:#9c8b79">{{ r.time }} · {{ r.servings }}</span></div>
+          </a>
+        </sc-for>
+      </div>
+      <nav style="position:absolute;left:0;right:0;bottom:0;height:84px;background:#130f0c;border-top:1px solid #2a221c;display:grid;grid-template-columns:repeat(4,1fr);padding:10px 8px 22px;font-size:11px;font-weight:600">
+        <span style="display:flex;flex-direction:column;align-items:center;gap:4px;color:#f6c5b4"><span style="width:44px;height:28px;border-radius:99px;background:#3b1f13;display:grid;place-items:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg></span>Recipes</span>
+        <span style="display:flex;flex-direction:column;align-items:center;gap:4px;color:#9c8b79"><span style="height:28px;display:grid;place-items:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg></span>Plan</span>
+        <span style="display:flex;flex-direction:column;align-items:center;gap:4px;color:#9c8b79"><span style="height:28px;display:grid;place-items:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 11 4-7M19 11l-4-7M2 11h20l-1.6 7.4a2 2 0 0 1-2 1.6H5.6a2 2 0 0 1-2-1.6z"></path></svg></span>Shopping</span>
+        <span style="display:flex;flex-direction:column;align-items:center;gap:4px;color:#9c8b79"><span style="height:28px;display:grid;place-items:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg></span>Profile</span>
+      </nav>
+    </div>
+
+    <!-- mobile detail -->
+    <div id="1f" data-screen-label="Detail mobile" style="width:390px;height:844px;background:#17120f;border:1px solid #382e26;border-radius:32px;overflow:hidden;display:flex;flex-direction:column;position:relative;scroll-margin-top:16px">
+      <div style="position:relative;height:300px;background:#3b2a1a"><image-slot id="mdetail-hero" shape="rect" placeholder="Schmorgurken photo"></image-slot>
+        <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(23,18,15,.55),transparent 35%,transparent 55%,#17120f);pointer-events:none"></div>
+        <span style="position:absolute;top:50px;left:16px;width:38px;height:38px;border-radius:99px;background:rgba(23,18,15,.7);display:grid;place-items:center;color:#f6ece1"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"></path></svg></span>
+        <span style="position:absolute;top:50px;right:16px;width:38px;height:38px;border-radius:99px;background:rgba(23,18,15,.7);display:grid;place-items:center;color:#f6ece1"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="12" cy="19" r="1.8"></circle></svg></span>
+        <div style="position:absolute;left:20px;right:20px;bottom:0;display:flex;flex-direction:column;gap:8px"><span style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#eab54f">Hauptspeise · Eintopf</span><h1 style="margin:0;font:500 28px/1.1 Newsreader,Georgia,serif;text-wrap:balance">Minis Schmorgurken von minikruemelmonster</h1></div>
+      </div>
+      <div style="padding:14px 20px 0;display:flex;flex-direction:column;gap:16px">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;font-size:13px"><span><span style="display:block;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6b5c4b">Serves</span><span style="font:500 17px Newsreader,serif">4</span></span><span><span style="display:block;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6b5c4b">Prep</span><span style="font:500 17px Newsreader,serif">35 m</span></span><span><span style="display:block;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6b5c4b">Cook</span><span style="font:500 17px Newsreader,serif">40 m</span></span><span><span style="display:block;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6b5c4b">Cooked</span><span style="font:500 17px Newsreader,serif;color:#a9c68c">3 d ago</span></span></div>
+        <div style="display:flex;gap:2px;background:#201a15;border:1px solid #382e26;border-radius:12px;padding:4px;font-size:13.5px;font-weight:600"><span style="flex:1;text-align:center;padding:9px;border-radius:9px;background:#3b1f13;color:#f6c5b4">Ingredients · 15</span><span style="flex:1;text-align:center;padding:9px;color:#9c8b79">Method · 6</span></div>
+        <div style="display:flex;align-items:center;gap:10px"><div style="display:flex;align-items:center;background:#201a15;border:1px solid #382e26;border-radius:10px;height:40px"><span style="width:40px;text-align:center;font-size:18px">−</span><span style="font-size:13.5px;font-weight:600">4 Portionen</span><span style="width:40px;text-align:center;font-size:18px">+</span></div><span style="margin-left:auto;font-size:13px;font-weight:600;color:#eb9d84">Add all to list</span></div>
+        <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column">
+          <sc-for list="{{ ingredientsMobile }}" as="i" hint-placeholder-count="6"><li style="display:grid;grid-template-columns:70px 1fr;gap:12px;padding:10px 0;border-top:1px solid #2a221c;font-size:15px;line-height:1.35"><span style="text-align:right;font-weight:600;font-variant-numeric:tabular-nums;color:{{ i.qtyColor }}">{{ i.qty }}</span><span>{{ i.name }} <span style="color:#9c8b79">{{ i.note }}</span></span></li></sc-for>
+        </ul>
+      </div>
+      <div style="position:absolute;left:20px;right:20px;bottom:24px;display:flex;gap:10px"><button style="flex:1;height:52px;border-radius:14px;border:none;background:#dc7051;color:#24120a;font:inherit;font-size:15px;font-weight:700;box-shadow:0 12px 34px -12px rgba(0,0,0,.7)">Cook mode</button><button style="width:52px;height:52px;border-radius:14px;border:1px solid #26301b;background:#26301b;color:#a9c68c;display:grid;place-items:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"></path></svg></button></div>
+    </div>
+
+    <!-- mobile shopping overview -->
+    <div id="1g" data-screen-label="Shopping overview mobile" style="width:390px;height:844px;background:#17120f;border:1px solid #382e26;border-radius:32px;overflow:hidden;display:flex;flex-direction:column;position:relative;scroll-margin-top:16px">
+      <div style="padding:52px 20px 0;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;align-items:center;gap:10px"><span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#b8a693"><span style="width:22px;height:22px;border-radius:6px;background:#3b1f13;color:#f6c5b4;display:grid;place-items:center;font-size:9px;font-weight:700">MR</span>Meine Rezepte ▾</span><span style="margin-left:auto;font-size:13px;font-weight:600;color:#eb9d84">+ New list</span></div>
+        <div><h1 style="margin:0;font:500 34px/1.05 Newsreader,Georgia,serif">Shopping</h1><p style="margin:6px 0 0;font-size:13px;color:#9c8b79">Synced 2 min ago · Lena is shopping now</p></div>
+        <a style="display:flex;flex-direction:column;gap:12px;background:#201a15;border:1px solid #382e26;border-radius:18px;padding:18px;color:#f6ece1">
+          <div style="display:flex;align-items:center;gap:12px"><span style="width:40px;height:40px;border-radius:12px;background:#3b1f13;color:#eb9d84;display:grid;place-items:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 11 4-7M19 11l-4-7M2 11h20l-1.6 7.4a2 2 0 0 1-2 1.6H5.6a2 2 0 0 1-2-1.6z"></path></svg></span><div><span style="display:block;font:500 21px Newsreader,serif">Einkaufsliste</span><span style="font-size:12.5px;color:#9c8b79">10 to buy · 4 bought today</span></div><span style="margin-left:auto;color:#9c8b79">›</span></div>
+          <div style="height:6px;border-radius:99px;background:#2a221c;overflow:hidden"><span style="display:block;width:29%;height:100%;background:#7ba05b"></span></div>
+          <span style="font-size:13.5px;color:#b8a693;line-height:1.5">Pommes Salz, Brötchen, Nutella, Minz Tee, Salatgurke, Rinderhackfleisch, Tomaten, Dill <span style="color:#6b5c4b">+2</span></span>
+        </a>
+        <div style="display:flex;flex-direction:column;gap:12px;background:#201a15;border:1px solid #382e26;border-radius:18px;padding:18px">
+          <div><span style="display:block;font:500 19px Newsreader,serif">From this week's plan</span><span style="font-size:12.5px;color:#9c8b79">22 ingredients not on a list yet</span></div>
+          <div style="display:flex;gap:8px"><span style="flex:1;height:52px;border-radius:10px;background:#4a3320"></span><span style="flex:1;height:52px;border-radius:10px;background:#2f3a22"></span><span style="flex:1;height:52px;border-radius:10px;background:#3a2b1e"></span></div>
+          <button style="height:44px;border-radius:12px;border:1px solid #382e26;background:#17120f;color:#f6ece1;font:inherit;font-size:14px;font-weight:600">Add all to Einkaufsliste</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div style="background:#201a15;border:1px solid #382e26;border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:10px"><span style="font:500 17px Newsreader,serif">Cards</span><span style="aspect-ratio:1.6;border-radius:10px;background:linear-gradient(135deg,#2a5ea8,#1d3f75);display:flex;align-items:flex-end;padding:10px;font-size:13px;font-weight:700;color:#fff">Payback</span></div>
+          <div style="background:#201a15;border:1px solid #382e26;border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:8px;font-size:13px;color:#b8a693"><span style="font:500 17px Newsreader,serif;color:#f6ece1">History</span><span>Today · 4</span><span>Sat 30 Aug · 17</span><span>Wed 27 Aug · 6</span></div>
+        </div>
+      </div>
+      <nav style="position:absolute;left:0;right:0;bottom:0;height:84px;background:#130f0c;border-top:1px solid #2a221c;display:grid;grid-template-columns:repeat(4,1fr);padding:10px 8px 22px;font-size:11px;font-weight:600">
+        <span style="display:flex;flex-direction:column;align-items:center;gap:4px;color:#9c8b79"><span style="height:28px;display:grid;place-items:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg></span>Recipes</span>
+        <span style="display:flex;flex-direction:column;align-items:center;gap:4px;color:#9c8b79"><span style="height:28px;display:grid;place-items:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg></span>Plan</span>
+        <span style="display:flex;flex-direction:column;align-items:center;gap:4px;color:#f6c5b4"><span style="width:44px;height:28px;border-radius:99px;background:#3b1f13;display:grid;place-items:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 11 4-7M19 11l-4-7M2 11h20l-1.6 7.4a2 2 0 0 1-2 1.6H5.6a2 2 0 0 1-2-1.6z"></path></svg></span>Shopping</span>
+        <span style="display:flex;flex-direction:column;align-items:center;gap:4px;color:#9c8b79"><span style="height:28px;display:grid;place-items:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg></span>Profile</span>
+      </nav>
+    </div>
+
+    <!-- mobile shopping list -->
+    <div id="1h" data-screen-label="Shopping list mobile" style="width:390px;height:844px;background:#17120f;border:1px solid #382e26;border-radius:32px;overflow:hidden;display:flex;flex-direction:column;position:relative;scroll-margin-top:16px">
+      <div style="padding:52px 20px 0;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;align-items:center;gap:10px;font-size:13px;color:#9c8b79"><span>← Lists</span><span style="margin-left:auto;font-weight:600;color:#eb9d84">Share</span></div>
+        <div><h1 style="margin:0;font:500 30px/1.05 Newsreader,Georgia,serif">Einkaufsliste</h1><p style="margin:5px 0 0;font-size:13px;color:#9c8b79">10 to buy · 4 bought · tap to mark bought</p></div>
+      </div>
+      <div style="padding:4px 20px 0;display:flex;flex-direction:column;gap:4px;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 0 4px"><span style="font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6b5c4b">To buy · 10</span><span style="flex:1;height:1px;background:#2a221c"></span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <sc-for list="{{ itemsMobile }}" as="it" hint-placeholder-count="6">
+            <div style="display:flex;flex-direction:column;gap:2px;min-width:0;padding:10px 12px;border-radius:12px;background:#201a15;border:1px solid #2a221c">
+              <span style="font-size:15px;font-weight:500;line-height:1.25;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">{{ it.name }}</span>
+              <span style="font-size:12px;font-variant-numeric:tabular-nums;color:#eab54f;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">{{ it.qty }} <span style="color:#9c8b79">{{ it.note }}</span></span>
+            </div>
+          </sc-for>
+          </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:14px 0 4px"><span style="font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#7ba05b">Bought today · 4</span><span style="flex:1;height:1px;background:#2a221c"></span><span style="font-size:12px;color:#9c8b79">▾</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div style="display:flex;flex-direction:column;gap:2px;min-width:0;padding:10px 12px;border-radius:12px;border:1px solid #2a221c;color:#9c8b79"><span style="font-size:15px;text-decoration:line-through;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Brötchen</span><span style="font-size:12px;color:#6b5c4b">Lena · just now</span></div><div style="display:flex;flex-direction:column;gap:2px;min-width:0;padding:10px 12px;border-radius:12px;border:1px solid #2a221c;color:#9c8b79"><span style="font-size:15px;text-decoration:line-through;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">1 kg Kartoffeln</span><span style="font-size:12px;color:#6b5c4b">Lena · 10 min</span></div></div>
+      </div>
+      <div style="position:absolute;left:0;right:0;bottom:0;background:linear-gradient(to top,#17120f 70%,transparent);padding:30px 16px 22px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:8px;overflow:hidden"><sc-for list="{{ frequentMobile }}" as="f" hint-placeholder-count="5"><span style="flex:none;height:36px;padding:0 14px;border-radius:99px;border:1px solid #382e26;background:#201a15;color:#e8dccd;font-size:13px;font-weight:500;display:flex;align-items:center">+ {{ f }}</span></sc-for></div>
+        <label style="display:flex;align-items:center;gap:10px;background:#201a15;border:1px solid #4a3d33;border-radius:14px;padding:0 6px 0 16px;height:54px;color:#9c8b79;font-size:15px;box-shadow:0 12px 34px -12px rgba(0,0,0,.7)">Add "500 g flour, 2 lemons"<span style="margin-left:auto;width:42px;height:42px;border-radius:10px;background:#dc7051;color:#24120a;display:grid;place-items:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></span></label>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<p style="margin:0;font-size:12.5px;line-height:1.6;color:#9c8b79">Try next: "make <a href="#1a">1a</a> a grid instead of rows" · "light mode of <a href="#1d">1d</a>" · "aisle grouping on the list" · "show the Plan destination itself".</p>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const planned = { border: "#382e26", bg: "#201a15", dayColor: "#eb9d84", titleColor: "#f6ece1" };
+    const empty = { border: "#2a221c", bg: "transparent", dayColor: "#6b5c4b", titleColor: "#6b5c4b" };
+    const today = { border: "#dc7051", bg: "#3b1f13", dayColor: "#f6c5b4", titleColor: "#f6ece1" };
+    const week = [
+      { day: "Mon", date: "1", title: "Minis Schmorgurken", meta: "1 h 15 · cooked ✓", ...planned },
+      { day: "Tue", date: "2", title: "Tomaten Kritharaki", meta: "30 min", ...planned },
+      { day: "Wed", date: "3", title: "+ Plan", meta: "", ...empty },
+      { day: "Thu", date: "4", title: "Kraut-Udon-Nudeln", meta: "15 min · today", ...today },
+      { day: "Fri", date: "5", title: "+ Plan", meta: "", ...empty },
+      { day: "Sat", date: "6", title: "Griechischer Hackauflauf", meta: "1 h", ...planned },
+      { day: "Sun", date: "7", title: "+ Plan", meta: "", ...empty },
+    ];
+    const recipes = [
+      { id: "r1", title: "Minis Schmorgurken von minikruemelmonster", desc: "Himmlisch leichtes Sommeressen mit Hack und Dill.", time: "1 h 15 min", servings: "4 Portionen", category: "Hauptspeise", tone: "#4a3320" },
+      { id: "r2", title: "Gyros-Hollandaise-Auflauf von Urmel1205", desc: "Schnell und einfach, über 600 Bewertungen.", time: "50 min", servings: "3 Portionen", category: "Auflauf", tone: "#5a3a1a" },
+      { id: "r3", title: "Kalte Udonnudeln in Sesamsoße mit scharfem Öl", desc: "Ein wunderbares veganes Rezept für einen heißen Tag.", time: "30 min", servings: "4 Portionen", category: "Vegan · Pasta", tone: "#3a3326" },
+      { id: "r4", title: "Tomaten Kritharaki mit veganen Cevapcici", desc: "Schnell und super lecker, mit Joghurt-Dip.", time: "30 min", servings: "3 Portionen", category: "Beilage", tone: "#5c2e1c" },
+      { id: "r5", title: "Veganes Hühnerfrikassee (schnell & einfach)", desc: "Mit Erbsen, Champignons und Reis.", time: "20 min", servings: "4 Portionen", category: "Curry & Suppen", tone: "#3d4020" },
+      { id: "r6", title: "Frozen Joghurt Blaubeer-Zitrone", desc: "Zwei Zutaten, kein Eisbereiter nötig.", time: "10 min", servings: "6 Portionen", category: "Dessert", tone: "#3b2a3f" },
+    ];
+    const recent = [
+      { id: "c1", title: "Minis Schmorgurken", when: "3 days ago", tone: "#4a3320" },
+      { id: "c2", title: "Schnelle Kraut-Udon-Nudeln", when: "Last week", tone: "#2f3a22" },
+      { id: "c3", title: "Asiatische One-Pot Pasta", when: "Last week", tone: "#3a4a2a" },
+      { id: "c4", title: "Veganes Mango-Curry mit Tempeh", when: "2 weeks ago", tone: "#5a4014" },
+      { id: "c5", title: "Vegane Graupensuppe", when: "3 weeks ago", tone: "#4a3a22" },
+    ];
+    const ingredients = [
+      { qty: "2", name: "Salatgurken", note: "oder Schmorgurken, ca. 800–1000 g", qtyColor: "#eab54f" },
+      { qty: "1", name: "Zwiebel", note: "mittelgroß", qtyColor: "#eab54f" },
+      { qty: "1 Zehe", name: "Knoblauch", note: "", qtyColor: "#eab54f" },
+      { qty: "500 g", name: "Rinderhackfleisch", note: "", qtyColor: "#eab54f" },
+      { qty: "n. B.", name: "Öl", note: "zum Braten", qtyColor: "#9c8b79" },
+      { qty: "n. B.", name: "Tomatenmark", note: "", qtyColor: "#9c8b79" },
+      { qty: "2", name: "Chilischoten", note: "getrocknet, optional", qtyColor: "#eab54f" },
+      { qty: "500 g", name: "Tomaten", note: "aus der Dose oder frisch, gehäutet und gehackt", qtyColor: "#eab54f" },
+      { qty: "300–500 ml", name: "Gemüsebrühe", note: "", qtyColor: "#eab54f" },
+      { qty: "1 Bund", name: "Dill", note: "frisch, fein gehackt", qtyColor: "#eab54f" },
+      { qty: "1 EL", name: "Schmand", note: "oder Crème fraîche", qtyColor: "#eab54f" },
+      { qty: "", name: "Salz und Pfeffer", note: "", qtyColor: "#9c8b79" },
+    ];
+    const steps = [
+      { n: "1", text: "Die Salat- oder Schmorgurken schälen (sofern keine aus dem eigenen Garten verwendet werden), der Länge nach halbieren und die Kerne entfernen, die Hälften in ca. 1 cm breite Stücke schneiden. Die Zwiebeln schälen und klein würfeln, den Knoblauch abziehen und ebenfalls sehr fein hacken." },
+      { n: "2", text: "Das Hackfleisch zusammen mit dem Knoblauch und den Zwiebeln in Öl kräftig anbraten. Wenn das Fleisch grau geworden ist, die geschnittenen Gurken mit dazugeben und ca. 5 Minuten mitbraten. Während der letzten 2 Minuten etwas Tomatenmark dazugeben und mitschwitzen lassen." },
+      { n: "3", text: "Jetzt mit den stückigen Tomaten und der Gemüsebrühe ablöschen. Alles zusammen nun ca. 20 – 30 Min. schmoren lassen, die Gurken sollten glasig werden, dann sind sie gut." },
+      { n: "4", text: "Mit Salz und Pfeffer abschmecken, den Dill unterheben und mit einem Klecks Schmand servieren." },
+    ];
+    const previewItems = [
+      { qty: "", name: "Pommes Salz" }, { qty: "", name: "Brötchen" }, { qty: "", name: "Nutella" }, { qty: "", name: "Minz Tee" },
+      { qty: "2", name: "Salatgurken" }, { qty: "500 g", name: "Rinderhackfleisch" }, { qty: "500 g", name: "Tomaten" }, { qty: "1 Bund", name: "Dill" },
+    ];
+    const pantry = [
+      { qty: "", name: "Pommes Salz", note: "", from: "" },
+      { qty: "", name: "Brötchen", note: "", from: "" },
+      { qty: "", name: "Nutella", note: "", from: "" },
+      { qty: "", name: "Minz Tee", note: "", from: "" },
+      { qty: "", name: "Volvic", note: "", from: "" },
+    ];
+    const fromRecipe = [
+      { qty: "2", name: "Salatgurken", note: "oder Schmorgurken, ca. 800–1000 g", from: "Schmorgurken" },
+      { qty: "500 g", name: "Rinderhackfleisch", note: "", from: "Schmorgurken" },
+      { qty: "500 g", name: "Tomaten", note: "aus der Dose oder frisch, gehäutet und gehackt", from: "Schmorgurken" },
+      { qty: "1 Bund", name: "Dill", note: "frisch, fein gehackt", from: "Schmorgurken" },
+      { qty: "1 EL", name: "Schmand", note: "oder Crème fraîche", from: "Schmorgurken" },
+    ];
+    const bought = [
+      { qty: "", name: "Brötchen", who: "Lena · just now" },
+      { qty: "1 kg", name: "Kartoffeln", who: "Lena · 10 min" },
+      { qty: "", name: "Hafermilch", who: "Eric · 2 h" },
+      { qty: "6", name: "Eier", who: "Eric · 2 h" },
+    ];
+    const frequent = ["Bananen", "Brokkoli", "Champignons", "Gurke", "Käse", "Kokosmilch", "Tomate", "Zwiebel"];
+    return {
+      week, weekMobile: week.slice(3, 7), recipes, recipesMobile: recipes.slice(0, 5), recent, ingredients, ingredientsMobile: ingredients.slice(0, 6), steps,
+      previewItems, items: [...pantry, ...fromRecipe], itemsMobile: [...pantry.slice(0, 3), ...fromRecipe.slice(0, 3)],
+      bought, frequent, frequentMobile: frequent.slice(0, 5),
+      courseFilters: [{ name: "Hauptspeise", n: 21 }, { name: "Beilage", n: 6 }, { name: "Dessert", n: 4 }, { name: "Suppe", n: 3 }],
+      tagFilters: ["Vegan", "Deutsch", "Schnell", "Sommer", "Gemüse", "Japanisch", "Meal prep", "Winter"],
+    };
+  }
+}
+</script>
+</body>
+</html>
