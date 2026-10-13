@@ -1,0 +1,21 @@
+node_modules/
+dist/
+data/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+.env
+.env.*
+!.env.example
+!.env.local-stack
+.DS_Store
+*.log
+.vite/
+dev-dist/
+coverage/
+# migration inputs and outputs live outside the tree
+migration-in/
+migration-out/
+# parallel task worktrees of the build workflow
+.worktrees/
