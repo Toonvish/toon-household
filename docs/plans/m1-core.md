@@ -1,7 +1,8 @@
 # M1 — core: plan
 
 Milestone M1 of `docs/SPEC.md` §8. Written 2026-10-13 by the planner of the `build-household`
-workflow. Paths: `H` = `/home/erics/software/toon-household` (this repo), `R` =
+workflow; revised the same day after plan review (grep verifies that matched existing lines,
+the T07 helper imports, T08 split, T09 deps, the module-guard check). Paths: `H` = `/home/erics/software/toon-household` (this repo), `R` =
 `/home/erics/software/toon-recipe`, `F` = `/home/erics/software/toon-finance` (both READ-ONLY;
 never run `bun install`, `bun test` or any script inside them).
 
@@ -44,8 +45,11 @@ auth, households and settings tests ported.
 Exit criteria: the five gates green (SPEC §7); register, log in, create a household, invite and
 accept, switch household, enable and disable a module over the API all work in the curl
 walkthrough AND in tests; Home renders the empty state at 390 px and 1440 px; `GET
-/api/households/:id` returns `modules`; a route under a disabled module redirects to Home (unit
-test of the guard + its wiring; no module route exists in M1, see §4 risk 6).
+/api/households/:id` returns `modules`; a route under a disabled module redirects to Home —
+proved without a DOM by two executable checks: the pure decision `moduleGuard(enabledIds, id)`
+(T05, `modules/enabled.test.ts`) and the module layout factory test showing every module layout
+renders `<RequireModule moduleId>` around its `<Outlet/>` (T10, `modules/layout.test.tsx`); no
+module route exists in M1, see §3 risk 6.
 
 ### Decisions this plan takes (binding for the tasks below)
 
@@ -102,10 +106,19 @@ test of the guard + its wiring; no module route exists in M1, see §4 risk 6).
 7. **`lib/nav.tsx` is core.** R's `apps/web/src/features/recipes/lib/nav.tsx` (`AppLink`,
    `useAppNavigate`, `useRouteParam(s)`, `useNavigationGuard`) moves verbatim to
    `apps/web/src/lib/nav.tsx`; core screens and (in M2) the recipe module import it from there.
+   Likewise two helpers R's group screens import from recipe files become core, verbatim (T05):
+   `hasAtLeast` from R `apps/web/src/features/recipes/lib/permissions.ts` → `apps/web/src/lib/
+   permissions.ts` (`GroupRole` → `HouseholdRole`; R's `canModifyOwn` stays behind for M2's recipe
+   module, which imports `hasAtLeast` from `@/lib/permissions`), and the share block of R
+   `apps/web/src/features/recipes/lib/hooks.ts` (`ShareResult`, `ShareLike`, `shareOrCopy`,
+   `copyToClipboard`, lines ~174–229) → `apps/web/src/lib/share.ts`. Nothing in H may live under
+   `apps/web/src/features/` (SPEC §3).
 8. **Shell placement.** Router (T10): root (SessionProvider) → public auth routes; pathless `app`
    (RequireAuth + AppShell) → `/households`, `/households/$householdId`, `/settings` and pathless
-   `household-scoped` (RequireActiveHousehold) → `/` Home + one layout per module wrapped in
-   `<RequireModule moduleId>`. Nav (T10): inside a module = its three `navItems` + Profil; outside =
+   `household-scoped` (RequireActiveHousehold) → `/` Home + one layout per module whose component
+   is `moduleLayoutComponent(module.id)` from `apps/web/src/modules/layout.tsx` (renders
+   `<RequireModule moduleId><Outlet/></RequireModule>`; RequireModule's decision is the pure
+   `moduleGuard` of `modules/enabled.ts`). Nav (T10): inside a module = its three `navItems` + Profil; outside =
    Home · up to two enabled modules · Profil; secondary = the active module's
    `secondaryNavItems` + the core "Gruppen" item (`/households`, `common.nav.groups`), reachable on
    phones through the households card on `/settings` (R's reachability rule for Gruppen). Module
@@ -119,29 +132,38 @@ test of the guard + its wiring; no module route exists in M1, see §4 risk 6).
 ## 2. Task list and waves
 
 The orchestrator takes up to three ready tasks per wave in list order; a wave of one runs on main.
+The list order below (also the structured-output order) puts T08 before the web screens so the API
+chain T08 → T08b/T09 is not starved. Waves shown are for `maxParallel = 3`; the deps column is what
+is binding — with a larger `maxParallel` the waves compress but no task starts before its deps.
 
 | Wave | Task | Tier | Title | Deps |
 | --- | --- | --- | --- | --- |
 | 1 | M1-T01 | port | Shared contract: households, auth responses, module registry | — |
 | 1 | M1-T02 | build | `/uploads` route + media services (sharp) | — |
 | 1 | M1-T03 | port | Web catalogs `auth` + `household` + new `home` copy | — |
-| 2 | M1-T04 | port | API households: services, routes, `initializeHousehold`, tests | T01 |
-| 2 | M1-T05 | build | Web data + session layer | T01, T03 |
+| 2 | M1-T04 | port | API households: services, routes, `initializeHousehold`, tests | T01, T02 |
+| 2 | M1-T05 | build | Web data + session layer, core `permissions`/`share` helpers, `moduleGuard` | T01, T03 |
+| 3 | M1-T08 | port | API auth routes + services, auth/password-reset/smoke tests | T04 |
 | 3 | M1-T06 | port | Web auth screens | T05 |
-| 3 | M1-T07 | port | Web households screens, HouseholdSwitcher, Settings | T05 |
-| 3 | M1-T08 | port | API auth routes + services, seed, reset-password, tests | T04 |
-| 4 | M1-T09 | core | API module enabling + hooks + tests | T04 |
-| 4 | M1-T10 | core | Web router, guards, nav items, banner, `module_disabled` | T06, T07 |
-| 4 | M1-T11 | core | Web Home, ModuleSwitcher, SideNav, PhoneHeaderRow | T05, T07 |
-| 5 | M1-T12 | build | Integration: walkthrough test, gates, curl, headless, CLAUDE.md | all |
+| 3 | M1-T07 | port | Web households screens + HouseholdSwitcher | T05 |
+| 4 | M1-T07b | port | Web Settings screen | T05 |
+| 4 | M1-T08b | build | Seed, reset-password, scripts, verified-email-gate test | T08 |
+| 4 | M1-T09 | core | API module enabling + hooks + tests | T04, T08 |
+| 5 | M1-T10 | core | Web router, guards, module layout, nav items, banner, `module_disabled` | T06, T07, T07b |
+| 5 | M1-T11 | core | Web Home, ModuleSwitcher, SideNav, PhoneHeaderRow | T05, T07 |
+| 6 | M1-T12 | build | Integration: walkthrough test, gates, curl, headless, CLAUDE.md | all |
 
 File ownership per wave is disjoint (each task's "Files"). Shared files and their single owner per
-wave: `apps/api/src/index.ts` — T02 (w1), T04 (w2), T08 (w3); `apps/api/package.json` + `bun.lock`
-— T02 (w1, sharp), T08 (w3, scripts); root `package.json` — T08; `scripts/i18n-check.ts` and
-`apps/web/src/lib/i18n/catalogs/index.ts` — T03; `apps/api/src/core/routes/households.ts` — T04,
-then T09 adds one line; `apps/web/src/router.tsx`, `nav-items.ts` — T10; `components/layout/index.ts`
-— T11; `apps/api/test/smoke.test.ts` — T08; `CLAUDE.md` — T12. No task in M1 changes
-`db/schema*.ts` or adds a migration.
+wave: `apps/api/src/index.ts` — T02 (w1), T04 (w2), T08 (w3) (T04 depends on T02 and T08 on T04, so
+the edits are serial at any `maxParallel`); `apps/api/src/lib/uploadUrls.ts` (one doc comment) —
+T02; `apps/api/package.json` + `bun.lock` — T02 (w1, sharp), T08b (w4, scripts); root
+`package.json` — T08b; `scripts/i18n-check.ts` and `apps/web/src/lib/i18n/catalogs/index.ts` — T03;
+`apps/api/src/core/routes/households.ts` — T04, then T09 adds one line;
+`apps/api/test/smoke.test.ts` — T08; `apps/web/src/router.tsx`, `nav-items.ts`,
+`modules/layout.tsx` — T10; `apps/web/src/modules/enabled.ts` — T05; `components/layout/index.ts` —
+T11; `CLAUDE.md` — T12. No task in M1 changes `db/schema*.ts` or adds a migration, and no task
+touches `apps/api/src/middleware/household.ts` (its `server.group.groupIdMissing` key stays, §1
+decision 5) — every leftover-identifier grep below uses `\bgroupId\b`, which does not match that key.
 
 Every brief also implies: read `H/docs/SPEC.md` §1–§3, `H/CLAUDE.md` (Conventions, Gotchas in use),
 this plan's §1, and the source files named. Commit with a body naming the SPEC decision / source
@@ -163,6 +185,7 @@ Common rename table (every port task applies the rows that occur in its files):
 | route params `:groupId`; paths `/api/groups…` | `:householdId`; `/api/households…` |
 | `services/<x>/…` imports (`../../db/…`) | `core/services/<x>/…` (`../../../db/…`) |
 | web `"ui.` keys; `@/features/groups/…`; `@/features/auth/…`; `@/features/recipes/lib/nav` | `"common.`; `@/core/features/households/…`; `@/core/features/auth/…`; `@/lib/nav` |
+| web `@/features/recipes/lib/permissions` (`hasAtLeast`); `@/features/recipes/lib/hooks` (`copyToClipboard`, `shareOrCopy`, `ShareResult` only) | `@/lib/permissions`; `@/lib/share` (both created by T05) |
 | web `groups.` keys (group management only) | `household.` |
 | web session `groups`, `activeGroupId`, `activeGroup`, `setActiveGroup`, `useActiveGroup` (`{groupId, group, groups}`), `ActiveGroupValue`, `useRequiredGroupId`, `RequireActiveGroup`, `storageKeys.activeGroupId` | `households`, `activeHouseholdId`, `activeHousehold`, `setActiveHousehold`, `useActiveHousehold` (`{householdId, household, households}`), `ActiveHouseholdValue`, `useRequiredHouseholdId`, `RequireActiveHousehold`, `storageKeys.activeHouseholdId` |
 | doc comments "group(s)" (identifier sense) | "household(s)" — comments only; German strings never |
@@ -275,6 +298,11 @@ Sources: `R/apps/api/src/index.ts` (the `/uploads/:filename` block and its impor
    (node:path), `UPLOAD_EXP_PARAM, UPLOAD_SIG_PARAM, verifyUploadSignature` from
    `./lib/uploadUrls.ts`, `resolveThumbnail` from `./core/services/media/thumbnails.ts`. The
    route stays BEFORE the core routers and the module mounts, static web stays last.
+4b. `H/apps/api/src/lib/uploadUrls.ts` line ~30, header doc comment: the same stale path
+   `` `GET /api/groups/:groupId/imports/:draftId/source` `` → `` `GET /api/households/:householdId/recipe/imports/:draftId/source` (M2) ``
+   — one comment line (rewrap the paragraph if it exceeds 100 columns), no code change. This is the
+   last `/api/groups` / `groupId` occurrence in `apps/api/src` outside the `server.group.*` key, so
+   T04's and T08's leftover greps start clean.
 5. Tests. `R/test/support/files.ts` → `H/apps/api/test/support/files.ts` (import
    `../../src/services/media/thumbnails.ts` → `../../src/core/services/media/thumbnails.ts`).
    `R/test/thumbnails.test.ts` → `H/apps/api/test/thumbnails.test.ts` (import
@@ -296,9 +324,9 @@ Sources: `R/apps/api/src/index.ts` (the `/uploads/:filename` block and its impor
      empty file answers `ApiError` 400; a text file 415.
 6. Everything else (the signing primitives tests) verbatim.
 
-**Files.** `apps/api/package.json`, `bun.lock`, `apps/api/src/index.ts`,
-`apps/api/src/core/services/media/{thumbnails,uploads}.ts`, `apps/api/test/{uploads,thumbnails}.test.ts`,
-`apps/api/test/support/files.ts`.
+**Files.** `apps/api/package.json`, `bun.lock`, `apps/api/src/index.ts`, `apps/api/src/lib/uploadUrls.ts`
+(comment only), `apps/api/src/core/services/media/{thumbnails,uploads}.ts`,
+`apps/api/test/{uploads,thumbnails}.test.ts`, `apps/api/test/support/files.ts`.
 
 **Acceptance.** `GET /uploads/<name>` with a valid signature serves the file with `private,
 max-age=21600, immutable`; unsigned/forged/expired/unknown/traversal → 404; a `.thumb.webp` is
@@ -307,7 +335,8 @@ shows only the two import lines.
 
 **Verify.** `cd H && bun install --frozen-lockfile`; `cd H && bun run typecheck`;
 `cd H && bun test apps/api/test/uploads.test.ts apps/api/test/thumbnails.test.ts`;
-`cd H && bun test`; `cd H && grep -q '"sharp"' apps/api/package.json`.
+`cd H && bun test`; `cd H && grep -q '"sharp"' apps/api/package.json`;
+`cd H && ! grep -rn "/api/groups" apps/api/src`.
 
 ---
 
@@ -427,10 +456,15 @@ copied (routes import the middleware directly). `routes/groups.ts` → split int
    `inviteMail({ groupName: group?.name ?? "Rezepte", … })` call keeps the param name `groupName`
    and the literal (the mail template's API), with `group` → `household` as the variable.
 2. `households.service.ts`: delete `recipeCounts()` and the `recipes` import; wherever R combined
-   `memberCounts` + `recipeCounts`, combine `memberCounts` + `enabledModulesFor(db, ids)` and pass
-   `modules.get(id) ?? []` to `toHouseholdWithRole(row, role, memberCount, modules)`. `createHousehold`
-   calls `await initializeHousehold(tx, householdId)` inside its existing `withTransaction`, right
-   after the owner's membership insert. `deleteHousehold`'s doc: "members, invites, module rows and
+   `memberCounts` + `recipeCounts` (`listHouseholdsForUser`, `getHouseholdWithRole`), combine
+   `memberCounts` + `enabledModulesFor(db, ids)` and pass `modules.get(id) ?? []` to
+   `toHouseholdWithRole(row, role, memberCount, modules)`. `createHousehold` calls `await
+   initializeHousehold(tx, id)` inside its existing `withTransaction`, right after the owner's
+   membership insert (before the `users.activeHouseholdId` update). R's last line
+   `return toGroupWithRole(await loadGroupRow(db, id), "owner", 1, 0);` (literal member/recipe
+   counts) becomes exactly `return getHouseholdWithRole(db, id, "owner");` — it reads the module
+   rows `initializeHousehold` just wrote, so the response carries `modules: ["recipe"]`. No call site
+   anywhere passes a literal `[]` for `modules`. `deleteHousehold`'s doc: "members, invites, module rows and
    every module's household-scoped rows cascade."
 3. `mappers.ts`: `toHouseholdWithRole(row, role, memberCount: number, modules: readonly string[])`
    returns `{ ...toHousehold(row), role, memberCount, modules: [...modules] }`.
@@ -528,19 +562,25 @@ members}.ts`, `apps/api/src/core/services/auth/users.ts`, `apps/api/src/index.ts
 **Acceptance.** Every R groups test has a counterpart (minus recipe cascade lines); invite token
 routes resolve before `:householdId` (a test hitting `GET /api/households/invites/<token>` gets the
 preview, not a 404/403 for household "invites"); registration path via `createOwnedHousehold`
-writes the `recipe` module row; `rg -n "groupId|GroupRow|requireGroupRole" apps/api/src` finds
-nothing; `diff` of `support.ts` against R shows only import-path lines.
+writes the `recipe` module row; `POST /api/households` answers `household.modules ===
+["recipe"]` through `getHouseholdWithRole`; `grep -rnE "\bgroupId\b|GroupRow|requireGroupRole|/api/groups"
+apps/api/src` finds nothing (the `server.group.groupIdMissing` key in `middleware/household.ts` does
+not match `\bgroupId\b` and stays — decision 5; T02 already fixed the `uploadUrls.ts` comment);
+`diff` of `support.ts` against R shows only import-path lines. Do NOT edit
+`middleware/household.ts`, `lib/uploadUrls.ts` or the server catalogs to satisfy the grep.
 
 **Verify.** `cd H && bun run typecheck`; `cd H && bun test apps/api/test/households.test.ts`;
-`cd H && bun test apps/api`; `cd H && ! grep -rnE "groupId|GroupRow|requireGroupRole|/api/groups" apps/api/src`.
+`cd H && bun test apps/api`; `cd H && ! grep -rnE "\bgroupId\b|GroupRow|requireGroupRole|/api/groups" apps/api/src`;
+`cd H && grep -q "server.group.groupIdMissing" apps/api/src/middleware/household.ts`.
 
 ---
 
-### M1-T05 — Web data + session layer (build)
+### M1-T05 — Web data + session layer, core helpers, `moduleGuard` (build)
 
 **Goal.** The client side of auth and households: `lib/api.ts` request functions, `lib/queries.ts`
 keys and query options, `lib/session.tsx` (SessionProvider, guards incl. `RequireModule`),
-`lib/nav.tsx`, the households feature's query hooks and role labels, `modules/enabled.ts`.
+`lib/nav.tsx`, the core helpers `lib/permissions.ts` and `lib/share.ts` (decision 7), the households
+feature's query hooks and role labels, `modules/enabled.ts` with the pure `moduleGuard`.
 Nothing is routed yet (T10), so nothing renders it; it must typecheck and its pure parts are tested.
 
 **Read.** SPEC D1, D2, D9, §2, §3 (`lib/session.tsx`), §5 ("Module disabled"); this plan §1
@@ -554,8 +594,10 @@ policy comes from the manifests". Sources: `R/apps/web/src/lib/api.ts` (function
 `groupInvites`; options `meQuery`, `sessionsQuery`, `oauthProvidersQuery`, `groupsQuery`,
 `invitePreviewQuery`, `groupQuery`, `groupMembersQuery`, `groupInvitesQuery`; `invalidate.{everything,
 me,sessions,oauthProviders,groups,group,members,invites}`), `R/apps/web/src/lib/session.tsx`,
-`R/apps/web/src/features/recipes/lib/nav.tsx`, `R/apps/web/src/features/groups/lib/{queries,
-roleLabels}.ts`; `H/apps/web/src/lib/{api,queries,queries.test,persist,storage}.ts`,
+`R/apps/web/src/features/recipes/lib/nav.tsx`, `R/apps/web/src/features/recipes/lib/permissions.ts`,
+`R/apps/web/src/features/recipes/lib/hooks.ts` (the `/* share */` block only, lines ~174–229),
+`R/apps/web/src/features/groups/lib/{queries,roleLabels}.ts`;
+`H/apps/web/src/lib/{api,queries,queries.test,persist,storage}.ts`,
 `H/apps/web/src/components/ui/Toast.tsx` (the `useToast` API), `H/apps/web/src/modules/types.ts`.
 
 **Steps.**
@@ -581,6 +623,16 @@ roleLabels}.ts`; `H/apps/web/src/lib/{api,queries,queries.test,persist,storage}.
    their 4th segments is a `MODULE_IDS` entry.
 3. `lib/nav.tsx`: `R/…/features/recipes/lib/nav.tsx` verbatim; header first sentence →
    "Router helpers shared by core screens and module screens."; `@/lib/unsavedWork` import stays.
+3b. `lib/permissions.ts`: R `features/recipes/lib/permissions.ts` header doc comment (with
+   `requireGroupRole` → `requireHouseholdRole`) and `hasAtLeast` verbatim, `GroupRole` →
+   `HouseholdRole` (import type from `@toon/shared`); do NOT copy `canModifyOwn` (recipe-specific;
+   M2's recipe module keeps it and imports `hasAtLeast` from `@/lib/permissions`). Add
+   `lib/permissions.test.ts`: `hasAtLeast(undefined, "member")` false, `("admin","admin")` true,
+   `("member","admin")` false, `("owner","admin")` true.
+3c. `lib/share.ts`: R `features/recipes/lib/hooks.ts` from `export type ShareResult` through the end
+   of `copyToClipboard` (`ShareResult`, `ShareLike`, `shareOrCopy`, `copyToClipboard`), verbatim incl.
+   their doc comments; file header: "Share sheet with clipboard fallback — core (R's
+   features/recipes/lib/hooks.ts share block; SPEC §3). Never throws." No test (DOM/navigator only).
 4. `lib/session.tsx`: R's file with the rename table; `"ui.` → `"common.`; `me?.groups` →
    `me?.households`; `data.activeGroupId ?? data.groups[0]?.id` → `data.activeHouseholdId ??
    data.households[0]?.id`; `updateProfile({ activeGroupId })` → `({ activeHouseholdId })`;
@@ -594,16 +646,24 @@ roleLabels}.ts`; `H/apps/web/src/lib/{api,queries,queries.test,persist,storage}.
     */
    export function RequireModule({ moduleId, children }: { moduleId: ModuleId; children: ReactNode })
    ```
-   It reads `useSession().activeHousehold?.modules ?? []`; when `!isModuleEnabled(modules,
-   moduleId)` it shows `toast` (variant `"info"`, title `t("home.moduleDisabled.toast")`) once in an
-   effect, navigates to `"/"` with `replace: true`, and renders `null`; otherwise its children.
-   `session.tsx` must NOT import `@/modules` (manifests import screens that import this file).
+   It reads `useSession().activeHousehold?.modules ?? []` and computes `const decision =
+   moduleGuard(modules, moduleId)` (import `{ moduleGuard } from "@/modules/enabled"` — this exact
+   path; `enabled.ts` is pure and imports no registry, so the cycle rule below is kept). When
+   `decision === "redirect"` it shows `toast` (variant `"info"`, title
+   `t("home.moduleDisabled.toast")`) once in an effect, navigates to `"/"` with `replace: true`, and
+   renders `null`; when `"render"` its children. `session.tsx` must NOT import the REGISTRY —
+   `@/modules` or `@/modules/index` (manifests import screens that import this file);
+   `@/modules/enabled` is allowed and expected.
 5. `modules/enabled.ts` (pure, takes the registry as a parameter, never imports `./index`):
    `isModuleEnabled(enabledIds: readonly string[], id: ModuleId): boolean`,
+   `moduleGuard(enabledIds: readonly string[], id: ModuleId): "render" | "redirect"` (`"render"` iff
+   `isModuleEnabled`; the single decision `RequireModule` acts on — SPEC §5 "Module disabled"),
    `enabledWebModules(modules: readonly WebModule[], enabledIds: readonly string[]): WebModule[]`
    (registry order, unknown ids ignored), `availableWebModules(modules, enabledIds)` (build modules
-   not enabled). `modules/enabled.test.ts` covers all three with fake `WebModule` objects (cast
-   through a minimal factory; `routes: []`, `homeCard: () => null`).
+   not enabled). `modules/enabled.test.ts` covers all four with fake `WebModule` objects (cast
+   through a minimal factory; `routes: []`, `homeCard: () => null`); `moduleGuard` cases:
+   `(["recipe"], "recipe")` → `"render"`; `([], "recipe")` → `"redirect"`; `(["finance"],
+   "recipe")` → `"redirect"`; `(["legacy-x", "recipe"], "recipe")` → `"render"`.
 6. `core/features/households/lib/queries.ts` ← `R/…/features/groups/lib/queries.ts` (hooks renamed
    `useGroups` → `useHouseholds`, `useGroupDetail` → `useHouseholdDetail`, `useGroupMembers` →
    `useHouseholdMembers`, `useGroupInvites` → `useHouseholdInvites`, `useCreateGroup` →
@@ -614,16 +674,22 @@ roleLabels}.ts`; `H/apps/web/src/lib/{api,queries,queries.test,persist,storage}.
    `"groups.role.` → `"household.role.`.
 
 **Files.** `apps/web/src/lib/{api.ts,queries.ts,queries.test.ts,session.tsx,nav.tsx}`,
+`apps/web/src/lib/{permissions.ts,permissions.test.ts,share.ts}`,
 `apps/web/src/modules/{enabled.ts,enabled.test.ts}`,
 `apps/web/src/core/features/households/lib/{queries.ts,roleLabels.ts}`.
 
-**Acceptance.** No `fetch` outside `lib/api.ts`; no `@/modules` import in `lib/session.tsx`;
-`RequireModule` exported; query keys per decision 6; `rg -n "\"ui\.|groupId|/api/groups"
-apps/web/src/lib apps/web/src/core` finds nothing.
+**Acceptance.** No `fetch` outside `lib/api.ts`; `lib/session.tsx` imports `@/modules/enabled`
+and never the registry (`@/modules` / `@/modules/index`); `RequireModule` exported and driven by
+`moduleGuard`; `hasAtLeast`, `shareOrCopy`, `copyToClipboard`, `ShareResult` exported from
+`@/lib/permissions` / `@/lib/share`; query keys per decision 6; `grep -rnE "\"ui\.|\bgroupId\b|/api/groups"
+apps/web/src/lib apps/web/src/core` finds nothing; nothing created under `apps/web/src/features/`.
 
 **Verify.** `cd H && bun run typecheck`; `cd H && bun test apps/web/src/lib apps/web/src/modules`;
-`cd H && ! grep -n "@/modules" apps/web/src/lib/session.tsx`;
-`cd H && ! grep -rnE "/api/groups|\"ui\." apps/web/src/lib apps/web/src/core`.
+`cd H && ! grep -nE "from \"@/modules(/index)?\"" apps/web/src/lib/session.tsx`;
+`cd H && grep -q "moduleGuard" apps/web/src/lib/session.tsx`;
+`cd H && grep -q "export function hasAtLeast" apps/web/src/lib/permissions.ts && grep -q "export async function shareOrCopy" apps/web/src/lib/share.ts`;
+`cd H && ! grep -rnE "/api/groups|\"ui\." apps/web/src/lib apps/web/src/core`;
+`cd H && test ! -e apps/web/src/features`.
 
 ---
 
@@ -663,46 +729,89 @@ ResetPasswordPage,VerifyEmailPage,OAuthButtons,OAuthCallbackPage,InvitePage}.tsx
 
 ---
 
-### M1-T07 — Web households screens, HouseholdSwitcher, Settings (port)
+### M1-T07 — Web households screens + HouseholdSwitcher (port)
 
-**Goal.** `/households`, `/households/$householdId`, the switcher component, and `/settings`
-(profile, e-mail, appearance/theme, language, password, connected accounts, sessions, the households
-card, enabled modules' `settingsSections`). Not routed until T10.
+**Goal.** `/households`, `/households/$householdId`, the switcher component and the households
+feature barrel. Not routed until T10. (Settings is M1-T07b.)
 
-**Read.** SPEC D1, D5, D6 (Profil), §5 (Settings); R/CLAUDE.md "Navigation" (the Gruppen
-reachability bullet: the card on `/settings` is the only phone route), gotchas "The language
-picker's third state is `system`", "`controlClasses` carries `min-w-0`…", "A page component must
-NOT re-apply `mx-auto max-w-content…`", "`delivered` ALONE IS NOT…" (InvitePanel's three states);
-`H/docs/design/recipe-redesign/specs/05-frontend-shell.md` §4 (GroupSwitcher variants), §12.4,
-§12.6. Sources: `R/apps/web/src/features/groups/{GroupsPage,GroupDetailPage,GroupSwitcher,
-index}.tsx|ts`, `R/…/features/groups/components/{MemberList,InvitePanel}.tsx`,
-`R/…/features/auth/AccountSettingsPage.tsx`.
+**Read.** SPEC D1, D5, §3, §5; R/CLAUDE.md "Navigation" (the Gruppen reachability bullet),
+gotchas "`controlClasses` carries `min-w-0`…", "A page component must NOT re-apply `mx-auto
+max-w-content…`", "`delivered` ALONE IS NOT…" (InvitePanel's three states);
+`H/docs/design/recipe-redesign/specs/05-frontend-shell.md` §4 (GroupSwitcher variants), §12.6.
+Sources: `R/apps/web/src/features/groups/{GroupsPage,GroupDetailPage,GroupSwitcher}.tsx`,
+`R/apps/web/src/features/groups/index.ts`, `R/…/features/groups/components/{MemberList,
+InvitePanel}.tsx`; `H/apps/web/src/lib/{permissions,share,nav}.ts(x)` (T05).
 
 **Copies.** `GroupsPage.tsx` → `core/features/households/HouseholdsPage.tsx`; `GroupDetailPage.tsx`
 → `core/features/households/HouseholdDetailPage.tsx`; `GroupSwitcher.tsx` →
 `core/features/households/HouseholdSwitcher.tsx`; `components/{MemberList,InvitePanel}.tsx` →
-`core/features/households/components/`; `index.ts` → `core/features/households/index.ts`;
-`features/auth/AccountSettingsPage.tsx` → `core/features/settings/SettingsPage.tsx`.
+`core/features/households/components/`; `index.ts` → `core/features/households/index.ts`.
 
 **Rewrites.**
-1. Rename table; `"ui.` → `"common.`; `"groups.` → `"household.`; `@/features/recipes/lib/nav` →
-   `@/lib/nav`; `./lib/queries` and `./lib/roleLabels` paths stay relative (T05 put them in
-   `core/features/households/lib/`); component renames `GroupsPage` → `HouseholdsPage`,
+1. Rename table; `"ui.` → `"common.`; `"groups.` → `"household.`; import rewrites, each exactly:
+   - `@/features/recipes/lib/nav` → `@/lib/nav` (GroupsPage, GroupDetailPage);
+   - `import { hasAtLeast } from "@/features/recipes/lib/permissions";` →
+     `import { hasAtLeast } from "@/lib/permissions";` (GroupDetailPage.tsx:29,
+     components/MemberList.tsx:16);
+   - `import { copyToClipboard, shareOrCopy } from "@/features/recipes/lib/hooks";` →
+     `import { copyToClipboard, shareOrCopy } from "@/lib/share";` (components/InvitePanel.tsx:37);
+   - any other `@/features/groups/…` → relative or `@/core/features/households/…`.
+   Do NOT create files outside this task's list (no `apps/web/src/features/…`, no inlined copies of
+   the helpers — T05 provides them). `./lib/queries` and `./lib/roleLabels` paths stay relative (T05
+   put them in `core/features/households/lib/`). Component renames `GroupsPage` → `HouseholdsPage`,
    `GroupDetailPage` → `HouseholdDetailPage`, `GroupSwitcher`/`GroupSwitcherProps` →
-   `HouseholdSwitcher`/`HouseholdSwitcherProps`, `AccountSettingsPage` → `SettingsPage`,
-   `GroupsCard` → `HouseholdsCard` (props `activeGroupName` → `activeHouseholdName`); route strings
-   `"/groups"` → `"/households"`, `/groups/$groupId` → `/households/$householdId`,
-   `useRouteParam("groupId")` → `useRouteParam("householdId")`.
+   `HouseholdSwitcher`/`HouseholdSwitcherProps`; route strings `"/groups"` → `"/households"`,
+   `/groups/$groupId` → `/households/$householdId`, `useRouteParam("groupId")` →
+   `useRouteParam("householdId")`.
 2. Recipe counts go (decision 2): `HouseholdSwitcher` deletes the two `household.count.recipes`
    renderings (and the separator that joined them to the member count); `HouseholdsPage` deletes its
    one; `HouseholdDetailPage` renders the meta as `t("household.detail.meta", { members:
    t("household.count.members", { count: household.memberCount }), date: … })` (no `recipes:`), the
    danger zone loses its `recipeCount` prop and renders `t("household.danger.warning")` without
    values.
-3. `SettingsPage`: `auth.settings.groups.*` → `auth.settings.households.*` (the `{groupName}`
-   placeholder key passed to `t()` stays `groupName:`); `useActiveGroup()` → `useActiveHousehold()`
-   with `{ household: activeHousehold }`; the card links to `/households`. After the households card
-   add, with `WEB_MODULES` from `@/modules` and `enabledWebModules` from `@/modules/enabled`:
+3. `index.ts` barrel: exports renamed per T05's hook names; header "Households feature barrel
+   (HouseholdSwitcher.tsx is used by the shell)."; still no screen re-exports.
+4. Everything else (copy, class names, structure) byte-identical.
+
+**Files.** `apps/web/src/core/features/households/{HouseholdsPage,HouseholdDetailPage,
+HouseholdSwitcher}.tsx`, `apps/web/src/core/features/households/index.ts`,
+`apps/web/src/core/features/households/components/{MemberList,InvitePanel}.tsx`.
+
+**Acceptance.** No `recipeCount`, `groups.`, `ui.`, `/groups`, `features/recipes`,
+`features/groups` left in these files; MemberList/HouseholdDetailPage import `hasAtLeast` from
+`@/lib/permissions`, InvitePanel imports the share helpers from `@/lib/share`; InvitePanel still
+distinguishes `sent` / `not_configured` / `failed`; `apps/web/src/features` does not exist.
+
+**Verify.** `cd H && bun run typecheck`; `cd H && bun run build`;
+`cd H && ! grep -rnE "recipeCount|\"groups\.|\"ui\.|\"/groups|features/recipes|features/groups" apps/web/src/core/features/households`;
+`cd H && grep -q "@/lib/permissions" apps/web/src/core/features/households/components/MemberList.tsx && grep -q "@/lib/share" apps/web/src/core/features/households/components/InvitePanel.tsx`;
+`cd H && test ! -e apps/web/src/features`.
+
+---
+
+### M1-T07b — Web Settings screen (port)
+
+**Goal.** `/settings` (profile, e-mail, appearance/theme, language, password, connected accounts,
+sessions, the households card, enabled modules' `settingsSections`). Not routed until T10.
+
+**Read.** SPEC D1, D6 (Profil), §5 (Settings); R/CLAUDE.md "Navigation" (the households card on
+`/settings` is the only phone route to Gruppen), gotchas "The language picker's third state is
+`system`", "`controlClasses` carries `min-w-0`…", "A page component must NOT re-apply…";
+`H/docs/design/recipe-redesign/specs/05-frontend-shell.md` §12.4. Sources:
+`R/apps/web/src/features/auth/AccountSettingsPage.tsx`; `H/apps/web/src/lib/session.tsx`,
+`H/apps/web/src/modules/{enabled,index,types}.ts`.
+
+**Copies.** `R/…/features/auth/AccountSettingsPage.tsx` → `core/features/settings/SettingsPage.tsx`.
+
+**Rewrites.**
+1. Rename table; `"ui.` → `"common.`; `@/features/recipes/lib/nav` → `@/lib/nav`; component
+   renames `AccountSettingsPage` → `SettingsPage`, `GroupsCard` → `HouseholdsCard` (props
+   `activeGroupName` → `activeHouseholdName`); `auth.settings.groups.*` → `auth.settings.households.*`
+   (the `{groupName}` placeholder key passed to `t()` stays `groupName:`); `useActiveGroup()` →
+   `useActiveHousehold()` with `{ household: activeHousehold }`; the card links to `/households`;
+   doc comments "group" → "household".
+2. After the households card add, with `WEB_MODULES` from `@/modules` and `enabledWebModules` from
+   `@/modules/enabled` (allowed here: a screen, not imported by `lib/` or a manifest):
    ```tsx
    {enabledWebModules(WEB_MODULES, activeHousehold?.modules ?? []).flatMap((module) =>
      (module.settingsSections ?? []).map((Section, index) => <Section key={`${module.id}-${index}`} />),
@@ -710,42 +819,40 @@ index}.tsx|ts`, `R/…/features/groups/components/{MemberList,InvitePanel}.tsx`,
    ```
    (SPEC §5; renders nothing in M1). Header doc: "`/settings` — profile, households, password,
    appearance, language, sessions, and each enabled module's settings section (SPEC §5)."
-4. `index.ts` barrel: exports renamed per T05's hook names; still no screen re-exports.
-5. Everything else (copy, class names, structure) byte-identical.
+3. Everything else (copy, class names, structure, the default export) byte-identical.
 
-**Files.** `apps/web/src/core/features/households/{HouseholdsPage,HouseholdDetailPage,
-HouseholdSwitcher}.tsx`, `apps/web/src/core/features/households/index.ts`,
-`apps/web/src/core/features/households/components/{MemberList,InvitePanel}.tsx`,
-`apps/web/src/core/features/settings/SettingsPage.tsx`.
+**Files.** `apps/web/src/core/features/settings/SettingsPage.tsx`.
 
-**Acceptance.** No `recipeCount`, `groups.`, `ui.`, `/groups` left in these files; the
-HouseholdsCard on Settings links to `/households`; InvitePanel still distinguishes `sent` /
-`not_configured` / `failed`.
+**Acceptance.** No `groups.`, `ui.`, `/groups`, `features/` imports left; the HouseholdsCard links
+to `/households`; the language picker keeps its `system` state; `diff` against R shows only the
+listed rewrites and the settings-sections block.
 
 **Verify.** `cd H && bun run typecheck`; `cd H && bun run build`;
-`cd H && ! grep -rnE "recipeCount|\"groups\.|\"ui\.|\"/groups" apps/web/src/core/features/households apps/web/src/core/features/settings`.
+`cd H && ! grep -nE "\"auth\.settings\.groups\.|\"ui\.|\"/groups|@/features/" apps/web/src/core/features/settings/SettingsPage.tsx`;
+`cd H && grep -q "settingsSections" apps/web/src/core/features/settings/SettingsPage.tsx`.
 
 ---
 
-### M1-T08 — API auth routes + services, seed, reset-password (port)
+### M1-T08 — API auth routes + services, auth tests (port)
 
 **Goal.** `/api/auth` (register, login, logout, me, profile, password, forgot/reset, e-mail
 verification request/confirm, sessions, OAuth start/callback/link/unlink), the remaining auth
-services, `bun run seed` (core part) and `bun run auth:reset-password`, the auth tests.
+services, the mount in `index.ts`, the `auth` and `password-reset` tests and the smoke additions.
+(Seed, reset-password, scripts and the verified-email-gate test are M1-T08b.)
 
 **Read.** SPEC D4, D1, §4 (users); R/CLAUDE.md locked decision 4 and gotchas "AN UNCONFIRMED E-MAIL
 ADDRESS…", "OAuth never auto-links…", "`safeNextPath`…", "A failed mail send must never fail its
 action", "`delivered` ALONE…", "`bun test` gets a silent ConsoleMailer", "`clientIp()` ignores
 `X-Forwarded-For` unless `TRUST_PROXY=1`", "`mock.module` LEAKS…"; R/docs/API.md "Auth", "Password
-reset", "E-mail verification", "Unconfirmed accounts are read-only". Sources:
-`R/apps/api/src/routes/auth.ts`, `R/apps/api/src/services/auth/{bootstrap,emailVerification,index,
-invites,oauthAccounts,passwordReset,passwords,rateLimit,tokens}.ts`, `R/apps/api/scripts/{seed,
-reset-password}.ts`, `R/apps/api/test/{auth,password-reset,verified-email-gate}.test.ts`,
-`R/package.json` + `R/apps/api/package.json` (scripts); `H/apps/api/test/smoke.test.ts`.
+reset", "E-mail verification". Sources: `R/apps/api/src/routes/auth.ts`,
+`R/apps/api/src/services/auth/{bootstrap,emailVerification,index,invites,oauthAccounts,
+passwordReset,passwords,rateLimit,tokens}.ts`, `R/apps/api/test/{auth,password-reset}.test.ts`;
+`H/apps/api/src/core/services/auth/{sessions,users,verifiedEmail}.ts` (M0, not re-copied),
+`H/apps/api/src/core/services/households/households.service.ts` (T04),
+`H/apps/api/test/smoke.test.ts`.
 
 **Copies.** `routes/auth.ts` → `core/routes/auth.ts`; the nine service files → `core/services/auth/`
-(same names); `scripts/reset-password.ts` → `apps/api/scripts/reset-password.ts`;
-`scripts/seed.ts` → `apps/api/scripts/seed.ts` (core part, see 5); the three tests → `apps/api/test/`.
+(same names); `test/{auth,password-reset}.test.ts` → `apps/api/test/`.
 
 **Rewrites.**
 1. Rename table; service imports `../../…` → `../../../…`; route imports `../db/…` →
@@ -758,7 +865,8 @@ reset-password}.ts`, `R/apps/api/test/{auth,password-reset,verified-email-gate}.
    listHouseholdsForUser(database, userId)` (import from `../households/households.service.ts`) —
    delete R's inline `recipeCount` SQL and row mapping; `buildAuthSession` returns `{ user,
    households, activeHouseholdId }` and keeps R's "repair a stale active pointer" logic with
-   `setActiveHousehold`. `index.ts` barrel re-exports the renamed names.
+   `setActiveHousehold`. `index.ts` barrel re-exports the renamed names (and M0's `sessions`,
+   `users`, `verifiedEmail` exports as R's barrel does).
 3. `services/auth/invites.ts` (register-with-invite path): rename table; `AcceptedInvite.groupId`
    → `householdId`.
 4. `H/apps/api/src/index.ts`: replace the `// M1: app.route("/api/auth", authRoutes);` comment with
@@ -766,56 +874,128 @@ reset-password}.ts`, `R/apps/api/test/{auth,password-reset,verified-email-gate}.
    `describe("anonymous requests")` with one test asserting `GET /api/auth/me`, `GET /api/households`
    and `GET /api/households/x` each answer 401 with the standard error envelope (H's smoke test
    has no such table yet).
-5. `seed.ts` (R's header rewritten to: "bun run seed — creates the demo user demo@toon.local /
-   demo1234 and the demo household "Familie" (owner), with the default module rows. Idempotent.
-   M2 adds the recipe demo content, M3 the finance demo ledger."): keep R's user + group blocks with
-   the rename table (`groups` → `households`, …) and after the owner membership insert call
-   `await initializeHousehold(db, householdId)` (from `../src/core/services/households/modules.ts`);
-   delete everything from the tag block onward plus the now-unused imports and helpers
-   (`parseSectionedSteps`, `HEADING_LINE`, `DAY_MS`) with one comment `// M2: tags, courses, demo
-   recipes, plan entries, cook log and the demo shopping list (toon-recipe scripts/seed.ts) return
-   with the recipe module.` Keep `runMigrations`, the final log line and `client.close()` if R has it.
-6. `reset-password.ts`: imports `../src/services/…` → `../src/core/services/…`; nothing else.
-7. Scripts: `apps/api/package.json` gains `"seed": "bun scripts/seed.ts"`, `"auth:reset-password":
-   "bun scripts/reset-password.ts"`; root `package.json` gains `"seed": "bun --filter @toon/api
-   seed"`, `"auth:reset-password": "bun --filter @toon/api auth:reset-password --"` (R's exact
-   strings). Run `bun install` so `bun.lock` stays consistent (expect no lock change).
-8. Tests: rename table; `../src/services/` → `../src/core/services/`; `../src/middleware/group.ts`
+5. Tests: rename table; `../src/services/` → `../src/core/services/`; `../src/middleware/group.ts`
    → `../src/middleware/household.ts`; response fields `groups` → `households`, `activeGroupId` →
-   `activeHouseholdId`, register body `groupName` → `householdName`; `createOwnedGroup(db, …)`
-   returns `{ householdId }`. In `auth.test.ts` `describe("group invites")` → `"household invites"`
-   and `describe("requireGroupRole")` → `"requireHouseholdRole"`. Add to `describe("POST
-   /api/auth/register")`: the response's `households[0].modules` equals `["recipe"]`.
-   `verified-email-gate.test.ts`: keep every test whose requests touch only `/api/auth/*` and
-   `/api/groups…` (→ `/api/households…`); in path arrays drop entries containing `/recipes`,
-   `/tags`, `/collections`, `/shopping-lists`, `/imports`, `/plan`, `/cards`; a test left without
-   requests is deleted; add ONE comment `// M2: the recipe/import/shopping/plan/cards cases of
-   toon-recipe test/verified-email-gate.test.ts return with the recipe module.` Keep every
-   `setVerifiedEmailRequired(null)` / `setMailer(null)` handback.
+   `activeHouseholdId`, register body `groupName` → `householdName`; `createOwnedGroup(db, …)` →
+   `createOwnedHousehold(db, …)` returning `{ householdId }`. In `auth.test.ts` `describe("group
+   invites")` → `"household invites"` and `describe("requireGroupRole")` → `"requireHouseholdRole"`.
+   Add to `describe("POST /api/auth/register")`: the response's `households[0].modules` equals
+   `["recipe"]`. A test that needs a recipe route is replaced by one `// M2: …` comment (none
+   expected in these two files; report any).
 
 **Files.** `apps/api/src/core/routes/auth.ts`, `apps/api/src/core/services/auth/{bootstrap,
 emailVerification,index,invites,oauthAccounts,passwordReset,passwords,rateLimit,tokens}.ts`,
-`apps/api/src/index.ts`, `apps/api/scripts/{seed,reset-password}.ts`, `apps/api/package.json`,
-`package.json`, `bun.lock` (only if changed), `apps/api/test/{auth,password-reset,
-verified-email-gate,smoke}.test.ts`.
+`apps/api/src/index.ts`, `apps/api/test/{auth,password-reset,smoke}.test.ts`.
 
 **Acceptance.** Register → 201 with cookie, `households[0]` owner with `modules: ["recipe"]`;
 register with `inviteToken` joins that household; login/logout/me/forgot (204 for known AND unknown
-address)/reset/verify behave as in R; `bun run seed` against a fresh file DB is idempotent; `rg -n
-"groupId|activeGroupId|createOwnedGroup" apps/api` finds nothing.
+address)/reset/verify behave as in R; anonymous `/api/auth/me` and `/api/households` → 401;
+`grep -rnE "\bgroupId\b|activeGroupId|createOwnedGroup|loadUserGroups" apps/api/src` finds nothing
+(the `server.group.groupIdMissing` key does not match and stays — decision 5; never edit
+`middleware/household.ts` or the server catalogs to satisfy it).
 
 **Verify.** `cd H && bun run typecheck`;
-`cd H && bun test apps/api/test/auth.test.ts apps/api/test/password-reset.test.ts apps/api/test/verified-email-gate.test.ts apps/api/test/smoke.test.ts`;
+`cd H && bun test apps/api/test/auth.test.ts apps/api/test/password-reset.test.ts apps/api/test/smoke.test.ts`;
 `cd H && bun test`;
+`cd H && ! grep -rnE "\bgroupId\b|activeGroupId|createOwnedGroup|loadUserGroups" apps/api/src`.
+
+---
+
+### M1-T08b — Seed, reset-password, scripts, verified-email-gate test (build)
+
+**Goal.** `bun run seed` (core part), `bun run auth:reset-password`, their package scripts, and
+`verified-email-gate.test.ts` adapted so the CORE gate stays fully covered: the recipe-only cases go
+to M2, the gate-behaviour cases are retargeted to core gated writes, never deleted.
+
+**Read.** SPEC D4, §4 (users); R/CLAUDE.md gotchas "AN UNCONFIRMED E-MAIL ADDRESS MAKES AN ACCOUNT
+READ-ONLY…" (the per-route gating list: `PATCH /:groupId` and `POST /:groupId/invites` are gated,
+invite accept and leaving are not), "`bun test` gets a silent ConsoleMailer"; R/docs/API.md
+"Unconfirmed accounts are read-only". Sources: `R/apps/api/scripts/{seed,reset-password}.ts`,
+`R/apps/api/test/verified-email-gate.test.ts`, `R/package.json` + `R/apps/api/package.json`
+(scripts); `H/apps/api/src/core/routes/households.ts` (T04),
+`H/apps/api/src/core/services/households/modules.ts` (T04).
+
+**Work.**
+1. `scripts/seed.ts` → `apps/api/scripts/seed.ts` (R's header rewritten to: "bun run seed — creates
+   the demo user demo@toon.local / demo1234 and the demo household "Familie" (owner), with the
+   default module rows. Idempotent. M2 adds the recipe demo content, M3 the finance demo ledger."):
+   keep R's user + group blocks with the rename table (`groups` → `households`, …) and after the
+   owner membership insert call `await initializeHousehold(db, householdId)` (from
+   `../src/core/services/households/modules.ts`); delete everything from the tag block onward plus
+   the now-unused imports and helpers (`parseSectionedSteps`, `HEADING_LINE`, `DAY_MS`) with one
+   comment `// M2: tags, courses, demo recipes, plan entries, cook log and the demo shopping list
+   (toon-recipe scripts/seed.ts) return with the recipe module.` Keep `runMigrations`, the final
+   log line and `client.close()` if R has it.
+2. `scripts/reset-password.ts` → `apps/api/scripts/reset-password.ts`: imports `../src/services/…`
+   → `../src/core/services/…`; nothing else.
+3. Scripts: `apps/api/package.json` gains `"seed": "bun scripts/seed.ts"`, `"auth:reset-password":
+   "bun scripts/reset-password.ts"`; root `package.json` gains `"seed": "bun --filter @toon/api
+   seed"`, `"auth:reset-password": "bun --filter @toon/api auth:reset-password --"` (R's exact
+   strings). Run `bun install` so `bun.lock` stays consistent (expect no lock change).
+4. `test/verified-email-gate.test.ts` → `apps/api/test/verified-email-gate.test.ts`: rename table;
+   `../src/services/` → `../src/core/services/`; `/api/groups` → `/api/households`; the
+   `Account.groupId` field and `register()` helper → `householdId` from `payload.households[0]?.id`
+   (error text "registration produced no household"); response fields per the shared schemas. Test
+   titles stay as in R. Then, case by case (R line numbers approximate):
+   - "an unconfirmed account can still READ everything" (~123): keep; drop from the path array the
+     entries containing `/recipes`, `/tags`, `/collections`, `/shopping-lists`, `/imports`, `/plan`,
+     and `"/api/cards"`.
+   - "every write answers 403 email_unverified": DELETE the five recipe/import/shopping/cards
+     tests ("recipes, tags and collections", "every import source…", "the import upload routes
+     reject BEFORE reading the body", "shopping lists…", "saving a card…"); KEEP "creating a group,
+     renaming one, and inviting into one" (paths renamed).
+   - "403, never 401 — a valid session must not be logged out over this" (~252): RETARGET the write
+     to `PATCH /api/households/${account.householdId}` body `{ name: "Spam" }` → 403; the
+     `/api/auth/me` → 200 assertion stays.
+   - "accept an invite — the write that must never be gated" (~270): keep the invite + accept
+     steps; DROP the two standalone assertions on `/recipes` (GET) and `/tags` (POST) and put in their
+     place: `GET /api/households/${host.householdId}` with the invited cookie → 200 (it can READ the
+     household it joined) and `POST /api/households` body `{ name: "Eigener Haushalt" }` with the
+     invited cookie → 403 (still cannot write); the explanatory comment stays.
+   - "leave a group…" (~305): keep (paths renamed; it has no recipe request).
+   - "ask for a new confirmation mail, and change its own profile": keep verbatim.
+   - "the same session can write immediately afterwards" (~354): RETARGET both writes to `PATCH
+     /api/households/${account.householdId}`, bodies `{ name: "Vorher" }` → 403 and, after
+     `confirm(account)`, `{ name: "Nachher" }` → **200** (PATCH answers 200, not 201); the
+     "No re-login" comment stays.
+   - "the TIMESTAMP is what counts, not the boolean" (~376): RETARGET to `PATCH
+     /api/households/${account.householdId}` `{ name: "Spam" }` → 403 and `errorCode` ===
+     `"email_unverified"`.
+   - "an unconfirmed account writes freely" (~397): RETARGET to `PATCH
+     /api/households/${account.householdId}` `{ name: "Ohne Mailserver" }` → **200**.
+   - the `bun test` default, `/api/health`, and "the override is handed back" tests: verbatim.
+   Add ONE comment at the top of the "every write answers 403" describe: `// M2: the
+   recipe/tag/collection/import/shopping/plan/cards write cases (and the /recipes, /tags reads and
+   writes of the invite test) of toon-recipe test/verified-email-gate.test.ts return with the recipe
+   module.` Keep every `setVerifiedEmailRequired(null)` / `setMailer(null)` handback. Remove helper
+   functions that end up unused (typecheck/lint).
+
+**Files.** `apps/api/scripts/{seed,reset-password}.ts`, `apps/api/package.json`, `package.json`,
+`bun.lock` (only if changed), `apps/api/test/verified-email-gate.test.ts`.
+
+**Acceptance.** `bun run seed` against a fresh file DB is idempotent and leaves Familie with its
+`recipe` module row; `bun run auth:reset-password` without args prints R's usage and exits 1 (as in R); the
+gate test contains, as executable tests, 403-not-401, accept-invite (+ read OK / write 403),
+leave, confirm-lifts-the-gate (403 → confirm → 200 in the same session), timestamp-not-boolean,
+and no-mail-transport-writes-freely, all on `/api/households…` writes; no `/recipes`, `/tags`,
+`/collections`, `/shopping-lists`, `/imports`, `/cards` path remains in it.
+
+**Verify.** `cd H && bun run typecheck`;
+`cd H && bun test apps/api/test/verified-email-gate.test.ts`;
+`cd H && bun test`;
+`cd H && ! grep -nE "/recipes|/tags|/collections|/shopping-lists|/imports|/api/cards|/api/groups" apps/api/test/verified-email-gate.test.ts`;
+`cd H && for t in "never 401" "can write immediately afterwards" "TIMESTAMP is what counts" "writes freely" "accept an invite"; do grep -q "$t" apps/api/test/verified-email-gate.test.ts || exit 1; done`;
 `cd H && rm -f data/m1-t08-seed.db* && DATABASE_URL=file:./data/m1-t08-seed.db bun run db:migrate && DATABASE_URL=file:./data/m1-t08-seed.db SESSION_SECRET=0123456789abcdef0123 bun run seed && DATABASE_URL=file:./data/m1-t08-seed.db SESSION_SECRET=0123456789abcdef0123 bun run seed`;
-`cd H && ! grep -rnE "groupId|activeGroupId|createOwnedGroup" apps/api/src apps/api/scripts`.
+`cd H && ! grep -rnE "\bgroupId\b|activeGroupId|createOwnedGroup" apps/api/scripts`.
 
 ---
 
 ### M1-T09 — API module enabling + hooks (core)
 
 **Goal.** `POST`/`DELETE /api/households/:householdId/modules/:moduleId` per decision 3, the
-`onEnable` hook, tests for the whole module gate from enable to `requireModule`.
+`onEnable` hook, tests for the whole module gate from enable to `requireModule`. Depends on T04
+(household routes/services) AND T08 (`/api/auth` mounted: test (a) reads `GET /api/auth/me`, and
+users are created through `POST /api/auth/register`).
 
 **Read.** SPEC D2, D3 (why `onEnable` may refuse), D8, §2; this plan §1 decisions 2–4; `H/CLAUDE.md`
 gotchas "Middleware chain order is load-bearing", "`file::memory:` is per client"; R/CLAUDE.md
@@ -839,12 +1019,15 @@ verifiedEmail}.ts`, `apps/api/src/modules/{types,mount,index}.ts`, `apps/api/tes
    with `isModuleId` (else `throw ApiError.notFound()`); POST validates the optional JSON body with
    `EnableModuleRequestSchema` (empty body = `{}`; use the same `zValidator` + `onValidationError`
    pattern as `households.ts`, or parse manually when the body is empty) and answers `json(c, {
-   household: await getHouseholdWithRole(db, householdId, userId) })`; DELETE answers `noContent`.
+   household: await getHouseholdWithRole(db, membership.householdId, membership.role) })` with
+   `const membership = requireMembership(c)` (from `../../lib/types.ts`, as the other household
+   routes do — the third parameter is the caller's ROLE, not a user id); DELETE answers `noContent`.
    Header comment: the gating decision (admin + verified e-mail: a household-wide settings write,
    like PATCH `/:householdId`) and that data stays on disable. In `households.ts` replace the
    `// M1-T09:` comment with `registerModuleRoutes(householdRoutes);`.
-3. Tests `apps/api/test/modules.test.ts` (shared `db` + `runMigrations(db)`; users/sessions/
-   households created through `app.request` or direct inserts as `middleware.test.ts` does):
+3. Tests `apps/api/test/modules.test.ts` (shared `db` + `runMigrations(db)`; users and sessions
+   created through `POST /api/auth/register` on the real `app` (T08), extra households through
+   `POST /api/households`, or direct inserts as `middleware.test.ts` does):
    (a) `POST /api/households` → `modules: ["recipe"]`, and `GET /api/auth/me` lists it the same;
    (b) owner `POST …/modules/finance` → 200, `household.modules` `["recipe","finance"]`; a second
    POST → 200 and `enabled_at` unchanged; (c) `POST` with `{ settings: { a: 1 } }` stores
@@ -870,11 +1053,12 @@ verifiedEmail}.ts`, `apps/api/src/modules/{types,mount,index}.ts`, `apps/api/tes
 
 ---
 
-### M1-T10 — Web router, guards, nav items, banner, `module_disabled` (core)
+### M1-T10 — Web router, guards, module layout, nav items, banner, `module_disabled` (core)
 
-**Goal.** Wire everything into the route tree (decision 8), compute nav items from the session's
-enabled modules with Profil and the core Gruppen item, restore `UnverifiedEmailBanner`, handle
-`module_disabled` responses (decision 9).
+**Goal.** Wire everything into the route tree (decision 8) with the module layout factory that
+proves the disabled-module redirect is wired, compute nav items from the session's enabled modules
+with Profil and the core Gruppen item, restore `UnverifiedEmailBanner`, handle `module_disabled`
+responses (decision 9).
 
 **Read.** SPEC D6, §2, §3 (router), §5; this plan §1 decisions 8, 9; R/CLAUDE.md "Navigation"
 (reachability), gotchas "SCREENS ARE CODE-SPLIT WITH `lazyRouteComponent`" (router header),
@@ -893,10 +1077,29 @@ components/layout/{nav-items,nav-items.test,use-nav-items,AppShell}.ts(x),lib/qu
    `<RequireAuth><AppShell><Outlet/></AppShell></RequireAuth>`, `/households` and
    `/households/$householdId` and `/settings` as `lazyRouteComponent` children of `appRoute`, a
    pathless `householdScopedRoute` (`id: "household-scoped"`, `<RequireActiveHousehold>`) holding
-   `homeRoute` and the module layouts; each module layout's component is
-   `function ModuleLayout() { return <RequireModule moduleId={module.id}><Outlet /></RequireModule>; }`
-   (created inside the `map`, never wrapping a lazy screen). `routes` export gains the new routes.
-   No `/search` or recipe routes.
+   `homeRoute` and the module layouts; each module layout's `component` is
+   `moduleLayoutComponent(module.id)` (step 1b; never an inline component, never wrapping a lazy
+   screen). `routes` export gains the new routes. No `/search` or recipe routes.
+1b. `modules/layout.tsx` (imports `type ReactElement` from `react` — React 19 has no global `JSX`
+   namespace —, `type ModuleId` from `@toon/shared`, `Outlet` from `@tanstack/react-router` and
+   `RequireModule` from `@/lib/session`; never the registry):
+   ```tsx
+   /** The component of every module's layout route (SPEC D2, §5): the guard sits ABOVE the module's
+    *  lazy screens, so a disabled module redirects Home before any module chunk loads. */
+   export function moduleLayoutComponent(moduleId: ModuleId): () => ReactElement {
+     return function ModuleLayout() {
+       return <RequireModule moduleId={moduleId}><Outlet /></RequireModule>;
+     };
+   }
+   ```
+   `modules/layout.test.tsx` (no DOM needed: `ModuleLayout` uses no hooks, so calling it returns
+   the element tree): for `"recipe"` and `"finance"`, `const el = moduleLayoutComponent(id)()`;
+   `expect(el.type).toBe(RequireModule)`, `expect(el.props.moduleId).toBe(id)`,
+   `expect(el.props.children.type).toBe(Outlet)`. Together with T05's `moduleGuard` test this is the
+   executable proof of the exit criterion "a route under a disabled module redirects to Home".
+   If importing `@/lib/session` under `bun test` fails for an environment reason, report the error
+   verbatim and fall back to asserting `el.type.name === "RequireModule"` via a re-export — never
+   delete the test.
 2. `nav-items.ts`: `NavPath` adds `"/households" | \`/households/${string}\``; new exports
    `PROFILE_NAV_ITEM` (`/settings`, `common.nav.profile`, `CircleUser`, `exact: false`) and
    `HOUSEHOLDS_NAV_ITEM` (`/households`, `common.nav.groups`, `Users`, `exact: false`);
@@ -920,16 +1123,18 @@ components/layout/{nav-items,nav-items.test,use-nav-items,AppShell}.ts(x),lib/qu
 
 **Files.** `apps/web/src/router.tsx`, `apps/web/src/components/layout/{nav-items.ts,nav-items.test.ts,
 use-nav-items.ts,AppShell.tsx,UnverifiedEmailBanner.tsx}`, `apps/web/src/lib/{query-client.ts,
-query-client.test.ts}`.
+query-client.test.ts}`, `apps/web/src/modules/{layout.tsx,layout.test.tsx}`.
 
 **Acceptance.** Unauthenticated `/` redirects to `/login?next=/`; `/login`, `/register`,
 `/invite/$token` render without the shell; `/settings` and `/households` render inside the shell
-without an active household; a module layout renders through `RequireModule`; nav tests green;
-build emits separate chunks for HouseholdsPage, HouseholdDetailPage, SettingsPage.
+without an active household; every module layout route's component is
+`moduleLayoutComponent(module.id)` (layout test green); nav tests green; build emits separate
+chunks for HouseholdsPage, HouseholdDetailPage, SettingsPage.
 
 **Verify.** `cd H && bun run typecheck`;
-`cd H && bun test apps/web/src/components/layout apps/web/src/lib`; `cd H && bun run build`;
-`cd H && ls apps/web/dist/assets | grep -q SettingsPage`.
+`cd H && bun test apps/web/src/components/layout apps/web/src/lib apps/web/src/modules`;
+`cd H && bun run build`; `cd H && ls apps/web/dist/assets | grep -q SettingsPage`;
+`cd H && grep -q "moduleLayoutComponent(" apps/web/src/router.tsx`.
 
 ---
 
@@ -1056,10 +1261,12 @@ in a real headless browser" (incl. "Do NOT match the tab bar by its aria-label")
 
 ## 3. Risks
 
-1. **Haiku and the large ports (T04, T08).** Both move ~1,000 source lines with renames.
-   Mitigation: the rename table, exact function names, the T04 `modules.ts` code given verbatim,
-   grep-based verify commands that fail on any leftover `group` identifier, and the verifier's
-   `diff` against R.
+1. **Haiku and the large ports (T04, T07, T08).** Each moves ~1,000+ source lines with renames.
+   Mitigation: T07 (households) and T08 (auth) were split — Settings is T07b, and seed/scripts/the
+   judgement-heavy gate test are T08b (build tier); the rename table, exact function names and
+   import rewrites, the T04 `modules.ts` code given verbatim, grep verifies anchored on
+   `\bgroupId\b` (so the kept `server.group.groupIdMissing` key never trips them; T02 fixes the one
+   stale `/api/groups` comment beforehand), and the verifier's `diff` against R.
 2. **`initializeHousehold` imports `modules/index.ts` from a core service.** Today the registry is
    empty; in M2 a manifest whose routes import `core/services/households/*` creates an import cycle
    through `modules/index.ts`. Functions-only cycles are safe in ESM, a top-level read is not: M2
@@ -1073,15 +1280,21 @@ in a real headless browser" (incl. "Do NOT match the tab bar by its aria-label")
 5. **Typed links.** M0 left the route tree loose (any `to` compiles); ported `<Link to>`s therefore
    cannot be checked by tsc in M1. The headless pass (T12) is the check; M2 restores the strict tree.
 6. **"A route under a disabled module redirects to Home" has no module route to exercise in M1.**
-   Covered by the `isModuleEnabled` tests (T05), the `module_disabled` → `me` invalidation test
-   (T10), and `RequireModule` being the module layout's component (T10 acceptance, code read). M2's
-   headless pass must disable `recipe` and load `/recipe` (handed on in §6).
+   Covered executably without a DOM: `moduleGuard` (the decision RequireModule acts on, T05), the
+   `moduleLayoutComponent` element-tree test (every module layout renders RequireModule around its
+   Outlet, T10), and the `module_disabled` → `me` invalidation test (T10). Not covered in M1: the
+   toast/navigate effect itself in a browser — M2's headless pass must disable `recipe` and load
+   `/recipe` (handed on in §6).
 7. **sharp on CI/hosts.** Prebuilt binaries via optionalDependencies (not optional peers, so Bun 1.4
    installs them); if `bun install --frozen-lockfile` fails on CI, the lock must be regenerated with
    `bun add` on Linux x64, not hand-edited.
-8. **Wave 3/4 parallel edits of `apps/api/src/index.ts` are avoided** (T08 only in w3, T09 edits
-   `households.ts`). If an implementer needs `index.ts` in T09, that is a plan bug: add the route in
+8. **Parallel edits of `apps/api/src/index.ts` are avoided by deps, not by wave luck**: T02 → T04
+   → T08 is a dependency chain, and T09 (deps T04, T08) edits `households.ts` only. If an
+   implementer needs `index.ts` in T09 or T08b, that is a plan bug: add the route in
    `households.ts` instead.
+9. **Test retargeting in T08b.** The core gate tests now write through `PATCH
+   /api/households/:id` (owner, verified e-mail). If that route's gating ever changes, these tests
+   are the alarm; M2 adds the recipe write cases back next to them, it does not replace them.
 
 ## 4. Deviations expected (to be confirmed in "what changed vs plan")
 
@@ -1100,8 +1313,13 @@ None from SPEC §1, so no ADR planned. Plan-level choices to confirm:
   kept).
 - SPEC §3's `core/routes/{households,members,invites,modules}.ts` are `register…Routes()`
   functions on one Hono instance, not separate sub-apps.
-- `lib/nav.tsx` (R's `features/recipes/lib/nav.tsx`) is core; `core/services/media/uploads.ts`
-  (R's `services/recipes/uploads.ts`) is core.
+- `lib/nav.tsx` (R's `features/recipes/lib/nav.tsx`) is core; `lib/permissions.ts` (`hasAtLeast`
+  from R's `features/recipes/lib/permissions.ts`) and `lib/share.ts` (the share block of R's
+  `features/recipes/lib/hooks.ts`) are core; `core/services/media/uploads.ts` (R's
+  `services/recipes/uploads.ts`) is core.
+- `verified-email-gate.test.ts`'s gate-behaviour cases write through `PATCH /api/households/:id`
+  and `POST /api/households` instead of R's recipe/tag routes (T08b); R's recipe-route cases return
+  in M2.
 - Server keys `server.group.*` and the `{groupName}` placeholders keep their names.
 - No new migration; no SW rule changes.
 
@@ -1117,9 +1335,12 @@ rules (M2/M3), the copy rename "Gruppe" → "Haushalt" (owner/ADR, M4 at the ear
 
 Closed by M1 (from M0): the two `auth.settings.language.*` tests and the `"auth."`/`"household."`
 prefixes (T03); `lib/session.tsx`, `UnverifiedEmailBanner`, the switchers, `/uploads` + thumbnails
-+ sharp, `seed`, `auth:reset-password` (T05, T10, T11, T02, T08).
++ sharp, `seed`, `auth:reset-password` (T05, T10, T11, T02, T08b).
 
-Handed to M2: restore the `M2:` placeholders of `uploads.test.ts`, `verified-email-gate.test.ts`,
-`households.test.ts` (recipe-row cascade) and `seed.ts`; the headless check that a disabled
+Handed to M2: restore the `M2:` placeholders of `uploads.test.ts`, `verified-email-gate.test.ts`
+(ADDING the recipe cases next to the retargeted core ones), `households.test.ts` (recipe-row
+cascade) and `seed.ts`; the recipe module imports `hasAtLeast` from `@/lib/permissions` and the share
+helpers from `@/lib/share` (its own `lib/hooks.ts` drops the share block, `canModifyOwn` lives in the
+module); the headless check that a disabled
 `recipe` redirects `/recipe` to Home with the toast; keep `API_MODULES`/`WEB_MODULES` reads inside
 functions (risk 2). M0's M2/M3 obligations stand unchanged.
