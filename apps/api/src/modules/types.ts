@@ -37,6 +37,8 @@ export interface ApiModule {
   /**
    * Mounted at `/api/households/:householdId/<id>` after
    * `requireSession()` → `requireHouseholdRole("member")` → `requireModule(id)`.
+   * Every by-id lookup here MUST be scoped by `membership.householdId` and answer 404
+   * `not_found` otherwise (D8; see the header of middleware/household.ts).
    */
   householdRouter?: Hono<AppEnv>;
   /** Mounted at `/api/<id>` — user-scoped routes (e.g. recipe cards). */

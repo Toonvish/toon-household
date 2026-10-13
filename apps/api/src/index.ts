@@ -10,12 +10,15 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { isVerifiedEmailRequired } from "./core/services/auth/verifiedEmail.ts";
 import { dbReady } from "./db/client.ts";
 import { env } from "./env.ts";
 import { notFoundHandler, onErrorHandler } from "./lib/errors.ts";
 import { localeMiddleware } from "./lib/locale.ts";
 import type { AppEnv } from "./lib/types.ts";
+import { webAppMiddleware } from "./middleware/staticWeb.ts";
 import { API_MODULES } from "./modules/index.ts";
+import { mountModules } from "./modules/mount.ts";
 
 export const app = new Hono<AppEnv>();
 
@@ -57,10 +60,13 @@ app.get("/api/health", (c) =>
     time: new Date().toISOString(),
     database: env.databaseKind,
     modules: API_MODULES.map((module) => module.id),
-    features: Object.assign(
-      {},
-      ...API_MODULES.map((module) => module.healthFeatures?.() ?? {}),
-    ) as Record<string, boolean>,
+    features: {
+      verifiedEmailRequired: isVerifiedEmailRequired(),
+      ...(Object.assign(
+        {},
+        ...API_MODULES.map((module) => module.healthFeatures?.() ?? {}),
+      ) as Record<string, boolean>),
+    },
   }),
 );
 
@@ -74,14 +80,16 @@ app.get("/api/health", (c) =>
 //     under /api/households/:householdId — invites before `:id`, SPEC D8)
 
 // --- modules ----------------------------------------------------------------
-// M0-T09: mountModules(app, API_MODULES) — each household router at
-// /api/households/:householdId/<id> behind requireSession → requireHouseholdRole
-// → requireModule(id), each user router at /api/<id>.
+mountModules(app, API_MODULES);
 
 // --- static web (LAST) --------------------------------------------------------
-// M0-T09: `app.use("*", webAppMiddleware(env.webDistDir))` when WEB_DIST_DIR is
-// set. It MUST stay the last registration: it falls back to the SPA shell for
-// unknown paths, so anything it saw first would never reach a real route.
+// The built web app, same-origin, when WEB_DIST_DIR is set (the Docker image; in dev
+// vite serves it). It MUST stay the last registration: it falls back to the SPA
+// shell for unknown paths, so anything it saw first would never reach a real route.
+// It refuses `/api/*` and `/uploads/*` itself — see middleware/staticWeb.ts.
+if (env.webDistDir !== null) {
+  app.use("*", webAppMiddleware(env.webDistDir));
+}
 
 if (!env.isTest) {
   // The connection PRAGMAs (WAL etc., see db/client.ts) are queued before the first
