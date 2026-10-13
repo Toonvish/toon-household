@@ -16,6 +16,8 @@
  *
  *   gated    POST /  ·  PATCH /:householdId  ·  DELETE /:householdId  ·  POST /:householdId/invites
  *            — creating households and mailing invitations is the spam surface.
+ *   gated    POST + DELETE /:householdId/modules/:moduleId (modules.ts) — a household-wide
+ *            settings write, gated like PATCH /:householdId.
  *   ungated  POST /invites/accept — the one write an unconfirmed account MUST
  *            keep, or an invited flatmate cannot get in at all.
  *   ungated  the member routes — leaving a household and role changes are neither
@@ -53,6 +55,7 @@ import {
 import { onValidationError } from "../services/households/validation.ts";
 import { registerHouseholdInviteRoutes, registerInviteTokenRoutes } from "./invites.ts";
 import { registerMemberRoutes } from "./members.ts";
+import { registerModuleRoutes } from "./modules.ts";
 
 export const householdRoutes = new Hono<AppEnv>();
 
@@ -130,6 +133,6 @@ householdRoutes.delete(
 registerMemberRoutes(householdRoutes);
 registerHouseholdInviteRoutes(householdRoutes);
 
-// M1-T09: registerModuleRoutes(householdRoutes) — /:householdId/modules/:moduleId
+registerModuleRoutes(householdRoutes);
 
 export default householdRoutes;
