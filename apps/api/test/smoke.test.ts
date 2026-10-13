@@ -59,12 +59,15 @@ describe("GET /api/health", () => {
       status: string;
       database: string;
       modules: string[];
+      features: { verifiedEmailRequired: unknown };
     };
     expect(body.ok).toBe(true);
     expect(body.status).toBe("ok");
     expect(body.database).toBe("file");
     // The build's modules (SPEC §2): none until M2/M3 register theirs.
     expect(body.modules).toEqual([]);
+    // Core's own feature flag, merged ahead of the modules' healthFeatures().
+    expect(typeof body.features.verifiedEmailRequired).toBe("boolean");
     expect(() => HealthResponseSchema.parse(body)).not.toThrow();
   });
 });
