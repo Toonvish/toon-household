@@ -11,6 +11,7 @@ import { type UserRow, householdMembers, households, users } from "../../../db/s
 import { ApiError } from "../../../lib/errors.ts";
 import { toIso, toIsoOrNull } from "../../../lib/http.ts";
 import { signUploadUrl } from "../../../lib/uploadUrls.ts";
+import { initializeHousehold } from "../households/modules.ts";
 
 /** Default name of the household created for a brand-new account. */
 export const DEFAULT_HOUSEHOLD_NAME = "Meine Rezepte";
@@ -124,6 +125,8 @@ export async function createOwnedHousehold(
     role: "owner",
     createdAt: now,
   });
+  // The default module rows + build modules' onHouseholdCreated hooks (SPEC D2).
+  await initializeHousehold(database, householdId);
   await setActiveHousehold(database, userId, householdId);
   return { householdId };
 }

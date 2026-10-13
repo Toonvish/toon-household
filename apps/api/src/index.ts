@@ -12,6 +12,7 @@ import { join, normalize } from "node:path";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { householdRoutes } from "./core/routes/households.ts";
 import { isVerifiedEmailRequired } from "./core/services/auth/verifiedEmail.ts";
 import { resolveThumbnail } from "./core/services/media/thumbnails.ts";
 import { dbReady } from "./db/client.ts";
@@ -141,13 +142,14 @@ app.get("/uploads/:filename", async (c) => {
   });
 });
 
-// --- core routers -----------------------------------------------------------
-// M1: app.route("/api/auth", authRoutes);
-// M1: app.route("/api/households", householdRoutes);  (members, invites, modules
-//     under /api/households/:householdId — invites before `:id`, SPEC D8)
-
 // --- modules ----------------------------------------------------------------
 mountModules(app, API_MODULES);
+
+// --- core routers -----------------------------------------------------------
+// M1: app.route("/api/auth", authRoutes);
+// Members, invites and modules under /api/households/:householdId; the invite-token
+// routes sit before `:householdId` inside householdRoutes (SPEC D8).
+app.route("/api/households", householdRoutes);
 
 // --- static web (LAST) --------------------------------------------------------
 // The built web app, same-origin, when WEB_DIST_DIR is set (the Docker image; in dev
