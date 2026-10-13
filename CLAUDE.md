@@ -36,9 +36,26 @@ every milestone.
 
 ## Commands
 
-To be written by M0. They will be toon-recipe's: `bun run dev`, `bun run typecheck`, `bun test`,
-`bun run build`, `bun run i18n:check`, `bun run db:migrate`, `bun run seed`, plus
-`bun run migrate:legacy` (M5) and `bun run plan:run` (M3).
+Run from the repo root. Bun 1.4.2 (`.bun-version`); `bun install --frozen-lockfile` first.
+
+- `bun run dev`: API (`:3001`, `bun --watch`) and Vite web (`:5173`, proxies `/api`) together. Needs
+  `DATABASE_URL` and `SESSION_SECRET` (16+ chars) in the environment or a root `.env` (copy
+  `.env.example`), and a migrated DB, e.g.
+  `DATABASE_URL=file:./data/m0.db SESSION_SECRET=<32 hex chars> bun run dev`.
+- `bun run dev:api` / `bun run dev:web`: the same two processes one at a time.
+- `bun run start`: the API without watch (production); with `WEB_DIST_DIR=./apps/web/dist` it also
+  serves the built shell (needs `bun run build` first).
+- `bun run typecheck`: `tsc --noEmit` over packages/shared, apps/api and the three apps/web projects.
+- `bun test`: all unit and API tests (API uses an in-memory libSQL DB).
+- `bun run build`: Vite build plus the generated PWA service worker into `apps/web/dist`.
+- `bun run i18n:check`: German catalog parity plus no German left in ported source; grep-shaped and
+  exits non-zero even when the tree is correct, so read its output (comment quotes of German labels
+  are expected false positives).
+- `bun run db:generate`: drizzle-kit generates a migration from `apps/api/src/db/schema`.
+- `bun run db:migrate`: applies the migrations to `DATABASE_URL` (e.g. `file:./data/m0.db`).
+- `bun run db:studio`: drizzle-kit studio on the configured DB.
+
+Arrive later: `bun run seed` (M1), `bun run plan:run` (M3), `bun run migrate:legacy` (M5).
 
 ## Conventions
 
