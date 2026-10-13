@@ -1337,6 +1337,12 @@ Closed by M1 (from M0): the two `auth.settings.language.*` tests and the `"auth.
 prefixes (T03); `lib/session.tsx`, `UnverifiedEmailBanner`, the switchers, `/uploads` + thumbnails
 + sharp, `seed`, `auth:reset-password` (T05, T10, T11, T02, T08b).
 
+Closed by the M1 review fix: the core cases of toon-recipe `packages/shared/test/schemas.test.ts`
+(`ApiErrorSchema` envelope and bare message, `RegisterRequestSchema` e-mail normalisation and short
+password) are ported into `packages/shared/test/core.test.ts`. The remaining cases of that file are
+recipe/plan/import/shopping schemas and are handed to M2 (port them with their schemas into
+`packages/shared/test/`).
+
 Handed to M2: restore the `M2:` placeholders of `uploads.test.ts`, `verified-email-gate.test.ts`
 (ADDING the recipe cases next to the retargeted core ones), `households.test.ts` (recipe-row
 cascade) and `seed.ts`; the recipe module imports `hasAtLeast` from `@/lib/permissions` and the share

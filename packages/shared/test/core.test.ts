@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
+  ApiErrorSchema,
   ERROR_CODES,
   HealthResponseSchema,
   type HouseholdRole,
   ROLE_RANK,
+  RegisterRequestSchema,
   resolveWireKey,
   roleAtLeast,
 } from "../src/index.ts";
@@ -84,5 +86,36 @@ describe("resolveWireKey", () => {
     expect(resolveWireKey("en", "server.module.disabled")).toBe(
       "This module is not enabled for this household.",
     );
+  });
+});
+
+// Ported from toon-recipe packages/shared/test/schemas.test.ts (the core cases; the recipe cases
+// of that file return with the recipe module in M2).
+describe("ApiErrorSchema", () => {
+  test("accepts the standard envelope", () => {
+    expect(
+      ApiErrorSchema.parse({ error: { code: "not_found", message: "Rezept nicht gefunden" } }),
+    ).toBeTruthy();
+  });
+
+  test("rejects a bare message", () => {
+    expect(ApiErrorSchema.safeParse({ message: "nope" }).success).toBe(false);
+  });
+});
+
+describe("RegisterRequestSchema", () => {
+  test("lowercases and trims the e-mail", () => {
+    const parsed = RegisterRequestSchema.parse({
+      email: "  Test@Example.COM ",
+      name: "Erik",
+      password: "supersicher1",
+    });
+    expect(parsed.email).toBe("test@example.com");
+  });
+
+  test("rejects short passwords", () => {
+    expect(
+      RegisterRequestSchema.safeParse({ email: "a@b.de", name: "A", password: "kurz" }).success,
+    ).toBe(false);
   });
 });
