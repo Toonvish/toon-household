@@ -97,6 +97,34 @@ const NEW_GERMAN = new Set<string>([
   "home.empty.title",
   // M0: new household copy (SPEC D10)
   "home.empty.body",
+  // M1: new household copy (SPEC D10)
+  "home.modules.availableTitle",
+  // M1: new household copy (SPEC D10)
+  "home.modules.memberHint",
+  // M1: new household copy (SPEC D10)
+  "home.modules.manage",
+  // M1: new household copy (SPEC D10)
+  "home.modules.manageDescription",
+  // M1: new household copy (SPEC D10)
+  "home.modules.disable",
+  // M1: new household copy (SPEC D10)
+  "home.modules.enabledToast",
+  // M1: new household copy (SPEC D10)
+  "home.modules.disabledToast",
+  // M1: new household copy (SPEC D10)
+  "home.modules.disableConfirmTitle",
+  // M1: new household copy (SPEC D10)
+  "home.modules.disableConfirmDescription",
+  // M1: new household copy (SPEC D10)
+  "home.moduleSwitcher.title",
+  // M1: new household copy (SPEC D10)
+  "home.moduleSwitcher.label",
+  // M1: new household copy (SPEC D10)
+  "home.moduleDisabled.toast",
+  // M1: new household copy (SPEC D10)
+  "household.detail.meta",
+  // M1: new household copy (SPEC D10)
+  "household.danger.warning",
 ]);
 
 /** Immediate subdirectories of `rel` (relative to ROOT); empty when `rel` does not exist. */

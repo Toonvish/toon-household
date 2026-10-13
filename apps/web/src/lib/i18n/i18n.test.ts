@@ -18,7 +18,7 @@ import { getLocale, setLocaleForTest, translate } from "./store.ts";
 
 describe("catalog integrity", () => {
   test("every namespace's keys are prefixed and prefixes never collide", () => {
-    const prefixes = ["common.", "home."];
+    const prefixes = ["common.", "home.", "auth.", "household."];
     for (const key of Object.keys(CATALOGS.de)) {
       const matches = prefixes.filter((prefix) => key.startsWith(prefix));
       expect(matches.length).toBe(1);
@@ -40,6 +40,10 @@ describe("catalog integrity", () => {
   test("the home namespace renders in both locales", () => {
     expect(CATALOGS.de["home.nav.label"]).toBe("Start");
     expect(CATALOGS.en["home.nav.label"]).toBe("Home");
+  });
+
+  test("the household namespace renders in German", () => {
+    expect(CATALOGS.de["household.role.owner"]).toBe("Eigentümer:in");
   });
 
   test("de and en list exactly the same keys", () => {
@@ -122,7 +126,21 @@ describe("locale preference", () => {
     expect(LOCALES as readonly string[]).not.toContain("system");
   });
 
-  // M1 restores two tests here with auth.de.ts/auth.en.ts: "every locale has a picker label,
-  // in every catalog" and "language names are autonyms — identical across catalogs" (R gotcha
-  // "The language picker's third state is system"; docs/plans/m0-scaffold.md §4).
+  test("every locale has a picker label, in every catalog", () => {
+    // The label for a locale must exist in the OTHER locale's catalog too, or a
+    // user who switched to a language they cannot read has no way back.
+    for (const locale of LOCALES) {
+      for (const catalogLocale of LOCALES) {
+        const key = `auth.settings.language.${locale}`;
+        expect(Object.hasOwn(CATALOGS[catalogLocale], key), `${key} missing from ${catalogLocale}`).toBe(true);
+      }
+    }
+  });
+
+  test("language names are autonyms — identical across catalogs", () => {
+    for (const locale of LOCALES) {
+      const key = `auth.settings.language.${locale}` as MessageKey;
+      expect(CATALOGS.en[key]).toBe(CATALOGS.de[key]);
+    }
+  });
 });

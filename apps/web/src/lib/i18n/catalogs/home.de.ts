@@ -13,6 +13,20 @@ export const homeDe = {
   "home.title": "Start",
   "home.empty.title": "Noch keine Module aktiviert",
   "home.empty.body": "Sobald ein Modul für diesen Haushalt aktiviert ist, erscheint es hier.",
+  "home.eyebrow": "Haushalt",
+  "home.modules.availableTitle": "Verfügbare Module",
+  "home.modules.enable": "Aktivieren",
+  "home.modules.memberHint": "Nur Administrator:innen und Besitzer:innen können Module aktivieren.",
+  "home.modules.manage": "Module verwalten",
+  "home.modules.manageDescription": "Module gelten für den ganzen Haushalt. Die Daten eines deaktivierten Moduls bleiben erhalten.",
+  "home.modules.disable": "Deaktivieren",
+  "home.modules.enabledToast": "Modul aktiviert",
+  "home.modules.disabledToast": "Modul deaktiviert",
+  "home.modules.disableConfirmTitle": "Modul deaktivieren?",
+  "home.modules.disableConfirmDescription": "„{name}“ verschwindet für alle Mitglieder dieses Haushalts. Die Daten bleiben erhalten.",
+  "home.moduleSwitcher.title": "Modul wechseln",
+  "home.moduleSwitcher.label": "Module",
+  "home.moduleDisabled.toast": "Dieses Modul ist für diesen Haushalt nicht aktiviert.",
 } as const satisfies NamespaceCatalog<"home">;
 
 export type HomeCatalog = typeof homeDe;
