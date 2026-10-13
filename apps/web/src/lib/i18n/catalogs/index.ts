@@ -17,13 +17,17 @@
  * `i18n.test.ts` "MessageKey is a literal union (D10)" guards it.
  */
 import { MODULE_CATALOGS_DE, MODULE_CATALOGS_EN } from "../../../modules/catalogs.ts";
+import { authDe } from "./auth.de.ts";
+import { authEn } from "./auth.en.ts";
 import { commonDe } from "./common.de.ts";
 import { commonEn } from "./common.en.ts";
 import { homeDe } from "./home.de.ts";
 import { homeEn } from "./home.en.ts";
+import { householdDe } from "./household.de.ts";
+import { householdEn } from "./household.en.ts";
 
-const de = { ...commonDe, ...homeDe, ...MODULE_CATALOGS_DE };
-const en = { ...commonEn, ...homeEn, ...MODULE_CATALOGS_EN };
+const de = { ...commonDe, ...homeDe, ...authDe, ...householdDe, ...MODULE_CATALOGS_DE };
+const en = { ...commonEn, ...homeEn, ...authEn, ...householdEn, ...MODULE_CATALOGS_EN };
 
 export const CATALOGS = { de, en } as const;
 export type MessageKey = keyof typeof de;
