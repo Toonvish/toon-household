@@ -1,5 +1,6 @@
-import { QueryClient } from "@tanstack/react-query";
-import { STALE_TIME, retryDelay, shouldRetry } from "./queries";
+import { MutationCache, QueryCache, QueryClient } from "@tanstack/react-query";
+import { isApiError } from "./api";
+import { STALE_TIME, queryKeys, retryDelay, shouldRetry } from "./queries";
 
 /**
  * Builds a QueryClient. Defaults are tuned for a mobile PWA: no refetch storms on
@@ -8,9 +9,23 @@ import { STALE_TIME, retryDelay, shouldRetry } from "./queries";
  *
  * Prefer the {@link queryClient} singleton in app code; this factory is for tests that
  * want an isolated cache.
+ *
+ * MODULE DISABLED (SPEC §5, plan m1-core §1 decision 9). A module route answers
+ * `404 module_disabled` once the household's module is off. Both caches' `onError`
+ * invalidate `["toon","me"]` on that code: the refetched `households[].modules` drops the
+ * module and `RequireModule` (the module layout route) redirects Home with the toast. One
+ * code path for "disabled while the PWA was open" and "stale bundle"; no screen handles it.
  */
 export function createQueryClient(): QueryClient {
-  return new QueryClient({
+  let client: QueryClient;
+  const onError = (error: unknown): void => {
+    if (isApiError(error) && error.code === "module_disabled") {
+      void client.invalidateQueries({ queryKey: queryKeys.me() });
+    }
+  };
+  client = new QueryClient({
+    queryCache: new QueryCache({ onError }),
+    mutationCache: new MutationCache({ onError }),
     defaultOptions: {
       queries: {
         staleTime: STALE_TIME.list,
@@ -26,6 +41,7 @@ export function createQueryClient(): QueryClient {
       },
     },
   });
+  return client;
 }
 
 /**

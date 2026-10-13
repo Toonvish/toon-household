@@ -1,11 +1,12 @@
-import { House, type LucideIcon } from "lucide-react";
+import { CircleUser, House, Users, type LucideIcon } from "lucide-react";
 import type { ModuleId } from "@toon/shared";
 import type { MessageKey } from "@/lib/i18n";
 import type { WebModule } from "@/modules/types";
 
 /**
- * Every path a nav item may point at: Home, the shared Profil (`/settings`, M1), a
- * module's base path or any path below it.
+ * Every path a nav item may point at: Home, the shared Profil (`/settings`), the core
+ * household screens (`/households`, `/households/$householdId`), a module's base path or
+ * any path below it.
  *
  * HOW `to` STAYS TYPED WITH MODULE-CONTRIBUTED PATHS. Module routes reach the router at
  * runtime as `AnyRoute[]` (SPEC §2), so the registered route tree cannot name a module's
@@ -22,7 +23,13 @@ import type { WebModule } from "@/modules/types";
  *
  * A path that has no route still renders `NotFoundPage` — the router's job.
  */
-export type NavPath = "/" | "/settings" | `/${ModuleId}` | `/${ModuleId}/${string}`;
+export type NavPath =
+  | "/"
+  | "/settings"
+  | "/households"
+  | `/households/${string}`
+  | `/${ModuleId}`
+  | `/${ModuleId}/${string}`;
 
 export interface NavItem {
   to: NavPath;
@@ -50,6 +57,31 @@ export const HOME_NAV_ITEM: NavItem = {
   exact: true,
 };
 
+/**
+ * Profil (`/settings`) — the shared LAST tab, inside a module and outside (SPEC D6, §5).
+ * `CircleUser`, not a gear: the tab is a person, not a preferences screen (R design spec
+ * 05-frontend-shell §7).
+ */
+export const PROFILE_NAV_ITEM: NavItem = {
+  to: "/settings",
+  labelKey: "common.nav.profile",
+  icon: CircleUser,
+  exact: false,
+};
+
+/**
+ * Gruppen (`/households`) — the core's sidebar-only item, always the last secondary entry.
+ * Below `lg` there is no sidebar, so its phone route is the households card on `/settings`
+ * (R's reachability rule for Gruppen: deleting that card orphans household management on a
+ * phone). Copy stays R's "Gruppen" (plan m1-core §1 decision 5, D10).
+ */
+export const HOUSEHOLDS_NAV_ITEM: NavItem = {
+  to: "/households",
+  labelKey: "common.nav.groups",
+  icon: Users,
+  exact: false,
+};
+
 /** At most this many modules get a tab outside a module (SPEC §5: Home · max two · Profil). */
 const MAX_MODULE_TABS = 2;
 
@@ -60,7 +92,7 @@ export interface NavContext {
   modules: readonly WebModule[];
   /**
    * The ACTIVE HOUSEHOLD's enabled modules (`household.modules`, SPEC §2). Unknown ids
-   * are ignored. Empty until M1 wires the session; M0 has none.
+   * are ignored. From the session (`useNavItems`); empty without an active household.
    */
   enabledModuleIds: readonly string[];
 }
@@ -81,14 +113,14 @@ export function activeModule(
  * imports the layout, and a constant here would read the registry mid-cycle (plan §1
  * decision 6).
  *
- *  - Inside a module: that module's own `navItems` (+ Profil from M1).
- *  - Outside (Home, Settings): Home · the enabled modules, at most two (+ Profil from M1).
+ *  - Inside a module: that module's own three `navItems` · Profil.
+ *  - Outside (Home, Settings, Gruppen): Home · the enabled modules, at most two · Profil.
  *
- * M0 has no modules and no session, so the result is `[HOME_NAV_ITEM]`.
+ * With no module enabled (all of M1) the result is `[HOME_NAV_ITEM, PROFILE_NAV_ITEM]`.
  */
 export function primaryNavItems({ pathname, modules, enabledModuleIds }: NavContext): readonly NavItem[] {
   const current = activeModule(pathname, modules);
-  if (current) return current.navItems;
+  if (current) return [...current.navItems, PROFILE_NAV_ITEM];
   const moduleTabs = modules
     .filter((module) => enabledModuleIds.includes(module.id))
     .slice(0, MAX_MODULE_TABS)
@@ -100,14 +132,15 @@ export function primaryNavItems({ pathname, modules, enabledModuleIds }: NavCont
         exact: false,
       }),
     );
-  return [HOME_NAV_ITEM, ...moduleTabs];
+  return [HOME_NAV_ITEM, ...moduleTabs, PROFILE_NAV_ITEM];
 }
 
 /**
- * Sidebar-only destinations of the active module (D6). Every one of them must also be
- * reachable from a tab screen, because there is no sidebar below `lg`. Outside a
- * module there are none.
+ * Sidebar-only destinations (D6): the active module's `secondaryNavItems`, then the core
+ * Gruppen item — so outside a module the list is Gruppen alone. Every one of them must
+ * also be reachable from a tab screen, because there is no sidebar below `lg` (Gruppen:
+ * the households card on `/settings`).
  */
 export function secondaryNavItems({ pathname, modules }: NavContext): readonly NavItem[] {
-  return activeModule(pathname, modules)?.secondaryNavItems ?? [];
+  return [...(activeModule(pathname, modules)?.secondaryNavItems ?? []), HOUSEHOLDS_NAV_ITEM];
 }
