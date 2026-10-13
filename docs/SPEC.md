@@ -172,6 +172,7 @@ export interface WebModule {
   homeCard: ComponentType         // the card on Home
   persistQueryAllowList: QueryKeyPrefix[]
   mutationDefaults?(queryClient): void   // offline outbox registration, called before the persister restores
+  persistMutationNamespaces?: string[][]   // key paths after "toon" whose paused mutations are persisted, e.g. ["finance","tx"]; pairs with mutationDefaults (D9; added in M0)
   catalogs: { de: NamespaceCatalog; en: LocaleCatalog<...> }
   settingsSections?: ComponentType[]     // rendered on /settings when enabled
 }

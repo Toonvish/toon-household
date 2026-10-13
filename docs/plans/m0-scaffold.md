@@ -1,5 +1,7 @@
 # M0 — scaffold: plan
 
+**Status: DONE (2026-10-13).** Exit criteria met; see "6. What changed vs plan" at the end.
+
 Milestone M0 of `docs/SPEC.md` §8. Written 2026-10-13 by the planner of the `build-household`
 workflow. Paths: `H` = `/home/erics/software/toon-household` (this repo), `R` =
 `/home/erics/software/toon-recipe`, `F` = `/home/erics/software/toon-finance` (both READ-ONLY).
@@ -902,4 +904,65 @@ release/deploy workflows (M6); `docs/API.md`, `docs/modules/*.md`, ADRs (M7).
 
 ## 6. What changed vs plan
 
-(Filled in by the workflow after the milestone.)
+Milestone closed 2026-10-13 after review. Gates on the merged tree (`b128608`): `bun install`,
+`bun run typecheck`, `bun test` (214 pass, 0 fail, 16 files) and `bun run build` exit 0;
+`bun run i18n:check` exits 1 by design, its catalog-parity half is OK and its leftover-German half
+lists 11 hits, every one a German label quoted in a doc comment copied unchanged from toon-recipe
+(false-positive class "comment quote"). `db:migrate` against a fresh `file:` DB exits 0; `bun run dev`
+serves `/api/health` on :3001 and through the Vite proxy on :5173 with `modules: []`; the headless
+render at 390 px and 1440 px shows the empty shell with no console errors and no horizontal scroll
+(content column 1204 px, sidebar 236 px, D5).
+
+**No deviation from SPEC §1 (D1-D15), so no ADR.** `docs/adr/` is created empty for the first one.
+
+### Deviations from the plan (all small, none touches SPEC §1)
+
+Expected in section 4 and confirmed:
+
+1. `lib/session.tsx`, `UnverifiedEmailBanner`, `PhoneHeaderRow` and the group-switcher parts of
+   `SideNav` are deferred to M1 (`AppShell` has no banner, `SideNav` is brand + items).
+2. `/uploads/:filename`, media thumbnails and `sharp` are deferred to M1; `seed`,
+   `auth:reset-password`, `uploads:gc` to M1/M2. The lockfile carries no `sharp`, `unpdf`, `zxing-wasm`.
+3. `legacy_ids` keeps D12's column `table` (TS property `tableName`); not a deviation.
+4. SPEC §2 contract extension `WebModule.persistMutationNamespaces?` (decision 8), so D9's "assembled
+   from the module manifests" covers the offline outboxes; folded into SPEC §2's interface text in
+   the docs-sync commit of this milestone (earlier than the "M7" the plan expected).
+5. `ui.*` becomes `common.*` (keys and call sites), `UiCatalog` becomes `CommonCatalog`; values
+   byte-identical (checked against toon-recipe's `ui.de.ts`).
+6. Recipe formatters (`formatMinutes`, `formatServingsLabel`), the fold backfill in `migrate.ts`, the
+   recipe service-worker rules and the recipe resource resolvers in `household.ts` left the core;
+   M2 re-homes them. `vite.config.ts` carries only `/api/auth/` and `/uploads/` rules.
+7. Shared `i18n.test.ts` lost the `formatDuration` describe block, web `i18n.test.ts` lost the two
+   `auth.settings.language.*` tests; each place carries a placeholder comment naming the returning
+   milestone.
+8. Health adds `ok: true` next to `status: "ok"`, plus `modules` and the core
+   `features.verifiedEmailRequired`.
+9. `ERROR_CODES`, the server catalog (`server.group.*`, `{groupName}`), `env.ts` and
+   `DEFAULT_HOUSEHOLD_NAME = "Meine Rezepte"` are carried verbatim; renames are M1/M2 calls.
+10. CI has no poppler step and no docker-build job; `i18n:check` is not a CI step (it needs the two
+    source repos beside the checkout).
+
+Not in the plan, found while building:
+
+11. `bun run db:migrate` failed without `SESSION_SECRET` because `env.ts` requires it for the server
+    (commit `0fd987c`, T05 fix). `apps/api/scripts/migrate.ts` now sets a placeholder (never
+    overriding a real value) and imports the db modules dynamically. The plan's verify command
+    (`DATABASE_URL` only) is what the SPEC §7 gate runs.
+12. `components/ui` is 26 files (25 primitives plus the barrel); the T10 commit message says "24 primitives".
+13. Router typing (measured in T11): module-contributed `AnyRoute[]` children make the registered
+    route tree loose, so `<Link to>` is unchecked app-wide once a module is listed. `NavItem.to` is
+    the hand-written `NavPath` union with `linkTo()` as the single widening. M2 restores a strict tree
+    (literal-typed registry) and must solve how a module route reaches the module layout route
+    without importing `router.tsx`. Carried to M2 as an obligation.
+14. Housekeeping left for later: inherited comments in `vite.config.ts` and `lib/persist.ts` still
+    describe recipe-only behaviour (zxing wasm, cards, import endpoints); they become accurate again
+    in M2.
+15. Workflow (not the app): commit `45f20bf` made the merge step match task ids by token instead of
+    exact string after a merge agent's `"M0-T05 (wf/m0-m0-t05, daa4a24)"` aborted a wave.
+
+### Obligations carried forward
+
+Section 4's list stands unchanged (M1 restores the auth-language tests and prefixes; M2 restores the
+`formatDuration` tests; M2/M3 own the cross-household guard tests and `persistMutationNamespaces`
+with `mutationDefaults`), plus item 13 for M2 and item 1/2 for M1. CLAUDE.md "Obligations handed to
+later milestones" mirrors them.
