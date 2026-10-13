@@ -18,11 +18,28 @@ import { getLocale, setLocaleForTest, translate } from "./store.ts";
 
 describe("catalog integrity", () => {
   test("every namespace's keys are prefixed and prefixes never collide", () => {
-    const prefixes = ["common."];
+    const prefixes = ["common.", "home."];
     for (const key of Object.keys(CATALOGS.de)) {
       const matches = prefixes.filter((prefix) => key.startsWith(prefix));
       expect(matches.length).toBe(1);
     }
+  });
+
+  test("MessageKey is a literal union (D10)", () => {
+    // Compile-time guard: one index-signature catalog in the merge (e.g. a module
+    // registry typed `Record<string, …>`) widens `MessageKey` to `string`, this line
+    // stops compiling, and `bun run typecheck` fails. The runtime assertion only
+    // makes the guard visible in the test report.
+    const literalKeys: string extends MessageKey ? false : true = true;
+    expect(literalKeys).toBe(true);
+    // @ts-expect-error a key no catalog defines is not a MessageKey
+    const fake: MessageKey = "home.does.not.exist";
+    expect(Object.keys(CATALOGS.de)).not.toContain(fake);
+  });
+
+  test("the home namespace renders in both locales", () => {
+    expect(CATALOGS.de["home.nav.label"]).toBe("Start");
+    expect(CATALOGS.en["home.nav.label"]).toBe("Home");
   });
 
   test("de and en list exactly the same keys", () => {
