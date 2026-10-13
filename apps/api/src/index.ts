@@ -12,6 +12,7 @@ import { join, normalize } from "node:path";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { authRoutes } from "./core/routes/auth.ts";
 import { householdRoutes } from "./core/routes/households.ts";
 import { isVerifiedEmailRequired } from "./core/services/auth/verifiedEmail.ts";
 import { resolveThumbnail } from "./core/services/media/thumbnails.ts";
@@ -81,7 +82,7 @@ app.get("/api/health", (c) =>
 
 // --- uploads ----------------------------------------------------------------
 /**
- * Uploaded images (recipe photos, avatars, group covers).
+ * Uploaded images (recipe photos, avatars, household covers).
  *
  * NOT public: every URL must carry `?exp&sig` minted by the API when the owning
  * row was serialised (see lib/uploadUrls.ts for the scheme and for why a cookie
@@ -146,7 +147,7 @@ app.get("/uploads/:filename", async (c) => {
 mountModules(app, API_MODULES);
 
 // --- core routers -----------------------------------------------------------
-// M1: app.route("/api/auth", authRoutes);
+app.route("/api/auth", authRoutes);
 // Members, invites and modules under /api/households/:householdId; the invite-token
 // routes sit before `:householdId` inside householdRoutes (SPEC D8).
 app.route("/api/households", householdRoutes);
