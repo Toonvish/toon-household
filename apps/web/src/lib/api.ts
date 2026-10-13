@@ -16,9 +16,38 @@
  */
 import {
   MAX_UPLOAD_BYTES,
+  type AcceptInviteRequest,
+  type AcceptInviteResponse,
+  type AuthSessionResponse,
+  type ChangePasswordRequest,
+  type CreateHouseholdRequest,
+  type CreateInviteRequest,
+  type EmailVerificationRequestResponse,
+  type ForgotPasswordRequest,
   type HealthResponse,
+  type HouseholdDetailResponse,
+  type HouseholdInviteListResponse,
+  type HouseholdInviteResponse,
+  type HouseholdListResponse,
+  type HouseholdMemberListResponse,
+  type HouseholdMemberResponse,
+  type HouseholdResponse,
+  type InvitePreviewResponse,
+  type LoginRequest,
+  type MeResponse,
+  type ModuleId,
+  type OAuthProvider,
+  type OAuthProvidersResponse,
+  type OAuthStartResponse,
+  type PaginationQuery,
+  type RegisterRequest,
+  type ResetPasswordRequest,
+  type SessionListResponse,
+  type UpdateHouseholdRequest,
+  type UpdateMemberRoleRequest,
   type UpdateProfileRequest,
   type UserResponse,
+  type VerifyEmailRequest,
 } from "@toon/shared";
 import { getLocale, translate } from "@/lib/i18n/store.ts";
 
@@ -316,6 +345,47 @@ export function fetchHealth(options?: RequestOptions): Promise<HealthResponse> {
   return request<HealthResponse>("/api/health", { ...options, allowUnauthorized: true });
 }
 
+/* -------------------------------------------------------------------------- */
+/* auth                                                                       */
+/* -------------------------------------------------------------------------- */
+
+export function registerAccount(
+  body: RegisterRequest,
+  options?: RequestOptions,
+): Promise<AuthSessionResponse> {
+  return request<AuthSessionResponse>("/api/auth/register", {
+    ...options,
+    method: "POST",
+    body,
+    allowUnauthorized: true,
+  });
+}
+
+export function loginWithPassword(
+  body: LoginRequest,
+  options?: RequestOptions,
+): Promise<AuthSessionResponse> {
+  return request<AuthSessionResponse>("/api/auth/login", {
+    ...options,
+    method: "POST",
+    body,
+    allowUnauthorized: true,
+  });
+}
+
+export function logout(options?: RequestOptions): Promise<void> {
+  return request<void>("/api/auth/logout", {
+    ...options,
+    method: "POST",
+    allowUnauthorized: true,
+  });
+}
+
+/** Bootstrap call: user + households + activeHouseholdId. 401 here is normal (= logged out). */
+export function fetchMe(options?: RequestOptions): Promise<MeResponse> {
+  return request<MeResponse>("/api/auth/me", { ...options, allowUnauthorized: true });
+}
+
 export function updateProfile(
   body: UpdateProfileRequest,
   options?: RequestOptions,
@@ -323,8 +393,334 @@ export function updateProfile(
   return request<UserResponse>("/api/auth/me", { ...options, method: "PATCH", body });
 }
 
+export function changePassword(
+  body: ChangePasswordRequest,
+  options?: RequestOptions,
+): Promise<void> {
+  return request<void>("/api/auth/password", { ...options, method: "POST", body });
+}
+
+/**
+ * "Passwort vergessen" — ALWAYS resolves for a syntactically valid address.
+ *
+ * The API answers 204 whether or not the account exists (no user enumeration), so
+ * the calling screen must show the same confirmation either way and must NOT try to
+ * infer anything from the result. A 429 still surfaces, which is intentional.
+ */
+export function requestPasswordReset(
+  body: ForgotPasswordRequest,
+  options?: RequestOptions,
+): Promise<void> {
+  return request<void>("/api/auth/password/forgot", {
+    ...options,
+    method: "POST",
+    body,
+    allowUnauthorized: true,
+  });
+}
+
+/**
+ * Spends a reset token from a mailed link. On success EVERY session of that user is
+ * gone — including any this browser held — and the user must sign in again, so the
+ * screen navigates to `/login`. 400 `reset_token_invalid` covers
+ * unknown/expired/already-used alike.
+ */
+export function resetPassword(
+  body: ResetPasswordRequest,
+  options?: RequestOptions,
+): Promise<void> {
+  return request<void>("/api/auth/password/reset", {
+    ...options,
+    method: "POST",
+    body,
+    allowUnauthorized: true,
+  });
+}
+
+/**
+ * Mails a confirmation link to the signed-in account's address.
+ *
+ * `mailDelivery` says whether it really went out — a send can fail without the
+ * request failing, so a resolved promise is NOT "the mail is on its way".
+ */
+export function requestEmailVerification(
+  options?: RequestOptions,
+): Promise<EmailVerificationRequestResponse> {
+  return request<EmailVerificationRequestResponse>("/api/auth/email/verify/request", {
+    ...options,
+    method: "POST",
+    body: {},
+  });
+}
+
+/**
+ * Confirms an address from a mailed link. Works without a session — the link is
+ * regularly opened on a different device than the one that is signed in.
+ */
+export function confirmEmailVerification(
+  body: VerifyEmailRequest,
+  options?: RequestOptions,
+): Promise<UserResponse> {
+  return request<UserResponse>("/api/auth/email/verify/confirm", {
+    ...options,
+    method: "POST",
+    body,
+    allowUnauthorized: true,
+  });
+}
+
+export function fetchSessions(options?: RequestOptions): Promise<SessionListResponse> {
+  return request<SessionListResponse>("/api/auth/sessions", options);
+}
+
+export function revokeSession(sessionId: string, options?: RequestOptions): Promise<void> {
+  return request<void>(`/api/auth/sessions/${encodeURIComponent(sessionId)}`, {
+    ...options,
+    method: "DELETE",
+  });
+}
+
+/**
+ * URL to send the browser to for an OAuth login. Must be a real navigation
+ * (`window.location.assign`) — not fetch — because the API answers with a 302.
+ */
+export function oauthStartUrl(provider: OAuthProvider, next?: string): string {
+  return apiUrl(`/api/auth/oauth/${provider}${queryString({ next })}`);
+}
+
+/** Same as {@link oauthStartUrl} but returns the provider URL as JSON (`?json=1`). */
+export function fetchOAuthStartUrl(
+  provider: OAuthProvider,
+  options?: RequestOptions,
+): Promise<OAuthStartResponse> {
+  return request<OAuthStartResponse>(`/api/auth/oauth/${provider}?json=1`, {
+    ...options,
+    allowUnauthorized: true,
+  });
+}
+
+/** Full-page navigation into the provider's consent screen. */
+export function startOAuth(provider: OAuthProvider, next?: string): void {
+  window.location.assign(oauthStartUrl(provider, next));
+}
+
+/**
+ * Which providers this deployment configured (+ what the current user linked).
+ * Public: a missing session just reports `linked: false`, so `allowUnauthorized`.
+ */
+export function fetchOAuthProviders(options?: RequestOptions): Promise<OAuthProvidersResponse> {
+  return request<OAuthProvidersResponse>("/api/auth/oauth", {
+    ...options,
+    allowUnauthorized: true,
+  });
+}
+
+/**
+ * Attaches a provider to the account that is signed in RIGHT NOW. Also a full-page
+ * navigation — the API answers with a 302 into the consent screen and bounces back
+ * to `next` with `?linked=<provider>` (or `?error=…`).
+ */
+export function startOAuthLink(provider: OAuthProvider, next = "/settings"): void {
+  window.location.assign(apiUrl(`/api/auth/oauth/${provider}/link${queryString({ next })}`));
+}
+
+/** Detaches a provider. 409 `last_login_method` when it is the only way in. */
+export function unlinkOAuthProvider(
+  provider: OAuthProvider,
+  options?: RequestOptions,
+): Promise<void> {
+  return request<void>(`/api/auth/oauth/${provider}`, { ...options, method: "DELETE" });
+}
+
+/* -------------------------------------------------------------------------- */
+/* households, members, invites, modules                                     */
+/* -------------------------------------------------------------------------- */
+
+export function fetchHouseholds(options?: RequestOptions): Promise<HouseholdListResponse> {
+  return request<HouseholdListResponse>("/api/households", options);
+}
+
+export function createHousehold(
+  body: CreateHouseholdRequest,
+  options?: RequestOptions,
+): Promise<HouseholdResponse> {
+  return request<HouseholdResponse>("/api/households", { ...options, method: "POST", body });
+}
+
+/** Public invite preview for the landing page — works without a session. */
+export function fetchInvitePreview(
+  token: string,
+  options?: RequestOptions,
+): Promise<InvitePreviewResponse> {
+  return request<InvitePreviewResponse>(`/api/households/invites/${encodeURIComponent(token)}`, {
+    ...options,
+    allowUnauthorized: true,
+  });
+}
+
+export function acceptInvite(
+  body: AcceptInviteRequest,
+  options?: RequestOptions,
+): Promise<AcceptInviteResponse> {
+  return request<AcceptInviteResponse>("/api/households/invites/accept", {
+    ...options,
+    method: "POST",
+    body,
+  });
+}
+
+export function fetchHousehold(householdId: string, options?: RequestOptions): Promise<HouseholdDetailResponse> {
+  return request<HouseholdDetailResponse>(`/api/households/${householdId}`, options);
+}
+
+export function updateHousehold(
+  householdId: string,
+  body: UpdateHouseholdRequest,
+  options?: RequestOptions,
+): Promise<HouseholdResponse> {
+  return request<HouseholdResponse>(`/api/households/${householdId}`, { ...options, method: "PATCH", body });
+}
+
+export function deleteHousehold(householdId: string, options?: RequestOptions): Promise<void> {
+  return request<void>(`/api/households/${householdId}`, { ...options, method: "DELETE" });
+}
+
+export function fetchHouseholdMembers(
+  householdId: string,
+  options?: RequestOptions,
+): Promise<HouseholdMemberListResponse> {
+  return request<HouseholdMemberListResponse>(`/api/households/${householdId}/members`, options);
+}
+
+export function updateMemberRole(
+  householdId: string,
+  userId: string,
+  body: UpdateMemberRoleRequest,
+  options?: RequestOptions,
+): Promise<HouseholdMemberResponse> {
+  return request<HouseholdMemberResponse>(`/api/households/${householdId}/members/${userId}`, {
+    ...options,
+    method: "PATCH",
+    body,
+  });
+}
+
+/** Also used to leave a household (pass your own user id). */
+export function removeHouseholdMember(
+  householdId: string,
+  userId: string,
+  options?: RequestOptions,
+): Promise<void> {
+  return request<void>(`/api/households/${householdId}/members/${userId}`, {
+    ...options,
+    method: "DELETE",
+  });
+}
+
+export function fetchHouseholdInvites(
+  householdId: string,
+  query: Partial<PaginationQuery> = {},
+  options?: RequestOptions,
+): Promise<HouseholdInviteListResponse> {
+  return request<HouseholdInviteListResponse>(
+    `/api/households/${householdId}/invites${queryString({ limit: query.limit, offset: query.offset })}`,
+    options,
+  );
+}
+
+export function createHouseholdInvite(
+  householdId: string,
+  body: CreateInviteRequest,
+  options?: RequestOptions,
+): Promise<HouseholdInviteResponse> {
+  return request<HouseholdInviteResponse>(`/api/households/${householdId}/invites`, {
+    ...options,
+    method: "POST",
+    body,
+  });
+}
+
+export function revokeHouseholdInvite(
+  householdId: string,
+  inviteId: string,
+  options?: RequestOptions,
+): Promise<void> {
+  return request<void>(`/api/households/${householdId}/invites/${inviteId}`, {
+    ...options,
+    method: "DELETE",
+  });
+}
+
+/**
+ * Enables a module for a household (admin, verified e-mail). Idempotent; `settings` replaces
+ * the stored settings only when sent. Answers the household with its refreshed `modules`.
+ */
+export function enableModule(
+  householdId: string,
+  moduleId: ModuleId,
+  settings?: Record<string, unknown>,
+  options?: RequestOptions,
+): Promise<HouseholdResponse> {
+  return request<HouseholdResponse>(`/api/households/${householdId}/modules/${moduleId}`, {
+    ...options,
+    method: "POST",
+    body: settings === undefined ? {} : { settings },
+  });
+}
+
+/** Disables a module for a household (admin, verified e-mail). Its data stays in its tables. */
+export function disableModule(
+  householdId: string,
+  moduleId: ModuleId,
+  options?: RequestOptions,
+): Promise<void> {
+  return request<void>(`/api/households/${householdId}/modules/${moduleId}`, {
+    ...options,
+    method: "DELETE",
+  });
+}
+
 /* -------------------------------------------------------------------------- */
 /* grouped facade                                                             */
 /* -------------------------------------------------------------------------- */
 
-export const api = { health: fetchHealth, auth: { updateProfile } };
+export const api = {
+  health: fetchHealth,
+  auth: {
+    register: registerAccount,
+    login: loginWithPassword,
+    logout,
+    me: fetchMe,
+    updateProfile,
+    changePassword,
+    requestPasswordReset,
+    resetPassword,
+    requestEmailVerification,
+    confirmEmailVerification,
+    sessions: fetchSessions,
+    revokeSession,
+    oauthStartUrl,
+    fetchOAuthStartUrl,
+    startOAuth,
+    oauthProviders: fetchOAuthProviders,
+    startOAuthLink,
+    unlinkOAuthProvider,
+  },
+  households: {
+    list: fetchHouseholds,
+    create: createHousehold,
+    detail: fetchHousehold,
+    update: updateHousehold,
+    remove: deleteHousehold,
+    members: fetchHouseholdMembers,
+    updateMemberRole,
+    removeMember: removeHouseholdMember,
+    invites: fetchHouseholdInvites,
+    createInvite: createHouseholdInvite,
+    revokeInvite: revokeHouseholdInvite,
+    invitePreview: fetchInvitePreview,
+    acceptInvite,
+    enableModule,
+    disableModule,
+  },
+};
