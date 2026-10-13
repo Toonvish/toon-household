@@ -72,6 +72,18 @@ describe("GET /api/health", () => {
   });
 });
 
+describe("anonymous requests", () => {
+  test("session-guarded routes answer 401 with the standard envelope", async () => {
+    for (const path of ["/api/auth/me", "/api/households", "/api/households/x"]) {
+      const response = await app.request(path);
+      expect(response.status).toBe(401);
+      const body = (await response.json()) as { error: { code: string; message: string } };
+      expect(body.error.code).toBe("unauthorized");
+      expect(typeof body.error.message).toBe("string");
+    }
+  });
+});
+
 describe("error envelope", () => {
   test("unknown routes use the standard shape", async () => {
     const response = await app.request("/api/does-not-exist");
