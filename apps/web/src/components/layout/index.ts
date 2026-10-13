@@ -4,8 +4,11 @@ export { BottomTabBar } from "./BottomTabBar";
 export { ErrorBoundary } from "./ErrorBoundary";
 export { InstallPrompt } from "./InstallPrompt";
 export { Logo, type LogoProps } from "./Logo";
+export { ModuleSwitcher, type ModuleSwitcherProps } from "./ModuleSwitcher";
+export { activeSwitcherItem, moduleSwitcherItems, type ModuleSwitcherItem } from "./module-switcher-items";
 export { NotFoundPage } from "./NotFoundPage";
 export { OfflineBanner } from "./OfflineBanner";
+export { PhoneHeaderRow } from "./PhoneHeaderRow";
 export { SideNav } from "./SideNav";
 export {
   HOME_NAV_ITEM,
