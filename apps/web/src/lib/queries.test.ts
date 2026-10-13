@@ -5,6 +5,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import { QueryClient } from "@tanstack/react-query";
+import { MODULE_IDS } from "@toon/shared";
 import { filterKey, healthQuery, invalidate, queryKeys, retryDelay, shouldRetry } from "./queries";
 
 const householdId = "11111111-1111-4111-8111-111111111111";
@@ -18,6 +19,32 @@ describe("queryKeys", () => {
 
   test("household data starts ['toon','household',id]", () => {
     expect(queryKeys.household(householdId)).toEqual(["toon", "household", householdId]);
+  });
+
+  test("core household keys start ['toon','household',id] and never collide with a module id", () => {
+    const root = queryKeys.household(householdId);
+    const keys = [
+      queryKeys.householdDetail(householdId),
+      queryKeys.householdMembers(householdId),
+      queryKeys.householdInvites(householdId, { limit: 10 }),
+    ];
+    for (const key of keys) {
+      expect(key.slice(0, root.length)).toEqual([...root]);
+      expect((MODULE_IDS as readonly string[]).includes(String(key[3]))).toBe(false);
+    }
+    expect(queryKeys.householdDetail(householdId)[3]).toBe("detail");
+    expect(queryKeys.householdMembers(householdId)[3]).toBe("members");
+    expect(queryKeys.householdInvites(householdId)[3]).toBe("invites");
+  });
+
+  test("user-level core keys", () => {
+    expect(queryKeys.sessions()).toEqual(["toon", "sessions"]);
+    expect(queryKeys.oauthProviders()).toEqual(["toon", "oauth-providers"]);
+    expect(queryKeys.households()).toEqual(["toon", "households"]);
+    expect(queryKeys.invitePreview("tok")).toEqual(["toon", "invite", "tok"]);
+    for (const key of [queryKeys.sessions(), queryKeys.oauthProviders(), queryKeys.households()]) {
+      expect((MODULE_IDS as readonly string[]).includes(String(key[1]))).toBe(false);
+    }
   });
 
   test("household module data starts ['toon','household',id,'<module>']", () => {
@@ -72,6 +99,26 @@ describe("invalidate", () => {
     await invalidate.health(qc);
     expect(qc.getQueryState([...queryKeys.health()])?.isInvalidated).toBe(true);
     expect(qc.getQueryState([...queryKeys.me()])?.isInvalidated).toBe(false);
+  });
+});
+
+describe("invalidate (households)", () => {
+  test("household() hits the detail key only, invites() every invites filter", async () => {
+    const qc = new QueryClient();
+    qc.setQueryData([...queryKeys.householdDetail(householdId)], {});
+    qc.setQueryData([...queryKeys.householdMembers(householdId)], {});
+    qc.setQueryData([...queryKeys.householdInvites(householdId, { limit: 5 })], {});
+    qc.setQueryData([...queryKeys.householdModule(householdId, "recipe")], {});
+    await invalidate.household(qc, householdId);
+    expect(qc.getQueryState([...queryKeys.householdDetail(householdId)])?.isInvalidated).toBe(true);
+    expect(qc.getQueryState([...queryKeys.householdMembers(householdId)])?.isInvalidated).toBe(false);
+    await invalidate.invites(qc, householdId);
+    expect(
+      qc.getQueryState([...queryKeys.householdInvites(householdId, { limit: 5 })])?.isInvalidated,
+    ).toBe(true);
+    expect(qc.getQueryState([...queryKeys.householdModule(householdId, "recipe")])?.isInvalidated).toBe(
+      false,
+    );
   });
 });
 
