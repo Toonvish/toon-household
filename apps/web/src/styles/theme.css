@@ -1,0 +1,245 @@
+/*
+ * toon-recipe design tokens.
+ *
+ * ONE warm, food-appropriate palette. Every colour the app uses is a CSS custom
+ * property here; components only ever reference the semantic Tailwind tokens that
+ * styles/index.css maps onto these variables (bg-surface, text-fg, border-line, ...).
+ * Dark mode swaps the variables, so no component needs `dark:` classes.
+ */
+
+/*
+ * FOUR BLOCKS, ONE LIST. The palette is declared four times — :root (light), the
+ * prefers-color-scheme:dark media query, :root[data-theme="light"] and
+ * :root[data-theme="dark"] — and the two attribute blocks only override what they
+ * NAME. A token added to some of them is a silent bug: the media query's value stands
+ * for anything [data-theme] omits, so "light theme on a dark phone" renders that
+ * token's DARK value. This is not hypothetical — [data-theme="light"] was missing
+ * accent/success/warning/ring and all three --elevation-*, and [data-theme="dark"] was
+ * missing the elevations, which is why an explicitly-dark app on a light OS had no
+ * card shadows. ADD EVERY NEW TOKEN TO ALL FOUR BLOCKS.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* --- brand: paprika / terracotta ------------------------------------- */
+  --toon-brand-50: #fdf3ef;
+  --toon-brand-100: #fbe3da;
+  --toon-brand-200: #f6c5b4;
+  --toon-brand-300: #eb9d84;
+  --toon-brand-400: #dc7051;
+  --toon-brand-500: #c2532c;
+  --toon-brand-600: #a44121;
+  --toon-brand-700: #82331b;
+  --toon-brand-800: #5f2614;
+  --toon-brand-900: #40190d;
+
+  /* --- accent: safran / honey ------------------------------------------- */
+  --toon-accent-300: #f4cf87;
+  --toon-accent-400: #eab54f;
+  --toon-accent-500: #d99a24;
+  --toon-accent-600: #b47a15;
+  --toon-accent-700: #9a6710;
+
+  /* --- herbs, warnings, danger ------------------------------------------ */
+  --toon-herb-400: #7ba05b;
+  --toon-herb-500: #5b8040;
+  --toon-herb-600: #47652f;
+  --toon-danger-400: #e2685f;
+  --toon-danger-500: #c0392b;
+  --toon-danger-600: #9b2c20;
+
+  /* --- warm neutrals ---------------------------------------------------- */
+  --toon-sand-25: #fdfaf6;
+  --toon-sand-50: #faf5ee;
+  --toon-sand-100: #f3ebe0;
+  --toon-sand-200: #e7dbcb;
+  --toon-sand-300: #d5c5b0;
+  --toon-sand-400: #b6a28a;
+  --toon-sand-500: #8d7c67;
+  --toon-sand-600: #6b5c4b;
+  --toon-sand-700: #4c4036;
+  --toon-sand-800: #322a23;
+  --toon-sand-900: #211b16;
+  --toon-sand-950: #17120f;
+
+  /* --- semantic (light) -------------------------------------------------- */
+  --bg: var(--toon-sand-50);
+  --bg-elevated: var(--toon-sand-25);
+  --surface: #ffffff;
+  --surface-2: var(--toon-sand-100);
+  --surface-inset: var(--toon-sand-100);
+  --line: var(--toon-sand-200);
+  --line-strong: var(--toon-sand-300);
+  --fg: #291f18;
+  --fg-muted: var(--toon-sand-600);
+  --fg-subtle: var(--toon-sand-500);
+  --brand: var(--toon-brand-500);
+  --brand-hover: var(--toon-brand-600);
+  --brand-fg: #ffffff;
+  --brand-soft: var(--toon-brand-100);
+  --brand-soft-fg: var(--toon-brand-700);
+  --accent: var(--toon-accent-500);
+  --accent-soft: #fdf1d8;
+  --accent-soft-fg: var(--toon-accent-600);
+  --accent-strong: var(--toon-accent-700);
+  --success: var(--toon-herb-600);
+  --success-soft: #e9f0e0;
+  --success-soft-fg: var(--toon-herb-600);
+  --warning: var(--toon-accent-600);
+  --warning-soft: #fbeccd;
+  --warning-soft-fg: #7d5406;
+  --danger: var(--toon-danger-500);
+  --danger-hover: var(--toon-danger-600);
+  --danger-fg: #ffffff;
+  --danger-soft: #fbe6e3;
+  --danger-soft-fg: var(--toon-danger-600);
+  --ring: var(--toon-brand-400);
+  --overlay: rgb(33 27 22 / 45%);
+  --skeleton: var(--toon-sand-200);
+  --bg-sunken: var(--toon-sand-100);
+  --fg-body: var(--toon-sand-700);
+  --fg-faint: #7f6f5b;
+
+  --elevation-soft: 0 1px 2px rgb(41 31 24 / 6%), 0 1px 3px rgb(41 31 24 / 5%);
+  --elevation-card: 0 1px 2px rgb(41 31 24 / 5%), 0 4px 14px -6px rgb(41 31 24 / 12%);
+  --elevation-pop: 0 10px 30px -10px rgb(41 31 24 / 28%), 0 2px 8px rgb(41 31 24 / 10%);
+
+  /* Height of the mobile bottom tab bar (without the safe-area inset). */
+  --tabbar-h: 3.75rem;
+  --topbar-h: 3.5rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: var(--toon-sand-950);
+    --bg-elevated: var(--toon-sand-900);
+    --surface: #201a15;
+    --surface-2: #2a221c;
+    --surface-inset: #17120f;
+    --line: #382e26;
+    --line-strong: #4a3d33;
+    --fg: #f6ece1;
+    --fg-muted: #b8a693;
+    --fg-subtle: #9c8b79;
+    --brand: var(--toon-brand-400);
+    --brand-hover: var(--toon-brand-300);
+    --brand-fg: #24120a;
+    --brand-soft: #3b1f13;
+    --brand-soft-fg: var(--toon-brand-200);
+    --accent: var(--toon-accent-400);
+    --accent-soft: #3a2c0f;
+    --accent-soft-fg: var(--toon-accent-300);
+    --accent-strong: var(--toon-accent-400);
+    --success: var(--toon-herb-400);
+    --success-soft: #26301b;
+    --success-soft-fg: #a9c68c;
+    --warning: var(--toon-accent-400);
+    --warning-soft: #3a2c0f;
+    --warning-soft-fg: var(--toon-accent-300);
+    --danger: var(--toon-danger-400);
+    --danger-hover: #ea8079;
+    --danger-fg: #2a0f0c;
+    --danger-soft: #3d1c19;
+    --danger-soft-fg: #f0a9a2;
+    --ring: var(--toon-brand-300);
+    --overlay: rgb(8 5 3 / 66%);
+    --skeleton: #322922;
+    --bg-sunken: #130f0c;
+    --fg-body: #e8dccd;
+    --fg-faint: #8d7c67;
+
+    --elevation-soft: 0 1px 2px rgb(0 0 0 / 40%);
+    --elevation-card: 0 1px 2px rgb(0 0 0 / 40%), 0 6px 18px -8px rgb(0 0 0 / 55%);
+    --elevation-pop: 0 12px 34px -12px rgb(0 0 0 / 70%), 0 2px 10px rgb(0 0 0 / 45%);
+  }
+}
+
+/* Explicit override wins over the media query in both directions. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: var(--toon-sand-50);
+  --bg-elevated: var(--toon-sand-25);
+  --surface: #ffffff;
+  --surface-2: var(--toon-sand-100);
+  --surface-inset: var(--toon-sand-100);
+  --line: var(--toon-sand-200);
+  --line-strong: var(--toon-sand-300);
+  --fg: #291f18;
+  --fg-muted: var(--toon-sand-600);
+  --fg-subtle: var(--toon-sand-500);
+  --brand: var(--toon-brand-500);
+  --brand-hover: var(--toon-brand-600);
+  --brand-fg: #ffffff;
+  --brand-soft: var(--toon-brand-100);
+  --brand-soft-fg: var(--toon-brand-700);
+  --accent: var(--toon-accent-500);
+  --accent-soft: #fdf1d8;
+  --accent-soft-fg: var(--toon-accent-600);
+  --accent-strong: var(--toon-accent-700);
+  --success: var(--toon-herb-600);
+  --success-soft: #e9f0e0;
+  --success-soft-fg: var(--toon-herb-600);
+  --warning: var(--toon-accent-600);
+  --warning-soft: #fbeccd;
+  --warning-soft-fg: #7d5406;
+  --danger: var(--toon-danger-500);
+  --danger-hover: var(--toon-danger-600);
+  --danger-fg: #ffffff;
+  --danger-soft: #fbe6e3;
+  --danger-soft-fg: var(--toon-danger-600);
+  --ring: var(--toon-brand-400);
+  --overlay: rgb(33 27 22 / 45%);
+  --skeleton: var(--toon-sand-200);
+  --bg-sunken: var(--toon-sand-100);
+  --fg-body: var(--toon-sand-700);
+  --fg-faint: #7f6f5b;
+
+  --elevation-soft: 0 1px 2px rgb(41 31 24 / 6%), 0 1px 3px rgb(41 31 24 / 5%);
+  --elevation-card: 0 1px 2px rgb(41 31 24 / 5%), 0 4px 14px -6px rgb(41 31 24 / 12%);
+  --elevation-pop: 0 10px 30px -10px rgb(41 31 24 / 28%), 0 2px 8px rgb(41 31 24 / 10%);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: var(--toon-sand-950);
+  --bg-elevated: var(--toon-sand-900);
+  --surface: #201a15;
+  --surface-2: #2a221c;
+  --surface-inset: #17120f;
+  --line: #382e26;
+  --line-strong: #4a3d33;
+  --fg: #f6ece1;
+  --fg-muted: #b8a693;
+  --fg-subtle: #9c8b79;
+  --brand: var(--toon-brand-400);
+  --brand-hover: var(--toon-brand-300);
+  --brand-fg: #24120a;
+  --brand-soft: #3b1f13;
+  --brand-soft-fg: var(--toon-brand-200);
+  --accent: var(--toon-accent-400);
+  --accent-soft: #3a2c0f;
+  --accent-soft-fg: var(--toon-accent-300);
+  --accent-strong: var(--toon-accent-400);
+  --success: var(--toon-herb-400);
+  --success-soft: #26301b;
+  --success-soft-fg: #a9c68c;
+  --warning: var(--toon-accent-400);
+  --warning-soft: #3a2c0f;
+  --warning-soft-fg: var(--toon-accent-300);
+  --danger: var(--toon-danger-400);
+  --danger-hover: #ea8079;
+  --danger-fg: #2a0f0c;
+  --danger-soft: #3d1c19;
+  --danger-soft-fg: #f0a9a2;
+  --ring: var(--toon-brand-300);
+  --overlay: rgb(8 5 3 / 66%);
+  --skeleton: #322922;
+  --bg-sunken: #130f0c;
+  --fg-body: #e8dccd;
+  --fg-faint: #8d7c67;
+
+  --elevation-soft: 0 1px 2px rgb(0 0 0 / 40%);
+  --elevation-card: 0 1px 2px rgb(0 0 0 / 40%), 0 6px 18px -8px rgb(0 0 0 / 55%);
+  --elevation-pop: 0 12px 34px -12px rgb(0 0 0 / 70%), 0 2px 10px rgb(0 0 0 / 45%);
+}

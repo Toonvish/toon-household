@@ -1,0 +1,341 @@
+/*
+ * Global stylesheet. Order matters:
+ *   1. tailwindcss  (preflight + utility engine)
+ *   2. fonts.css    (self-hosted @font-face declarations, Figtree + Newsreader)
+ *   3. theme.css    (raw CSS custom properties, light + dark)
+ *   4. @theme inline (maps the semantic tokens into Tailwind utilities)
+ */
+@import "tailwindcss";
+@import "./fonts.css";
+@import "./theme.css";
+
+@theme inline {
+  --font-sans:
+    Figtree, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, "Noto Sans", sans-serif;
+  --font-display:
+    Newsreader, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, ui-serif, serif;
+
+  /* Semantic colours — usable as bg-*, text-*, border-*, ring-*, fill-*. */
+  --color-bg: var(--bg);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-inset: var(--surface-inset);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-fg: var(--brand-fg);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-soft-fg: var(--brand-soft-fg);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-soft-fg: var(--accent-soft-fg);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-soft-fg: var(--success-soft-fg);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-soft-fg: var(--warning-soft-fg);
+  --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
+  --color-danger-fg: var(--danger-fg);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-soft-fg: var(--danger-soft-fg);
+  --color-ring: var(--ring);
+  --color-overlay: var(--overlay);
+  --color-skeleton: var(--skeleton);
+  --color-bg-sunken: var(--bg-sunken);
+  --color-fg-body: var(--fg-body);
+  --color-fg-faint: var(--fg-faint);
+  --color-accent-strong: var(--accent-strong);
+
+  --shadow-soft: var(--elevation-soft);
+  --shadow-card: var(--elevation-card);
+  --shadow-pop: var(--elevation-pop);
+
+  --radius-card: 1rem;
+  --radius-sheet: 1.25rem;
+  --radius-control: 0.625rem; /* 10px — the design's button/nav radius */
+
+  --spacing-tabbar: var(--tabbar-h);
+  --spacing-topbar: var(--topbar-h);
+  --spacing-sidebar: 14.75rem; /* 236px — the artboards' sidebar width */
+  --spacing-daycard: 8.75rem; /* 140px — the phone week strip's card (WeekStrip + its skeleton) */
+
+  --container-content: 75.25rem; /* 1204px — the artboards' <main> measure */
+
+  /* --- type scale: the two sans steps Tailwind has no stop for ---------------- */
+  --text-control: 0.84375rem; /* 13.5px — buttons, chips, tabs, secondary nav */
+  --text-control--line-height: 1.2;
+  --text-item: 0.9375rem; /* 15px — ingredient + shopping-item rows */
+  --text-item--line-height: 1.35;
+
+  /* --- display (serif) scale — always weight 500, always with `font-display` ---- */
+  --text-display-xs: 0.9375rem;
+  --text-display-xs--line-height: 1.25;
+  --text-display-sm: 1.0625rem;
+  --text-display-sm--line-height: 1.2;
+  --text-display-md: 1.3125rem;
+  --text-display-md--line-height: 1.2;
+  --text-display-lg: 1.5rem;
+  --text-display-lg--line-height: 1.2;
+  --text-display-xl: 1.75rem;
+  --text-display-xl--line-height: 1.1;
+  --text-display-2xl: 2.125rem;
+  --text-display-2xl--line-height: 1.05;
+  --text-display-2xl--letter-spacing: -0.01em;
+  --text-display-3xl: 2.375rem;
+  --text-display-3xl--line-height: 1.1;
+  --text-display-4xl: 2.875rem;
+  --text-display-4xl--line-height: 1.05;
+  --text-display-4xl--letter-spacing: -0.01em;
+}
+
+/* Dark variant that honours BOTH the OS preference and an explicit data-theme. */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]) *, :root:not([data-theme="light"])) {
+      @slot;
+    }
+  }
+  &:where(:root[data-theme="dark"] *, :root[data-theme="dark"]) {
+    @slot;
+  }
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    /* Never let a page scroll sideways on a phone. */
+    overflow-x: hidden;
+    overscroll-behavior-y: none;
+  }
+
+  /* Visible, brand-coloured focus ring for keyboard users only. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--brand-soft);
+    color: var(--brand-soft-fg);
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* iOS zooms any input with a font-size below 16px on focus. */
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+    font-size: max(1rem, 16px);
+  }
+
+  [hidden] {
+    display: none !important;
+  }
+}
+
+@layer utilities {
+  /* Safe-area helpers for the notch / home indicator (viewport-fit=cover). */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  /*
+   * PURE INSET, and therefore NEVER combined with a `px-*` utility: both set
+   * padding-inline with the same specificity, and this rule is emitted later, so it
+   * WINS — with `env(safe-area-inset-left)` being 0px on a phone in portrait, `px-4
+   * px-safe` silently means "no horizontal padding at all". That is what made every
+   * phone screen edge-to-edge and pushed the shopping list's `-mx-4` add bar 1rem
+   * past both screen edges (a page 2rem wider than the display, scrolling sideways).
+   * Use `.px-gutter` for "gutter that also clears a notch"; keep this one for
+   * elements whose only horizontal padding IS the inset, e.g. the bottom tab bar.
+   */
+  .px-safe {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  /*
+   * The horizontal page gutter: at least `--gutter` (1rem by default), more when a
+   * notch demands it. `max()`, not `calc()` — adding them would indent content by
+   * ~60px in landscape on a notched phone.
+   */
+  .px-gutter {
+    padding-left: max(var(--gutter, 1rem), env(safe-area-inset-left, 0px));
+    padding-right: max(var(--gutter, 1rem), env(safe-area-inset-right, 0px));
+  }
+  /*
+   * Breaks a child OUT of <main>'s px-gutter — a full-bleed hero, a bordered header
+   * rail, a gradient bottom bar. The negative margin must be the SAME max()
+   * expression `.px-gutter` uses, or a notched phone in landscape bleeds by the
+   * wrong amount. NEVER combine with `px-4`/`.px-safe` — see the `.px-safe` note
+   * above; `-mx-4` is wrong for the same reason and always was, since it assumes
+   * the gutter is exactly 1rem, which it is not at `lg` (`--gutter:2rem`) or on a
+   * notched device.
+   */
+  .bleed-gutter {
+    margin-inline: calc(-1 * max(var(--gutter, 1rem), env(safe-area-inset-left, 0px)));
+  }
+  /* `.bleed-gutter` plus the gutter restored inside — for a bleeding bar with content. */
+  .bleed-gutter-inset {
+    margin-inline: calc(-1 * max(var(--gutter, 1rem), env(safe-area-inset-left, 0px)));
+    padding-left: max(var(--gutter, 1rem), env(safe-area-inset-left, 0px));
+    padding-right: max(var(--gutter, 1rem), env(safe-area-inset-right, 0px));
+  }
+  /* Leaves room for the fixed bottom tab bar on small screens. */
+  .pb-tabbar {
+    padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 1rem);
+  }
+  @media (width >= 1024px) {
+    .pb-tabbar {
+      padding-bottom: 2rem;
+    }
+  }
+  /*
+   * Pins a `sticky`/`fixed` element ABOVE the tab bar instead of behind it.
+   * `bottom-0` is wrong for anything sticky or fixed on a phone: the tab bar is
+   * `fixed` at bottom-0 and paints after <main>, so it covers the last ~3.75rem of
+   * the viewport. EVERY bottom action bar must use this — the shopping list's add
+   * box, the recipe form's save bar and the import review's Speichern/Verwerfen bar
+   * (that last one was invisible on phones until it did).
+   */
+  .bottom-tabbar {
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
+  }
+  @media (width >= 1024px) {
+    .bottom-tabbar {
+      bottom: 0;
+    }
+  }
+  /* Minimum comfortable touch target. */
+  .tap {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  /* Wide content (tables, code, diagrams) scrolls inside itself. */
+  .scroll-x {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  /*
+   * The uppercase micro-label: recipe category, stat captions, section headers,
+   * "Organise", "To buy", "Bought today". Bundles five declarations because they are
+   * never used apart, and `text-transform` cannot live in a Tailwind --text-* token.
+   *
+   * Named `.eyebrow`, NOT `.text-eyebrow`: the hand-written utilities in this file
+   * are emitted after everything Tailwind generates, so a name in the `text-*` shape
+   * would silently override a real size utility on the same element. NEVER combine
+   * `.eyebrow` with a `text-*` size utility for the same reason — `.eyebrow` would
+   * win.
+   *
+   * COLOUR IS NOT PART OF IT: the design uses three, semantically distinct.
+   *   text-accent-strong  the recipe's course/category  (the one eyebrow that is content)
+   *   text-fg-faint       structural labels: stat captions, "Organise", "To buy"
+   *   text-success        "Bought today"
+   */
+  .eyebrow {
+    font-size: 0.6875rem;
+    line-height: 1.1;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+}
+
+/* Animations — all of them opt out under prefers-reduced-motion. */
+@keyframes toon-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes toon-slide-up {
+  from {
+    transform: translateY(1.5rem);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toon-slide-down {
+  from {
+    transform: translateY(-0.75rem);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toon-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.animate-fade-in {
+  animation: toon-fade-in 150ms ease-out;
+}
+.animate-slide-up {
+  animation: toon-slide-up 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.animate-slide-down {
+  animation: toon-slide-down 160ms ease-out;
+}
+.animate-skeleton {
+  animation: toon-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
