@@ -1,0 +1,23 @@
+// The `bun test` program: the co-located src/**/*.test.ts files.
+//
+// It exists so the tests can have the REAL `bun:test` types (`@types/bun`, a root
+// devDependency) without those globals reaching the browser project — see the header
+// of tsconfig.json. It replaced a hand-written `declare module "bun:test"` shim that
+// covered ~15 of bun-types' ~2400 lines, so a matcher that worked under `bun test`
+// could still fail `tsc`.
+//
+// `exclude: []` is load-bearing: `extends` inherits the parent's exclude, which is
+// exactly the list of files this project is for.
+//
+// The app source a test imports IS part of this program (tsc pulls in imports), so it
+// is checked twice — here with the Bun globals visible, and in tsconfig.json without
+// them. The second one is what actually keeps `Bun.` out of app code; do not "simplify"
+// by pointing this project at all of src.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["vite/client", "bun"]
+  },
+  "include": ["src/**/*.test.ts", "src/**/*.test.tsx"],
+  "exclude": []
+}

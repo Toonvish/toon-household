@@ -1,0 +1,30 @@
+{
+  "name": "toon-household",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun run scripts/dev.ts",
+    "dev:api": "bun --filter @toon/api dev",
+    "dev:web": "bun --filter @toon/web dev",
+    "build": "bun --filter @toon/web build",
+    "start": "bun --filter @toon/api start",
+    "test": "bun test",
+    "typecheck": "bun run scripts/typecheck.ts",
+    "i18n:check": "bun run scripts/i18n-check.ts",
+    "db:generate": "bun --filter @toon/api db:generate",
+    "db:migrate": "bun --filter @toon/api db:migrate",
+    "db:studio": "bun --filter @toon/api db:studio"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.1",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "drizzle-kit": "^0.31.10",
+    "typescript": "^7.0.2"
+  }
+}

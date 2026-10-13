@@ -1,0 +1,31 @@
+// The BROWSER program: app source only.
+//
+// apps/web holds files for three different runtimes, and tsc has ONE global scope per
+// program — so they get one project each rather than a shared one with the union of
+// their globals:
+//
+//   tsconfig.json        this file — src/**, runs in the browser        (vite/client)
+//   tsconfig.test.json   src/**/*.test.ts, runs under `bun test`        (+ bun)
+//   tsconfig.node.json   vite.config.ts, runs under Node at build time  (node via vite)
+//
+// Keeping the Bun and Node globals out of THIS project is the point: with them in
+// scope, `Bun.env` or `process.env` in a component compiles and then throws in the
+// browser. `bun run typecheck` runs all three (scripts/typecheck.ts).
+//
+// This is the project bun and vite read for `paths`, so the aliases must stay here and
+// not move into a shared base config.
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["vite/client"],
+    "jsx": "react-jsx",
+    "paths": {
+      "@toon/shared": ["../../packages/shared/src/index.ts"],
+      "@toon/shared/*": ["../../packages/shared/src/*"],
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
+}

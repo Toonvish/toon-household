@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- viewport-fit=cover so the safe-area insets work under the notch / home indicator -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Haushalt</title>
+    <meta name="color-scheme" content="light dark" />
+    <!-- Updated at runtime by lib/theme.ts so the browser UI matches the rendered theme. -->
+    <meta name="theme-color" content="#faf5ee" />
+
+    <!-- installable PWA — <link rel="manifest"> is injected by vite-plugin-pwa -->
+    <meta name="application-name" content="Haushalt" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Haushalt" />
+    <!--
+      NO `apple-mobile-web-app-status-bar-style: black-translucent` here, and do not put it
+      back. Since iOS 11 that value renders the content under the status bar by pushing the
+      whole document DOWN by the status-bar height while leaving the layout viewport short by
+      the same amount — so on a home-screen install the fixed BottomTabBar (`bottom-0`) sat a
+      status-bar height above the physical screen edge, with a strip of page background under
+      it. The first vertical drag forced iOS to re-lay-out at the true height and the strip
+      vanished, which is what made it look like a scroll bug. Apple has also deprecated the
+      value ("support for this value will be removed in a future release").
+      The supported replacement is what is already here: `viewport-fit=cover` above for the
+      safe-area insets, and <meta name="theme-color"> (kept in sync with the rendered theme by
+      lib/theme.ts) for the status-bar colour.
+    -->
+    <meta name="format-detection" content="telephone=no" />
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icons/icon-192.png" sizes="192x192" type="image/png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" sizes="180x180" />
+    <link rel="mask-icon" href="/favicon.svg" color="#c2532c" />
+
+    <!--
+      Preload only the two LATIN files. `crossorigin` is required even for a same-origin
+      font or the preload is fetched twice (once anonymously for the preload, once with
+      the CORS mode the CSS font fetch uses). latin-ext is deliberately NOT preloaded: it
+      only matters once a non-Latin-1 character appears, and preloading it would spend
+      ~11 KB of the critical path on most sessions for nothing.
+    -->
+    <link rel="preload" href="/fonts/figtree-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/newsreader-500-latin.woff2" as="font" type="font/woff2" crossorigin />
+
+    <script>
+      // Apply the saved colour scheme before the first paint (no flash of light UI).
+      try {
+        var pref = localStorage.getItem("toon.theme");
+        if (pref === "dark" || pref === "light") {
+          document.documentElement.setAttribute("data-theme", pref);
+        }
+        var dark =
+          pref === "dark" ||
+          (pref !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.style.backgroundColor = dark ? "#17120f" : "#faf5ee";
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute("content", dark ? "#17120f" : "#faf5ee");
+      } catch (error) {
+        /* private mode: ignore */
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>
+      Diese App benötigt JavaScript. Bitte aktiviere JavaScript in deinem Browser.
+    </noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

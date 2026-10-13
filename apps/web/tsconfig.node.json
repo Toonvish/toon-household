@@ -1,0 +1,18 @@
+// The BUILD-TIME program: vite.config.ts, which runs under Node, not in the browser.
+//
+// It used to sit in tsconfig.json's `include`, and that is where the browser project
+// got its Node globals from: the config imports `node:url` and `vite`, whose types
+// reference @types/node, and tsc has one global scope per program. So `process.env`
+// and Node's `Timeout` were in scope in every component — measured, not theorised.
+//
+// It extends the ROOT config, not ./tsconfig.json: no DOM lib, no vite/client, no jsx.
+// `types: []` because the Node globals arrive transitively through the `vite` import —
+// @types/node is not a direct dependency here — and an empty list stops tsc from
+// auto-including every @types package it can find (which would hand this project Bun).
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "types": []
+  },
+  "include": ["vite.config.ts"]
+}
