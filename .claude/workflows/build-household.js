@@ -359,7 +359,9 @@ for (const n of todo) {
     let merged = landed.filter(w => !toMerge.includes(w))
     if (toMerge.length) {
       const mergeRes = await run(mergePrompt(n, toMerge), { ...SONNET, phase: 'Implement', label: `merge:wave${waveNo}`, schema: MERGE_SCHEMA })
-      const ok = new Set(mergeRes ? mergeRes.merged : [])
+      // Merge agents sometimes decorate ids ("M0-T05 (wf/m0-m0-t05, daa4a24)"): match on the id token, not the whole string.
+      const mergedIds = (mergeRes ? mergeRes.merged : []).map(s => String(s))
+      const ok = new Set(toMerge.map(w => w.task.id).filter(id => mergedIds.some(s => s === id || new RegExp(`(^|[^A-Za-z0-9-])${id}([^A-Za-z0-9-]|$)`).test(s))))
       merged = merged.concat(toMerge.filter(w => ok.has(w.task.id)))
       for (const w of toMerge.filter(w => !ok.has(w.task.id))) {
         log(`task ${w.task.id}: branch ${w.impl.branch} not merged (${mergeRes ? mergeRes.summary : 'merge agent failed'})`)
