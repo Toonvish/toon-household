@@ -1,6 +1,6 @@
 /**
  * The finance module's card on Home (SPEC §5, M3 decision 4/11): for a participant the
- * balance sentence and this month's expenses; for a household member without a slot one line
+ * balance sentence and the current period's spend; for a household member without a slot one line
  * naming the two. M4 polishes it.
  *
  * The balance reads exactly as `BalanceHero` does (F gotcha 38): `viewerBalanceCents` is the
@@ -13,7 +13,7 @@
  */
 import { useQuery } from "@tanstack/react-query";
 import { currentPeriod } from "@toon/shared";
-import { Wallet } from "lucide-react";
+import { Plus, Wallet } from "lucide-react";
 import type { ReactElement } from "react";
 import { Card, buttonClasses } from "@/components/ui";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -22,6 +22,7 @@ import { useT } from "@/lib/i18n";
 import { AppLink } from "@/lib/nav";
 import { useActiveHousehold } from "@/lib/session";
 import { AmountText } from "@/modules/finance/components/AmountText";
+import { PeriodLabel } from "@/modules/finance/components/PeriodLabel";
 import { formatCurrency } from "@/modules/finance/lib/format";
 import { balanceQuery, financeParticipantsQuery, transactionSummaryQuery } from "@/modules/finance/lib/queries";
 
@@ -45,7 +46,7 @@ export function FinanceHomeCard(): ReactElement {
   const second = items.find((item) => item.memberSlot === 2)?.displayName ?? "";
 
   return (
-    <Card as="section" aria-labelledby="home-card-finance" className="flex flex-col gap-4">
+    <Card as="section" aria-labelledby="home-card-finance" className="flex min-w-0 flex-col gap-4">
       <div className="flex items-center gap-3">
         <span
           aria-hidden="true"
@@ -53,7 +54,7 @@ export function FinanceHomeCard(): ReactElement {
         >
           <Wallet className="size-5" />
         </span>
-        <h2 id="home-card-finance" className="font-display text-display-md font-medium text-fg">
+        <h2 id="home-card-finance" className="min-w-0 font-display text-display-md font-medium text-fg">
           <AppLink to="/finance" className="hover:underline">
             {t("finance.module.name")}
           </AppLink>
@@ -78,7 +79,9 @@ export function FinanceHomeCard(): ReactElement {
           </div>
           {summary.data ? (
             <div className="flex items-baseline justify-between gap-3 text-sm">
-              <span className="text-fg-muted">{t("finance.balance.month.total")}</span>
+              <span className="min-w-0 text-fg-muted">
+                {t("finance.balance.month.total")} · <PeriodLabel period={period} />
+              </span>
               <AmountText cents={summary.data.totalExpenseCents} size="md" />
             </div>
           ) : null}
@@ -87,6 +90,7 @@ export function FinanceHomeCard(): ReactElement {
               {t("finance.module.name")}
             </AppLink>
             <AppLink to="/finance/new" className={buttonClasses({ variant: "secondary", size: "sm" })}>
+              <Plus aria-hidden="true" className="size-4" />
               {t("finance.nav.create")}
             </AppLink>
           </div>
