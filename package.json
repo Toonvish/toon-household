@@ -23,6 +23,7 @@
     "uploads:gc": "bun --filter @toon/api uploads:gc --",
     "plan:run": "bun --filter @toon/api plan:run --",
     "finance:import-xlsx": "bun --filter @toon/api finance:import-xlsx --",
+    "icons": "bun run scripts/icons.ts",
     "db:studio": "bun --filter @toon/api db:studio"
   },
   "devDependencies": {

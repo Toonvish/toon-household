@@ -48,6 +48,8 @@
     <link rel="preload" href="/fonts/newsreader-500-latin.woff2" as="font" type="font/woff2" crossorigin />
 
     <script>
+      // The literal hexes below must equal THEME_COLORS in src/lib/theme-colors.ts (an inline
+      // script cannot import it; src/lib/theme-colors.test.ts enforces the match).
       // Apply the saved colour scheme before the first paint (no flash of light UI).
       try {
         var pref = localStorage.getItem("toon.theme");
