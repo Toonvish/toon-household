@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { SectionHeader } from "@/components/ui/SectionHeader";
@@ -16,8 +16,12 @@ export interface ModuleCardsProps {
 /**
  * "Verfügbare Module" on Home (SPEC §5): one card per build module the active household
  * has not enabled yet. Owners/admins get "Aktivieren"; members get the hint instead.
- * Renders nothing when every build module is enabled — and in M1, whose build ships none.
+ * Renders nothing when every build module is enabled.
  * Writes are gated by `useCanMutate()` (offline / unconfirmed e-mail).
+ *
+ * A module that declares `enableDialog` (finance: the two participants, SPEC D3) is not
+ * enabled by one POST: "Aktivieren" opens the module's dialog, which enables it with its
+ * settings itself (docs/plans/m3-finance-module.md §1 decisions 4 and 7).
  */
 export function ModuleCards({ modules }: ModuleCardsProps) {
   const t = useT();
@@ -25,6 +29,7 @@ export function ModuleCards({ modules }: ModuleCardsProps) {
   const { household, householdId, hasRole } = useActiveHousehold();
   const { canMutate, reason } = useCanMutate();
   const enable = useEnableModule();
+  const [dialogModule, setDialogModule] = useState<WebModule | null>(null);
 
   const available = availableWebModules(modules, household?.modules ?? []);
   if (available.length === 0 || householdId === null) return null;
@@ -59,7 +64,10 @@ export function ModuleCards({ modules }: ModuleCardsProps) {
                 disabled={!canMutate}
                 title={reason}
                 loading={enable.isPending && enable.variables?.moduleId === module.id}
-                onClick={() => enable.mutate({ householdId, moduleId: module.id })}
+                onClick={() => {
+                  if (module.enableDialog) setDialogModule(module);
+                  else enable.mutate({ householdId, moduleId: module.id });
+                }}
               >
                 {t("home.modules.enable")}
               </Button>
@@ -67,6 +75,9 @@ export function ModuleCards({ modules }: ModuleCardsProps) {
           </Card>
         ))}
       </ul>
+      {dialogModule?.enableDialog ? (
+        <dialogModule.enableDialog open onClose={() => setDialogModule(null)} />
+      ) : null}
     </section>
   );
 }

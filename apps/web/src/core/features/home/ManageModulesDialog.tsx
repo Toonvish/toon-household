@@ -17,8 +17,11 @@ export interface ManageModulesDialogProps {
 
 /**
  * "Module verwalten" (SPEC §5, owners/admins): one `Switch` per build module, on =
- * enabled for the active household. Switching ON enables at once; switching OFF asks
- * first, because the module disappears for every member (its data stays, D2).
+ * enabled for the active household. Switching ON enables at once — or, for a module that
+ * declares `enableDialog` (finance: the two participants, SPEC D3), opens that dialog, which
+ * enables the module with its settings itself (docs/plans/m3-finance-module.md §1 decisions 4
+ * and 7); this dialog steps aside while it is open, like for the disable confirmation.
+ * Switching OFF asks first, because the module disappears for every member (its data stays, D2).
  */
 export function ManageModulesDialog({ open, onClose, modules }: ManageModulesDialogProps) {
   const t = useT();
@@ -27,6 +30,7 @@ export function ManageModulesDialog({ open, onClose, modules }: ManageModulesDia
   const enable = useEnableModule();
   const disable = useDisableModule();
   const [pendingDisable, setPendingDisable] = useState<WebModule | null>(null);
+  const [pendingEnable, setPendingEnable] = useState<WebModule | null>(null);
 
   const enabledIds = household?.modules ?? [];
   const busy = enable.isPending || disable.isPending;
@@ -34,7 +38,7 @@ export function ManageModulesDialog({ open, onClose, modules }: ManageModulesDia
   return (
     <>
       <Dialog
-        open={open && pendingDisable === null}
+        open={open && pendingDisable === null && pendingEnable === null}
         onClose={onClose}
         title={t("home.modules.manage")}
         description={t("home.modules.manageDescription")}
@@ -58,8 +62,9 @@ export function ManageModulesDialog({ open, onClose, modules }: ManageModulesDia
                   disabled={!canMutate || busy || householdId === null}
                   onChange={(checked) => {
                     if (householdId === null) return;
-                    if (checked) enable.mutate({ householdId, moduleId: module.id });
-                    else setPendingDisable(module);
+                    if (!checked) setPendingDisable(module);
+                    else if (module.enableDialog) setPendingEnable(module);
+                    else enable.mutate({ householdId, moduleId: module.id });
                   }}
                 />
               </li>
@@ -68,6 +73,10 @@ export function ManageModulesDialog({ open, onClose, modules }: ManageModulesDia
         </ul>
         {reason ? <p className="pb-2 text-xs text-fg-muted">{reason}</p> : null}
       </Dialog>
+
+      {pendingEnable?.enableDialog ? (
+        <pendingEnable.enableDialog open={open} onClose={() => setPendingEnable(null)} />
+      ) : null}
 
       <ConfirmDialog
         open={pendingDisable !== null}
