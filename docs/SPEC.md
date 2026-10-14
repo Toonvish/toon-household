@@ -160,6 +160,12 @@ export interface ApiModule {
   onHouseholdCreated?(householdId, tx): Promise<void>   // e.g. finance seeds its 21 categories
   onEnable?(householdId, settings, tx): Promise<void>   // e.g. finance validates its two participants
   legacyMigration?: LegacyMigrator            // §6: the module's part of migrate:legacy
+  afterMigrate?(database): Promise<void>      // runs after every migrate() in runMigrations (db:migrate, seed, tests);
+                                              // idempotent, no transaction; e.g. recipe's folded-column backfill
+  shutdown?(): Promise<void>                  // SIGTERM/SIGINT in index.ts; e.g. recipe stops its OCR worker
+  seedDemo?(database, { householdId, userId }): Promise<void>   // the module's part of `bun run seed`, idempotent
+  uploadReferences?(database): Promise<string[]>   // every stored upload value the module's rows hold;
+                                              // uploads:gc keeps a file iff the core or any module references it
 }
 
 // apps/web/src/modules/<id>/index.ts
@@ -168,7 +174,9 @@ export interface WebModule {
   nameKey: CatalogKey             // "module.recipe.name"
   icon: LucideIcon
   basePath: `/${ModuleId}`
-  routes: AnyRoute[]              // children of the module layout route; the first is the module home
+  route: AnyRoute                 // the module's OWN layout route at basePath (routes.tsx: component
+                                  // moduleLayoutComponent(id), getParentRoute: () => householdScopedRoute,
+                                  // children via addChildren; the first child is the module home)
   navItems: NavItem[]             // exactly three; the shell appends Profil
   secondaryNavItems: NavItem[]    // sidebar-only; each must be reachable from a tab screen
   homeCard: ComponentType         // the card on Home
@@ -186,6 +194,26 @@ Rules:
   A module never imports from another module's directory (toon-finance's `WEB-TX`/`WEB-SALDO` rule,
   generalised). Shared logic goes to `packages/shared/src/core` or stays inside the module's own
   `packages/shared/src/modules/<id>`.
+- Hooks added after M0 (recorded here because the contract is this section): `afterMigrate`,
+  `shutdown`, `seedDemo` and `uploadReferences` on the API side, `persistMutationNamespaces` (M0) and
+  the module-owned `route` on the web side (M2; it replaced `routes: AnyRoute[]`, which could not
+  reach its layout parent without importing `router.tsx`). The core reads `API_MODULES` /
+  `WEB_MODULES` inside functions only, because several services sit in an import cycle with the
+  registry (`session.ts` → `auth/users.ts` → `households/modules.ts` → `modules/index.ts` → a
+  manifest → its routers → `session.ts`; `import-order.test.ts` loads each real entry point first in
+  a fresh process).
+- Module routers do NOT apply `requireSession()` or `requireHouseholdRole("member")`: `mountModules`
+  already ran them (plus `requireModule(id)`) for a `householdRouter`. A module router adds
+  `requireVerifiedEmail()` itself and `requireHouseholdRole("admin")` on a route that needs it; a
+  `userRouter` runs `requireSession()` itself and is not behind `requireModule` (a user-owned row,
+  e.g. a recipe card, follows its owner, not a household).
+- A module's web manifest must keep its static import graph free of the shell and the registry:
+  `modules/<id>/index.ts`, `routes.tsx`, `HomeCard.tsx` and the catalogs import neither `@/modules`
+  nor `@/components/layout`, and every screen in `routes.tsx` is a `lazyRouteComponent`. Otherwise
+  the registry re-enters a manifest that is still evaluating (a TDZ `ReferenceError` the moment a
+  test imports the manifest first). The shell-free roots of the route tree live in
+  `apps/web/src/route-roots.tsx`; `AppLayout` (`RequireAuth` + the shell) is attached to `appRoute`
+  in `router.tsx` with `appRoute.update`.
 - `requireModule(id)` runs after `requireHouseholdRole("member")` and reads
   `household_modules`; the web shell reads `household.modules` from `GET /api/households/:id`
   (and from `/api/auth/me`, which is persisted).
@@ -211,7 +239,8 @@ packages/shared/src/
   core/                  i18n runtime + server catalogs, schemas for auth/households/modules, calendar.ts,
                          text.ts (foldText, FOLD_PAIRS), http url schema, the list envelope
   modules/registry.ts
-  modules/recipe/        units, ingredients, numbers, duration, recipe schemas, shopping.ts, barcode.ts, qr.ts
+  modules/recipe/        units, ingredients, numbers, duration, tags, shopping.ts, barcode.ts, qr.ts,
+                         schemas/{recipe,plan,import,shopping,card}.ts, index.ts barrel
   modules/finance/       money.ts, ledger.ts, period.ts, plan.ts, categories.ts, tags.ts, schemas
 apps/api/src/
   index.ts               wiring: health, uploads, /api/auth, /api/households, module mounts, staticWeb LAST
@@ -221,13 +250,19 @@ apps/api/src/
                          (members/invites/modules export register…Routes(router) onto the one
                          householdRoutes instance, invite-token routes first; /uploads is inline in index.ts)
   modules/index.ts
-  modules/recipe/{index.ts,schema.ts,routes/,services/}     routes: recipes, imports, shopping, cards, plan
+  modules/recipe/{index.ts,schema.ts,migrate.ts,seed.ts,routes/,services/}
+                         routes: recipes (+ tags, collections), imports, shopping, cards, plan; services/ mirrors
+                         toon-recipe's services/ (recipes, import, ocr, plan, shopping, cards)
   modules/finance/{index.ts,schema.ts,routes/,services/}    routes: transactions, categories, tags, plan, balance, settlements
 apps/api/scripts/        migrate, seed, reset-password, uploads-gc, plan-run, migrate-legacy.ts, legacy/{recipe,finance}.ts
+                         (seed and uploads-gc only call the manifests' seedDemo / uploadReferences hooks)
 apps/api/test/           all api tests (test/, never tests/)
 apps/api/drizzle/        one journal
 apps/web/src/
-  router.tsx             app layout → household-scoped layout → Home, Settings, one layout route per module
+  route-roots.tsx        rootRoute, appRoute (no component), householdScopedRoute: the shell-free roots a module's
+                         routes.tsx imports as its parent (no @/modules, no layout import)
+  router.tsx             attaches AppLayout to appRoute, then app layout → household-scoped layout → Home,
+                         Settings, and each manifest's `route` (WEB_MODULES.map((m) => m.route))
   lib/                   api.ts (the ONLY fetch), queries.ts, session.tsx (RequireAuth, RequireActiveHousehold,
                          RequireModule), persist.ts, pwa.ts, unsavedWork.ts, nav.tsx, permissions.ts,
                          share.ts, i18n/
@@ -235,7 +270,9 @@ apps/web/src/
   components/layout/     AppShell, BottomTabBar, SideNav, ModuleSwitcher, HouseholdSwitcher, nav-items.ts
   core/features/{auth,home,households,settings}/
   modules/index.ts       (+ catalogs.ts, persist.ts, enabled.ts: moduleGuard, layout.tsx: moduleLayoutComponent)
-  modules/recipe/{index.ts,features/,catalogs/}
+  modules/recipe/{index.ts,routes.tsx,HomeCard.tsx,features/,catalogs/,lib/}
+                         lib/{api,queries,format}.ts are shims: `export * from "@/lib/<x>"` plus the module's own
+                         fetchers, query keys/options and formatters (the core lib stays module-free)
   modules/finance/{index.ts,features/,catalogs/}
   styles/{index.css,theme.css}   toon-recipe's, unchanged except new tokens in all four blocks
   public/fonts/          Newsreader + Figtree woff2 + licences
