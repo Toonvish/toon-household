@@ -12,12 +12,11 @@
  * No type annotation, ever — let inference keep the literal keys.
  *
  * M2 registered recipe: `./recipe/catalogs/index.ts` spreads the module's six namespace
- * files (`recipe.*`). M3 adds finance the same way, as one more spread of the literal objects:
- *
- *   import { financeDe } from "./finance/catalogs/index.ts";
- *   export const MODULE_CATALOGS_DE = { ...recipeDe, ...financeDe } as const;
+ * files (`recipe.*`). M3 registers finance the same way, as one more spread of the literal objects
+ * (`./finance/catalogs/index.ts`, `finance.*`).
  */
+import { financeDe, financeEn } from "./finance/catalogs/index.ts";
 import { recipeDe, recipeEn } from "./recipe/catalogs/index.ts";
 
-export const MODULE_CATALOGS_DE = { ...recipeDe } as const;
-export const MODULE_CATALOGS_EN = { ...recipeEn } as const;
+export const MODULE_CATALOGS_DE = { ...recipeDe, ...financeDe } as const;
+export const MODULE_CATALOGS_EN = { ...recipeEn, ...financeEn } as const;

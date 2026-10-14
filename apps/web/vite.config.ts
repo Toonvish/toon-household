@@ -86,6 +86,18 @@ const RUNTIME_CACHING = [
     handler: "NetworkOnly" as const,
   },
   {
+    /**
+     * FINANCE LEDGER, same rule as shopping lists and the planner (F gotcha 11): `/api/households/…/finance/…`
+     * is never cached here. The offline copy of the ledger IS the persisted TanStack cache, the
+     * same store the paused mutations live in. A `NetworkFirst` hit would hand TanStack a stale
+     * body that looks like a fresh success, `onSuccess` would write it over the optimistic state,
+     * and the booking just recorded would silently disappear. Must come before any NetworkFirst
+     * rule below for the same reason rule 1 does.
+     */
+    urlPattern: /\/api\/households\/[^/]+\/finance\//,
+    handler: "NetworkOnly" as const,
+  },
+  {
     // Recipes, tags, collections: fresh when there is a connection, cached when the
     // wifi in the kitchen gives up. The short timeout is what makes that feel fast
     // rather than like a hang.

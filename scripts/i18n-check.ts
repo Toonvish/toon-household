@@ -125,6 +125,27 @@ const NEW_GERMAN = new Set<string>([
   "household.detail.meta",
   // ADR 0001: recipe count dropped (the core cannot count recipes)
   "household.danger.warning",
+  // M3 new copy — finance participants, enable flow, non-participant state (SPEC D10, finance decision 11)
+  "finance.module.name",
+  "finance.participants.title",
+  "finance.participants.description",
+  "finance.participants.slot1",
+  "finance.participants.slot2",
+  "finance.participants.save",
+  "finance.participants.saved",
+  "finance.participants.sameMember",
+  "finance.participants.adminOnly",
+  "finance.participants.needsTwoMembers",
+  "finance.participants.enableTitle",
+  "finance.participants.notParticipantTitle",
+  "finance.participants.notParticipantBody",
+  "finance.participants.notParticipantAdminHint",
+  "finance.participants.toSettings",
+  // M3 new server copy — finance participant refusals and non-participant state (SPEC D10, finance decision 11)
+  "server.finance.notParticipant",
+  "server.finance.participantsRequired",
+  "server.finance.participantNotMember",
+  "server.finance.participantInUse",
 ]);
 
 /** Immediate subdirectories of `rel` (relative to ROOT); empty when `rel` does not exist. */
