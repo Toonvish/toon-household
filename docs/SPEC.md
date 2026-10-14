@@ -99,7 +99,7 @@ code is the smallest possible one and is recorded in the plan and in `docs/adr/`
   byte-identical** (toon-recipe's refactor rule); new copy (Home, switcher, participant settings,
   module-disabled states) is the only new German. One recorded exception (ADR 0001): the core
   cannot count recipes, so `household.detail.meta` and `household.danger.warning` drop the recipe
-  count and `household.count.recipes` is not ported. toon-recipe's `scripts/i18n-check.ts` carries
+  count and `household.count.recipes` is not ported. A second recorded exception (ADR 0002): finance's generic Zod validation messages render the core's wording; finance's field-specific validation messages keep their text. toon-recipe's `scripts/i18n-check.ts` carries
   over and gains the finance tree; finance's "typecheck is the gate" rule is subsumed. Content
   language (German recipe vocabulary, finance's stored descriptions) is a separate axis and is
   never routed through `t()`.

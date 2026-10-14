@@ -103,6 +103,34 @@ export const ERROR_CODES = [
    * 404, not 403: for that household the module's routes do not exist.
    */
   "module_disabled",
+  /** Finance (F docs/spec.md §3.2): a transaction amount of 0 is rejected. */
+  "transaction_amount_zero",
+  /** Finance: a fixed-cost-plan booking is read-only; only the plan can change it. */
+  "transaction_generated",
+  /** Finance: the balance the client quoted is no longer current. */
+  "balance_stale",
+  /** Finance: a settlement amount must be greater than 0. */
+  "settlement_amount_invalid",
+  /** Finance: a category still has transactions and cannot be removed. */
+  "category_in_use",
+  /** Finance: a system category cannot be changed. */
+  "category_system",
+  /** Finance: another category of this household already has that slug. */
+  "category_slug_taken",
+  /** Finance: the fixed-cost plan is not enabled for this household. */
+  "plan_disabled",
+  /** Finance: the plan lacks fixed costs or an income for the calculation. */
+  "plan_incomplete",
+  /** Finance: a booking already exists for the requested period. */
+  "plan_period_locked",
+  /** Finance: the requested period lies outside the plan's range. */
+  "plan_period_out_of_range",
+  /** Finance (M3 decision 3): a household member without a participant slot may not read or write the ledger. */
+  "finance_not_participant",
+  /** Finance (M3 decision 4): the participants must be exactly two different household members in slots 1 and 2. */
+  "finance_participants_required",
+  /** Finance (M3 decision 4): a participant who has ledger entries cannot give up their slot. */
+  "finance_participant_in_use",
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
 
