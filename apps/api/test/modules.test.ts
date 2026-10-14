@@ -8,6 +8,10 @@
  * sessions come from the real `POST /api/auth/register`; extra members are direct inserts, as
  * in middleware.test.ts. `bun test` runs every file in one process, so the verified-e-mail
  * override is handed back in `afterAll`.
+ *
+ * Since M3 `finance` is a real build module whose `onEnable` needs two participants (SPEC D3,
+ * plan M3 decision 4): every enable of finance that must succeed sends a participants body
+ * (`financeSettings`) for the owner plus a second member; (g') pins the refusal.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { and, eq } from "drizzle-orm";
@@ -17,7 +21,7 @@ import { setVerifiedEmailRequired } from "../src/core/services/auth/verifiedEmai
 import { enableModule, initializeHousehold } from "../src/core/services/households/modules.ts";
 import { db } from "../src/db/client.ts";
 import { runMigrations } from "../src/db/migrate.ts";
-import { householdMembers, householdModules, users } from "../src/db/schema.ts";
+import { financeParticipants, householdMembers, householdModules, users } from "../src/db/schema.ts";
 import { app } from "../src/index.ts";
 import { SESSION_COOKIE } from "../src/lib/cookies.ts";
 import { ApiError, notFoundHandler, onErrorHandler } from "../src/lib/errors.ts";
@@ -85,6 +89,23 @@ async function call(
   });
 }
 
+/** Finance's enable settings: `slot1` → 1, `slot2` → 2 (plan M3 decision 4). */
+function financeSettings(slot1: Account, slot2: Account): { participants: { userId: string; memberSlot: number }[] } {
+  return {
+    participants: [
+      { userId: slot1.userId, memberSlot: 1 },
+      { userId: slot2.userId, memberSlot: 2 },
+    ],
+  };
+}
+
+/** Registers a second person and makes them a member of `owner`'s household; returns them. */
+async function withPartner(owner: Account, role: "admin" | "member" = "member"): Promise<Account> {
+  const partner = await register("Partner");
+  await addMember(owner.householdId, partner, role);
+  return partner;
+}
+
 function modulePath(householdId: string, moduleId: string): string {
   return `/api/households/${householdId}/modules/${moduleId}`;
 }
@@ -146,9 +167,12 @@ describe("module rows of a new household", () => {
 describe("POST /api/households/:householdId/modules/:moduleId", () => {
   test("(b) the owner enables finance; a second POST keeps enabled_at", async () => {
     const owner = await register("Owner");
+    const partner = await withPartner(owner);
+    const settings = financeSettings(owner, partner);
     const first = await call(app, modulePath(owner.householdId, "finance"), {
       method: "POST",
       cookie: owner.cookie,
+      body: { settings },
     });
     expect(first.status).toBe(200);
     const { household } = (await first.json()) as HouseholdBody;
@@ -156,7 +180,7 @@ describe("POST /api/households/:householdId/modules/:moduleId", () => {
     expect(household.role).toBe("owner");
     expect(household.modules).toEqual(["recipe", "finance"]);
     const before = await moduleRow(owner.householdId, "finance");
-    expect(before?.settings).toBeNull();
+    expect(before?.settings).toBe(JSON.stringify(settings));
 
     await Bun.sleep(5);
     const second = await call(app, modulePath(owner.householdId, "finance"), {
@@ -172,19 +196,22 @@ describe("POST /api/households/:householdId/modules/:moduleId", () => {
 
   test("(c) settings are stored as JSON text, replaced only when sent", async () => {
     const owner = await register("Owner");
+    const partner = await withPartner(owner);
     const path = modulePath(owner.householdId, "finance");
-    const sent = await call(app, path, { method: "POST", cookie: owner.cookie, body: { settings: { a: 1 } } });
+    const first = financeSettings(owner, partner);
+    const sent = await call(app, path, { method: "POST", cookie: owner.cookie, body: { settings: first } });
     expect(sent.status).toBe(200);
-    expect((await moduleRow(owner.householdId, "finance"))?.settings).toBe('{"a":1}');
+    expect((await moduleRow(owner.householdId, "finance"))?.settings).toBe(JSON.stringify(first));
 
     // No settings sent: the stored ones stay.
     const bare = await call(app, path, { method: "POST", cookie: owner.cookie, body: {} });
     expect(bare.status).toBe(200);
-    expect((await moduleRow(owner.householdId, "finance"))?.settings).toBe('{"a":1}');
+    expect((await moduleRow(owner.householdId, "finance"))?.settings).toBe(JSON.stringify(first));
 
-    const replaced = await call(app, path, { method: "POST", cookie: owner.cookie, body: { settings: { b: "x" } } });
+    const swapped = financeSettings(partner, owner);
+    const replaced = await call(app, path, { method: "POST", cookie: owner.cookie, body: { settings: swapped } });
     expect(replaced.status).toBe(200);
-    expect((await moduleRow(owner.householdId, "finance"))?.settings).toBe('{"b":"x"}');
+    expect((await moduleRow(owner.householdId, "finance"))?.settings).toBe(JSON.stringify(swapped));
 
     const invalid = await call(app, path, { method: "POST", cookie: owner.cookie, body: { settings: 5 } });
     expect(invalid.status).toBe(422);
@@ -195,7 +222,7 @@ describe("POST /api/households/:householdId/modules/:moduleId", () => {
       body: "{not json",
     });
     expect(malformed.status).toBe(422);
-    expect((await moduleRow(owner.householdId, "finance"))?.settings).toBe('{"b":"x"}');
+    expect((await moduleRow(owner.householdId, "finance"))?.settings).toBe(JSON.stringify(swapped));
   });
 
   test("(e) member 403, admin 200, non-member 403, no cookie 401, unknown module 404", async () => {
@@ -225,7 +252,11 @@ describe("POST /api/households/:householdId/modules/:moduleId", () => {
       expect(((await unknown.json()) as ErrorBody).error.code).toBe("not_found");
     }
 
-    const allowed = await call(app, path, { method: "POST", cookie: admin.cookie });
+    const allowed = await call(app, path, {
+      method: "POST",
+      cookie: admin.cookie,
+      body: { settings: financeSettings(owner, admin) },
+    });
     expect(allowed.status).toBe(200);
     const { household } = (await allowed.json()) as HouseholdBody;
     expect(household.role).toBe("admin");
@@ -248,7 +279,11 @@ describe("POST /api/households/:householdId/modules/:moduleId", () => {
       expect(await moduleRow(owner.householdId, "finance")).toBeUndefined();
 
       await db.update(users).set({ emailVerified: true, emailVerifiedAt: Date.now() }).where(eq(users.id, admin.userId));
-      const confirmed = await call(app, path, { method: "POST", cookie: admin.cookie });
+      const confirmed = await call(app, path, {
+        method: "POST",
+        cookie: admin.cookie,
+        body: { settings: financeSettings(owner, admin) },
+      });
       expect(confirmed.status).toBe(200);
     } finally {
       setVerifiedEmailRequired(null);
@@ -259,7 +294,13 @@ describe("POST /api/households/:householdId/modules/:moduleId", () => {
 describe("DELETE /api/households/:householdId/modules/:moduleId", () => {
   test("(d) deletes the row (204), GET reports the rest, a second DELETE is 204 too", async () => {
     const owner = await register("Owner");
-    await call(app, modulePath(owner.householdId, "finance"), { method: "POST", cookie: owner.cookie });
+    const partner = await withPartner(owner);
+    const enabled = await call(app, modulePath(owner.householdId, "finance"), {
+      method: "POST",
+      cookie: owner.cookie,
+      body: { settings: financeSettings(owner, partner) },
+    });
+    expect(enabled.status).toBe(200);
 
     const removed = await call(app, modulePath(owner.householdId, "recipe"), {
       method: "DELETE",
@@ -293,6 +334,7 @@ describe("the module gate end to end", () => {
     mountModules(moduleApp, [fakeFinance]);
 
     const owner = await register("Owner");
+    const partner = await withPartner(owner);
     const ping = `/api/households/${owner.householdId}/finance/ping`;
 
     const before = await call(moduleApp, ping, { cookie: owner.cookie });
@@ -302,6 +344,7 @@ describe("the module gate end to end", () => {
     const enabled = await call(app, modulePath(owner.householdId, "finance"), {
       method: "POST",
       cookie: owner.cookie,
+      body: { settings: financeSettings(owner, partner) },
     });
     expect(enabled.status).toBe(200);
     const open = await call(moduleApp, ping, { cookie: owner.cookie });
@@ -316,6 +359,25 @@ describe("the module gate end to end", () => {
     const after = await call(moduleApp, ping, { cookie: owner.cookie });
     expect(after.status).toBe(404);
     expect(((await after.json()) as ErrorBody).error.code).toBe("module_disabled");
+  });
+});
+
+describe("finance's onEnable (SPEC D3)", () => {
+  test("(g') a one-member household cannot enable finance: 422 finance_participants_required, nothing written", async () => {
+    const owner = await register("Owner");
+    const refused = await call(app, modulePath(owner.householdId, "finance"), {
+      method: "POST",
+      cookie: owner.cookie,
+    });
+    expect(refused.status).toBe(422);
+    expect(((await refused.json()) as ErrorBody).error.code).toBe("finance_participants_required");
+    expect(await moduleRow(owner.householdId, "finance")).toBeUndefined();
+    const seats = await db
+      .select()
+      .from(financeParticipants)
+      .where(eq(financeParticipants.householdId, owner.householdId));
+    expect(seats).toEqual([]);
+    expect(await reportedModules(owner, owner.householdId)).toEqual(["recipe"]);
   });
 });
 

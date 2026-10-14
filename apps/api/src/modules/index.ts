@@ -8,7 +8,8 @@
  * imports (services → core/services/households/modules.ts, db/migrate.ts) come back
  * here while this file is still evaluating.
  */
+import { financeModule } from "./finance/index.ts";
 import { recipeModule } from "./recipe/index.ts";
 import type { ApiModule } from "./types.ts";
 
-export const API_MODULES: readonly ApiModule[] = [recipeModule];
+export const API_MODULES: readonly ApiModule[] = [recipeModule, financeModule];
