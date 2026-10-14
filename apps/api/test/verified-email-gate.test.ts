@@ -120,13 +120,21 @@ async function errorCode(response: Response): Promise<string> {
 /* -------------------------------------------------------------------------- */
 
 describe("an unconfirmed account can still READ everything", () => {
-  test("its session and its households all answer 200", async () => {
+  test("its session, its households, and the household's recipes/lists all answer 200", async () => {
     const account = await register();
 
     for (const path of [
       "/api/auth/me",
       "/api/households",
       `/api/households/${account.householdId}`,
+      `/api/households/${account.householdId}/recipe/recipes`,
+      `/api/households/${account.householdId}/recipe/tags`,
+      `/api/households/${account.householdId}/recipe/collections`,
+      `/api/households/${account.householdId}/recipe/shopping-lists`,
+      `/api/households/${account.householdId}/recipe/imports`,
+      // The wallet is the user's own, not the household's, and reading it has to
+      // keep working — a card at a till is a read.
+      "/api/recipe/cards",
     ]) {
       const response = await request(path, { cookie: account.cookie });
       expect({ path, status: response.status }).toEqual({ path, status: 200 });
@@ -139,9 +147,80 @@ describe("an unconfirmed account can still READ everything", () => {
 /* -------------------------------------------------------------------------- */
 
 describe("every write answers 403 email_unverified", () => {
-  // M2: the recipe, tag, collection, import, shopping, plan and cards write cases (and the recipe
-  // and tag read and write of the invite test) of toon-recipe test/verified-email-gate.test.ts
-  // return with the recipe module.
+  test("recipes, tags and collections", async () => {
+    const account = await register();
+    const base = `/api/households/${account.householdId}/recipe`;
+
+    const writes: Array<[string, string, unknown]> = [
+      ["POST", `${base}/recipes`, { title: "Spam", ingredients: [], steps: [], tags: [] }],
+      ["POST", `${base}/tags`, { name: "spam" }],
+      ["POST", `${base}/collections`, { name: "Spam" }],
+    ];
+
+    for (const [method, path, body] of writes) {
+      const response = await request(path, { method, body, cookie: account.cookie });
+      expect({ path, status: response.status }).toEqual({ path, status: 403 });
+      expect(await errorCode(response)).toBe("email_unverified");
+    }
+  });
+
+  test("every import source, including the ones that need no OCR", async () => {
+    const account = await register();
+    const base = `/api/households/${account.householdId}/recipe/imports`;
+
+    for (const [path, body] of [
+      [`${base}/url`, { url: "https://www.chefkoch.de/rezepte/1/x.html" }],
+      [`${base}/text`, { text: "250 g Mehl" }],
+    ] as const) {
+      const response = await request(path, { method: "POST", body, cookie: account.cookie });
+      expect({ path, status: response.status }).toEqual({ path, status: 403 });
+      expect(await errorCode(response)).toBe("email_unverified");
+    }
+  });
+
+  test("the import upload routes reject BEFORE reading the body", async () => {
+    const account = await register();
+    // No multipart body at all: a 403 here proves the middleware ran before the
+    // handler tried to parse one (the same discipline the OCR capability guard
+    // follows — never buffer 15 MB only to refuse it).
+    const response = await app.request(
+      `/api/households/${account.householdId}/recipe/imports/image`,
+      { method: "POST", headers: { Cookie: account.cookie } },
+    );
+    expect(response.status).toBe(403);
+    expect(await errorCode(response)).toBe("email_unverified");
+  });
+
+  test("shopping lists — the one feature that is otherwise writable offline", async () => {
+    const account = await register();
+    const response = await request(
+      `/api/households/${account.householdId}/recipe/shopping-lists`,
+      { method: "POST", body: { name: "Einkauf" }, cookie: account.cookie },
+    );
+    expect(response.status).toBe(403);
+    expect(await errorCode(response)).toBe("email_unverified");
+  });
+
+  test("saving a card — the only user-owned entity, gated like everything else", async () => {
+    const account = await register();
+    const save = await request("/api/recipe/cards", {
+      method: "POST",
+      body: { label: "Payback", format: "ean13", value: "401234567890" },
+      cookie: account.cookie,
+    });
+    expect(save.status).toBe(403);
+    expect(await errorCode(save)).toBe("email_unverified");
+
+    // Including the "I showed this card" bump, which is why the web client fires
+    // that request and forgets it instead of surfacing a failure (routes/cards.ts).
+    const used = await request(`/api/recipe/cards/${crypto.randomUUID()}/used`, {
+      method: "POST",
+      cookie: account.cookie,
+    });
+    expect(used.status).toBe(403);
+    expect(await errorCode(used)).toBe("email_unverified");
+  });
+
   test("creating a group, renaming one, and inviting into one", async () => {
     const account = await register();
 
@@ -211,6 +290,19 @@ describe("what an unconfirmed account may still do", () => {
     expect(
       (await request(`/api/households/${host.householdId}`, { cookie: invited.cookie })).status,
     ).toBe(200);
+    expect(
+      (await request(`/api/households/${host.householdId}/recipe/recipes`, { cookie: invited.cookie }))
+        .status,
+    ).toBe(200);
+    expect(
+      (
+        await request(`/api/households/${host.householdId}/recipe/tags`, {
+          method: "POST",
+          body: { name: "spam" },
+          cookie: invited.cookie,
+        })
+      ).status,
+    ).toBe(403);
     expect(
       (
         await request("/api/households", {
@@ -293,6 +385,24 @@ describe("confirming the address lifts the gate", () => {
     expect(after.status).toBe(200);
   });
 
+  test("the same session can create a recipe immediately afterwards", async () => {
+    const account = await register();
+    const path = `/api/households/${account.householdId}/recipe/recipes`;
+    const body = { title: "Vorher", ingredients: [], steps: [], tags: [] };
+
+    const before = await request(path, { method: "POST", body, cookie: account.cookie });
+    expect(before.status).toBe(403);
+
+    await confirm(account);
+
+    const after = await request(path, {
+      method: "POST",
+      body: { ...body, title: "Nachher" },
+      cookie: account.cookie,
+    });
+    expect(after.status).toBe(201);
+  });
+
   test("the TIMESTAMP is what counts, not the boolean", async () => {
     const account = await register();
     // The takeover this codebase already fixed came from trusting the flag alone,
@@ -324,6 +434,13 @@ describe("a deployment with no mail transport is not gated at all", () => {
       cookie: account.cookie,
     });
     expect(response.status).toBe(200);
+
+    const recipe = await request(`/api/households/${account.householdId}/recipe/recipes`, {
+      method: "POST",
+      body: { title: "Ohne Mailserver", ingredients: [], steps: [], tags: [] },
+      cookie: account.cookie,
+    });
+    expect(recipe.status).toBe(201);
   });
 
   test("`bun test` defaults to OFF, so a mail stub cannot re-authorise another file", () => {

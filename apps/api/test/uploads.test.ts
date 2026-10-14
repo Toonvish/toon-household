@@ -7,18 +7,24 @@
  *    with a valid `?exp&sig` minted by the API (lib/uploadUrls.ts),
  *  - import SOURCE scans get no signature anywhere, so the public route can never
  *    serve one; they are reachable only through the membership-checked
- *    `GET /api/households/:householdId/recipe/imports/:draftId/source` (M2).
+ *    `GET /api/households/:householdId/recipe/imports/:draftId/source`.
  *
  * The regression this pins down: before, ANY of these files could be fetched
  * forever by anyone who had ever seen the URL — including a removed member.
  */
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { and, eq } from "drizzle-orm";
 import { db } from "../src/db/client.ts";
 import { runMigrations } from "../src/db/migrate.ts";
+import { householdMembers, importDrafts, recipes } from "../src/db/schema.ts";
 import { storeUploadedImage } from "../src/core/services/media/uploads.ts";
 import { ApiError } from "../src/lib/errors.ts";
 import { app } from "../src/index.ts";
+import { SESSION_COOKIE } from "../src/lib/cookies.ts";
 import { env } from "../src/env.ts";
+import { setMailer } from "../src/core/services/mail/index.ts";
 import {
   SIGNED_URL_WINDOW_MS,
   currentExpiry,
@@ -29,6 +35,9 @@ import {
 } from "../src/lib/uploadUrls.ts";
 import { removeUpload } from "./support/files.ts";
 
+const JSON_HEADERS = { "Content-Type": "application/json" };
+const PASSWORD = "geheimes-passwort-123";
+
 /** Smallest valid PNG, so the sniffer accepts it. */
 const PNG = Uint8Array.from(
   atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8AAAwAB/gEBjT4uAAAAAElFTkSuQmCC"),
@@ -37,9 +46,72 @@ const PNG = Uint8Array.from(
 
 beforeAll(async () => {
   await runMigrations(db);
+  // Registering an account creates no mail, but keep the seam explicit and cheap.
+  setMailer({ name: "test", send: async () => undefined });
 });
 
+// `bun test` runs every file in ONE process, so the module-level mailer must be
+// handed back or the next file inherits this stub.
+afterAll(() => setMailer(null));
+
 /* -------------------------------- helpers -------------------------------- */
+
+function uniqueEmail(prefix = "upload"): string {
+  return `${prefix}-${crypto.randomUUID()}@toon.test`;
+}
+
+function sessionCookie(response: Response): string {
+  const header = response.headers
+    .getSetCookie()
+    .find((value) => value.startsWith(`${SESSION_COOKIE}=`));
+  if (!header) throw new Error(`no ${SESSION_COOKIE} cookie`);
+  return header.split(";")[0] ?? "";
+}
+
+interface Account {
+  cookie: string;
+  householdId: string;
+  userId: string;
+}
+
+async function register(): Promise<Account> {
+  const response = await app.request("/api/auth/register", {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ email: uniqueEmail(), name: "Test", password: PASSWORD }),
+  });
+  expect(response.status).toBe(201);
+  const payload = (await response.json()) as {
+    user: { id: string };
+    households: { id: string }[];
+  };
+  const householdId = payload.households[0]?.id;
+  if (householdId === undefined) throw new Error("no household after register");
+  return { cookie: sessionCookie(response), householdId, userId: payload.user.id };
+}
+
+/** Creates a recipe through the API and gives it a hero image through the API. */
+async function createRecipeWithImage(
+  account: Account,
+): Promise<{ recipeId: string; filename: string; signedUrl: string }> {
+  const created = await app.request(`/api/households/${account.householdId}/recipe/recipes`, {
+    method: "POST",
+    headers: { ...JSON_HEADERS, Cookie: account.cookie },
+    body: JSON.stringify({ title: "Mit Bild", ingredients: [], steps: [], tags: [] }),
+  });
+  expect(created.status).toBe(201);
+  const recipeId = ((await created.json()) as { recipe: { id: string } }).recipe.id;
+
+  const form = new FormData();
+  form.append("file", new File([PNG], "foto.png", { type: "image/png" }));
+  const uploaded = await app.request(
+    `/api/households/${account.householdId}/recipe/recipes/${recipeId}/image`,
+    { method: "POST", headers: { Cookie: account.cookie }, body: form },
+  );
+  expect(uploaded.status).toBe(200);
+  const upload = (await uploaded.json()) as { url: string; filename: string };
+  return { recipeId, filename: upload.filename, signedUrl: upload.url };
+}
 
 /** Stores a 1x1 PNG through the core media service, like a module route would. */
 async function storeImage(): Promise<{ filename: string; signedUrl: string }> {
@@ -80,7 +152,7 @@ describe("signUploadUrl", () => {
       "",
       "https://chefkoch.de/bilder/rezept.jpg",
       "data:image/png;base64,AAAA",
-      "/api/groups/x/recipes",
+      "/api/households/x/recipe/recipes",
       "javascript:alert(1)",
     ]) {
       expect(signUploadUrl(value as string)).toBe(value as string);
@@ -258,9 +330,151 @@ describe("GET /uploads/:filename", () => {
       expect(response.status).toBe(404);
     }
   });
+
+  test("the stored column never holds a signature", async () => {
+    const account = await register();
+    const { recipeId, filename, signedUrl } = await createRecipeWithImage(account);
+
+    // Round-trip the signed value through PATCH, exactly as the web client does.
+    const patched = await app.request(`/api/households/${account.householdId}/recipe/recipes/${recipeId}`, {
+      method: "PATCH",
+      headers: { ...JSON_HEADERS, Cookie: account.cookie },
+      body: JSON.stringify({ imageUrl: signedUrl }),
+    });
+    expect(patched.status).toBe(200);
+
+    const rows = await db
+      .select({ imageUrl: recipes.imageUrl })
+      .from(recipes)
+      .where(eq(recipes.id, recipeId));
+    expect(rows[0]?.imageUrl).toBe(`/uploads/${filename}`);
+
+    await removeUpload(filename);
+  });
 });
 
-// M2: "the stored column never holds a signature" and "import source scans" return with the recipe routes (toon-recipe test/uploads.test.ts).
+/* -------------------------------------------------------------------------- */
+/* import source scans                                                        */
+/* -------------------------------------------------------------------------- */
+
+describe("import source scans", () => {
+  /** Creates a draft whose sourceMeta points at a real file on disk. */
+  async function createDraftWithSource(
+    account: Account,
+  ): Promise<{ draftId: string; filename: string }> {
+    const filename = `${crypto.randomUUID()}.png`;
+    await mkdir(env.uploadDir, { recursive: true });
+    await writeFile(join(env.uploadDir, filename), PNG);
+
+    const draftId = crypto.randomUUID();
+    const now = Date.now();
+    await db.insert(importDrafts).values({
+      id: draftId,
+      householdId: account.householdId,
+      createdBy: account.userId,
+      status: "pending",
+      sourceType: "ocr",
+      sourceUrl: null,
+      rawText: "Zwiebelkuchen",
+      parsed: {
+        title: "Zwiebelkuchen",
+        ingredients: [],
+        steps: [],
+        tags: [],
+        confidence: { overall: 0.5 },
+      } as never,
+      confidence: 0.5,
+      sourceMeta: { method: "ocr", storedPath: filename } as never,
+      recipeId: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    return { draftId, filename };
+  }
+
+  test("a source scan is NOT reachable through /uploads at all", async () => {
+    const account = await register();
+    const { draftId, filename } = await createDraftWithSource(account);
+
+    // No signature exists for it, and minting one is not something a client can do.
+    expect((await app.request(`/uploads/${filename}`)).status).toBe(404);
+
+    // The checked endpoint serves it to a member.
+    const allowed = await app.request(
+      `/api/households/${account.householdId}/recipe/imports/${draftId}/source`,
+      { headers: { Cookie: account.cookie } },
+    );
+    expect(allowed.status).toBe(200);
+    expect(allowed.headers.get("cache-control")).toContain("private");
+
+    await removeUpload(filename);
+  });
+
+  test("the draft payload never exposes a fetchable URL for the scan", async () => {
+    const account = await register();
+    const { draftId, filename } = await createDraftWithSource(account);
+
+    const response = await app.request(`/api/households/${account.householdId}/recipe/imports/${draftId}`, {
+      headers: { Cookie: account.cookie },
+    });
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as {
+      draft: { sourceMeta: { storedPath?: string } | null };
+    };
+    // The bare filename is still there (the client needs it to know a scan exists),
+    // but it carries no signature, so it is not a credential.
+    expect(payload.draft.sourceMeta?.storedPath).toBe(filename);
+    expect(JSON.stringify(payload)).not.toContain("sig=");
+
+    await removeUpload(filename);
+  });
+
+  test("a non-member gets 403 from the source endpoint", async () => {
+    const owner = await register();
+    const stranger = await register();
+    const { draftId, filename } = await createDraftWithSource(owner);
+
+    const response = await app.request(
+      `/api/households/${owner.householdId}/recipe/imports/${draftId}/source`,
+      { headers: { Cookie: stranger.cookie } },
+    );
+    expect(response.status).toBe(403);
+
+    await removeUpload(filename);
+  });
+
+  test("a REMOVED member loses access to the scan", async () => {
+    const owner = await register();
+    const guest = await register();
+    const { draftId, filename } = await createDraftWithSource(owner);
+
+    await db.insert(householdMembers).values({
+      id: crypto.randomUUID(),
+      householdId: owner.householdId,
+      userId: guest.userId,
+      role: "member",
+      createdAt: Date.now(),
+    });
+
+    const asMember = await app.request(
+      `/api/households/${owner.householdId}/recipe/imports/${draftId}/source`,
+      { headers: { Cookie: guest.cookie } },
+    );
+    expect(asMember.status).toBe(200);
+
+    await db
+      .delete(householdMembers)
+      .where(and(eq(householdMembers.householdId, owner.householdId), eq(householdMembers.userId, guest.userId)));
+
+    const afterRemoval = await app.request(
+      `/api/households/${owner.householdId}/recipe/imports/${draftId}/source`,
+      { headers: { Cookie: guest.cookie } },
+    );
+    expect(afterRemoval.status).toBe(403);
+
+    await removeUpload(filename);
+  });
+});
 
 /* -------------------------------------------------------------------------- */
 /* storeUploadedImage                                                         */
