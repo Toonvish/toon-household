@@ -5,6 +5,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { readStorage, storageKeys, writeStorage } from "./storage";
+import { THEME_COLORS } from "./theme-colors";
 
 export type ThemePreference = "system" | "light" | "dark";
 
@@ -24,7 +25,7 @@ export function applyTheme(preference: ThemePreference): void {
     preference === "dark" ||
     (preference === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
   const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
-  if (meta) meta.content = dark ? "#17120f" : "#faf5ee";
+  if (meta) meta.content = dark ? THEME_COLORS.dark : THEME_COLORS.light;
 }
 
 export function useTheme(): {

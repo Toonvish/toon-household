@@ -1,7 +1,7 @@
 /*
  * apps/web/src/styles/fonts.css
  *
- * SELF-HOSTED, NOT fonts.googleapis.com. This is an offline-first PWA whose shopping
+ * SELF-HOSTED, NOT the Google Fonts CDN. This is an offline-first PWA whose shopping
  * list has to render at a supermarket till: a webfont that 404s offline reflows every
  * screen from Newsreader/Figtree to Georgia/system-ui, which changes line counts and
  * therefore layout. The four files are precached by the service worker (see the

@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, loadEnv } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
+import { PWA_MANIFEST_OPTIONS } from "./pwa-manifest.ts";
 
 const here = (path: string) => fileURLToPath(new URL(path, import.meta.url));
 
@@ -170,37 +171,7 @@ export default defineConfig(({ mode }) => {
         // sits in front of the dev server and breaks HMR).
         injectRegister: false,
         filename: "sw.js",
-        manifest: {
-          id: "/",
-          name: "Haushalt",
-          short_name: "Haushalt",
-          lang: "de",
-          dir: "ltr",
-          start_url: "/",
-          scope: "/",
-          display: "standalone",
-          display_override: ["standalone", "minimal-ui"],
-          orientation: "any",
-          background_color: "#faf5ee",
-          theme_color: "#c2532c",
-          categories: ["lifestyle", "productivity"],
-          icons: [
-            { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-            { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
-            {
-              src: "/icons/maskable-192.png",
-              sizes: "192x192",
-              type: "image/png",
-              purpose: "maskable",
-            },
-            {
-              src: "/icons/maskable-512.png",
-              sizes: "512x512",
-              type: "image/png",
-              purpose: "maskable",
-            },
-          ],
-        },
+        manifest: PWA_MANIFEST_OPTIONS,
         workbox: {
           // App shell: hashed build output + icons. Source maps stay out of the cache.
           //
