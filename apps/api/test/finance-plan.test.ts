@@ -14,7 +14,7 @@ import { db } from "../src/db/client.ts";
 import { financeTransactions as transactions } from "../src/modules/finance/schema.ts";
 import { runMigrations } from "../src/db/migrate.ts";
 import { setClockForTest } from "../src/modules/finance/lib/clock.ts";
-import { body, call, createHousehold, createUser, joinAsSecondMember, type TestUser } from "./support/finance-harness.ts";
+import { addMember, body, call, createHousehold, createUser, joinAsSecondMember, type TestUser } from "./support/finance-harness.ts";
 
 await runMigrations(db);
 
@@ -104,6 +104,95 @@ describe("income rows", () => {
     const second = await call(`/api/households/${householdId}/finance/plan/incomes`, { method: "POST", cookie: owner.cookie, body: payload });
     expect(second.status).toBe(409);
     expect((await body<ErrorPayload>(second)).error.code).toBe("conflict");
+  });
+});
+
+describe("the plan payer and an income's person must be participants (M3 review finding B, M4-T01)", () => {
+  const KEY = "server.finance.personNotParticipant";
+
+  interface Issue {
+    path: string;
+    code: string;
+    i18n?: { key: string };
+  }
+
+  /** A household with finance (owner + hidden partner seated), a seatless member and a user of another household. */
+  async function setup(): Promise<{ owner: TestUser; seatless: TestUser; foreign: TestUser; householdId: string; base: string }> {
+    setClockForTest(JAN);
+    const owner = await createUser("Owner");
+    const householdId = await createHousehold(owner, "Teilnahme");
+    const seatless = await createUser("Seatless");
+    await addMember(owner, householdId, seatless);
+    const foreign = await createUser("Foreign");
+    await createHousehold(foreign, "Anderer Haushalt");
+    return { owner, seatless, foreign, householdId, base: `/api/households/${householdId}/finance/plan` };
+  }
+
+  async function expectRefused(response: Response, field: "payerId" | "personId"): Promise<void> {
+    expect(response.status).toBe(422);
+    const payload = await body<{ error: { code: string; message: string; details: Issue[] } }>(response);
+    expect(payload.error.code).toBe("validation_failed");
+    expect(payload.error.details).toHaveLength(1);
+    expect(payload.error.details[0]?.path).toBe(field);
+    expect(payload.error.details[0]?.i18n?.key).toBe(KEY);
+  }
+
+  test("PATCH /plan with a seatless member or a foreign user as payer is 422; a participant still succeeds", async () => {
+    const { owner, seatless, foreign, base } = await setup();
+    for (const person of [seatless, foreign]) {
+      await expectRefused(await call(base, { method: "PATCH", cookie: owner.cookie, body: { payerId: person.id } }), "payerId");
+    }
+    const unchanged = await body<PlanResponse>(await call(base, { cookie: owner.cookie }));
+    expect(unchanged.plan.payerId).toBe(owner.id);
+
+    const ok = await call(base, { method: "PATCH", cookie: owner.cookie, body: { payerId: owner.id } });
+    expect(ok.status).toBe(200);
+  });
+
+  test("POST /plan/incomes with a seatless member or a foreign user is 422 and writes nothing; a participant is 201", async () => {
+    const { owner, seatless, foreign, base } = await setup();
+    for (const person of [seatless, foreign]) {
+      await expectRefused(
+        await call(`${base}/incomes`, {
+          method: "POST",
+          cookie: owner.cookie,
+          body: { personId: person.id, amountCents: 100_000, validFrom: "2026-01" },
+        }),
+        "personId",
+      );
+    }
+    expect((await body<PlanResponse>(await call(base, { cookie: owner.cookie }))).incomes).toEqual([]);
+
+    const ok = await call(`${base}/incomes`, {
+      method: "POST",
+      cookie: owner.cookie,
+      body: { personId: owner.id, amountCents: 100_000, validFrom: "2026-01" },
+    });
+    expect(ok.status).toBe(201);
+  });
+
+  test("PATCH /plan/incomes/:id re-pointing an income to a seatless member or a foreign user is 422 and changes nothing", async () => {
+    const { owner, seatless, foreign, base } = await setup();
+    const created = await call(`${base}/incomes`, {
+      method: "POST",
+      cookie: owner.cookie,
+      body: { personId: owner.id, amountCents: 100_000, validFrom: "2026-01" },
+    });
+    expect(created.status).toBe(201);
+    const income = await body<{ id: string; personId: string }>(created);
+
+    for (const person of [seatless, foreign]) {
+      await expectRefused(
+        await call(`${base}/incomes/${income.id}`, { method: "PATCH", cookie: owner.cookie, body: { personId: person.id } }),
+        "personId",
+      );
+    }
+    const plan = await body<PlanResponse>(await call(base, { cookie: owner.cookie }));
+    expect(plan.incomes.map((row) => [row.id, row.personId])).toEqual([[income.id, owner.id]]);
+
+    // An update that does not touch personId is unaffected.
+    const amount = await call(`${base}/incomes/${income.id}`, { method: "PATCH", cookie: owner.cookie, body: { amountCents: 120_000 } });
+    expect(amount.status).toBe(200);
   });
 });
 

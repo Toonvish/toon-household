@@ -314,6 +314,7 @@ export const serverDe = {
   "server.finance.participantsRequired": "Für die Haushaltskasse müssen zwei verschiedene Mitglieder als Platz 1 und Platz 2 gewählt sein.",
   "server.finance.participantNotMember": "Diese Person ist kein Mitglied des Haushalts.",
   "server.finance.participantInUse": "Diese Person hat bereits Einträge in der Haushaltskasse und kann ihren Platz nicht abgeben.",
+  "server.finance.personNotParticipant": "Diese Person nimmt an der Haushaltskasse dieses Haushalts nicht teil.",
 } as const satisfies NamespaceCatalog<"server">;
 
 export type ServerCatalog = typeof serverDe;

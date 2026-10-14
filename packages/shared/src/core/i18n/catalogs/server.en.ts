@@ -294,4 +294,5 @@ export const serverEn: LocaleCatalog<ServerCatalog> = {
   "server.finance.participantsRequired": "The household budget needs two different members as slot 1 and slot 2.",
   "server.finance.participantNotMember": "This person is not a member of the household.",
   "server.finance.participantInUse": "This person already has entries in the household budget and cannot give up their slot.",
+  "server.finance.personNotParticipant": "This person does not take part in this household's budget.",
 };

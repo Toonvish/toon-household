@@ -146,6 +146,8 @@ const NEW_GERMAN = new Set<string>([
   "server.finance.participantsRequired",
   "server.finance.participantNotMember",
   "server.finance.participantInUse",
+  // M4-T01 new server copy — plan payer / income person must be a participant (M3 review finding B)
+  "server.finance.personNotParticipant",
 ]);
 
 /** Immediate subdirectories of `rel` (relative to ROOT); empty when `rel` does not exist. */
