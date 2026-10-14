@@ -43,7 +43,13 @@ jobs:
       - name: Install
         run: bun install --frozen-lockfile
 
-      # M2 re-adds the poppler install (poppler-utils) together with the PDF rasterize test.
+      # `pdf-rasterize.test.ts` drives the REAL rasterizer — poppler's pdftoppm, in a
+      # subprocess — because that is the only way to catch the rasterize+OCR fallback
+      # being dead. It fails rather than skipping when the binary is missing, so this
+      # step is load-bearing. tesseract itself is NOT needed: no test runs real OCR
+      # (the engine's only logic is `parseTesseractOutput`, tested from a fixture).
+      - name: Install poppler
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y poppler-utils
 
       - name: Typecheck
         run: bun run typecheck
