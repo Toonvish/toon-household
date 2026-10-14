@@ -226,7 +226,9 @@
    * (that last one was invisible on phones until it did).
    */
   .bottom-tabbar {
-    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
+    /* + 1px: the tab bar is `h-tabbar` items under a 1px `border-t`, so it is 1px taller than
+       `--tabbar-h` and a bar at exactly `--tabbar-h` would sit under that border. */
+    bottom: calc(var(--tabbar-h) + 1px + env(safe-area-inset-bottom, 0px));
   }
   @media (width >= 1024px) {
     .bottom-tabbar {
