@@ -11,13 +11,13 @@
  * index-signature type widens `MessageKey` to `string`, and every `t()` typo compiles.
  * No type annotation, ever — let inference keep the literal keys.
  *
- * M2/M3 extend it as the spread of the modules' literal catalogs (the intersection of
- * their literal types):
+ * M2 registered recipe: `./recipe/catalogs/index.ts` spreads the module's six namespace
+ * files (`recipe.*`). M3 adds finance the same way, as one more spread of the literal objects:
  *
- *   import { recipeDe } from "./recipe/catalogs/recipe.de.ts";
- *   import { financeDe } from "./finance/catalogs/finance.de.ts";
+ *   import { financeDe } from "./finance/catalogs/index.ts";
  *   export const MODULE_CATALOGS_DE = { ...recipeDe, ...financeDe } as const;
- *   (and MODULE_CATALOGS_EN likewise with recipeEn / financeEn)
  */
-export const MODULE_CATALOGS_DE = {} as const;
-export const MODULE_CATALOGS_EN = {} as const;
+import { recipeDe, recipeEn } from "./recipe/catalogs/index.ts";
+
+export const MODULE_CATALOGS_DE = { ...recipeDe } as const;
+export const MODULE_CATALOGS_EN = { ...recipeEn } as const;

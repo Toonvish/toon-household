@@ -40,10 +40,65 @@ const RUNTIME_CACHING = [
     urlPattern: /\/api\/auth\//,
     handler: "NetworkOnly" as const,
   },
-  // Module rules (recipe in M2, finance in M3) are added here under
-  // `/api/households/[^/]+/<module>/…`, as the union of both source apps' lists (SPEC D9).
+  // Module rules, recipe (M2, SPEC D9): the union of both source apps' lists, in R's order, under
+  // `/api/households/[^/]+/recipe/…` and `/api/recipe/cards`. Finance (M3) adds its own under
+  // `/api/households/[^/]+/finance/…`.
   // Every NetworkOnly rule must precede any NetworkFirst rule: the first match wins, so a
   // NetworkOnly rule placed after a NetworkFirst one would never be consulted.
+  {
+    // Rule 2 — imports (upload + OCR + draft edits) are never replayed.
+    urlPattern: /\/api\/households\/[^/]+\/recipe\/imports/,
+    handler: "NetworkOnly" as const,
+  },
+  {
+    /**
+     * Rule 4 — SHOPPING LISTS ARE NEVER CACHED HERE, even though they are the most
+     * offline-critical screen in the app. Their offline copy is the persisted TanStack
+     * cache (src/lib/persist.ts), which is the same store the queued offline mutations
+     * live in, so the two stay consistent by construction.
+     *
+     * A service-worker cache would actively BREAK that: a `NetworkFirst` hit would hand
+     * TanStack a stale list body that looks like a fresh success, and `onSuccess` would
+     * write it over the optimistic state — silently un-ticking items the user just
+     * checked off. Must come before the recipes rule for the same reason rule 1 does.
+     */
+    urlPattern: /\/api\/households\/[^/]+\/recipe\/shopping-lists/,
+    handler: "NetworkOnly" as const,
+  },
+  {
+    // The meal planner — same rule as shopping lists, and for the same reason: its
+    // offline copy is the persisted TanStack cache (now on the persist.ts allow-list
+    // too), and a `NetworkFirst` hit here would hand it a stale week that looks like
+    // a fresh success. Must come before the recipes rule below for the same reason
+    // rule 1 does.
+    urlPattern: /\/api\/households\/[^/]+\/recipe\/plan/,
+    handler: "NetworkOnly" as const,
+  },
+  {
+    /**
+     * SAVED CARDS, same rule and same reason. `/api/recipe/cards` is the user's loyalty
+     * barcodes, read at a till where there is often no signal — and its offline
+     * copy is the persisted TanStack cache (src/lib/persist.ts), not this layer.
+     * A `NetworkFirst` hit here would hand TanStack a stale wallet that looks
+     * like a fresh success and overwrite the real one.
+     */
+    urlPattern: /\/api\/recipe\/cards/,
+    handler: "NetworkOnly" as const,
+  },
+  {
+    // Recipes, tags, collections: fresh when there is a connection, cached when the
+    // wifi in the kitchen gives up. The short timeout is what makes that feel fast
+    // rather than like a hang.
+    urlPattern: /\/api\/households\/[^/]+\/recipe\/(recipes|tags|collections)/,
+    handler: "NetworkFirst" as const,
+    method: "GET" as const,
+    options: {
+      cacheName: "toon-api-recipes",
+      networkTimeoutSeconds: 4,
+      expiration: { maxEntries: 200, maxAgeSeconds: 7 * 24 * 60 * 60 },
+      cacheableResponse: { statuses: [200] },
+    },
+  },
   {
     // Hero images: bytes never change under a given signed URL, so cache-first is
     // both correct and the difference between a usable and an empty offline list.
