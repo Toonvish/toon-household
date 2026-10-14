@@ -121,9 +121,9 @@ const NEW_GERMAN = new Set<string>([
   "home.moduleSwitcher.label",
   // M1: new household copy (SPEC D10)
   "home.moduleDisabled.toast",
-  // M1: new household copy (SPEC D10)
+  // ADR 0001: recipe count dropped (the core cannot count recipes)
   "household.detail.meta",
-  // M1: new household copy (SPEC D10)
+  // ADR 0001: recipe count dropped (the core cannot count recipes)
   "household.danger.warning",
 ]);
 

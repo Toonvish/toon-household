@@ -25,6 +25,18 @@ describe("catalog integrity", () => {
     }
   });
 
+  test("ADR 0001: household copy carries no recipe count (the core cannot count recipes)", () => {
+    const keys = Object.keys(CATALOGS.de);
+    expect(keys).not.toContain("household.count.recipes");
+    expect(CATALOGS.de["household.detail.meta"]).toBe("{members} · angelegt am {date}");
+    expect(CATALOGS.en["household.detail.meta"]).toBe("{members} · created on {date}");
+    expect(CATALOGS.de["household.danger.warning"]).toBe(
+      "Alle Inhalte und Einladungen dieser Gruppe werden endgültig gelöscht. Das kann nicht rückgängig gemacht werden.",
+    );
+    expect(typeof CATALOGS.de["household.danger.warning"]).toBe("string");
+    expect(typeof CATALOGS.en["household.danger.warning"]).toBe("string");
+  });
+
   test("MessageKey is a literal union (D10)", () => {
     // Compile-time guard: one index-signature catalog in the merge (e.g. a module
     // registry typed `Record<string, …>`) widens `MessageKey` to `string`, this line

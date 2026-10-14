@@ -1298,7 +1298,8 @@ in a real headless browser" (incl. "Do NOT match the tab bar by its aria-label")
 
 ## 4. Deviations expected (to be confirmed in "what changed vs plan")
 
-None from SPEC §1, so no ADR planned. Plan-level choices to confirm:
+One from SPEC §1, recorded in `docs/adr/0001-household-copy-without-recipe-counts.md` (D10, the
+two recipe-count strings below, added after the M1 review). Plan-level choices to confirm:
 
 - **Copy keeps R's "Gruppe" wording** in every household screen, the switcher, mails and server
   errors, and `DEFAULT_HOUSEHOLD_NAME` stays "Meine Rezepte" (D10 byte-identical rule). An app
@@ -1306,7 +1307,7 @@ None from SPEC §1, so no ADR planned. Plan-level choices to confirm:
   values would change source strings and needs an ADR amending D10 — an owner decision for M4.
 - `HouseholdWithRole` drops `recipeCount` and gains `modules` (§1 decision 2); two catalog values
   therefore lose their recipe count (`household.detail.meta`, `household.danger.warning`, both in
-  `NEW_GERMAN`).
+  `NEW_GERMAN`; ADR 0001).
 - `household_modules` rows for `recipe` are written on every new household although the M1 build
   has no recipe module; `POST …/modules/:id` accepts any `MODULE_IDS` id.
 - Disabling a module deletes its `household_modules` row (its `settings` are lost; module data is

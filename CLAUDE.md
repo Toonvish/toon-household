@@ -44,7 +44,8 @@ by design; after M0 its parity half is OK and its leftover-German half reports 1
 labels quoted in doc comments copied from toon-recipe (false positives; classify each hit, never
 suppress the check).
 
-No ADRs yet: M0 deviated from nothing in SPEC §1 (`docs/adr/` exists for the first one).
+ADRs: `docs/adr/0001-household-copy-without-recipe-counts.md` (D10: two household strings lose their
+recipe count because the core cannot count recipes; M0 deviated from nothing).
 
 ## Layout (as built)
 
