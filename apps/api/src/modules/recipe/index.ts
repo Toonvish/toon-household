@@ -9,14 +9,15 @@
  *   AND PDF IMPORT ARE TWO FEATURE FLAGS"), merged into `/api/health` `features`.
  * - `afterMigrate` — the fold backfill (`./migrate.ts`), idempotent, no transaction.
  * - `uploadReferences` — the recipe half of toon-recipe's `uploads:gc` collect list.
- * - `seedDemo` (`./seed.ts`, M2-T05) runs from `scripts/seed.ts`; `shutdown` (M2-T09a,
- *   the OCR worker) joins later.
+ * - `seedDemo` (`./seed.ts`, M2-T05) runs from `scripts/seed.ts`.
+ * - `shutdown` — stops the OCR worker (`shutdownOcr`), called by `index.ts`'s SIGTERM/SIGINT handler.
  */
 import { collections, importDrafts, recipes, recipeTables } from "./schema.ts";
 import { backfillFoldedColumns } from "./migrate.ts";
 import { recipeHouseholdRouter, recipeUserRouter } from "./routes/index.ts";
 import { seedRecipeDemo } from "./seed.ts";
 import { isOcrImportEnabled, isPdfImportEnabled } from "./services/import/capabilities.ts";
+import { shutdownOcr } from "./services/ocr/index.ts";
 import type { Database } from "../../db/client.ts";
 import type { ApiModule } from "../types.ts";
 
@@ -59,4 +60,5 @@ export const recipeModule: ApiModule = {
   },
   uploadReferences,
   seedDemo: seedRecipeDemo,
+  shutdown: shutdownOcr,
 };
