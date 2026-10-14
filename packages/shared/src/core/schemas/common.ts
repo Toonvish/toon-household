@@ -52,7 +52,7 @@ export const ERROR_CODES = [
   "too_many_cards",
   /** The list already holds `SHOPPING_LIMITS.itemsPerList` lines. */
   "shopping_list_full",
-  /** The group already has `SHOPPING_LIMITS.listsPerGroup` lists. */
+  /** The household already has `SHOPPING_LIMITS.listsPerHousehold` lists. */
   "too_many_shopping_lists",
   "invite_invalid",
   "invite_expired",
