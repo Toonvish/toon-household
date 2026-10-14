@@ -33,8 +33,8 @@ to `docs/plans/` and commits per task; it never pushes.
 Milestones done: **M0 scaffold** (2026-10-13, plan `docs/plans/m0-scaffold.md`, "what changed vs
 plan" in its section 6), **M1 core** (2026-10-14, plan `docs/plans/m1-core.md`, section 8) and
 **M2 recipe module** (2026-10-14, plan `docs/plans/m2-recipe-module.md`; section 9 is the
-integration record with the gate logs, curl walkthrough and headless results; section 10 "what
-changed vs plan" is written by the milestone review). Next: M3 finance module (SPEC §8).
+integration record with the gate logs, curl walkthrough and headless results; section 10 is "what
+changed vs plan": no deviation from SPEC §1, so no new ADR). Next: M3 finance module (SPEC §8).
 
 What exists after M2: the three workspaces build, typecheck and test green (`bun test`: 1391 pass in
 69 files). The recipe module is complete and is the only module (`API_MODULES` and `WEB_MODULES` are

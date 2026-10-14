@@ -1,8 +1,8 @@
 # M2 — recipe module: plan
 
-**Status: INTEGRATED (2026-10-14; planned and revised after plan review, rev. 2).** Section 9 is the
-integration record written by M2-T12; section 10 (what changed vs plan) is filled in by the milestone
-review.
+**Status: DONE (2026-10-14; planned and revised after plan review, rev. 2; closed after milestone
+review).** Section 9 is the integration record written by M2-T12; section 10 is "what changed vs
+plan", written at close.
 
 Rev. 2 changes: T09 split into T09a (import API), T09b (shopping API), T09c (restored placeholders +
 cross-household sweep); T11 split into T11a (screen port) and T11b (core wiring); decisions 13
@@ -1779,3 +1779,100 @@ runs hit `429` until the API restarts (noted in CLAUDE.md).
 | Decision 13 (recipe count) | 9.5, 390 and 1440, unchanged under a filter |
 | LINKS grep on the merged tree | exit 0, no match in `apps/web/src/modules/recipe` (verify command of T12) |
 | No `M2:` placeholder left | `grep -rn 'M2:' apps packages scripts` (`*.ts`, `*.tsx`, outside `node_modules`/`dist`): no match |
+
+## 10. What changed vs plan
+
+Milestone closed 2026-10-14 after review. The review re-checked the evidence of section 9 itself.
+Gates on the final tree: `bun install --frozen-lockfile`, `bun run typecheck`, `bun test` (1391 pass,
+0 fail, 69 files) and `bun run build` exit 0; `bun run i18n:check` exits 1 by design, its parity half
+is OK and its leftover-German half lists 120 hits (110 comment quotes, 10 lines of content
+vocabulary, 0 real UI literals; section 9.3). `bun run db:generate` reports "No schema changes", all
+17 recipe tables carry the `recipe_` prefix and `0001_recipe.sql` contains no `group` identifier.
+Test parity was compared mechanically: every toon-recipe test file (api 28, shared 12, web 10) has a
+household counterpart with at least as many cases (`schemas.test.ts` 29 cases are split into
+`recipe-schemas.test.ts` + `core.test.ts`, 38 in total); no `.skip`, `.todo` or `.only`. German
+catalog check: all 886 values of the recipe web catalogs exist byte-identical in toon-recipe's
+catalogs under the renamed keys (0 differences), and all 185 server catalog keys match in de and en.
+
+**No deviation from SPEC §1 (D1 to D15) occurred in M2, so no ADR was written** (`docs/adr/` still
+holds only 0001 from M1, which M2 builds on: the library's recipe count is the module's own query).
+SPEC text that only became more precise was adjusted in the docs-sync commit `2919ab7`: the §2
+contract (`ApiModule` hooks, `WebModule.route`, the module-router middleware rules, the manifest
+import-graph rule) and the §3 layout (`route-roots.tsx`, `modules/recipe/` contents, the module `lib`
+shims). Everything below is plan-level.
+
+### Deviations from the plan
+
+Expected in section 6 and confirmed (all implemented as planned):
+
+1. URL scheme: every toon-recipe path lives under `/recipe` (`/recipe/recipes/$id`, `/recipe/plan`,
+   `/recipe/shopping/...`, `/recipe/import/...`, `/recipe/collections`, `/recipe/tags`);
+   `/recipe/search` redirects to `/recipe` and declares the same params as the index route. Tabs
+   are Rezepte `/recipe` (exact), Plan, Einkauf, Profil; secondary Sammlungen and Tags.
+2. `ApiModule` gained `afterMigrate`, `shutdown`, `seedDemo`, `uploadReferences`; `WebModule.routes`
+   became `route` (the module-owned layout route); `route-roots.tsx` is a new core file with no
+   shell and no registry import; `AppLayout` is attached with `appRoute.update`. `Route.update`
+   typed fine, so the fallback of decision 10 was not needed and the registered tree is strict
+   again (`manifest.test.ts` pins `@ts-expect-error` on `"/recipe/does-not-exist"`).
+3. TS table identifiers stay toon-recipe's (`recipes`, `tags`, `cards`, ...); SQL table and index
+   names are `recipe_`-prefixed. M3 must prefix finance's TS identifiers (handed on).
+4. The fresh migration declares the fold columns `NOT NULL` without `DEFAULT ''`;
+   `backfillFoldedColumns` runs as the module's `afterMigrate`.
+5. Recipe routers no longer apply `requireSession` / `requireHouseholdRole("member")`
+   (`mountModules` does), keep `requireVerifiedEmail`; `middleware-bridge.ts` is not ported and the
+   import route tests (`routes`, `ocr-disabled`) use real sessions, every assertion kept.
+6. `/api/recipe/cards` is user-scoped and not behind `requireModule` (toon-recipe decision 11); the
+   disabled-module walkthrough shows it still answers 200.
+7. `recipe.count.recipes` lives in the recipe catalog (ADR 0001 removed only the core's copy);
+   the library subtitle count comes from `useHouseholdRecipeCount` (unfiltered `recipes?limit=1`),
+   unchanged under a filter (headless-checked at 390 and 1440).
+8. Recipe drizzle relations have no reverse side on `users` / `households`.
+9. `index.ts`'s shutdown log line is English (ops output rule).
+10. The Home card is functional, not designed (M4); it reuses existing catalog keys, so
+    `NEW_GERMAN` is unchanged. The only edit to `scripts/i18n-check.ts` is
+    `apps/api/src/modules/recipe/seed.ts` in `ALLOW_LIST` (seed content vocabulary).
+11. Import query keys are rooted at `"toon"` (decision 14), `useCommitDraft` invalidates through
+    `invalidateAfterRecipeMutation`.
+12. Recipe link targets are not type-checked (string-typed `AppLink`, as in toon-recipe); the
+    `LINKS` grep gate and the headless run stand in for `tsc`. The headless run found no
+    unprefixed link.
+
+Not in the plan, found during the build or the integration:
+
+13. **API boot TDZ (fixed `abbf89c`).** `bun run dev` died with `Cannot access 'requireHandler'
+    before initialization`: `session.ts` sits in the cycle `session.ts` -> `auth/users.ts` ->
+    `households/modules.ts` -> `modules/index.ts` -> recipe manifest -> `routes/cards.ts`, which
+    calls `requireSession()` at module scope. All 1384 tests then passed because their import order
+    reached `cards.ts` after `session.ts` finished. The handlers are hoisted function declarations
+    and `test/import-order.test.ts` (one fresh process per entry point) fails on the old code.
+    The rule (core reads `API_MODULES` / `WEB_MODULES` inside functions only) is in SPEC §2.
+14. Two comments that still said "M2" were reworded (`9b4aef6`) so that the acceptance grep for the
+    placeholder marker is empty.
+15. `WebModule.catalogs.en` is typed `NamespaceCatalog<Id>` (T11b): the previous
+    `LocaleCatalog<NamespaceCatalog<Id>>` demanded a plural for every key and rejected the first
+    real catalog.
+16. `RECIPE_FILTER_PARAMS`, `PLAN_SEARCH_PARAMS` and `SHOPPING_HISTORY_PARAMS` live in
+    `modules/recipe/routes.tsx` (toon-recipe kept them in `router.tsx`).
+17. Test counts above toon-recipe's where the plan restored M1 placeholders: `uploads.test.ts` 30
+    (R 27), `verified-email-gate.test.ts` 18, `households.test.ts` asserts the recipe cascade again;
+    `recipe-cross-household.test.ts` is new, with a coverage test that compares its probes with the
+    routers' declared `:param` routes. The five idempotent child routes of a shopping list (item
+    delete / check, bought undo, recipe delete, catalog delete) answer 200 / 204 as no-ops for a
+    foreign child id under the caller's OWN list (toon-recipe's "Idempotent" contract) and are
+    asserted to leak and change nothing of the other household.
+18. Plan rev. 2 split T09 into T09a/b/c and T11 into T11a/b before the build; the task commits carry
+    the trailers of the model that wrote them (Haiku, Sonnet, Opus 5.5, Fable 5.1 on review and
+    integration commits).
+19. Harness notes, no product change: the first headless pass used `offsetParent` for the sidebar
+    check (always `null` for `position: fixed`), a selector matched the hidden desktop "Neues
+    Rezept" link, and the disabled-module check re-enabled behind the SPA's back; login is rate
+    limited per address in memory (`429` after repeated runs until the API restarts). The optional
+    camera scanner was not exercised headless.
+
+### Obligations carried forward
+
+Section 8 stands and CLAUDE.md "Obligations handed to later milestones" mirrors it: M3 (finance TS
+identifiers prefixed, `onEnable` participant check, cross-household sweep, SW rules with NetworkOnly
+first, `persistMutationNamespaces` test, `LINKS` grep for finance), M4 (section 7 items), M5
+(`migrate:legacy` to `recipe_*` plus `afterMigrate`), M6 (old-path redirects, `WITH_OCR=1
+WITH_PDF=0`), M7 (`docs/API.md`, `docs/modules/recipe.md`).
