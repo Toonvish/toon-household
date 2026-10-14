@@ -62,7 +62,7 @@ export function FixedCostCard({
       <AppLink to="/finance/plan" className="block p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-fg-muted">{t("finance.plan.title")}</p>
+            <p className="eyebrow text-fg-faint">{t("finance.plan.title")}</p>
             {plan.plan.enabled && plan.current ? (
               <>
                 <p className="mt-1 font-display text-display-xl font-medium tabular-nums text-fg">
@@ -89,7 +89,7 @@ export function FixedCostCard({
 
       {pendingCount > 0 ? (
         <div className="flex flex-col gap-2 border-t border-line bg-warning-soft/40 p-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-fg">{t("finance.plan.pendingNotice", { count: pendingCount })}</p>
+          <p className="min-w-0 text-sm text-fg">{t("finance.plan.pendingNotice", { count: pendingCount })}</p>
           <Button
             size="sm"
             loading={runPlanMutation.isPending}

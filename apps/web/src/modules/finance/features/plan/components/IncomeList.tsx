@@ -78,7 +78,7 @@ export function IncomeList({
                     : t("finance.plan.items.validityOpen", { from: periodShort(income.validFrom) })}
                 </p>
               </div>
-              <AmountText cents={income.amountCents} colorNegative={false} size="sm" />
+              <AmountText cents={income.amountCents} colorNegative={false} size="sm" className="shrink-0" />
               <ActionMenu
                 label={t("finance.common.actions")}
                 items={[

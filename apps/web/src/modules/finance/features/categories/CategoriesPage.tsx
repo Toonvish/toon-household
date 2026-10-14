@@ -35,7 +35,12 @@ export function CategoriesPage() {
   }
 
   if (categories.isError) {
-    return <ErrorState error={categories.error} onRetry={() => void categories.refetch()} />;
+    return (
+      <div className="flex flex-col gap-4">
+        <PageHeader title={t("finance.categories.title")} description={t("finance.categories.description")} />
+        <ErrorState error={categories.error} onRetry={() => void categories.refetch()} />
+      </div>
+    );
   }
 
   const items = [...categories.data.items].sort((a, b) => a.position - b.position);
@@ -44,8 +49,8 @@ export function CategoriesPage() {
     <div className="flex flex-col gap-4">
       <PageHeader title={t("finance.categories.title")} description={t("finance.categories.description")} />
 
-      <Card padding="none">
-        <ul className="flex flex-col divide-y divide-line px-4 sm:px-5">
+      <Card>
+        <ul className="flex flex-col divide-y divide-line">
           {items.map((category) => (
             <CategoryRow
               key={category.id}
@@ -92,7 +97,7 @@ export function CategoriesPage() {
           }}
         >
           <Input
-            containerClassName="flex-1"
+            containerClassName="min-w-0 flex-1"
             label={t("finance.categories.label")}
             value={newLabel}
             onChange={(event) => setNewLabel(event.currentTarget.value)}

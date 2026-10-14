@@ -3,6 +3,7 @@ import { PhoneHeaderRow } from "@/components/layout/PhoneHeaderRow";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { LoadingBlock } from "@/components/ui/Spinner";
 import { useActiveHousehold } from "@/lib/session";
+import { PendingSyncNote } from "@/modules/finance/components/PendingSyncNote";
 import { NonParticipantState } from "./NonParticipantState";
 import { useFinanceParticipants } from "./lib/queries";
 
@@ -36,5 +37,12 @@ export default function FinanceGate() {
   if (participants.data.viewerSlot === null) {
     return <NonParticipantState participants={participants.data.items} />;
   }
-  return <Outlet />;
+  // A Fragment, never a wrapper element: the Buchen bar is `sticky bottom-tabbar` and needs the
+  // unbroken flex chain from the layout down to the page root (M4 decision 7).
+  return (
+    <>
+      <PendingSyncNote />
+      <Outlet />
+    </>
+  );
 }

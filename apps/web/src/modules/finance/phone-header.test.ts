@@ -40,6 +40,11 @@ describe("finance phone header row", () => {
     expect(read("features/participants/FinanceGate.tsx").match(/<PhoneHeaderRow \/>/g)?.length).toBe(2);
   });
 
+  test("the participant gate renders PendingSyncNote inside a Fragment, never a wrapper element", () => {
+    const gate = read("features/participants/FinanceGate.tsx");
+    expect(gate).toMatch(/<>\s*<PendingSyncNote \/>\s*<Outlet \/>\s*<\/>/);
+  });
+
   test("PageHeader renders the row", () => {
     expect(read("components/PageHeader.tsx")).toMatch(/<PhoneHeaderRow action=\{actions\} \/>/);
   });
