@@ -1,7 +1,8 @@
 # M3 — finance module: plan
 
-**Status: PLANNED (2026-10-14, rev. 2).** Section 9 (integration record) is written by M3-T12;
-section 10 ("what changed vs plan") at close. Rev. 2 (plan review): decision 18 (the finance
+**Status: DONE (2026-10-14), with two open server-side defects recorded in section 10 ("Open findings").**
+Planned as rev. 2. Section 9 is the integration record (M3-T12, plus the review fix 9.11); section 10
+is "what changed vs plan". Rev. 2 (plan review): decision 18 (the finance
 harness makes F's one-member `createHousehold` finance-ready; the one "Solo" test gets a seeded
 one-participant ledger), `server.tag.nameTaken` added to decision 9 / T01, ADR 0002 for the
 generic Zod wording (the test-DB ADR is now 0003), T03 split into T03 (schema, hooks,
@@ -1575,7 +1576,8 @@ Plan-level choices (no ADR; SPEC §2/§3 prose updated by T12):
 
 ## 7. Out of this milestone
 
-The N-person ledger (D3); a core→module hook when a member leaves (risk 6); finance in Home's
+The N-person ledger (D3); a core→module hook when a member leaves (risk 6; BUILT after all by the
+review, `ApiModule.onMemberRemoving`, ADR 0004); finance in Home's
 module-less tab set beyond what the shell already does; the token-by-token D5 audit of the finance
 screens, final Home cards, "Gruppe" vs "Haushalt" copy (M4); `migrate:legacy` and the finance part
 of it incl. the balance invariant (M5); redirects from F's old paths (`/transactions`, `/new`,
@@ -1619,7 +1621,7 @@ four combinations with screenshots. M5: `migrate:legacy` maps F's tables to Tabl
 `household_members` → `finance_participants` (with `display_name`), `households.default_locale` →
 `finance_settings`, `fixed_cost_plans` → `finance_fixed_cost_plans`, and proves the balance
 invariant. M6: old-path redirects for F bookmarks. M7: `docs/modules/finance.md`, `docs/API.md`
-finance section, the member-leaves hook decision (risk 6).
+finance section (the member-leaves hook is built, ADR 0004; M7 documents it).
 
 ## 9. Integration record
 
@@ -1825,7 +1827,7 @@ a one-word string; the checks were run under bash.
 | `LINKS_FIN`, `NOROUTER`, `NOCORE`, `NOSHADOW` on the merged tree | 9.2 |
 | No `M3:` placeholder left | 9.2, 9.1 |
 
-### 9.8 Review fix: phone header row on Übersicht and Fixkosten
+### 9.11 Review fix: phone header row on Übersicht and Fixkosten
 
 Review finding (medium): `OverviewPage` and `PlanPage` do not use `PageHeader`, so on phones they
 opened with the balance/plan card and no household or module chip (SPEC §5, D6). Fixed: both render
@@ -1833,3 +1835,92 @@ opened with the balance/plan card and no household or module chip (SPEC §5, D6)
 loads or fails. `modules/finance/phone-header.test.ts` reads the lazy screen list out of
 `routes.tsx` and asserts every screen renders `<PageHeader>` or `<PhoneHeaderRow>`. Recipe has the
 same gap on most screens (M2); handed to M4 in CLAUDE.md "Obligations".
+
+## 10. What changed vs plan
+
+Milestone closed 2026-10-14 after review, with the two open findings below. Gates on the final tree
+(re-run for this section): `bun test` 1749 pass, 0 fail, 9672 expect() calls, 96 files; typecheck and
+build green (review run); `bun run i18n:check` exits 1 by design, parity half OK, leftover half 137
+`- file:line` hits, none of them a UI literal (127 comment quotes and 10 lines of recipe content
+vocabulary, section 9.4). Section 9.2's 1728 and 95 files are the integration run's numbers; the
+review fixes added 21 tests and one file (`phone-header.test.ts`).
+
+Evidence kind: the 390 and 1440 px checks (section 9.6, `data/m3-t12-headless.log`, 137 of 137) are
+MEASUREMENTS (`scrollWidth` against `clientWidth`, `body` background colour, console errors, expected
+text), recorded per screen and scheme. **There are no screenshots**, and a measurement does not judge
+the look; the visual check of finance in all four width/scheme combinations is M4's (CLAUDE.md
+"Obligations"). Section 8's "with screenshots" for M4 stands.
+
+### Deviations from SPEC §1 (each with an ADR and the SPEC text edited in the same commit)
+
+1. **ADR 0002**, D10: finance's generic Zod validation messages render the core's wording
+   (confirmed, as planned).
+2. **ADR 0003**, D13: finance's ledger tests run on the shared memory DB; real transactions are proven
+   on a temp file DB by `finance-file-db.test.ts` (confirmed, as planned).
+3. **ADR 0004**, D3 and D13 (NOT in section 6, arose in review): replacing a participant is refused
+   while the household has ANY transaction row (D3's text said rows "for the outgoing user"), and a
+   seated participant leaving the household is vetoed with `member_has_ledger` while the ledger has
+   rows, else loses the seat. The core contract gained `ApiModule.onMemberRemoving` for it (SPEC §2).
+   Section 7 had put the hook out of the milestone (risk 6); the review pulled it in.
+
+### Plan-level choices (section 6) confirmed
+
+All implemented as listed: non-participants get `403 finance_not_participant` on every ledger route;
+`finance_fixed_cost_plans` stays a table and `finance_settings` holds only `default_locale`;
+`ApiModule.start` and `WebModule.enableDialog` exist and `SettingsPage` renders `settingsSections`;
+finance TS identifiers are `finance`-prefixed; the six tag exports and the pagination schema are
+`Finance…`; F's error codes join the core `ERROR_CODES` (plus three new ones); F's `createHousehold`
+is the finance-ready harness and the Solo test runs on a seeded one-participant ledger; the importer
+is `finance:import-xlsx`; 15 web and 4 server strings are new German; the demo seed adds
+`robin@toon.local` (slot 2) and `kim@toon.local` (non-participant).
+
+### Not in the plan, found after the integration run (review, each its own commit)
+
+4. `03aa396` replacement refused on ANY transaction row (ADR 0004).
+5. `98d0bb1` `onMemberRemoving` hook and `409 member_has_ledger` (ADR 0004); `server.household.
+   memberHasLedger` added to the catalogs and `ERROR_CODES`.
+6. `046fde3` a seated leaver's seat is deleted on an empty ledger and the plan payer moves to the
+   remaining participant (ADR 0004). This commit introduced open finding A.
+7. `64d1c6f` phone header row (household and module chips) on Übersicht, Fixkosten and the gate
+   states (section 9.11); recipe's same gap is an M4 obligation.
+8. `1f314e4` (integration, section 9.1) `seedOnlineManager()` from `navigator.onLine`.
+
+### Open findings at close (not fixed in this commit; the first thing to do before M4)
+
+A. **Medium, server, introduced by `046fde3`.** If the slot-1 participant leaves while the ledger is
+   empty, the seat is deleted and the survivor keeps slot 2. `slot1UserId` (the balance sign anchor)
+   then throws `ApiError.internal()`, so balance, reading transactions and creating them answer 500
+   for the remaining participant until an admin seats a second member (and a slot-1 seat exists).
+   Expected behaviour: the survivor moves to slot 1 on leave (the slot CHECK and unique index allow
+   it), or the leave is refused; either way a regression test where slot 1 leaves on an empty ledger
+   and slot 2 reads balance and transactions and books one. Must keep ADR 0004's rules.
+B. **Medium, server, gap inherited from toon-finance, newly reachable here.** The plan's `payerId`
+   (`PUT …/plan`, `plan.ts` schema `IdSchema`) and an income's `personId` are not checked against
+   `finance_participants`. In toon-finance only two users existed in a household, so any member id was
+   a participant; here a non-participant member, or any user id, can become the plan's payer or an
+   income person, which then books accruals against a person outside the ledger. Expected behaviour:
+   the plan and income writers answer 422 (`finance_participants_required` family, or a validation
+   error) unless the id is one of the household's two participants; test per route. D8 stays: the
+   household comes from the path only.
+
+### Low findings, dealt with in the docs sync
+
+- This section did not exist and the plan still read PLANNED: written now. Section 9 had two
+  sub-sections numbered 9.8: the review-fix one is 9.11.
+- CLAUDE.md quoted 1728 tests in 95 files: now 1749 in 96.
+- Section 9.3 and the exit criteria name `isPeriodBooked` as a case with a counterpart: it has NO
+  direct test in either repo; it is exercised through the import/plan collision tests ("imported rent
+  and the live plan never collide", "a period covered by an IMPORT row is never given a plan
+  adjustment"). Accepted, a direct unit test would be an addition, not a port.
+- The visual evidence is measurements only (see above).
+- Observations recorded, not fixed: section 9.8 (no sync indicator, seed side effects, the expected
+  404 console line).
+
+### Obligations carried forward
+
+M4: the D5 audit of finance and recipe screens with actual screenshots (four combinations), the
+recipe phone-header guard, the sync indicator. M5: `migrate:legacy` for finance (maps
+`household_members` to `finance_participants`, proves the balance invariant). M6: old-path redirects.
+M7: `docs/API.md` and `docs/modules/finance.md` (incl. `onMemberRemoving`, `member_has_ledger`,
+`finance_participant_in_use`), switching the whole suite to a temp file DB (ADR 0003). Before M4: fix
+findings A and B above.

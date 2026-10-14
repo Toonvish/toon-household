@@ -47,8 +47,10 @@ code is the smallest possible one and is recorded in the plan and in `docs/adr/`
   (`finance_participants(household_id, user_id, member_slot)` with the same unique index and CHECK).
   Every other member sees the finance module as "not a participant" (read-only summary or nothing,
   decided in M3's plan). Changing a slot is an owner/admin action and is refused while the ledger
-  has rows for the outgoing user (`409 finance_participant_in_use`); the N-person generalisation is
-  explicitly out of scope.
+  has any transaction row, or an income naming the outgoing user (`409 finance_participant_in_use`;
+  every two-person row involves both slots, so a row need not name the outgoing user, ADR 0004); a
+  seated participant who leaves the household is vetoed the same way (`409 member_has_ledger`) and
+  otherwise loses the seat (ADR 0004). The N-person generalisation is explicitly out of scope.
 - **D4 — Auth = toon-recipe's.** E-mail + password (argon2id via `Bun.password`), Google and GitHub
   OAuth with explicit linking only, the e-mail confirmation gate that follows the configured mailer,
   password reset, the signed `/uploads` URLs. Finance's auth is a strict subset and its users
