@@ -12,6 +12,7 @@
     "db:migrate": "bun scripts/migrate.ts",
     "seed": "bun scripts/seed.ts",
     "auth:reset-password": "bun scripts/reset-password.ts",
+    "uploads:gc": "bun scripts/uploads-gc.ts",
     "db:studio": "bunx drizzle-kit studio"
   },
   "dependencies": {
@@ -22,6 +23,7 @@
     "drizzle-orm": "^0.45.2",
     "hono": "^4.13.7",
     "sharp": "^0.35.4",
+    "unpdf": "^1.8.1",
     "zod": "^4.5.4"
   }
 }

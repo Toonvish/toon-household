@@ -20,6 +20,7 @@
     "db:migrate": "bun --filter @toon/api db:migrate",
     "seed": "bun --filter @toon/api seed",
     "auth:reset-password": "bun --filter @toon/api auth:reset-password --",
+    "uploads:gc": "bun --filter @toon/api uploads:gc --",
     "db:studio": "bun --filter @toon/api db:studio"
   },
   "devDependencies": {

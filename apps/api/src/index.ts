@@ -161,6 +161,36 @@ if (env.webDistDir !== null) {
   app.use("*", webAppMiddleware(env.webDistDir));
 }
 
+/**
+ * Graceful shutdown (toon-recipe's block, generalised over the modules): every build
+ * module's `shutdown()` runs — recipe's terminates its long-lived tesseract worker;
+ * without that it was only ever torn down by process exit, which on a redeploy
+ * means a killed worker mid-recognition and (on some hosts) a leaked child.
+ *
+ * Registered once, guarded so a repeated signal cannot start a second teardown,
+ * and never in tests — bun's test runner owns the process there. A module whose
+ * shutdown rejects is logged and the others still run.
+ */
+if (!env.isTest) {
+  let shuttingDown = false;
+  const shutdown = (signal: string): void => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`[api] ${signal} — stopping modules …`);
+    void Promise.allSettled(
+      API_MODULES.map(async (module) => {
+        try {
+          await module.shutdown?.();
+        } catch (error: unknown) {
+          console.warn(`[api] shutdown of module ${module.id} failed:`, error);
+        }
+      }),
+    ).finally(() => process.exit(0));
+  };
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
+}
+
 if (!env.isTest) {
   // The connection PRAGMAs (WAL etc., see db/client.ts) are queued before the first
   // query either way; awaiting them here means a database that cannot be opened at

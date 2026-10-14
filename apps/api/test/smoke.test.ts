@@ -59,15 +59,19 @@ describe("GET /api/health", () => {
       status: string;
       database: string;
       modules: string[];
-      features: { verifiedEmailRequired: unknown };
+      features: { verifiedEmailRequired: unknown; ocrImport: unknown; pdfImport: unknown };
     };
     expect(body.ok).toBe(true);
     expect(body.status).toBe("ok");
     expect(body.database).toBe("file");
-    // The build's modules (SPEC §2): none until M2/M3 register theirs.
-    expect(body.modules).toEqual([]);
+    // The build's modules (SPEC §2): recipe since M2; finance joins in M3.
+    expect(body.modules).toEqual(["recipe"]);
     // Core's own feature flag, merged ahead of the modules' healthFeatures().
     expect(typeof body.features.verifiedEmailRequired).toBe("boolean");
+    // Recipe's two import capability flags, off unless IMPORT_OCR_ENABLED /
+    // IMPORT_PDF_ENABLED are set (toon-recipe "TWO FEATURE FLAGS").
+    expect(body.features.ocrImport).toBe(false);
+    expect(body.features.pdfImport).toBe(false);
     expect(() => HealthResponseSchema.parse(body)).not.toThrow();
   });
 });
@@ -103,8 +107,9 @@ describe("error envelope", () => {
 
 describe("schema + migrations", () => {
   test("migrations create all ten core tables", async () => {
+    // Module tables carry their prefix (SPEC D7); recipe-module.test.ts checks those.
     const result = await client.execute(
-      "select name from sqlite_master where type = 'table' and name not like 'sqlite_%' and name not like '__drizzle%' order by name",
+      "select name from sqlite_master where type = 'table' and name not like 'sqlite_%' and name not like '__drizzle%' and name not like 'recipe\\_%' escape '\\' order by name",
     );
     expect(result.rows.map((row) => row.name)).toEqual(CORE_TABLES);
   });

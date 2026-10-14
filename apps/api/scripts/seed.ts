@@ -1,7 +1,7 @@
 /**
  * bun run seed — creates the demo user demo@toon.local / demo1234 and the demo household "Familie"
- * (owner), with the default module rows. Idempotent. M2 adds the recipe demo content, M3 the
- * finance demo ledger.
+ * (owner), with the default module rows, then every build module's `seedDemo` hook (recipe's
+ * demo content from M2-T05, finance's demo ledger from M3). Idempotent — each hook must be too.
  *
  * Login: demo@toon.local / demo1234
  */
@@ -10,6 +10,7 @@ import { initializeHousehold } from "../src/core/services/households/modules.ts"
 import { client, db } from "../src/db/client.ts";
 import { runMigrations } from "../src/db/migrate.ts";
 import { householdMembers, households, users } from "../src/db/schema.ts";
+import { API_MODULES } from "../src/modules/index.ts";
 
 const DEMO_EMAIL = "demo@toon.local";
 const DEMO_PASSWORD = "demo1234";
@@ -66,8 +67,12 @@ if (!householdId) {
   console.log(`[seed] household "Familie" (${householdId})`);
 }
 
-// M2: tags, courses, demo recipes, plan entries, cook log and the demo shopping list
-// (toon-recipe scripts/seed.ts) return with the recipe module.
+// Module demo content (SPEC §2, plan M2 decision 4): recipe's tags, courses, demo recipes,
+// plan entries, cook log and shopping list (toon-recipe scripts/seed.ts) arrive through its
+// `seedDemo`; the core names no module here.
+for (const module of API_MODULES) {
+  await module.seedDemo?.(db, { householdId, userId });
+}
 
 console.log("[seed] done");
 console.log("");
