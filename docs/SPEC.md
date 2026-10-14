@@ -187,7 +187,8 @@ export interface WebModule {
   route: AnyRoute                 // the module's OWN layout route at basePath (routes.tsx: component
                                   // moduleLayoutComponent(id), getParentRoute: () => householdScopedRoute,
                                   // children via addChildren; the first child is the module home)
-  navItems: NavItem[]             // exactly three; the shell appends Profil
+  navItems: NavItem[]             // exactly three; the shell appends Profil. NavItem = { to, labelKey, icon,
+                                  // trailing? } — `trailing` (added in M4) is a sidebar-only slot
   secondaryNavItems: NavItem[]    // sidebar-only; each must be reachable from a tab screen
   homeCard: ComponentType         // the card on Home
   persistQueryAllowList: QueryKeyPrefix[]
@@ -217,6 +218,13 @@ Rules:
   registry (`session.ts` → `auth/users.ts` → `households/modules.ts` → `modules/index.ts` → a
   manifest → its routers → `session.ts`; `import-order.test.ts` loads each real entry point first in
   a fresh process).
+- `NavItem.trailing?: ComponentType<{ isActive: boolean }>` (M4) is a SIDEBAR-ONLY slot: `SideNav`
+  renders it at the end of the item's row (`ml-auto`), the phone tab bar ignores it. It carries what
+  toon-recipe drew in its sidebar and the core cannot compute because it cannot count a module's rows
+  (ADR 0001): the recipe manifest gives Rezepte the household's recipe count, Plan the "Neu" pill and
+  Einkauf the summed open items of the shopping lists (nothing while any list's count is unknown, never
+  a flashing `0`); finance declares none. The components live in the module's `nav-trailing.tsx`, a
+  static manifest import, so they obey the shell-free graph rule below.
 - Module routers do NOT apply `requireSession()` or `requireHouseholdRole("member")`: `mountModules`
   already ran them (plus `requireModule(id)`) for a `householdRouter`. A module router adds
   `requireVerifiedEmail()` itself and `requireHouseholdRole("admin")` on a route that needs it; a
@@ -342,18 +350,32 @@ the plan's `start_period` etc. → `finance_settings`; `categories`, `tags`, `tr
 
 ## 5. Shell, Home and navigation
 
-- **Home** (`/`): the household name, the household switcher, one `homeCard` per enabled module
-  (recipe: this week's plan and the active shopping list count; finance: the balance line and the
-  current period's spend), a "Module verwalten" link for owners/admins. An empty household shows the
-  enable-module cards.
-- **Module switcher**: a `Dialog`-based sheet (`ActionMenu`) from the top-bar module chip on phones;
-  a segmented group at the head of the sidebar from `lg`. The active module is the URL prefix; Home
-  and Settings are module-less.
+- **Home** (`/`): the household name, the household switcher, one `homeCard` per enabled module, a
+  "Module verwalten" link for owners/admins. An empty household shows the enable-module cards. The
+  cards as built (M4): recipe is the module name, a compact read-only week strip (seven day cells with
+  today marked and up to three dots per planned day, plus the next planned titles; `HomeWeekStrip`, not
+  the planner's `WeekStrip`) and the active shopping list with its open-item count (the first list in
+  the order `/recipe/shopping` shows; a plain "Einkauf" button when there is none); finance is the
+  module name, the viewer-projected balance sentence (`viewerBalanceCents`, never a raw sign) with its
+  amount, this period's spend, and Finanzen / Erfassen links, or for a household member without a slot
+  the one line naming the two participants. Cards reuse existing catalog keys only; recipe titles and
+  list names are content, never `t()`, and never truncated.
+- **Module switcher**: an `ActionMenu` sheet (its `renderTrigger` is the labelled chip, the active
+  module is its `current` row with a check mark) from the module chip in the screen's `PhoneHeaderRow`
+  on phones; a segmented group at the head of the sidebar from `lg`. There is no global top bar: every
+  shell screen renders its own `PhoneHeaderRow` (household chip, module chip, at most one action), the
+  recipe detail excepted (its hero owns the top edge). The active module is the URL prefix; Home and
+  Settings are module-less.
 - **Tab bar**: `NAV_ITEMS` is computed from the active module's `navItems` + the shared Profil
   item; outside a module (Home, Settings) it shows Home · the enabled modules (max two) · Profil.
 - **Settings** (`/settings`): recipe's profile/language/theme/e-mail cards, the households card
   (`GroupsCard` renamed), and each enabled module's `settingsSections` — finance's is the
   participant assignment (D3).
+- **Offline outbox note** (finance, M4): while paused finance writes are queued (mutation key prefix
+  `["toon","finance","tx"]`), the finance gate shows one slim `role="status"` line above the screen,
+  "1 Änderung wartet auf Übertragung." / "{count} Änderungen warten auf Übertragung."; nothing at
+  zero. It is module-local on purpose: the core cannot know a module's mutation namespaces, and
+  recipe's shopping list shows its own count. The shell has no global sync badge.
 - **Module disabled**: a module route for a household without that module redirects to Home with a
   toast; a persisted PWA with a stale bundle gets `404 module_disabled` from the API and renders the
   same state.

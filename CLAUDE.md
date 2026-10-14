@@ -33,36 +33,56 @@ to `docs/plans/` and commits per task; it never pushes.
 Milestones done: **M0 scaffold** (2026-10-13, plan `docs/plans/m0-scaffold.md`, "what changed vs
 plan" in its section 6), **M1 core** (2026-10-14, plan `docs/plans/m1-core.md`, section 8),
 **M2 recipe module** (2026-10-14, plan `docs/plans/m2-recipe-module.md`; section 9 is the
-integration record, section 10 "what changed vs plan": no deviation from SPEC §1, no ADR) and
+integration record, section 10 "what changed vs plan": no deviation from SPEC §1, no ADR),
 **M3 finance module** (2026-10-14, plan `docs/plans/m3-finance-module.md`; section 9 is the
 integration record with the gate logs, curl walkthrough, headless and offline results; section 10 is
-"what changed vs plan"; three ADRs, below). **Two open server-side defects (A, B) are recorded under
-"Open findings" below: fix them first.** Next: M4 design pass (SPEC §8), then M5 migration, M6 deploy,
-M7 harden.
+"what changed vs plan"; three ADRs, below) and the **M4 design pass** (2026-10-14, plan
+`docs/plans/m4-design-pass.md`; section 9 is the integration record with the gates, the curl and
+headless numbers, the four-combination measurement, the print and offline runs and the screenshot
+index; section 10 is "what changed vs plan"; no deviation from SPEC §1, no new ADR, ADR 0004 gained one
+consequence bullet). Next: **M5 migration** (`migrate:legacy`, SPEC §6 and §8), then M6 deploy, M7 harden.
 
-What exists after M3: the three workspaces build, typecheck and test green (`bun test`: 1749 pass in
-96 files). Two modules are built: `API_MODULES` and `WEB_MODULES` are `[recipe, finance]` and
-`/api/health` reports `modules: ["recipe","finance"]`. The recipe module is as after M2 (recipes with
-search and filters, tags, collections, URL / photo / PDF import, meal plan with cook log, shopping
-lists with the offline outbox, cards, uploads with thumbnails, the service-worker rules, the Home
-card). The finance module is toon-finance's ledger on `finance_` tables: transactions with the four
-viewer-projected kinds (MINE_SPLIT, THEIRS_SPLIT, FOR_THEM, TRANSFER), categories (21 defaults),
-tags, the Fixkostenplan with `plan:run` and the accrual scheduler, balance, settlements
-(`409 balance_stale`), the offline capture outbox, `finance_participants` (exactly two slots by user
-id, D3), the participants settings section, the enable dialog, the non-participant and
-module-disabled states, the demo ledger in `seed`, and the one-off `finance:import-xlsx` importer.
-Web tabs inside `/finance`: Übersicht, Buchungen, Erfassen (+ Profil); sidebar-only Fixkosten
-`/finance/plan` and Kategorien `/finance/categories` (+ the shell's Gruppen). Every toon-finance test
-file has a counterpart (map in the plan's section 8; per-file case counts are equal or higher).
-Verified on the merged tree by a fresh-DB curl walkthrough, a headless Chromium run at 390 and
-1440 px in light and dark (137 checks; measurements of `scrollWidth`, background colour and console
-errors, NO screenshots: the visual check is M4's) and the offline replay on the built app (13 checks); see the
-plan's section 9. Still no `migrate:legacy` (M5), no Docker files (M6), no `docs/API.md` or
-`docs/modules/*.md` (M7).
+What exists after M4: the three workspaces build, typecheck and test green (`bun test`: 1828 pass in 105 files).
+Two modules are built: `API_MODULES` and `WEB_MODULES` are `[recipe, finance]` and `/api/health`
+reports `modules: ["recipe","finance"]`. The recipe module is as after M2 (recipes with search and
+filters, tags, collections, URL / photo / PDF import, meal plan with cook log, shopping lists with the
+offline outbox, cards, uploads with thumbnails, the service-worker rules). The finance module is
+toon-finance's ledger on `finance_` tables: transactions with the four viewer-projected kinds
+(MINE_SPLIT, THEIRS_SPLIT, FOR_THEM, TRANSFER), categories (21 defaults), tags, the Fixkostenplan with
+`plan:run` and the accrual scheduler, balance, settlements (`409 balance_stale`), the offline capture
+outbox, `finance_participants` (exactly two slots by user id, D3), the participants settings section,
+the enable dialog, the non-participant and module-disabled states, the demo ledger in `seed`, and the
+one-off `finance:import-xlsx` importer. Web tabs inside `/finance`: Übersicht, Buchungen, Erfassen
+(+ Profil); sidebar-only Fixkosten `/finance/plan` and Kategorien `/finance/categories` (+ the shell's
+Gruppen). Every toon-finance test file has a counterpart (map in the m3 plan's section 8). Still no
+`migrate:legacy` (M5), no Docker files (M6), no `docs/API.md` or `docs/modules/*.md` (M7).
+
+What M4 added (design pass, plan `m4-design-pass.md`): the Home cards as designed (recipe: a seven-day
+week strip with the next planned titles and the active shopping list's open-item count; finance: the
+balance sentence, this period's spend, a non-participant line); the phone module chip as a real
+`ActionMenu` sheet (`renderTrigger` / `current`) and `NavItem.trailing` for the sidebar's recipe count,
+the Plan "Neu" pill and the shopping count; a module-neutral `NotFoundPage`; the PWA manifest with the
+three shortcuts (Rezept importieren, Neues Rezept, Buchung erfassen), a house icon set generated by
+`scripts/icons.ts` and one theme-colour source (`lib/theme-colors.ts`); `PhoneHeaderRow` on every
+shell screen (recipe, Settings, Gruppen, Gruppe detail; the recipe detail is exempt) with a guard test
+per module and for the core; finance's token-by-token D5 audit plus the module-local
+`PendingSyncNote` ("1 Änderung wartet auf Übertragung."); `styles/design-system.test.ts`, the Table D
+gate (below); the two M3 findings fixed (A: the survivor of an empty-ledger slot-1 leave is re-seated in
+slot 1; B: plan `payerId` and income `personId` must be participants, `422 validation_failed`,
+`server.finance.personNotParticipant`). Verified on the final tree by a fresh-DB curl, a headless
+Chromium run (424 checks over the 36 exit screenshots and 42 more: render, console, overflow, chrome,
+bar bleed), the
+four-combination token measurement (56 checks), print-to-PDF at 390 and 1440 (16 checks) and the
+offline note on the built app (8 checks). 78 viewport PNGs are committed in
+`docs/plans/screenshots/m4/` (index in the plan's section 9). The integration run found and fixed four
+defects (each its own commit): the Buchen bar overlapped the tab bar's 1px border, Settings / Gruppen /
+Gruppe detail had no phone header row, `print.css` could not reveal the hidden phone panels (an
+unlayered `!important` loses to the `@layer base` reset), and `useMediaQuery` flipped the recipe
+detail's markup mid-print.
 
 `bun run i18n:check` exits 1 by design; its parity half is OK and its leftover-German half reports
-137 hits: 127 German labels or umlaut examples quoted in doc comments (17 of them in finance code:
-`AmountText`, `routes.tsx`, the transaction screens, `kinds.ts`, `clock.ts`, shared `tags.ts`) and 10
+138 hits: 128 German labels or umlaut examples quoted in doc comments (18 of them in finance code:
+`AmountText`, `routes.tsx`, the transaction screens, `PendingSyncNote`, `kinds.ts`, `clock.ts`, shared `tags.ts`) and 10
 lines of recipe content vocabulary (the ingredient-paste placeholder, `UNIT_SUGGESTIONS`,
 `STEP_HEADING_RE`, the seven `html/entities.ts` umlaut entities). All are false positives; classify
 each hit, never suppress the check. The files under `features/plan` and `features/cards` are scanned
@@ -83,28 +103,20 @@ ADRs (`docs/adr/`, each edits the SPEC text in the same commit):
 - `0004-finance-participant-churn-rules.md` (D3, D13: a participant replacement is refused while the
   household has ANY transaction row, not only rows naming the outgoing user, since every two-person
   row involves both slots; a seated participant leaving the household gets `409 member_has_ledger`
-  while the ledger has rows, else the seat is deleted; the contract gained `onMemberRemoving`).
+  while the ledger has rows, else the seat is deleted and a slot-2 survivor is re-seated in slot 1
+  (M4-T01, finding A); the contract gained `onMemberRemoving`).
 
-### Open findings (M3 review, not fixed; plan `m3-finance-module.md` §10)
-
-- **A (medium, from `046fde3`).** When the slot-1 participant leaves on an EMPTY ledger the seat is
-  deleted and the survivor stays in slot 2; `slot1UserId` then throws, so the survivor gets 500 on
-  balance and on reading or creating transactions. Fix: re-seat the survivor in slot 1 on leave (or
-  refuse), with a test of that exact path; keep ADR 0004.
-- **B (medium, inherited from toon-finance, newly reachable).** The plan's `payerId` and an income's
-  `personId` accept any user id, so a non-participant or a stranger can become a payer in the ledger.
-  Fix: the plan and income writers verify the id against `finance_participants` (422), one test per
-  route.
-- Lows, already corrected in the docs: `isPeriodBooked` has no direct test in either repo (it is
-  covered by the import/plan collision tests); the headless evidence is measurements, not screenshots.
-
-M3 deviated from nothing else in SPEC §1 (ADRs 0002 to 0004 above); its plan-level choices (non-participants see nothing of the
-ledger, `start` and `enableDialog`, table identifiers) are in the plan's section 6 and SPEC §2 / §3.
+M3 and M4 deviated from nothing in SPEC §1 beyond ADRs 0001 to 0004 above; their plan-level choices
+(non-participants see nothing of the ledger, `start` and `enableDialog`, table identifiers, "Gruppe"
+stays, the recipe exceptions are pinned not converted, the outbox note is module-local) are in the
+plans' sections 6 and SPEC §2 / §3 / §5. The two M3 review findings (A, B) were fixed first in M4-T01;
+the lows of that review stand corrected in the docs (`isPeriodBooked` has no direct test in either repo,
+it is covered by the import/plan collision tests).
 
 ## Layout (as built)
 
 Package names are `@toon/shared`, `@toon/api`, `@toon/web`; the root is `toon-household`. Paths per
-SPEC §3 with what M0 to M3 actually created:
+SPEC §3 with what M0 to M4 actually created:
 
 - `packages/shared/src/` — `index.ts` (the ONLY entry: the vite alias maps exactly `"@toon/shared"`,
   never import a subpath), `core/` (`i18n/` runtime + `catalogs/server.{de,en}.ts`, `schemas/`
@@ -155,9 +167,17 @@ SPEC §3 with what M0 to M3 actually created:
   `components/ui/` (toon-recipe's primitives plus barrel; the only primitives), `components/layout/`
   (AppShell, BottomTabBar, SideNav, ModuleSwitcher, PhoneHeaderRow, UnverifiedEmailBanner,
   `nav-items.ts`, `use-nav-items.ts`, `module-switcher-items.ts`), `core/features/{auth,home,
-  households,settings}/`, `modules/{index,catalogs,persist,types,enabled,layout}.ts(x)`, `styles/`.
+  households,settings}/` (plus `phone-header.test.ts`, the core's phone-header guard),
+  `modules/{index,catalogs,persist,types,enabled,layout}.ts(x)`, `styles/` (`theme.css`, `index.css`,
+  `fonts.css`, `design-system.test.ts`). `lib/theme-colors.ts` (`THEME_COLORS`) is the one source of the
+  two theme colours (`lib/theme.ts`, `index.html`'s pre-paint script, the manifest and `theme.css` `--bg`
+  must agree; `theme-colors.test.ts` enforces it). `apps/web/pwa-manifest.ts` (outside `src/`) holds the
+  manifest object `vite.config.ts` imports; `public/icons/` and `public/favicon.svg` are the house icon
+  set generated by `scripts/icons.ts` (`pwa-manifest.test.ts` reads the manifest).
   `modules/recipe/` is `index.ts` (the `WebModule`), `routes.tsx` (the module's own layout route and
-  children, every screen a `lazyRouteComponent`), `HomeCard.tsx`, `catalogs/` (six namespace files
+  children, every screen a `lazyRouteComponent`), `HomeCard.tsx` (with `features/plan/components/
+  HomeWeekStrip.tsx` and the pure `features/plan/lib/home-week.ts`), `nav-trailing.tsx` (the sidebar's
+  recipe count, "Neu" pill and shopping count: `NavItem.trailing`), `phone-header.test.ts` (the guard), `catalogs/` (six namespace files
   `recipes|organise|plan|shopping|import|cards` plus `index.ts`), `lib/{api,queries,format}.ts` (shims:
   `export * from "@/lib/<x>"` plus the module's own fetchers, keys and formatters) and
   `features/{recipes,collections,tags,import,shopping,cards,plan}/` mirroring toon-recipe's
@@ -171,13 +191,15 @@ SPEC §3 with what M0 to M3 actually created:
   files `common|nav|transactions|categories|plan|balance|settings|participants` plus `index.ts`, every key
   prefixed `finance.`), `lib/{api,queries,format,participants}.ts` (shims over the core lib plus the
   ledger fetchers, keys, formatters and `useFinanceHousehold` / `useOtherParticipant`),
-  `components/{AmountText,KindBadge,PeriodLabel,PageHeader}.tsx` and `features/{transactions,overview,
+  `components/{AmountText,KindBadge,PeriodLabel,PageHeader,PendingSyncNote}.tsx`, `lib/pending-sync.ts` (which
+  paused mutations the note counts) and `features/{transactions,overview,
   plan,categories,participants}/` mirroring toon-finance's `features/` (`participants` is new:
   `FinanceGate`, `NonParticipantState`, `ParticipantsSection`, `EnableFinanceDialog`).
-- `scripts/` — `dev.ts`, `typecheck.ts`, `i18n-check.ts`. `.github/workflows/ci.yml` (verify job with
+- `scripts/` — `dev.ts`, `typecheck.ts`, `i18n-check.ts`, `icons.ts` (`bun run icons`). `.github/workflows/ci.yml` (verify job with
   a poppler step for `pdf-rasterize.test.ts`; no docker-build until M6; `i18n:check` is a local gate
   because it needs the sibling source repos). `docs/design/recipe-redesign/` is the copied design
-  record (D5).
+  record (D5); `docs/plans/screenshots/m4/` holds the 78 headless viewport PNGs of the M4 close
+  (`<screen>-<390|1440>-<light|dark>.png`; the plan's section 9 indexes them).
 - Core DB tables (unprefixed): `users`, `oauth_accounts`, `sessions`, `password_reset_tokens`,
   `email_verification_tokens`, `households`, `household_members`, `household_invites`,
   `household_modules`, `legacy_ids` (its column is named `table` per D12; the TS property is
@@ -220,6 +242,9 @@ Run from the repo root. Bun 1.4.2 (`.bun-version`); `bun install --frozen-lockfi
   `kim@toon.local` as a household member WITHOUT a slot, both with password `demo1234`, about eight
   transactions covering the four kinds, one settlement, the fixed-cost items and both incomes, the plan
   enabled from two periods ago and one catch-up run).
+- `bun run icons`: regenerates the PWA icon PNGs in `apps/web/public/icons/` from `public/favicon.svg`
+  with `sharp` (resolved from `@toon/api`'s dependencies; `rsvg-convert` is the fallback). The PNGs are
+  committed and CI never runs it; run it only when the mark changes.
 - `bun run plan:run [householdId]`: the fixed-cost catch-up by hand (the API already runs it at boot
   and every 6 hours); without an argument it runs every household with finance enabled; a disabled or
   incomplete plan is reported, never a crash.
@@ -283,7 +308,7 @@ from SPEC and M0 to M3:
 - Ported tests that need unported code are removed with a placeholder comment naming the returning
   milestone, never skipped silently.
 
-## Gotchas in use (M0 to M3)
+## Gotchas in use (M0 to M4)
 
 Binding gotchas of the sources stay binding inside their module (SPEC D13); these are the ones
 the code actually relies on or introduced.
@@ -336,7 +361,14 @@ the code actually relies on or introduced.
   every row involves both slots). Without a seat, leaving is allowed; a seated leaver with an empty ledger
   leaves too and the hook DELETES their seat (a remaining ex-member seat let the other participant
   book against a non-member, after which no admin could replace it), moving the plan payer to the
-  remaining participant; the household is then a one-seat (solo) ledger until `PUT …/participants`.
+  remaining participant and, when the leaver held slot 1, RE-SEATING the survivor in slot 1 in the same
+  transaction (M4-T01, finding A: `slot1UserId` anchors the balance and must always resolve); the
+  household is then a one-seat (solo) ledger until `PUT …/participants`.
+- **Plan payer and income person must be participants (M4-T01, finding B).** `PATCH …/finance/plan
+  { payerId }` and the income create/update routes answer `422 validation_failed` with a field detail
+  on `payerId` / `personId` and `server.finance.personNotParticipant` unless the id is one of the
+  household's `finance_participants`; the check lives in the plan SERVICE (toon-finance gotcha 47),
+  never in the route.
 - **Enabling finance needs two participants (D3).** `onEnable` seats the two users from the enable
   POST's `settings` (`{ participants: [{ userId, memberSlot: 1 }, { userId, memberSlot: 2 }] }`) or, on a
   re-enable without a body, requires the two existing `finance_participants` rows, else `422
@@ -519,6 +551,56 @@ the code actually relies on or introduced.
   `@toon/shared` in `apps/web/src/modules/finance`, `apps/api/src/modules/finance`, `apps/api/scripts`)
   is the `grep -rnP` in plan m3 section 3. Run them under bash: in zsh quote the `--include` globs, and
   `ls` is an alias in the user's zsh, so `NOSHADOW`'s directory list needs `command ls`.
+- **The design-system test is the Table D gate (M4-T08).** `apps/web/src/styles/design-system.test.ts`
+  makes the M4 exit greps permanent: the four `theme.css` blocks define the same 39 tokens, no
+  `fonts.googleapis`, arbitrary `text-[…]` sizes only where the pinned record says (the 34 inherited
+  toon-recipe hits in 17 files; a later cleanup edits the record in the same commit, which is its
+  documentation), `bottom-0` only on the tab bar and the recipe hero overlay, no `font-display` beside
+  `font-semibold`, no bare `1fr` track in an arbitrary grid template, text arrows only on the four pinned
+  catalog lines, `data-app-shell` only on header/nav/aside. A new violation fails `bun test` with file:line
+  and the rule; never relax a rule to get green. Plan `m4-design-pass.md` §2 is Table D.
+- **Hand-written utilities beat breakpoint variants.** `.px-gutter`, `.bleed-gutter`,
+  `.bleed-gutter-inset`, `.pb-tabbar`, `.bottom-tabbar` in `styles/index.css` are emitted after everything
+  Tailwind generates, so `lg:mx-0` / `lg:px-8` cannot override them (a media query adds no specificity);
+  change the `--gutter` variable (`lg:[--gutter:2rem]` on `<main>`) instead. `-mx-gutter` does NOT exist
+  (there is no `--spacing-gutter`; the bars used it for a while and never bled): use `bleed-gutter` or
+  `bleed-gutter-inset`. `top-topbar` is dead (the TopBar is gone; a sticky header uses `top-0`, the status-bar
+  inset is `<main>`'s). `.bottom-tabbar` adds 1px for the tab bar's own top border: a bar at exactly
+  `--tabbar-h` sat under it.
+- **`FinanceGate` renders `PendingSyncNote` as a Fragment sibling of the outlet, never inside a wrapper
+  `div`.** `<main>` is a flex chain and the "Buchen" bar is `sticky bottom-tabbar`; a wrapper breaks the chain
+  and the bar floats mid-screen (`modules/finance/phone-header.test.ts` pins the source shape).
+- **`ActionMenu` has `renderTrigger` and `item.current`.** `renderTrigger(props)` replaces the icon button
+  with the caller's element (spread `props`; the phone module chip is one); a `current` item is the
+  brand-soft row with `aria-current="true"` and a check. Both are optional, so the 20-odd existing call
+  sites are unchanged.
+- **Every shell screen renders `PhoneHeaderRow` itself** (no global top bar): the recipe screens (guard
+  `modules/recipe/phone-header.test.ts`, reading `routes.tsx` for the screen list; the detail is exempt:
+  its hero owns the top edge), finance's (its own guard and `PageHeader`), and the core's Home, Settings,
+  Gruppen and Gruppe detail (`core/features/phone-header.test.ts`). It is a `<header data-app-shell>`:
+  `print.css` hides that tag.
+- **Printing a recipe (verified by printing to PDF, M4-T09).** `print.css`'s `[hidden]` override must sit in
+  `@layer base`: the shell's `[hidden]{display:none!important}` is layered, and an UNLAYERED `!important`
+  rule loses to a layered one regardless of specificity (the old override measured `display: none`).
+  `useMediaQuery` holds the last on-screen value while `matchMedia("print")` matches, because the browser
+  evaluates media queries against the paper width during a print and a 390px window flipped the detail to
+  the desktop markup mid-snapshot (a truncated two-column hybrid, steps 3 to 7 missing). Re-verify with
+  `page.emulateMedia({media:"print"})` + `page.pdf()` + `pdftotext` at 390 and 1440 whenever the detail
+  screen's markup changes; none of the five gates sees a broken print stylesheet. Observation, not fixed:
+  the printed phone detail still carries the servings scaler and "Zur Einkaufsliste" (no
+  `data-print="hide"`).
+- **Theme colour has one source.** `lib/theme-colors.ts` `THEME_COLORS = { light: "#faf5ee", dark:
+  "#17120f" }` (the light and dark `--bg`); `index.html`'s inline pre-paint script keeps the literals (it
+  cannot import), `lib/theme.ts` and the manifest import the module. The four colour combinations (OS
+  light/dark x no preference/the opposite explicit `toon.theme`) were measured on `/` and `/finance`:
+  tokens, `body` background and `<meta name="theme-color">` all follow the resolved scheme (plan §9). The
+  built CSS is minified (`#fff`, `#291f180d` for `rgb(41 31 24 / 5%)`), so compare colours as RGBA, not as
+  text.
+- **The manifest.** `apps/web/pwa-manifest.ts` (a plain `as const` object plus a mutable-typed copy for the
+  plugin) holds name/short_name "Haushalt", the German `description`, the four icons and the three
+  shortcuts (`/recipe/import`, `/recipe/recipes/new`, `/finance/new`); a shortcut into a module the
+  household has not enabled lands on Home with the module-disabled toast. `.webmanifest` is served as
+  `application/manifest+json` (toon-recipe's gotcha, checked by curl in M4).
 - **Inherited finance gotchas stay binding inside `modules/finance`** (SPEC D13): read toon-finance's
   `CLAUDE.md` before touching the ledger arithmetic (31 `halfForOther(-101)` is `-50`; 32 halve per
   transaction; 33 the plan share is rounded once; 35 booked periods are immutable; 44 and 53
@@ -533,10 +615,9 @@ the code actually relies on or introduced.
   the restored paused write re-ran, failed and waited in an unpaused retry, which the persist policy
   (paused mutations only) dropped from IndexedDB, and a second reload lost the booking.
   `lib/query-client.ts` `seedOnlineManager()` seeds the manager from `navigator.onLine` once at boot; the
-  headless run reloads twice offline and replays exactly once. There is no "N changes waiting" indicator
-  in the finance UI (the `finance.common.syncPending` plural is in the catalog but unused; the shell
-  has no sync badge): the only feedback is the "Gespeichert. Wird übertragen, sobald du online bist."
-  toast. M4 may add one.
+  headless run reloads twice offline and replays exactly once. Since M4 the finance gate shows the
+  module-local `PendingSyncNote` (`finance.common.syncPending`, "1 Änderung wartet auf Übertragung.") above
+  the outlet while paused `["toon","finance","tx",…]` mutations exist; the shell has no sync badge.
 - **Headless runs.** Install Playwright in a scratch directory outside the repo (a `bun add` log ending
   in `exit=$?`), log in with `fetch("/api/auth/login")` from the page, assert `scrollWidth <=
   clientWidth`, and never match the tab bar by its `aria-label` (`SideNav` carries the same one and
@@ -552,9 +633,17 @@ the code actually relies on or introduced.
   `toon.activeHouseholdId` first, then the profile's `activeHouseholdId`: to switch in a test, PATCH
   `/api/auth/me` and set the localStorage key on a non-SPA page before loading `/`; accepting an invite
   also moves the invitee's active household. Reuse a saved `storageState` per user instead of logging in
-  per context.
+  per context (and across script runs: a second run that logs in again earns the `429`). For a PHONE
+  screenshot use `isMobile: true, hasTouch: true` at 390x844: desktop Chromium reserves the stable
+  gutter and draws a 15px strip at the right edge (M4 screenshots use the mobile context). Never
+  `pkill -f` a pattern that also matches the shell running it (it killed the session's shell once);
+  find the server's pid and kill that.
 - **`scrollbar-gutter: stable`** on `<html>` (toon-recipe's) makes `scrollWidth` 375/1425 against
-  `clientWidth` 390/1440 under classic scrollbars; check no-overflow as `scrollWidth <= clientWidth`.
+  `clientWidth` 390/1440 under classic scrollbars (a desktop-Chromium context; a mobile context with overlay
+  scrollbars measures 390/390); check no-overflow as `scrollWidth <= clientWidth` plus no element's right
+  edge beyond `innerWidth` + 0.5, and when the two numbers differ show once, from the script, that
+  `documentElement.style.scrollbarGutter = "auto"` makes them equal (M4 plan decision 12). A bar that
+  bleeds to the viewport edge ends at 375 beside the gutter and at 390 without it.
 - **i18n-check from worktrees** resolves the source repos via the git common dir; it needs
   `toon-recipe` and `toon-finance` next to the main checkout (or `I18N_CHECK_SOURCES`).
 - **Long commands** (cold `bun install`, docker build, headless browser) go to the background with one
@@ -562,23 +651,19 @@ the code actually relies on or introduced.
 
 ## Obligations handed to later milestones
 
-Each later plan lists and closes them (full text: `docs/plans/m3-finance-module.md` §7 and §8 and its
-§9; earlier ones in `docs/plans/m0-scaffold.md` §4, `docs/plans/m1-core.md` §6 and §8 and
-`docs/plans/m2-recipe-module.md` §8 and §9). M0, M1, M2 and M3 closed theirs.
+Each later plan lists and closes them (full text: `docs/plans/m4-design-pass.md` §8 and its §9; earlier ones
+in `docs/plans/m0-scaffold.md` §4, `docs/plans/m1-core.md` §6 and §8, `docs/plans/m2-recipe-module.md` §8 and
+§9, `docs/plans/m3-finance-module.md` §7 to §9). M0, M1, M2, M3 and M4 closed theirs; M4 closed findings A and
+B, the recipe phone header and its guard, the ActionMenu chip, the NotFound icon, the sidebar counts and
+the Plan "Neu" pill, the Home cards, the manifest shortcuts and icons, theme-colour sync, the finance D5 audit,
+the outbox indicator, print-to-PDF, the `scrollWidth` measurement, and the dark/light screenshots with the
+four-combination measurement.
 
-- Before M4: open findings A and B above (server fixes with tests, then record them in the plan's §10).
-- M4: recipe screens without a `PhoneHeaderRow` on phones (the TopBar is gone, so those screens have
-  no household/module chips): every recipe screen except the library and the shopping lists (plan,
-  detail, edit, new, collections, tags, cards, import, shopping detail/history). Finance is fixed
-  (`modules/finance/phone-header.test.ts` guards it by reading `routes.tsx`); add the same guard for
-  recipe. The headless checks do not test for the chips.
-- M4: "Gruppe" vs "Haushalt" copy (owner decision, ADR), `NotFoundPage`'s recipe icon, the phone
-  module chip as a real `ActionMenu` sheet, `scrollWidth` measurement with the scrollbar gutter; the
-  Home cards' final design (finance's card is a first version), toon-recipe's sidebar per-item counts
-  and the Plan "Neu" pill, the PWA manifest `shortcuts` (`/recipe/import`, `/recipe/recipes/new`),
-  print-to-PDF verification of `print.css`; the token-by-token D5 audit of the finance screens and
-  dark/light screenshots in all four combinations (M3's headless run took measurements only); an "N changes waiting" indicator for the offline
-  outbox (finance has none, see the offline gotcha).
+- Owner decisions still open, not M4's (plan §7): "Gruppe" vs "Haushalt" in the German copy and
+  `DEFAULT_HOUSEHOLD_NAME` (needs an ADR; M4 kept "Gruppe"); converting toon-recipe's pinned exceptions
+  (the 34 arbitrary text sizes, the four uppercase labels, the two `←` back links, the `-mx-4` bars in
+  `RecipeForm` and `ImportReviewPage`; toon-recipe's `docs/redesign/PR.md` keeps them open); finance print
+  styles; a per-household PWA name or icon; a real iOS home-screen install check (needs a device).
 - M5: `migrate:legacy` maps toon-recipe's tables to `recipe_*` (plan m2 Table C) and relies on
   `afterMigrate` for the folded columns; it maps toon-finance's `household_members` to
   `finance_participants` (with `display_name`), `households.default_locale` to `finance_settings`,
@@ -591,6 +676,8 @@ Each later plan lists and closes them (full text: `docs/plans/m3-finance-module.
 - M7: `docs/API.md` (recipe and finance sections), `docs/modules/recipe.md`, `docs/modules/finance.md`;
   the member-leaves veto exists (`ApiModule.onMemberRemoving`; finance refuses a seated participant's
   leaving with `409 member_has_ledger` while the ledger has rows, so no ghost participant can appear;
-  an empty-ledger leaver's seat is deleted and an admin seats a replacement through `PUT …/participants`); M7
-  documents it in `docs/API.md` and may extend it to other modules; the N-person ledger stays out (D3); switching the whole test
+  an empty-ledger leaver's seat is deleted, a slot-2 survivor is re-seated in slot 1, and an admin seats a
+  replacement through `PUT …/participants`); M7 documents it in `docs/API.md` together with
+  `member_has_ledger`, `finance_participant_in_use` and `422 server.finance.personNotParticipant`, and may
+  extend the veto to other modules; the N-person ledger stays out (D3); switching the whole test
   suite to a temp-file DB (ADR 0003's consequence).

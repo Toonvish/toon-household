@@ -974,8 +974,260 @@ backfill), M6 (old-path redirects incl. the `/plan` collision, `WITH_OCR=1 WITH_
 
 ## 9. Integration record
 
-(Written by M4-T09.)
+Written by M4-T09 on the merged tree (`main`), run on 2026-10-14. Logs are in `data/` (not committed):
+`m4-t09-{install,typecheck,test,build,i18n,db,curl,server,headless,combos,print,offline}.log`, the PDFs
+`m4-t09-print-{390,1440}.pdf` with their `pdftotext` output. The Playwright scripts lived in a scratch
+directory outside the repo (Playwright 1.64, Chromium 1248, de-DE, `Europe/Berlin`, one login per user,
+`storageState` reused).
+
+### 9.1 Fixes found by the integration run (each its own commit, each with the failing check)
+
+1. `8d01dfb` **`.bottom-tabbar` clears the tab bar's border.** Check: the Buchen bar on `/finance/new` at 390
+   must sit above `nav.fixed`. Measured bar bottom 784 against nav top 783: the nav is `h-tabbar` items under a
+   1px `border-t` (61px), `.bottom-tabbar` pinned bars at exactly `--tabbar-h` (60px). Now 783 against 783.
+2. `3e6f668` **`PhoneHeaderRow` on Settings, Gruppen and Gruppe detail.** Check: every phone screen except the
+   recipe detail shows `header[data-app-shell]`; the three core screens had none (count 0). New guard
+   `core/features/phone-header.test.ts` (4 tests).
+3. `ec15465` **`print.css` reveals the hidden phone panels from inside `@layer base`.** Check: print-to-PDF
+   (decision 14), the last method step was absent. The shell's `[hidden]{display:none!important}` is layered and
+   an unlayered `!important` loses to a layered one, so the old `.recipe-print [hidden]` override measured
+   `display: none` in print media. Guard `print-css.test.ts` (3 tests). toon-recipe's `print.css` is identical
+   and its `[hidden]` reset sits in the same place, so it very likely has the same latent defect (read-only source,
+   not touched, not verified there).
+4. `4d2cc8d` **`useMediaQuery` holds the screen value while printing.** Check: print-to-PDF at 390, still no last
+   step after fix 3 (1459 characters, 2 pages): during a print the browser evaluates media queries against the
+   paper width (A4, about 794 CSS px), `useIsWideViewport` flipped the phone markup to the desktop markup in the
+   middle of the snapshot and the PDF was a truncated two-column hybrid (steps 3 to 7 missing). The hook keeps the
+   last on-screen value while `matchMedia("print")` matches. After: 390 prints 1684 characters on 2 pages with both
+   panels, 1440 prints 2211 characters on 4 pages (unchanged).
+
+### 9.2 Gates (final tree, after the four fixes)
+
+| Gate | Result | Log |
+| --- | --- | --- |
+| `bun install --frozen-lockfile` | exit 0, "Checked 436 installs across 625 packages (no changes)" | `m4-t09-install.log` |
+| `bun run typecheck` | exit 0, five projects, `[typecheck] OK` | `m4-t09-typecheck.log` |
+| `bun test` | exit 0, **1828 pass, 0 fail**, 9884 `expect()` calls, 105 files, 17.4 s (M3 closed at 1749 in 96 files; 1821 in 103 before T09's fixes; T09's two guard files add 4 + 3) | `m4-t09-test.log` |
+| `bun run build` | exit 0 (Vite build plus the generated service worker) | `m4-t09-build.log` |
+| `bun run i18n:check` | exit 1 by design; step 1/2 (catalog parity) `[i18n:check] OK`; step 2/2 reports **138** hits | `m4-t09-i18n.log` |
+| `design-system.test.ts` | green inside `bun test` (no `text-[` outside the 34 pinned hits in 17 files, no `bottom-0` bar, four theme blocks equal, no `fonts.googleapis`) | `m4-t09-test.log` |
+| `grep fonts.googleapis` over `index.html`, `vite.config.ts`, `pwa-manifest.ts`, `src` (the test excluded) | no hit | task verify |
+| `LINKS_REC`, `LINKS_FIN` (hard-coded unprefixed module links) | no hit | task verify |
+
+### 9.3 `i18n:check` leftover hits, all classified (138)
+
+M3 closed at 137 hits; the one new hit is a comment quote added in M4, nothing else changed (diff of the two
+hit lists by file and text, line numbers ignored: exactly one added line).
+
+- **128 German labels or umlaut examples quoted in doc comments** (M3's 127 plus
+  `modules/finance/components/PendingSyncNote.tsx`: the comment quoting "N Änderungen warten auf Übertragung").
+  False positives.
+- **10 lines of recipe content vocabulary** (the ingredient-paste placeholder in `IngredientsEditor.tsx`,
+  `UNIT_SUGGESTIONS` in `ParsedRecipeEditor.tsx`, `STEP_HEADING_RE` in `draftEdit.ts`, the seven umlaut
+  entities of `html/entities.ts`). German recipe content is content, never `t()`. False positives.
+- A JSX comment quoting "Tomaten, geschält, aus der Dose" in `AddRecipeToListDialog.tsx` is counted in the 128.
+- No German literal in code, no new German outside `NEW_GERMAN`.
+
+### 9.4 Fresh database and curl (`data/m4.db`, built app on `:3001`, `IMPORT_ALLOW_PRIVATE_HOSTS=1` for the import fixture only)
+
+`db:migrate`, `seed`, `seed` again: exit 0, the second run reports "already present" for every recipe and the
+ledger (idempotent). `data/m4-t09-curl.log`:
+
+- `GET /manifest.webmanifest`: `200`, `Content-Type: application/manifest+json; charset=utf-8`; `name` "Haushalt",
+  `theme_color` and `background_color` `#faf5ee`; **three shortcuts**: Rezept importieren to `/recipe/import`,
+  Neues Rezept to `/recipe/recipes/new`, Buchung erfassen to `/finance/new`; four icons
+  (`icon-192.png` 3427 B, `icon-512.png` 10830 B, `maskable-192.png` 2029 B, `maskable-512.png` 6018 B): every
+  URL answers `200 image/png`.
+- **Finding B smoke** (kim is a household member without a seat): `PATCH …/finance/plan { payerId: kim }`,
+  `POST …/finance/plan/incomes { personId: kim }` and `PATCH …/plan/incomes/:id { personId: kim }` each answer
+  **`422 validation_failed`** with `details[0].path` `payerId` / `personId` and
+  `i18n.key` `server.finance.personNotParticipant` ("Diese Person nimmt an der Haushaltskasse dieses Haushalts nicht
+  teil."); the control `PATCH { payerId: <current payer> }` answers 200.
+- Finding A is proved by `apps/api/test/finance-participants.test.ts` over HTTP (T01); the curl run does not
+  re-enact a leave.
+
+Fixture data added through the API as demo for the screenshots: three open items on "Rewe" (so the list reads
+"4 Positionen"), the collection "Herbstklassiker", one card, and an import draft from a local URL fixture
+(`:4599`, the `chefkoch-jsonld.html` test fixture).
+
+### 9.5 Headless run (`data/m4-t09-headless.log`, **424 of 424 checks pass**, exit 0)
+
+Contexts: 390x844 is a mobile context (`isMobile`, `hasTouch`: overlay scrollbars, so no gutter strip in the
+screenshots), 1440x900 a desktop context, each in `colorScheme` light and dark with no stored `toon.theme`. 78
+screenshots (36 exit set, 42 others) plus a desktop-Chromium 390 pass without screenshots (28 pages) that
+reproduces M3's classic-scrollbar numbers.
+
+**Every captured page** (106 pages: 39 at 390, 39 at 1440, 28 at desktop 390): rendered (no "Diese Seite gibt es
+nicht" except `not-found`, where it is expected), the expected content text present where one is defined, **no
+console error and no page error** (`console` type error, `pageerror`). The only tolerated line is the pre-login
+`401 /api/auth/me` on `login` and `register` (the app asking whether a session exists; the log prints it as
+"allowed"). The import-review fixture's external image URL (a fake CDN host in the test fixture) is answered by a
+route in the script; without it that single 404 would be a console error that has nothing to do with the app.
+
+**No horizontal overflow** (decision 12: `documentElement.scrollWidth <= clientWidth` and no element's
+`getBoundingClientRect().right` above `innerWidth` + 0.5, elements inside an `overflow-x` clipper excluded; every
+page prints its numbers in the log):
+
+| Context | pages | `scrollWidth` | `clientWidth` | `innerWidth` | max element right |
+| --- | --- | --- | --- | --- | --- |
+| 390, mobile (overlay scrollbar) | 39 | 390 | 390 | 390 | 390 |
+| 1440, desktop | 39 | 1425 | 1440 | 1440 | 1425 |
+| 390, desktop (classic scrollbar) | 28 | 375 | 390 | 390 | 375 |
+
+The difference is the `scrollbar-gutter: stable` gutter (15px), shown from the script and never in the app: on
+the Home page with `documentElement.style.scrollbarGutter = "auto"` the numbers become **1440 == 1440** at 1440
+and **390 == 390** at desktop 390 (before: 1425/1440 and 375/390). The mobile contexts have no gutter and read
+390/390 on every page (`scrollWidth === clientWidth`, SPEC §8). No offender element on any page.
+
+**Chrome checks** (390 mobile, light unless noted):
+
+- Tab bar (`nav.fixed`): on `/` Start, Rezepte, Finanzen, Profil; in `/recipe` Rezepte, Plan, Einkauf, Profil; in
+  `/finance` Übersicht, Buchungen, Erfassen, Profil.
+- The module chip (`button[aria-label^="Modul wechseln"]` in `header[data-app-shell]`) opens a `role="dialog"`
+  sheet listing Start, Rezepte, Finanzen; exactly one `aria-current` element, "Rezepte" (checked on `/recipe`);
+  choosing Finanzen lands on `/finance`.
+- 1440: the sidebar's segmented group (`aside[data-app-shell] [role=group]`) lists Start, Rezepte, Finanzen. Sidebar
+  rows on `/recipe`: `Rezepte 3` (the recipe count), `Plan Neu` (the pill), `Einkauf 4` (open items of the
+  lists), then Profil, and under Organisieren Sammlungen, Tags, Gruppen.
+- Home: the recipe card has **seven day cells** (`.grid-cols-7 > a`) and reads "Rezepte DIESE WOCHE Planen MO 12
+  … SO 18 Mi · Schneller Schokokuchen Mi · Zwiebelkuchen vom Blech Sa · Klassische Pfannkuchen Rewe · 4
+  Positionen"; the finance card reads "Finanzen SALDO 1.288,24 € Robin schuldet dir 1.288,24 € Ausgaben · Oktober
+  2026 722,35 € Finanzen Erfassen" (the balance sentence and the period spend; the figures include the one
+  booking of 9.7).
+- `header[data-app-shell]` (the household chip row) is visible on all 26 phone screens that have the shell, i.e.
+  every screen except `recipe-detail` (count 0, exempt by decision 10) and the three that have no shell
+  (`login`, `register`, `not-found`); that includes `settings`, `households`, `household-detail` after fix 2.
+- **The Buchen bar** on `/finance/new` at 390: bar box left 0, right 390, top 714, bottom 783; tab bar top 783,
+  bottom 844: **no overlap** (after fix 1) and the bar spans the viewport (0 to 390). In the desktop 390 context
+  the bar ends at 375 beside the gutter and at 390 with `scrollbar-gutter: auto`.
+
+### 9.6 Screenshot index (`docs/plans/screenshots/m4/<screen>-<width>-<scheme>.png`, KB)
+
+78 viewport-only PNGs, **4.38 MB** in total (under the 25 MB limit, so nothing is stored as JPEG). The nine exit
+screens exist in all four combinations (36 files, all non-empty); the other 21 screens at 390 light and 1440
+dark. `switcher` is the open module sheet on `/recipe` at 390 and `/recipe` with the sidebar's segmented
+switcher at 1440. `finance-non-participant` is `/finance` as kim. `recipe-import-review` exists: the draft was
+created from the URL fixture as in M2's run.
+
+| screen | 390 light | 390 dark | 1440 light | 1440 dark |
+|---|---|---|---|---|
+| `home` | 43 | 43 | 63 | 64 |
+| `switcher` | 32 | 31 | 112 | 113 |
+| `recipe-library` | 44 | 44 | 112 | 113 |
+| `recipe-plan` | 36 | 36 | 57 | 57 |
+| `recipe-shopping` | 51 | 51 | 91 | 92 |
+| `finance-overview` | 45 | 46 | 83 | 84 |
+| `finance-transactions` | 58 | 57 | 98 | 98 |
+| `finance-new` | 47 | 47 | 72 | 72 |
+| `settings` | 39 | 39 | 65 | 65 |
+| `finance-categories` | 46 | - | - | 81 |
+| `finance-non-participant` | 19 | - | - | 42 |
+| `finance-plan` | 46 | - | - | 88 |
+| `finance-transaction-detail` | 35 | - | - | 64 |
+| `finance-transaction-edit` | 49 | - | - | 77 |
+| `household-detail` | 41 | - | - | 62 |
+| `households` | 25 | - | - | 46 |
+| `login` | 25 | - | - | 30 |
+| `not-found` | 15 | - | - | 19 |
+| `recipe-cards` | 26 | - | - | 48 |
+| `recipe-collection-detail` | 37 | - | - | 69 |
+| `recipe-collections` | 25 | - | - | 48 |
+| `recipe-detail` | 50 | - | - | 143 |
+| `recipe-edit` | 39 | - | - | 60 |
+| `recipe-import` | 52 | - | - | 78 |
+| `recipe-import-review` | 43 | - | - | 102 |
+| `recipe-new` | 36 | - | - | 56 |
+| `recipe-shopping-detail` | 41 | - | - | 100 |
+| `recipe-shopping-history` | 42 | - | - | 66 |
+| `recipe-tags` | 49 | - | - | 87 |
+| `register` | 34 | - | - | 40 |
+
+### 9.7 Four colour combinations (decision 13, `data/m4-t09-combos.log`, **56 of 56 pass**)
+
+390 mobile, `/` and `/finance`, OS scheme x stored `toon.theme`. Expected values are parsed from `theme.css`
+(`:root[data-theme="light"]` / `"dark"` blocks, `--toon-*` references resolved); computed values come from
+`getComputedStyle(documentElement)`; colours are compared as 8-bit RGBA because the built CSS is minified
+(`#fff`, `#291f180d` for `rgb(41 31 24 / 5%)`).
+
+| Token | light block | dark block |
+| --- | --- | --- |
+| `--bg` | `#faf5ee` | `#17120f` |
+| `--surface` | `#ffffff` | `#201a15` |
+| `--bg-sunken` | `#f3ebe0` | `#130f0c` |
+| `--fg-faint` | `#7f6f5b` | `#8d7c67` |
+| `--elevation-card` | `0 1px 2px rgb(41 31 24 / 5%), 0 4px 14px -6px rgb(41 31 24 / 12%)` | `0 1px 2px rgb(0 0 0 / 40%), 0 6px 18px -8px rgb(0 0 0 / 55%)` |
+
+| Combination | resolved | `data-theme` | the five tokens | `body` background | `<meta name="theme-color">` |
+| --- | --- | --- | --- | --- | --- |
+| OS light, no preference | light | none | light block | `rgb(250, 245, 238)` = `--bg` | `#faf5ee` |
+| OS dark, no preference | dark | none | dark block | `rgb(23, 18, 15)` = `--bg` | `#17120f` |
+| OS light, explicit dark | dark | `dark` | dark block | `rgb(23, 18, 15)` = `--bg` | `#17120f` |
+| OS dark, explicit light | light | `light` | light block | `rgb(250, 245, 238)` = `--bg` | `#faf5ee` |
+
+Identical on `/` and `/finance`; exactly one `theme-color` meta in the page. The two explicit combinations are
+the ones R's missing-token bug broke (R CLAUDE.md "THE PALETTE IS DECLARED FOUR TIMES"): all five tokens,
+including `--elevation-card`, follow the stored preference.
+
+### 9.8 Print (decision 14, `data/m4-t09-print.log`, **16 of 16 pass**, PDFs in `data/`)
+
+`page.emulateMedia({ media: "print" })` and `page.pdf()` (A4) of the seeded "Zwiebelkuchen vom Blech", then
+`pdftotext -layout`:
+
+| Viewport | markup | pages | text | first ingredient (Mehl, Type 405) | last step ("Lauwarm servieren") | "Profil", "Start", "Modul wechseln", "Familie" |
+| --- | --- | --- | --- | --- | --- | --- |
+| 390 | phone, both panels | 2 | 1684 chars | present | present | absent |
+| 1440 | desktop | 4 | 2211 chars | present | present | absent |
+
+In print media the computed `display` of `nav.fixed` and `aside[data-app-shell]` is `none`, and no
+`header[data-app-shell]` is rendered on the detail screen. Before fixes 3 and 4 the 390 PDF lacked steps 3 to 7
+(table in 9.1). Observation, not fixed (print.css is toon-recipe's, the screen is the recipe module's): the
+printed phone detail still shows the servings scaler and "Zur Einkaufsliste", which carry no `data-print="hide"`.
+
+### 9.9 Offline note on the built app (decision 7, `data/m4-t09-offline.log`, **8 of 8 pass**)
+
+Service worker active and controlling the page (after one reload). Online: no note. `setOffline(true)`, 7,77 and
+"M4 Offline-Buchung …" on `/finance/new`, Buchen: **"1 Änderung wartet auf Übertragung."** is visible in a
+`role="status"` line; `setOffline(false)`: the note is gone and the API holds **exactly one row** with that
+description, still one row after settling; no page error. (M3's two-reloads-offline replay is unchanged and was
+not repeated; this run is the indicator.)
+
+### 9.10 Exit criteria (SPEC §8 M4, this plan's section 1) against the evidence
+
+- Home cards with real data, the switcher, the module-less tab bar: 9.5 (seven day cells, active list count,
+  balance sentence, period spend, tab bars of Home / recipe / finance, the sheet and the sidebar group).
+- Finance screens token by token against D5: `design-system.test.ts` green (9.2); the finance screens are in the
+  screenshot set; no `text-[` outside the 34 pinned recipe hits, the four theme blocks equal, `.eyebrow`, sticky
+  bars on `bottom-tabbar` (9.1 fix 1 closed the last 1px).
+- print.css verified by printing: 9.8. PWA manifest and icons: 9.4 (content type, three shortcuts, four icons).
+- Dark and light in all four combinations: 9.6 (screenshots) and 9.7 (measurement).
+- Screenshots at 390 and 1440 in `docs/plans/screenshots/m4/`: 9.6. `scrollWidth === clientWidth` on every screen:
+  9.5 (390/390 on all 39 mobile pages; 1425/1440 explained by the gutter and equal with it switched off).
+- No `fonts.googleapis`: 9.2.
 
 ## 10. What changed vs plan
 
-(Written at the milestone close.)
+- **No deviation from SPEC §1, no ADR.** ADR 0004 gained one consequence bullet (T01), as planned.
+- **T09 found four defects the plan did not foresee** (9.1): the 1px tab-bar border under the pinned bars, the
+  missing phone header row on three core screens, and two print defects (the layered `!important` and the
+  mid-print markup flip). The plan expected print to be a verification only ("verified by printing, no
+  defect expected"); it was the only check that failed for a reason outside M4's own diff (both causes are
+  inherited from toon-recipe).
+- **The plan's chrome check "every phone screen except `recipe-detail` shows the household chip" needed a code
+  change for Settings, Gruppen and Gruppe detail** (M4-T08's "core screens audit" did not add the row);
+  `core/features/phone-header.test.ts` now guards them (decision 10 had only covered recipe).
+- **390 screenshots use a mobile context**, not a desktop viewport of 390 px: a desktop Chromium reserves the
+  stable scrollbar gutter and draws a 15px strip at the right edge, which would be a misleading phone
+  screenshot. Decision 12 is still satisfied both ways (9.5: mobile 390/390, desktop 375/390 explained).
+- **Decision 3's count**: T08's commit records that its "18 files" was a miscount (the plan's own list sums to
+  17 files and 34 hits) and pinned 17. Decisions 6 and 9: unchanged. Decision 7: `PendingSyncNote` as a Fragment sibling
+  (T06), confirmed on the built app (9.9). Risk 3 (finance bars bleeding at every width): confirmed, the
+  1440 screenshots show it as intended, no `@utility` variant was needed. Risk 6: `sharp` rendered the SVG itself
+  (`rsvg-convert` was not needed). Risk 8 (headless staleness): followed H/CLAUDE.md literally; the only new
+  lesson is that a login-per-run script gets `429` (storageState is now reused across runs) and that
+  `pkill -f` can match its own shell.
+- **Plan-level additions to the exit evidence**: the 28-page desktop-390 pass (the M3 numbers reproduced), the
+  gutter demonstration at both widths, the `data-theme` and meta checks in the four-combination table.
+- **New files beyond the plan's list**: `core/features/phone-header.test.ts`,
+  `modules/recipe/features/recipes/print-css.test.ts`.
+- **Handed on** (CLAUDE.md "Obligations"): M5 `migrate:legacy`, M6 redirects and Docker, M7 docs; the owner
+  decisions of section 7 stay open; the printed phone detail's scaler and shopping link (9.8).
