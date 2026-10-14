@@ -506,8 +506,8 @@ the code actually relies on or introduced.
   route they reach is `GET …/finance/participants` (`{ items, viewerSlot }`, `viewerSlot: null` for them).
   `PUT …/participants` (admin) replaces the two (validated in the SERVICE, toon-finance gotcha 47; `409
   finance_participant_in_use` when a user leaves the budget and the household has ANY transaction row or an
-  income naming them, ADR 0004; open finding B: the plan payer and income person are not yet checked
-  against the participants), `PATCH …/participants/me`
+  income naming them, ADR 0004; the plan payer and income person are checked against the participants,
+  see below), `PATCH …/participants/me`
   edits the own display name. `requireFinanceParticipant` is a hoisted function declaration (import
   cycle, see above) and its context lives in a module-local `ContextVariableMap` augmentation. The web
   gate is the pathless `participant-gate` route under `/finance` (`FinanceGate` renders
