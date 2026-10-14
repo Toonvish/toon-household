@@ -1,0 +1,89 @@
+/*
+ * Print stylesheet for the recipe detail screen.
+ * Imported by RecipeDetailPage.tsx; scoped to `@media print` so it can never affect
+ * the on-screen layout.
+ */
+@media print {
+  /* Chrome/layout furniture the shell renders around the page. */
+  header[data-app-shell],
+  nav[data-app-shell],
+  aside[data-app-shell],
+  [data-print="hide"] {
+    display: none !important;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  .recipe-print {
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .recipe-print a {
+    color: #000 !important;
+    text-decoration: none;
+  }
+
+  /* Show the source URL next to the attribution link. */
+  .recipe-print a[data-print-url]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.8em;
+    word-break: break-all;
+  }
+
+  .recipe-print img {
+    max-height: 7cm;
+    object-fit: cover;
+  }
+
+  .recipe-print h1 {
+    font-size: 22pt;
+    margin-bottom: 0.2cm;
+  }
+
+  .recipe-print h2 {
+    font-size: 13pt;
+    margin-top: 0.5cm;
+    break-after: avoid;
+  }
+
+  /* Never split an ingredient row or a step across pages. */
+  .recipe-print li,
+  .recipe-print section {
+    break-inside: avoid;
+  }
+
+  /*
+   * The phone branch keeps Ingredients AND Method in the DOM at all times and
+   * toggles between them with the `hidden` attribute under a `Tabs` control (a
+   * conditional render would print only whichever tab was open). The shell's own
+   * reset already sets `[hidden]{display:none!important}` for the screen; this
+   * clears it back for print so both panels render on paper regardless of which
+   * one was showing on screen.
+   */
+  .recipe-print [hidden] {
+    display: block !important;
+  }
+
+  /* Steps lose their button chrome in print. */
+  .recipe-print button {
+    border: 0 !important;
+    background: transparent !important;
+    padding: 0 !important;
+    color: #000 !important;
+    text-decoration: none !important;
+  }
+
+  .recipe-print [aria-pressed="true"] {
+    text-decoration: none !important;
+  }
+
+  @page {
+    margin: 1.5cm;
+  }
+}
