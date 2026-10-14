@@ -1517,8 +1517,10 @@ CLAUDE.md names no file that does not exist.
    core now calls `ApiModule.onMemberRemoving` before deleting the `household_members` row and
    finance vetoes with `409 member_has_ledger` (toon-finance's guard, SPEC D13) for a seated
    participant while the household has any `finance_transactions` row or an income naming them. A
-   seated participant with an empty ledger may leave; the slot row stays until an admin seats
-   someone else (an empty ledger allows it). `finance-participants.test.ts` (h)…(h5).
+   seated participant with an empty ledger may leave and their seat row is deleted with them
+   (second review: a kept seat let the remaining participant book against an ex-member, after which
+   no admin could replace it); the plan payer moves to the remaining participant; an admin seats
+   a replacement through the PUT. `finance-participants.test.ts` (h)…(h5).
 7. **Typed router hooks in F screens** must all become `@/lib/nav` helpers; `NOROUTER` and
    `LINKS_FIN` are the checks, T12's clicks the backstop (string-typed links compile wrong).
 8. **Port size.** T05 (20 files), T06 (21), T08 (16) are mechanical with exact tables; the API

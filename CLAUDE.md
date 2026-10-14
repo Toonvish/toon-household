@@ -313,7 +313,10 @@ the code actually relies on or introduced.
   (`assertParticipantMayLeave`) answers `409 member_has_ledger` (`server.household.memberHasLedger`,
   toon-finance's text) when the leaver holds a slot and the household has ANY `finance_transactions`
   row or an income naming them (same predicate as the `finance_participant_in_use` replacement rule:
-  every row involves both slots). Without a seat, or with an empty ledger, leaving is allowed.
+  every row involves both slots). Without a seat, leaving is allowed; a seated leaver with an empty ledger
+  leaves too and the hook DELETES their seat (a remaining ex-member seat let the other participant
+  book against a non-member, after which no admin could replace it), moving the plan payer to the
+  remaining participant; the household is then a one-seat (solo) ledger until `PUT …/participants`.
 - **Enabling finance needs two participants (D3).** `onEnable` seats the two users from the enable
   POST's `settings` (`{ participants: [{ userId, memberSlot: 1 }, { userId, memberSlot: 2 }] }`) or, on a
   re-enable without a body, requires the two existing `finance_participants` rows, else `422
@@ -560,6 +563,6 @@ Each later plan lists and closes them (full text: `docs/plans/m3-finance-module.
 - M7: `docs/API.md` (recipe and finance sections), `docs/modules/recipe.md`, `docs/modules/finance.md`;
   the member-leaves veto exists (`ApiModule.onMemberRemoving`; finance refuses a seated participant's
   leaving with `409 member_has_ledger` while the ledger has rows, so no ghost participant can appear;
-  an empty-ledger leaver keeps a slot row that an admin replaces through `PUT …/participants`); M7
+  an empty-ledger leaver's seat is deleted and an admin seats a replacement through `PUT …/participants`); M7
   documents it in `docs/API.md` and may extend it to other modules; the N-person ledger stays out (D3); switching the whole test
   suite to a temp-file DB (ADR 0003's consequence).

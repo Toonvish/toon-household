@@ -21,7 +21,7 @@ import type { AppEnv } from "../src/lib/types.ts";
 import { requireFinanceParticipant, requireFinanceParticipantContext } from "../src/modules/finance/middleware.ts";
 import { mountModules } from "../src/modules/mount.ts";
 import type { ApiModule } from "../src/modules/types.ts";
-import { financeTransactions } from "../src/modules/finance/schema.ts";
+import { financeFixedCostPlans, financeParticipants, financeTransactions } from "../src/modules/finance/schema.ts";
 import {
   addMember,
   body,
@@ -411,6 +411,49 @@ describe("a participant leaving the household (toon-finance member_has_ledger, S
     });
     expect(replace.status).toBe(200);
     expect((await list(owner, householdId)).items.map((item) => item.userId)).toEqual([owner.id, c.id]);
+  });
+
+  test("(h4b) a leaver's seat goes with them: no booking against an ex-member, then leave, book, reseat", async () => {
+    const { owner, b, c, householdId } = await trio();
+    expect((await call(membersPath(householdId, b.id), { method: "DELETE", cookie: b.cookie })).status).toBe(204);
+
+    // The seat row is gone with the membership; one participant remains in slot 1.
+    const seated = await list(owner, householdId);
+    expect(seated.items.map((item) => item.userId)).toEqual([owner.id]);
+    expect(await db.select().from(financeParticipants).where(eq(financeParticipants.userId, b.id))).toEqual([]);
+
+    // Booking is a solo booking (toon-finance's one-member ledger): it is NOT booked against Bea.
+    const booking = { kind: "MINE_SPLIT", amountCents: 500, description: "Kaffee" };
+    const booked = await call(`/api/households/${householdId}/finance/transactions`, {
+      method: "POST",
+      cookie: owner.cookie,
+      body: booking,
+    });
+    expect(booked.status).toBe(201);
+    const balance = await call(`/api/households/${householdId}/finance/balance`, { cookie: owner.cookie });
+    expect(balance.status).toBe(200);
+    expect((await list(owner, householdId)).items.map((item) => item.userId)).toEqual([owner.id]);
+
+    // The seat is free: an admin seats the second member (the kept owner leaves nobody behind), no
+    // 409 finance_participant_in_use dead end.
+    const reseat = await call(participantsPath(householdId), {
+      method: "PUT",
+      cookie: owner.cookie,
+      body: { participants: [{ userId: owner.id, memberSlot: 1 }, { userId: c.id, memberSlot: 2 }] },
+    });
+    expect(reseat.status).toBe(200);
+    expect((await list(owner, householdId)).items.map((item) => item.userId)).toEqual([owner.id, c.id]);
+  });
+
+  test("(h4c) a leaving payer of the fixed-cost plan hands the plan to the remaining participant", async () => {
+    const { owner, b, householdId } = await trio();
+    await db.update(financeFixedCostPlans).set({ payerId: b.id }).where(eq(financeFixedCostPlans.householdId, householdId));
+    expect((await call(membersPath(householdId, b.id), { method: "DELETE", cookie: b.cookie })).status).toBe(204);
+    const plans = await db
+      .select({ payerId: financeFixedCostPlans.payerId })
+      .from(financeFixedCostPlans)
+      .where(eq(financeFixedCostPlans.householdId, householdId));
+    expect(plans).toEqual([{ payerId: owner.id }]);
   });
 
   test("(h5) the veto applies while finance is disabled: its rows outlive a disable (D2)", async () => {

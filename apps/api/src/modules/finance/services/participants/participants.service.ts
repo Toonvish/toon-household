@@ -270,9 +270,18 @@ export async function assignParticipants(
  * longer exists, and {@link assignParticipants} would then refuse to replace them too (a dead
  * end no admin action could clear). Same predicate as the replacement rule: ANY
  * `finance_transactions` row of the household (every row involves both slots) or a
- * `finance_incomes.person_id` naming the leaver → `409 member_has_ledger`. A member without a
- * seat, and a seated one with an empty ledger, may leave (the latter's slot row stays until an
- * admin seats someone else, which an empty ledger allows).
+ * `finance_incomes.person_id` naming the leaver -> `409 member_has_ledger`. A member without a
+ * seat may leave.
+ *
+ * A seated leaver with an empty ledger may leave too, and the seat goes with them (toon-finance:
+ * a leaver's `household_members` row WAS the slot). Keeping the seat row would let the remaining
+ * participant book against an ex-member, after which the ledger is non-empty and the seat can
+ * never be replaced. With one seat left, a booking that needs the other slot answers
+ * `409 conflict` (`server.household.needsSecondMember`) until an admin seats a second member
+ * through `PUT .../participants`. A fixed-cost plan whose payer is the leaver moves to the
+ * remaining participant (nobody else can be the payer of a two-person plan).
+ *
+ * Runs before the core deletes the membership row; the veto and the release share one executor.
  */
 export async function assertParticipantMayLeave(db: DbLike, householdId: string, userId: string): Promise<void> {
   const seat = await participantSlotOf(db, householdId, userId);
@@ -289,6 +298,17 @@ export async function assertParticipantMayLeave(db: DbLike, householdId: string,
     .limit(1);
   if (transactionRows.length > 0 || incomeRows.length > 0) {
     throw ApiError.conflict("member_has_ledger", "server.household.memberHasLedger");
+  }
+
+  const remaining = await otherMemberId(db, householdId, userId);
+  await db
+    .delete(financeParticipants)
+    .where(and(eq(financeParticipants.householdId, householdId), eq(financeParticipants.userId, userId)));
+  if (remaining) {
+    await db
+      .update(financeFixedCostPlans)
+      .set({ payerId: remaining, updatedAt: nowMs() })
+      .where(and(eq(financeFixedCostPlans.householdId, householdId), eq(financeFixedCostPlans.payerId, userId)));
   }
 }
 
