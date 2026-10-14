@@ -13,12 +13,13 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { DEFAULT_LOCALE, LOCALES } from "@toon/shared";
 import { CATALOGS, type MessageKey } from "./catalogs/index.ts";
+import { MODULE_CATALOGS_DE, MODULE_CATALOGS_EN } from "../../modules/catalogs.ts";
 import { readLocalePreference, resolveDeviceLocale, resolveSystemLocale } from "./locale.ts";
 import { getLocale, setLocaleForTest, translate } from "./store.ts";
 
 describe("catalog integrity", () => {
   test("every namespace's keys are prefixed and prefixes never collide", () => {
-    const prefixes = ["common.", "home.", "auth.", "household."];
+    const prefixes = ["common.", "home.", "auth.", "household.", "recipe."];
     for (const key of Object.keys(CATALOGS.de)) {
       const matches = prefixes.filter((prefix) => key.startsWith(prefix));
       expect(matches.length).toBe(1);
@@ -60,6 +61,10 @@ describe("catalog integrity", () => {
 
   test("de and en list exactly the same keys", () => {
     expect(Object.keys(CATALOGS.en).sort()).toEqual(Object.keys(CATALOGS.de).sort());
+  });
+
+  test("the module catalogs (recipe) list exactly the same keys in de and en", () => {
+    expect(Object.keys(MODULE_CATALOGS_EN).sort()).toEqual(Object.keys(MODULE_CATALOGS_DE).sort());
   });
 
   test("every plural entry carries an `other` form, in both locales", () => {
