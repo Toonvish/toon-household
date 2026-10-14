@@ -11,16 +11,20 @@
  * - `onEnable` — seats the two participants from the enable settings (or requires the
  *   existing two), else `422 finance_participants_required`; then the plan row.
  *
- * Still to come in M3: `householdRouter` (participants routes and the ledger routers,
- * M3-T03b/T05/T06), `start` + `shutdown` (the accrual scheduler, M3-T06), `seedDemo`
+ * `householdRouter` (M3-T03b): the participants routes; the ledger routers are empty stubs until
+ * M3-T05/T06 fill them.
+ *
+ * Still to come in M3: `start` + `shutdown` (the accrual scheduler, M3-T06), `seedDemo`
  * (M3-T09).
  */
 import type { ApiModule } from "../types.ts";
+import { financeHouseholdRouter } from "./routes/index.ts";
 import { financeTables } from "./schema.ts";
 import { onFinanceEnable, onFinanceHouseholdCreated } from "./setup.ts";
 
 export const financeModule: ApiModule = {
   id: "finance",
+  householdRouter: financeHouseholdRouter,
   schema: financeTables,
   onHouseholdCreated: onFinanceHouseholdCreated,
   onEnable: onFinanceEnable,
