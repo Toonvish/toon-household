@@ -134,5 +134,24 @@ describe("Zod issue resolution", () => {
   });
 });
 
-// formatDuration's three tests return in M2 with packages/shared/src/modules/recipe/duration.ts
-// (import path "../src/modules/recipe/duration.ts"); see docs/plans/m0-scaffold.md §4.
+describe("formatDuration — locale-aware, byte-identical German default", () => {
+  test("renders German by default", async () => {
+    const { formatDuration } = await import("../src/modules/recipe/duration.ts");
+    expect(formatDuration(95)).toBe("1 Std. 35 Min.");
+    expect(formatDuration(0)).toBe("0 Min.");
+  });
+
+  test("renders English when asked", async () => {
+    const { formatDuration } = await import("../src/modules/recipe/duration.ts");
+    expect(formatDuration(95, "en")).toBe("1 hr 35 min");
+    expect(formatDuration(0, "en")).toBe("0 min");
+  });
+
+  test("pluralises days correctly in both locales", async () => {
+    const { formatDuration } = await import("../src/modules/recipe/duration.ts");
+    expect(formatDuration(1440, "de")).toBe("1 Tag");
+    expect(formatDuration(2880, "de")).toBe("2 Tage");
+    expect(formatDuration(1440, "en")).toBe("1 day");
+    expect(formatDuration(2880, "en")).toBe("2 days");
+  });
+});

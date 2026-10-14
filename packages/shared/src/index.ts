@@ -9,3 +9,4 @@
 
 export * from "./core/index.ts";
 export * from "./modules/registry.ts";
+export * from "./modules/recipe/index.ts";

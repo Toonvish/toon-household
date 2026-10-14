@@ -90,7 +90,7 @@ describe("resolveWireKey", () => {
 });
 
 // Ported from toon-recipe packages/shared/test/schemas.test.ts (the core cases; the recipe cases
-// of that file return with the recipe module in M2).
+// of that file live in recipe-schemas.test.ts).
 describe("ApiErrorSchema", () => {
   test("accepts the standard envelope", () => {
     expect(
