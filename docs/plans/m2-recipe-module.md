@@ -1,7 +1,8 @@
 # M2 — recipe module: plan
 
-**Status: PLANNED (2026-10-14), revised after plan review (rev. 2).** Sections 9 (integration record)
-and 10 (what changed vs plan) are filled in by M2-T12 and the milestone review.
+**Status: INTEGRATED (2026-10-14; planned and revised after plan review, rev. 2).** Section 9 is the
+integration record written by M2-T12; section 10 (what changed vs plan) is filled in by the milestone
+review.
 
 Rev. 2 changes: T09 split into T09a (import API), T09b (shopping API), T09c (restored placeholders +
 cross-household sweep); T11 split into T11a (screen port) and T11b (core wiring); decisions 13
@@ -1637,3 +1638,144 @@ importErrors}.test` (T08); `shopping/lib/offline.test` (T04); `lib/persist.test`
 re-exports both modules flat; finance's `onEnable` participant check (from M1). M4: as in §7. M5:
 `migrate:legacy` maps R tables to `recipe_*` (Table C) and relies on `afterMigrate` for folds. M6:
 old-path redirects for bookmarks; image `WITH_OCR=1 WITH_PDF=0`.
+
+## 9. Integration record
+
+Written by M2-T12 on the merged tree (`main`, 2026-10-14). Logs live under `data/` (git-ignored):
+`m2-t12-{install,typecheck,test,build,i18n}.log`, `m2-t12-db.log`, `m2-t12-curl.log`,
+`m2-t12-headless.log`, `m2-t12-offline.log`; every one ends in `exit=$?`.
+
+### 9.1 Fixes found by the integration run (each its own commit)
+
+| Failing check | Cause | Commit |
+| --- | --- | --- |
+| `bun run dev` / `bun run start`: API did not boot. `ReferenceError: Cannot access 'requireHandler' before initialization` (`middleware/session.ts:63`, called from `routes/cards.ts:71`) | Import cycle `session.ts` → `auth/users.ts` → `households/modules.ts` → `modules/index.ts` → recipe manifest → `routes/cards.ts`, which calls `requireSession()` at module scope. All 1384 tests passed because their import order reaches `cards.ts` after `session.ts` finished. `requireHandler` / `optionalHandler` are now hoisted function declarations. New `apps/api/test/import-order.test.ts` loads each real entry point first in a fresh process; it fails on the old code (`index.ts`, `session.ts` first) and passes now | `abbf89c` |
+| `grep 'M2:'` over `apps packages scripts` (acceptance: no placeholder left) | `apps/web/src/modules/index.ts:21` read "M2: `recipeModule`."; `core/schemas/common.ts` said the recipe flags "return with M2". Comments reworded | `9b4aef6` |
+
+Everything else below passed on the first run of its check; the only re-runs were harness scripts
+(see 9.5 for the three test-script corrections, none of them a product change).
+
+### 9.2 Gates (final tree)
+
+| Gate | Result |
+| --- | --- |
+| `bun install --frozen-lockfile` | exit 0 (`Checked 436 installs across 625 packages (no changes)`) |
+| `bun run typecheck` | `[typecheck] OK`, exit 0 (shared, api, three web projects) |
+| `bun test` | 1391 pass, 0 fail, 7033 expect() calls, 69 files, exit 0 (1384 / 68 before the `import-order` regression test) |
+| `bun run build` | exit 0 (Vite build plus `dist/sw.js` and workbox) |
+| `bun run i18n:check` | exit 1 by design; **parity half `[i18n:check] OK`**; leftover half 120 hits, classified below |
+
+Exit criterion "every file under R's tests has a passing counterpart": checked mechanically against
+`/home/erics/software/toon-recipe` (read-only). Every R api test file (28), shared test file (12) and
+co-located web test (10) has its counterpart named in section 8; the per-file `test(` count is equal
+for every mapped api, shared and web file (no file has fewer cases than R's), and R's
+`schemas.test.ts` (29 cases) is covered by `recipe-schemas.test.ts` + `core.test.ts` (38).
+
+### 9.3 `i18n:check` leftover hits, all classified (120)
+
+| Class | Count | Where |
+| --- | --- | --- |
+| Comment quotes of German labels or umlaut examples ("Häufig gekauft", "Käse", "Für den Teig", "Mehr laden", …) | 110 | `modules/recipe/**` (web and api), `core/features/home/ModuleCards.tsx:17` (new in H: "Verfügbare Module" quoted in a doc comment), `components/layout/InstallPrompt.tsx`, `components/ui/{ConfirmDialog,Chip}.tsx`, `lib/{pwa,validation,storage}.ts`, core api mail/auth/households comments, `packages/shared/src/modules/recipe/**` doc comments |
+| Content vocabulary (German recipe language, never through `t()`) | 10 | `IngredientsEditor.tsx:290` ingredient-paste placeholder; `ParsedRecipeEditor.tsx:84` `UNIT_SUGGESTIONS`; `draftEdit.ts:459` `STEP_HEADING_RE`; `services/import/html/entities.ts:23-29` the seven umlaut/ß entities (`auml` … `szlig`) |
+| NEW in H, files under `features/plan` and `features/cards` (never scanned by R's `PORTED_ROOTS`) | 7 (counted in the first row) | `plan/components/PlanRecipePicker.tsx:2`, `plan/components/PlanServingsDialog.tsx:2`, `plan/lib/queries.ts:126`, `plan/PlanPage.tsx:73,76`, `cards/components/CardsCard.tsx:16`, `cards/components/CardFormDialog.tsx:80`: all doc or line comments quoting a catalog label; `cards/CardsPage` and the cards `lib` have no hit |
+| Real German UI literal in code | 0 | nothing outside the two content classes above is a string the user sees |
+
+The check was not suppressed or edited; `scripts/i18n-check.ts` is unchanged by T12.
+
+### 9.4 Fresh-DB walkthrough (`data/m2.db`, `UPLOAD_DIR=./data/m2-uploads`)
+
+`bun run db:migrate` exit 0 (`0000_core` + `0001_recipe`); `bun run seed` exit 0 (user, household
+"Familie", three recipes, 4 plan entries, 4 cook log rows, the list "Rewe" with 5 bought rows and
+1 hidden catalog entry); `bun run seed` again exit 0, every recipe "already present" (idempotent);
+`bun run uploads:gc -- --dry-run` exit 0 on the empty directory ("does not exist — nothing to do")
+and again after the run below: `26 files checked, 13 referenced, 0 too young, 0 deletable`. The API
+ran under `bun run dev` with `IMPORT_ALLOW_PRIVATE_HOSTS=1`; a python static server on
+`127.0.0.1:4599` served a copy of `apps/api/test/fixtures/import/chefkoch-graph.html`. Curl with a
+cookie jar (final run, `data/m2-t12-curl.log`; unique names and fresh `mutationId`s per run):
+
+- `GET /api/health`: `modules: ["recipe"]`, `features: { verifiedEmailRequired: false, ocrImport:
+  false, pdfImport: false }`. Login 200; `GET /api/households/:id` lists `modules: ["recipe"]`.
+- Recipes: list 200 (`total` 3 on the fresh seed), `POST` 201, `GET` detail 200, `scale?servings=8`
+  doubles 200 g to 400, `POST …/cooked` 200 and `lastCookedAt` set, `limit=1` total grows.
+- Tag `POST` 201 / list 200; collection `POST` 201, `PUT …/collections/:id/recipes/:rid` 204, detail
+  shows 1 recipe. Plan `POST` 201 (`plannedOn` 2026-10-15), week read 200.
+- Shopping: list `POST` 201; `POST …/items` with one `mutationId` twice returns 200 both times and
+  the list holds **Mehl 500 g once** (not 1 kg); check-off `POST …/items/:id/check` 200: open items 0,
+  the catalog gains "Mehl", the bought history holds exactly **one** row for that list.
+- Import: `POST …/imports/url` (fixture on :4599) 201, draft `pending`, title "Rote Linsen-Curry mit
+  Spaghetti"; `POST …/imports/:draftId/commit` 201 and the recipe total grows by one.
+- Cards: `POST /api/recipe/cards` (EAN-13, 12 digits) 201, the check digit is completed, list 200.
+- Module switch: `DELETE …/households/:id/modules/recipe` 204; `GET …/recipe/recipes` answers **404
+  `{"error":{"code":"module_disabled",…}}`**; `/api/recipe/cards` (user-scoped, ungated) still 200;
+  `POST …/modules/recipe` 200 and the recipe list is back with the same total (data kept).
+
+Harness notes (not product defects): a `mutationId` is applied once per household, so a re-run of the
+script with the same id adds nothing (that is the idempotency under test); a duplicate list name or
+card value answers 409; `jq` paths had to follow the real shapes (`GET …/shopping-lists/:id` returns
+`{ list, items, catalog, bought, recipes }`).
+
+### 9.5 Headless (Playwright 1.64 + cached Chromium 1248 in a scratch directory outside the repo; `bun add` log `exit=0`; de-DE; demo login through `fetch("/api/auth/login")`)
+
+Dev servers (`bun run dev`), `data/m2-t12-headless.log`: **146 of 146 checks pass**, exit 0.
+
+- Every screen at **390x844 and 1440x900** (Home, `/recipe`, `/recipe/recipes/new`,
+  `/recipe/recipes/$id`, `…/edit`, `/recipe/plan`, `/recipe/shopping`, `/recipe/shopping/$listId`,
+  `…/history`, `…/cards`, `/recipe/collections`, `/recipe/collections/$id`, `/recipe/tags`,
+  `/recipe/import`, `/recipe/import/$draftId`, `/settings`, and the `/recipe/search?q=Curl` redirect
+  to `/recipe?q=Curl`): rendered, no "Diese Seite gibt es nicht", **no console errors**, and
+  `scrollWidth <= clientWidth` (375 <= 390 and 1425 <= 1440 because of `scrollbar-gutter: stable`).
+  Every `<a href>` on those pages is `/`, `/recipe…`, `/settings`, `/households…` or an `/uploads/`
+  image (no unprefixed link anywhere).
+- Navigation chrome: at 390 the tab bar (`nav.fixed`) inside `/recipe` is exactly **Rezepte, Plan,
+  Einkauf, Profil** and the sidebar is `display: none`; at 1440 the sidebar (`aside[data-app-shell]`)
+  carries Rezepte, Plan, Einkauf, Profil and under ORGANISIEREN Sammlungen, Tags, Gruppen, and the tab
+  bar is hidden. Clicking each tab / sidebar link lands on its own path, never on `NotFoundPage`.
+- Reachability at 390: the library `+` sheet offers "Neues Rezept" and "Importieren" and each lands on
+  `/recipe/recipes/new` / `/recipe/import`; the Filter sheet has links to `/recipe/collections` and
+  `/recipe/tags`; `/recipe/shopping` links to `/recipe/shopping/cards` (CardsCard); `/settings` shows
+  the Gruppen card (link into `/households`). At 1440 the filter rail links the same two screens and
+  the header offers Importieren and Neues Rezept. A clicked recipe card lands on
+  `/recipe/recipes/<id>`.
+- **Recipe count (decision 13), N = API `recipes?limit=1` total = 16:** at 390 the subtitle reads
+  "Familie · 16 Rezepte", at 1440 "Geteilt mit Familie · 1 Mitglied · 16 Rezepte", and both are
+  **unchanged under `/recipe?q=Curl`** (9 recipe links shown, subtitle still 16).
+- (a) URL import through the UI: `/recipe/import`, the fixture URL, "Rezept laden" opens
+  `/recipe/import/<id>` with the parsed title, "Speichern" lands on `/recipe/recipes/<id>` showing
+  "Linsen-Curry", and the API total grew 16 to 17.
+- (c) Card render: an EAN-13 card opened from `/recipe/shopping/cards` shows an
+  `<svg shape-rendering="crispEdges">` with a `#fff` background rect, 30 bars, on a white ancestor.
+- (d) Disabled module (M1's handed-on check): after `DELETE …/modules/recipe`, loading
+  `/recipe/plan` redirects to `/` with the toast "Dieses Modul ist für diesen Haushalt nicht
+  aktiviert."; the Home "Aktivieren" button re-enables it (toast "Modul aktiviert") and `/recipe`
+  is reachable again; the API household lists `recipe` again.
+
+(b) Offline check-off replay on the **built app** (`bun run build`, `WEB_DIST_DIR=./apps/web/dist bun
+run start` on :3001, service worker active, page controlled after one reload;
+`data/m2-t12-offline.log`, **11 of 11 pass**): open a list with two items, `context.setOffline(true)`,
+tick "Offlinetomaten": "1 Änderung wartet" and the offline banner appear; after the persister
+throttle, **reload while offline: the queue is still "1 Änderung wartet"**; `setOffline(false)`: the
+replay empties the queue; the API shows the item gone from the list (the other item remains) and
+**exactly one** bought-history row for it; no console errors other than the browser's own offline
+network lines (5 ignored). The camera scanner (optional) was not exercised headless.
+
+Three corrections to the run script itself, recorded for honesty: the first pass failed because the
+sidebar check used `offsetParent` (always `null` for a `position: fixed` aside; now a bounding-box
+check), a selector matched the hidden desktop "Neues Rezept" link before a recipe card, and the
+disabled-module check re-enabled through the API behind the page's back, which the SPA only notices
+on its first `404 module_disabled` (by design, `["toon","me"]` is invalidated then); the final script
+re-enables through Home's "Aktivieren". Login is rate limited per address in memory, so repeated
+runs hit `429` until the API restarts (noted in CLAUDE.md).
+
+### 9.6 Exit criteria (section 1) against the evidence
+
+| Criterion | Evidence |
+| --- | --- |
+| Gates green | 9.2 (install, typecheck, test 1391 pass, build exit 0; i18n parity OK) |
+| Every R test file has a passing counterpart (map in section 8) | 9.2, equal case counts per file |
+| Recipe tabs and every secondary screen at 390 and 1440 with R's "Navigation" reachability rules | 9.5 (screens, tab bar, sidebar, `+` sheet, Filter sheet links, CardsCard, Gruppen card) |
+| URL import, shopping offline replay, card render in the headless browser | 9.5 (a), (b), (c); curl import in 9.4 |
+| `i18n:check` shows only the known false-positive classes | 9.3 (110 comment quotes + 10 content vocabulary, 0 real) |
+| M1's handed-on disabled-module redirect | 9.5 (d) |
+| Decision 13 (recipe count) | 9.5, 390 and 1440, unchanged under a filter |
+| LINKS grep on the merged tree | exit 0, no match in `apps/web/src/modules/recipe` (verify command of T12) |
+| No `M2:` placeholder left | `grep -rn 'M2:' apps packages scripts` (`*.ts`, `*.tsx`, outside `node_modules`/`dist`): no match |
