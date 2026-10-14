@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<!--
+  The CURRENT chefkoch.de shape: one @graph whose Recipe node references its image,
+  publisher and author by @id instead of inlining them. Unresolved, `image.@id` is the
+  RECIPE PAGE url, which is why this page is a fixture of its own — see
+  resolveNodeReferences() in services/import/url/jsonld.ts.
+
+  `og:image` is deliberately a DIFFERENT url from the ImageObject's, so a test can tell
+  whether imageUrl came from the resolved @graph node or from the head fallback.
+-->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Rote Linsen-Curry mit Spaghetti - Rezept mit Bild | Chefkoch.de</title>
+<meta property="og:site_name" content="Chefkoch">
+<meta property="og:title" content="Rote Linsen-Curry mit Spaghetti">
+<meta property="og:image" content="https://img.chefkoch-cdn.de/rezepte/2133611343071438/bilder/1383229/og/rote-linsen-curry.jpg">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Recipe",
+      "@id": "https://www.chefkoch.de/rezepte/2133611343071438/Rote-Linsen-Curry-mit-Spaghetti.html#recipe",
+      "publisher": { "@id": "https://www.chefkoch.de/#organization" },
+      "author": { "@id": "https://www.chefkoch.de/user/profil/a614a393#author" },
+      "image": { "@id": "https://www.chefkoch.de/rezepte/2133611343071438/Rote-Linsen-Curry-mit-Spaghetti.html#primaryimage" },
+      "mainEntityOfPage": { "@id": "https://www.chefkoch.de/rezepte/2133611343071438/Rote-Linsen-Curry-mit-Spaghetti.html" },
+      "inLanguage": "de-DE",
+      "name": "Rote Linsen-Curry mit Spaghetti",
+      "description": "Rote Linsen-Curry mit Spaghetti &ndash; schnell und vegan.",
+      "recipeCategory": "Kochen",
+      "recipeCuisine": "Deutsch",
+      "keywords": "Hauptspeise, Nudeln, Vegan",
+      "prepTime": "PT10M",
+      "cookTime": "PT20M",
+      "totalTime": "PT30M",
+      "recipeYield": "4 Portionen",
+      "recipeIngredient": [
+        "200 g Linsen, rote",
+        "500 g Spaghetti",
+        "1 Zwiebel(n)",
+        "2 Zehe/n Knoblauch",
+        "1 EL Currypulver",
+        "400 ml Kokosmilch",
+        "1 Dose Tomaten, geschält",
+        "1 Prise Salz"
+      ],
+      "recipeInstructions": [
+        { "@type": "HowToStep", "text": "Zwiebel und Knoblauch fein würfeln und in Öl anbraten." },
+        { "@type": "HowToStep", "text": "Currypulver zugeben, kurz mitrösten, dann Linsen, Tomaten und Kokosmilch dazu." },
+        { "@type": "HowToStep", "text": "20 Minuten köcheln lassen und mit Salz abschmecken." },
+        { "@type": "HowToStep", "text": "Spaghetti nach Packungsanweisung garen und untermischen." }
+      ],
+      "nutrition": {
+        "@type": "NutritionInformation",
+        "calories": "639 kcal",
+        "proteinContent": "27.51 g"
+      }
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://www.chefkoch.de/rezepte/2133611343071438/Rote-Linsen-Curry-mit-Spaghetti.html",
+      "url": "https://www.chefkoch.de/rezepte/2133611343071438/Rote-Linsen-Curry-mit-Spaghetti.html",
+      "isPartOf": { "@id": "https://www.chefkoch.de/#website" },
+      "primaryImageOfPage": { "@id": "https://www.chefkoch.de/rezepte/2133611343071438/Rote-Linsen-Curry-mit-Spaghetti.html#primaryimage" }
+    },
+    {
+      "@type": "ImageObject",
+      "@id": "https://www.chefkoch.de/rezepte/2133611343071438/Rote-Linsen-Curry-mit-Spaghetti.html#primaryimage",
+      "url": "https://img.chefkoch-cdn.de/rezepte/2133611343071438/bilder/1383229/crop-960x540/rote-linsen-curry.jpg",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://www.chefkoch.de/#website",
+      "url": "https://www.chefkoch.de/",
+      "publisher": { "@id": "https://www.chefkoch.de/#organization" }
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://www.chefkoch.de/#organization",
+      "name": "Chefkoch",
+      "url": "https://www.chefkoch.de/"
+    },
+    {
+      "@type": "Person",
+      "@id": "https://www.chefkoch.de/user/profil/a614a393#author",
+      "name": "MissKitty81",
+      "url": "https://www.chefkoch.de/user/profil/a614a393"
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<h1>Rote Linsen-Curry mit Spaghetti</h1>
+</body>
+</html>
