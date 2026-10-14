@@ -41,16 +41,25 @@ export async function loadSession(c: AppContext): Promise<boolean> {
   return true;
 }
 
-const requireHandler: MiddlewareHandler<AppEnv> = async (c, next) => {
+/*
+ * The two handlers are function DECLARATIONS on purpose (hoisted, initialised at module
+ * instantiation), not `const` arrows. This module sits in an import cycle: `auth/users.ts` ->
+ * `households/modules.ts` -> `modules/index.ts` -> the recipe manifest -> `routes/cards.ts`, which
+ * calls `requireSession()` at module scope while this file is still evaluating. With `const` that
+ * call hit the temporal dead zone ("Cannot access 'requireHandler' before initialization") whenever
+ * the entry point reached this file before the manifest did (the real server did; the tests'
+ * import order hid it).
+ */
+async function requireHandler(c: AppContext, next: Next): Promise<void> {
   const authenticated = await loadSession(c);
   if (!authenticated) throw ApiError.unauthorized();
   await next();
-};
+}
 
-const optionalHandler: MiddlewareHandler<AppEnv> = async (c, next) => {
+async function optionalHandler(c: AppContext, next: Next): Promise<void> {
   await loadSession(c);
   await next();
-};
+}
 
 /** 401 `unauthorized` unless a valid session cookie is present. */
 export function requireSession(): MiddlewareHandler<AppEnv>;
