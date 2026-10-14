@@ -135,7 +135,8 @@ export async function requireOtherMemberId(db: DbLike, householdId: string, view
 /**
  * The userId seated at `member_slot 1` — the balance sign convention's anchor
  * (docs/spec.md §2.4: `balanceCents > 0` means slot 2 owes slot 1). Every
- * enabled finance household has a slot 1 (the enable hook refuses otherwise), so
+ * enabled finance household has a slot 1 (the enable hook refuses otherwise, and a slot-1
+ * leaver's survivor is re-seated there, {@link assertParticipantMayLeave}), so
  * a missing row here is a programming error, not a user-facing state.
  */
 export async function slot1UserId(db: DbLike, householdId: string): Promise<string> {
@@ -281,6 +282,12 @@ export async function assignParticipants(
  * through `PUT .../participants`. A fixed-cost plan whose payer is the leaver moves to the
  * remaining participant (nobody else can be the payer of a two-person plan).
  *
+ * When the leaver held slot 1 and the remaining participant holds slot 2, the survivor is moved
+ * to slot 1 in the same call (ADR 0004, M4-T01): `slot1UserId`, the balance sign's anchor
+ * (docs/spec.md §2.4), must always resolve, so the survivor of a slot-1 leave never sits alone
+ * in slot 2. The slot is free once the leaver's row is deleted (unique index and CHECK allow it).
+ * A slot-2 leaver leaves slot 1 untouched.
+ *
  * Runs before the core deletes the membership row; the veto and the release share one executor.
  */
 export async function assertParticipantMayLeave(db: DbLike, householdId: string, userId: string): Promise<void> {
@@ -305,6 +312,18 @@ export async function assertParticipantMayLeave(db: DbLike, householdId: string,
     .delete(financeParticipants)
     .where(and(eq(financeParticipants.householdId, householdId), eq(financeParticipants.userId, userId)));
   if (remaining) {
+    if (seat === 1) {
+      await db
+        .update(financeParticipants)
+        .set({ memberSlot: 1 })
+        .where(
+          and(
+            eq(financeParticipants.householdId, householdId),
+            eq(financeParticipants.userId, remaining),
+            eq(financeParticipants.memberSlot, 2),
+          ),
+        );
+    }
     await db
       .update(financeFixedCostPlans)
       .set({ payerId: remaining, updatedAt: nowMs() })

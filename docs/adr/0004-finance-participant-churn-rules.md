@@ -39,11 +39,14 @@ SPEC D3 and §2 carry the new wording in the same commit.
 
 ## Consequences
 
-- The remaining participant keeps their slot number. If the leaver held slot 1 the survivor sits alone
-  in slot 2, and the code that anchors on slot 1 (`slot1UserId`, the balance sign) throws a 500 until a
-  slot-1 seat exists again. This is an OPEN defect at M3's close (plan section 10, CLAUDE.md
-  "Open findings"); the fix (re-seat the survivor in slot 1, or refuse the leave) is a follow-up that
-  must keep this ADR's rules and the D3 balance anchor.
+- The remaining participant keeps their slot number, with one exception. If the leaver held slot 1 the
+  survivor would sit alone in slot 2, and the code that anchors on slot 1 (`slot1UserId`, the balance
+  sign) would throw a 500 until a slot-1 seat exists again (M3 plan section 10, finding A).
+- M4-T01 closes it: on an empty ledger the survivor of a slot-1 leave is re-seated in slot 1 (in the
+  leave's own transaction), so the balance anchor always exists; a slot-2 leave changes nothing. The
+  plan payer and an income's person only name participants (finding B): `PATCH …/plan { payerId }`
+  and the income create/update routes answer `422 validation_failed` with
+  `server.finance.personNotParticipant` for anyone else.
 - An admin cannot replace a participant who has booked anything: the ledger's history belongs to the two
   people who kept it. A household that must change partners starts a new ledger (out of scope, D3's
   N-person generalisation stays out).

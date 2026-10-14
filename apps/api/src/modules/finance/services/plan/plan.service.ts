@@ -17,7 +17,7 @@ import type {
   UpdateIncomeRequest,
   UpdatePlanRequest,
 } from "@toon/shared";
-import { comparePeriods, computePlanForPeriod, currentPeriod, periodsInclusive } from "@toon/shared";
+import { comparePeriods, computePlanForPeriod, currentPeriod, DEFAULT_LOCALE, periodsInclusive, serverText } from "@toon/shared";
 import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 import type { Database } from "../../../../db/client.ts";
 import {
@@ -35,7 +35,7 @@ import { ApiError } from "../../../../lib/errors.ts";
 import { nowMs } from "../../lib/clock.ts";
 import { toIso } from "../../../../lib/http.ts";
 import { isUniqueViolation } from "../../../../core/services/auth/users.ts";
-import { otherMemberId } from "../participants/participants.service.ts";
+import { otherMemberId, participantSlotOf } from "../participants/participants.service.ts";
 import type { DbLike } from "../support.ts";
 import { catchUpRange, isPlanComputable } from "./period-scan.ts";
 
@@ -180,6 +180,28 @@ async function maxOccupiedPeriod(db: Database, householdId: string): Promise<str
   return rows[0]?.planPeriod ?? null;
 }
 
+/**
+ * The plan payer and an income's person must be one of the household's `finance_participants`
+ * (M3 review finding B, SPEC D3/D8): the household comes from the path only, never from the id
+ * being checked, so a member without a seat or a user of another household is refused with
+ * `422 validation_failed` and a detail on `field` carrying `server.finance.personNotParticipant`
+ * (the same issue shape as every other service-side validation, toon-finance gotcha 47).
+ */
+async function assertParticipant(db: DbLike, householdId: string, userId: string, field: "payerId" | "personId"): Promise<void> {
+  if ((await participantSlotOf(db, householdId, userId)) !== null) return;
+  throw ApiError.validationFailed(
+    [
+      {
+        path: field,
+        code: "custom",
+        message: serverText(DEFAULT_LOCALE, "server.finance.personNotParticipant"),
+        i18n: { key: "server.finance.personNotParticipant" },
+      },
+    ],
+    "server.finance.personNotParticipant",
+  );
+}
+
 export async function updatePlan(db: Database, householdId: string, input: UpdatePlanRequest): Promise<PlanResponse> {
   if (input.startPeriod !== undefined) {
     const occupied = await maxOccupiedPeriod(db, householdId);
@@ -187,6 +209,7 @@ export async function updatePlan(db: Database, householdId: string, input: Updat
       throw ApiError.conflict("plan_period_locked", "server.plan.periodLocked");
     }
   }
+  if (input.payerId !== undefined) await assertParticipant(db, householdId, input.payerId, "payerId");
   const patch: Partial<typeof fixedCostPlans.$inferInsert> = { updatedAt: nowMs() };
   if (input.enabled !== undefined) patch.enabled = input.enabled;
   if (input.payerId !== undefined) patch.payerId = input.payerId;
@@ -289,6 +312,7 @@ async function loadIncomeOr404(db: Database, householdId: string, incomeId: stri
  * compute time instead (`period-scan.ts`'s `isPlanComputable`).
  */
 export async function createIncome(db: Database, householdId: string, input: CreateIncomeRequest): Promise<IncomeResponse> {
+  await assertParticipant(db, householdId, input.personId, "personId");
   const id = crypto.randomUUID();
   const timestamp = nowMs();
   try {
@@ -311,6 +335,7 @@ export async function createIncome(db: Database, householdId: string, input: Cre
 
 export async function updateIncome(db: Database, householdId: string, incomeId: string, input: UpdateIncomeRequest): Promise<IncomeResponse> {
   await loadIncomeOr404(db, householdId, incomeId);
+  if (input.personId !== undefined) await assertParticipant(db, householdId, input.personId, "personId");
   const patch: Partial<typeof incomes.$inferInsert> = { updatedAt: nowMs() };
   if (input.personId !== undefined) patch.personId = input.personId;
   if (input.amountCents !== undefined) patch.amountCents = input.amountCents;

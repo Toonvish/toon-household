@@ -456,6 +456,58 @@ describe("a participant leaving the household (toon-finance member_has_ledger, S
     expect(plans).toEqual([{ payerId: owner.id }]);
   });
 
+  test("(h6) the slot-1 participant leaves an empty ledger: the survivor is re-seated in slot 1 and the ledger stays readable (M4-T01)", async () => {
+    const owner = await createUser("Owner");
+    const b = await createUser("Bea");
+    const householdId = await createPlainHousehold(owner, "Umsitzen");
+    await addMember(owner, householdId, b);
+    // Bea holds slot 1, the owner slot 2: the anchor of the balance sign leaves with Bea.
+    expect((await enableFinance(owner, householdId, b, owner)).status).toBe(200);
+    expect((await list(owner, householdId)).items.map((item) => [item.userId, item.memberSlot])).toEqual([
+      [b.id, 1],
+      [owner.id, 2],
+    ]);
+
+    expect((await call(membersPath(householdId, b.id), { method: "DELETE", cookie: b.cookie })).status).toBe(204);
+
+    const seated = await list(owner, householdId);
+    expect(seated.items.map((item) => [item.userId, item.memberSlot])).toEqual([[owner.id, 1]]);
+    expect(seated.viewerSlot).toBe(1);
+
+    // On 0bee16c slot1UserId threw and both reads were 500.
+    const balance = await call(`/api/households/${householdId}/finance/balance`, { cookie: owner.cookie });
+    expect(balance.status).toBe(200);
+    expect((await body<{ balanceCents: number }>(balance)).balanceCents).toBe(0);
+    const transactions = await call(`/api/households/${householdId}/finance/transactions`, { cookie: owner.cookie });
+    expect(transactions.status).toBe(200);
+    expect((await body<{ items: unknown[]; total: number }>(transactions)).total).toBe(0);
+
+    // A booking behaves as the solo ledger of finance-transactions.test.ts: 201, never against Bea.
+    const booked = await call(`/api/households/${householdId}/finance/transactions`, {
+      method: "POST",
+      cookie: owner.cookie,
+      body: { kind: "MINE_SPLIT", amountCents: 500, description: "Kaffee" },
+    });
+    expect(booked.status).toBe(201);
+    const rows = await db.select().from(financeTransactions).where(eq(financeTransactions.householdId, householdId));
+    expect(rows.map((row) => row.payerId)).toEqual([owner.id]);
+    const after = await call(`/api/households/${householdId}/finance/balance`, { cookie: owner.cookie });
+    expect(after.status).toBe(200);
+  });
+
+  test("(h6b) the slot-2 participant leaves an empty ledger: slot 1 stays untouched", async () => {
+    const { owner, b, householdId } = await trio();
+    const before = await db.select().from(financeParticipants).where(eq(financeParticipants.userId, owner.id));
+    expect(before.map((row) => row.memberSlot)).toEqual([1]);
+
+    expect((await call(membersPath(householdId, b.id), { method: "DELETE", cookie: b.cookie })).status).toBe(204);
+
+    const after = await db.select().from(financeParticipants).where(eq(financeParticipants.householdId, householdId));
+    expect(after.map((row) => [row.userId, row.memberSlot])).toEqual([[owner.id, 1]]);
+    expect((await list(owner, householdId)).items.map((item) => [item.userId, item.memberSlot])).toEqual([[owner.id, 1]]);
+    expect((await call(`/api/households/${householdId}/finance/balance`, { cookie: owner.cookie })).status).toBe(200);
+  });
+
   test("(h5) the veto applies while finance is disabled: its rows outlive a disable (D2)", async () => {
     const { owner, b, householdId } = await trio();
     await bookRow(householdId, b.id);
