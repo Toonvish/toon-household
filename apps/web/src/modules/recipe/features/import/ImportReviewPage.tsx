@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import clsx from "clsx";
 import { ArrowLeft, Check, CircleAlert, FileText, LoaderCircle, PenLine, Save, Trash2, TriangleAlert, Users } from "lucide-react";
 import type { ParsedRecipe } from "@toon/shared";
+import { PhoneHeaderRow } from "@/components/layout/PhoneHeaderRow";
 import { Tabs } from "@/components/ui";
 import { useT } from "@/lib/i18n";
 import {
@@ -449,6 +450,7 @@ function PageShell({ children, onBack }: { children: ReactNode; onBack: () => vo
   const t = useT();
   return (
     <div className="space-y-4">
+      <PhoneHeaderRow />
       <button
         type="button"
         onClick={onBack}

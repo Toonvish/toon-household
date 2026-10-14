@@ -7,6 +7,7 @@
  * gets a toast telling them to try the photo again.
  */
 import { useMemo } from "react";
+import { PhoneHeaderRow } from "@/components/layout/PhoneHeaderRow";
 import { Button, ErrorState } from "@/components/ui";
 import { useToast } from "@/components/ui";
 import { useT } from "@/lib/i18n";
@@ -55,20 +56,24 @@ export default function RecipeNewPage() {
 
   if (householdId === null) {
     return (
-      <ErrorState
-        title={t("recipe.recipes.new.noGroup.title")}
-        description={t("recipe.recipes.new.noGroup.description")}
-        action={
-          <AppLink to="/households">
-            <Button variant="secondary">{t("recipe.recipes.new.noGroup.action")}</Button>
-          </AppLink>
-        }
-      />
+      <>
+        <PhoneHeaderRow />
+        <ErrorState
+          title={t("recipe.recipes.new.noGroup.title")}
+          description={t("recipe.recipes.new.noGroup.description")}
+          action={
+            <AppLink to="/households">
+              <Button variant="secondary">{t("recipe.recipes.new.noGroup.action")}</Button>
+            </AppLink>
+          }
+        />
+      </>
     );
   }
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
+      <PhoneHeaderRow />
       <h1 className="font-display text-display-2xl font-medium text-fg lg:text-display-3xl">{t("recipe.recipes.new.title")}</h1>
       <RecipeForm
         initialValues={initialValues}

@@ -32,6 +32,7 @@ import {
   Textarea,
   buttonClasses,
 } from "@/components/ui";
+import { PhoneHeaderRow } from "@/components/layout/PhoneHeaderRow";
 import { useToast } from "@/components/ui";
 import { useT } from "@/lib/i18n";
 import { apiFieldErrors, validate, type FieldErrors } from "@/lib/validation";
@@ -73,19 +74,29 @@ export default function CollectionDetailPage() {
     if (query.data) setOrder(query.data.recipes);
   }, [query.data]);
 
-  if (query.isPending) return <LoadingBlock label={t("recipe.collectionDetail.loading")} />;
+  if (query.isPending) {
+    return (
+      <>
+        <PhoneHeaderRow />
+        <LoadingBlock label={t("recipe.collectionDetail.loading")} />
+      </>
+    );
+  }
 
   if (query.isError || !query.data) {
     return (
-      <ErrorState
-        error={query.error}
-        onRetry={() => void query.refetch()}
-        action={
-          <AppLink to="/recipe/collections" className={buttonClasses({ variant: "secondary" })}>
-            {t("recipe.collectionDetail.backToList")}
-          </AppLink>
-        }
-      />
+      <>
+        <PhoneHeaderRow />
+        <ErrorState
+          error={query.error}
+          onRetry={() => void query.refetch()}
+          action={
+            <AppLink to="/recipe/collections" className={buttonClasses({ variant: "secondary" })}>
+              {t("recipe.collectionDetail.backToList")}
+            </AppLink>
+          }
+        />
+      </>
     );
   }
 
@@ -109,6 +120,7 @@ export default function CollectionDetailPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      <PhoneHeaderRow />
       <header className="flex flex-col gap-2">
         <AppLink to="/recipe/collections" className="text-sm text-fg-muted hover:text-fg">
           {t("recipe.collectionDetail.backLink")}

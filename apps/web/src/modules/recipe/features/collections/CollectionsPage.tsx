@@ -14,6 +14,7 @@ import {
   Skeleton,
   Textarea,
 } from "@/components/ui";
+import { PhoneHeaderRow } from "@/components/layout/PhoneHeaderRow";
 import { useToast } from "@/components/ui";
 import { useT } from "@/lib/i18n";
 import { apiFieldErrors, validate, type FieldErrors } from "@/lib/validation";
@@ -29,6 +30,7 @@ export default function CollectionsPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      <PhoneHeaderRow />
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-display-2xl leading-[1.05] font-medium text-fg lg:text-display-3xl lg:leading-[1.1]">

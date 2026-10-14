@@ -19,6 +19,7 @@ import { useQueries } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import type { ShoppingBoughtItem } from "@toon/shared";
 import { formatQuantity, formatShoppingAmount, groupByLocalDay, isVagueAmount, todayPlanDate } from "@toon/shared";
+import { PhoneHeaderRow } from "@/components/layout/PhoneHeaderRow";
 import { Button, EmptyState, ErrorState, SectionHeader, Select, Skeleton } from "@/components/ui";
 import { formatRelativeShort, formatShortWeekdayDate } from "@/modules/recipe/lib/format";
 import { useT } from "@/lib/i18n";
@@ -104,6 +105,7 @@ export default function ShoppingHistoryPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      <PhoneHeaderRow />
       <div className="flex flex-col gap-2">
         <AppLink
           to="/recipe/shopping"

@@ -47,6 +47,7 @@ import OcrProgressPanel, { type ImportPhase } from "./components/OcrProgressPane
 import UploadProgress from "./components/UploadProgress";
 import PendingDraftsList from "./components/PendingDraftsList";
 import ImportErrorPanel from "./components/ImportErrorPanel";
+import { PhoneHeaderRow } from "@/components/layout/PhoneHeaderRow";
 
 type ImportSource = "url" | "photo" | "document" | "text";
 
@@ -366,6 +367,7 @@ export default function ImportPage() {
     // the tab bar. `max-w-3xl` narrows the shell's wider column for this screen's
     // single-file forms, same rule as the recipe form.
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
+      <PhoneHeaderRow />
       <header className="space-y-1">
         <h1 className="font-display text-display-2xl leading-[1.05] font-medium text-fg lg:text-display-3xl lg:leading-[1.1]">
           {t("recipe.import.page.title")}

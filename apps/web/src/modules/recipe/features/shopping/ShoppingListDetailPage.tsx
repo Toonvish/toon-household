@@ -74,6 +74,7 @@ import {
   useUndoBoughtItem,
   useUpdateShoppingItem,
 } from "./lib/queries";
+import { PhoneHeaderRow } from "@/components/layout/PhoneHeaderRow";
 
 type SortOption = "position" | "newest" | "alpha";
 
@@ -142,6 +143,7 @@ export default function ShoppingListDetailPage() {
   if (list.isPending && !detail) {
     return (
       <div className="flex flex-col gap-3">
+        <PhoneHeaderRow />
         <Skeleton className="h-8 w-48" />
         {/* Same shape as the branch below, or the list visibly jumps when data lands. */}
         <div className={wide ? "flex flex-col gap-2" : "grid grid-cols-2 gap-2"}>
@@ -156,7 +158,12 @@ export default function ShoppingListDetailPage() {
   // A hard error with nothing cached. With a cached copy the list renders instead: it
   // is exactly the "no signal in the shop" case this screen exists for.
   if (list.isError && !detail) {
-    return <ErrorState error={list.error} onRetry={() => void list.refetch()} />;
+    return (
+      <>
+        <PhoneHeaderRow />
+        <ErrorState error={list.error} onRetry={() => void list.refetch()} />
+      </>
+    );
   }
   if (!detail) return null;
 
@@ -240,6 +247,7 @@ export default function ShoppingListDetailPage() {
 
   return (
     <div className="flex flex-1 flex-col gap-3.5">
+      <PhoneHeaderRow />
       {wide ? (
         <AppLink
           to="/recipe/shopping"

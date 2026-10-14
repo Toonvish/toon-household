@@ -17,6 +17,7 @@
 import { useEffect } from "react";
 import { CalendarDays, MailWarning } from "lucide-react";
 import { isPlanDate, planWeek, startOfPlanWeek, todayPlanDate, type MealPlanEntry, type PlanDate } from "@toon/shared";
+import { PhoneHeaderRow } from "@/components/layout/PhoneHeaderRow";
 import { EmptyState, ErrorState, SkeletonList } from "@/components/ui";
 import { useT } from "@/lib/i18n";
 import { useSearchParams } from "@/lib/navigation";
@@ -83,6 +84,7 @@ export default function PlanPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      <PhoneHeaderRow />
       <PlanWeekNav weekStart={week} onNavigate={goToWeek} />
 
       {/*

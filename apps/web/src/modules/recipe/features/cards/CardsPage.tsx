@@ -35,6 +35,7 @@ import { CardDisplayDialog } from "./components/CardDisplayDialog";
 import { CardFormDialog } from "./components/CardFormDialog";
 import { CARD_FORMAT_LABEL_KEYS } from "./lib/formats";
 import { useCards, useDeleteCard } from "./lib/queries";
+import { PhoneHeaderRow } from "@/components/layout/PhoneHeaderRow";
 
 export default function CardsPage() {
   const t = useT();
@@ -63,6 +64,7 @@ export default function CardsPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      <PhoneHeaderRow />
       <AppLink
         to="/recipe/shopping"
         className="inline-flex w-fit items-center gap-1 text-sm text-fg-muted hover:text-fg"
