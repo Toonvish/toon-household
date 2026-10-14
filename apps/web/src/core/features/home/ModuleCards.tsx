@@ -44,7 +44,7 @@ export function ModuleCards({ modules }: ModuleCardsProps) {
           <Card as="li" key={module.id} className="flex items-center gap-3">
             <span
               aria-hidden="true"
-              className="flex size-10 shrink-0 items-center justify-center rounded-control bg-brand-soft text-brand-soft-fg"
+              className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand-soft-fg"
             >
               <module.icon className="size-5" />
             </span>
