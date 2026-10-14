@@ -240,6 +240,7 @@ const ALLOW_LIST = [
   "apps/api/src/modules/recipe/services/import/parsed.ts",
   "apps/api/src/modules/recipe/services/import/times.ts",
   "apps/api/scripts/seed.ts",
+  "apps/api/src/modules/recipe/seed.ts",
 ];
 
 const PORTED_ROOTS = [
