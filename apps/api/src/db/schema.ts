@@ -5,7 +5,12 @@
  *
  * - `schema/core.ts` — users/auth, households, members, invites, household_modules,
  *   legacy_ids (unprefixed core tables).
- * - Module schemas (`modules/<id>/schema.ts`, tables prefixed `<id>_`) are re-exported
- *   here when their module lands: recipe in M2, finance in M3.
+ * - `modules/recipe/schema.ts` — the 17 `recipe_` tables (M2). Its TS identifiers
+ *   (`recipes`, `tags`, `cards`, …) are re-exported flat, so finance's schema (M3)
+ *   must give its own identifiers a `finance` prefix (`financeTags`, …).
+ *
+ * This re-export is the one place outside `modules/index.ts` where the core names a
+ * module path: drizzle needs every table in one schema object.
  */
 export * from "./schema/core.ts";
+export * from "../modules/recipe/schema.ts";

@@ -56,4 +56,30 @@ export interface ApiModule {
   onEnable?(householdId: string, settings: unknown, tx: DbExecutor): Promise<void>;
   /** The module's part of `migrate:legacy` (SPEC §6). */
   legacyMigration?: LegacyMigrator;
+  /**
+   * Runs after every `migrate()` inside `runMigrations` (db/migrate.ts), for the
+   * migrations `bun run db:migrate`, `seed` and every integration test apply. For
+   * data fixes a SQL migration cannot express — recipe's fold backfill (plan M2
+   * decision 4). MUST be idempotent and cheap on an up-to-date database, and must
+   * not open a transaction (toon-recipe gotcha on `file::memory:` + commit).
+   */
+  afterMigrate?(database: Database): Promise<void>;
+  /**
+   * Graceful teardown on SIGTERM/SIGINT (index.ts), e.g. recipe terminates its
+   * long-lived OCR worker. Never called under `bun test`. Should not throw; a
+   * rejection is logged and the process exits anyway.
+   */
+  shutdown?(): Promise<void>;
+  /**
+   * The module's demo content for `bun run seed`, called after the core demo user and
+   * household exist. MUST be idempotent: `seed` runs again on an existing database.
+   */
+  seedDemo?(database: Database, context: { householdId: string; userId: string }): Promise<void>;
+  /**
+   * Every stored upload reference in the module's rows, as stored (bare
+   * `/uploads/x.jpg`, absolute or signed — the caller normalises). `uploads:gc`
+   * deletes a file only when neither the core nor any module references it
+   * (core/services/media/references.ts), so a missing column here deletes a live image.
+   */
+  uploadReferences?(database: Database): Promise<string[]>;
 }
