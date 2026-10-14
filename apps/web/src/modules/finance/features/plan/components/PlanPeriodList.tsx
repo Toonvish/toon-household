@@ -58,7 +58,7 @@ export function PlanPeriodList({
               key={period}
               className="flex items-center justify-between gap-3 rounded-xl bg-warning-soft/50 px-3 py-2"
             >
-              <span className="flex items-center gap-2 text-sm font-medium text-fg">
+              <span className="flex min-w-0 items-center gap-2 text-sm font-medium text-fg">
                 <PeriodLabel period={period} />
                 <Badge variant="warning" size="sm">
                   {t("finance.plan.periods.pending")}
@@ -82,10 +82,10 @@ export function PlanPeriodList({
         <ul className="flex flex-col divide-y divide-line">
           {bookedTransactions.map((transaction) => (
             <li key={transaction.id} className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0">
-              <span className="text-sm font-medium text-fg">
+              <span className="min-w-0 text-sm font-medium text-fg">
                 {transaction.planPeriod ? <PeriodLabel period={transaction.planPeriod} /> : transaction.description}
               </span>
-              <AmountText cents={transaction.amountCents} colorNegative={false} size="sm" />
+              <AmountText cents={transaction.amountCents} colorNegative={false} size="sm" className="shrink-0" />
             </li>
           ))}
         </ul>

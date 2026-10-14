@@ -1,9 +1,7 @@
 import { useState } from "react";
 import type { CategoryResponse } from "@toon/shared";
-import { Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
-import { IconButton } from "@/components/ui/IconButton";
+import { ActionMenu } from "@/components/ui/ActionMenu";
 import { Input } from "@/components/ui/Input";
 import { useT } from "@/lib/i18n";
 
@@ -63,7 +61,7 @@ export function CategoryRow({
             </form>
           ) : (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="truncate font-medium text-fg">{category.label}</span>
+              <span className="min-w-0 truncate font-medium text-fg">{category.label}</span>
               {category.isSystem ? <Badge variant="brand">{t("finance.categories.system")}</Badge> : null}
               {category.isHidden ? <Badge variant="neutral">{t("finance.categories.hidden")}</Badge> : null}
             </div>
@@ -71,18 +69,23 @@ export function CategoryRow({
           <p className="mt-0.5 text-xs text-fg-muted">{t("finance.categories.usage", { count: category.usageCount })}</p>
         </div>
 
-        {!category.isSystem && !editing ? (
-          <IconButton label={t("finance.common.edit")} icon={<Pencil />} size="sm" onClick={() => setEditing(true)} />
-        ) : null}
-
-        <Button size="sm" variant="secondary" onClick={onToggleHidden} disabled={isSaving}>
-          {category.isHidden ? t("finance.categories.show") : t("finance.categories.hide")}
-        </Button>
-
-        {!category.isSystem ? (
-          <Button size="sm" variant="danger" onClick={onDelete}>
-            {t("finance.common.delete")}
-          </Button>
+        {!editing ? (
+          <ActionMenu
+            label={t("finance.common.actions")}
+            items={[
+              !category.isSystem && { label: t("finance.common.edit"), onSelect: () => setEditing(true) },
+              {
+                label: category.isHidden ? t("finance.categories.show") : t("finance.categories.hide"),
+                onSelect: onToggleHidden,
+                disabled: isSaving,
+              },
+              !category.isSystem && {
+                label: t("finance.common.delete"),
+                variant: "danger" as const,
+                onSelect: onDelete,
+              },
+            ]}
+          />
         ) : null}
       </div>
 

@@ -84,7 +84,7 @@ export function PlanSummary({
 
       {current ? (
         <div className="flex flex-col gap-3">
-          <dl className="grid grid-cols-2 gap-y-2 text-sm">
+          <dl className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 text-sm">
             <dt className="text-fg-muted">{t("finance.plan.costTotal")}</dt>
             <dd className="text-right font-medium tabular-nums text-fg">{formatCurrency(current.costTotalCents)}</dd>
             <dt className="text-fg-muted">{t("finance.plan.incomeTotal")}</dt>
@@ -95,7 +95,7 @@ export function PlanSummary({
             </dd>
           </dl>
 
-          <div className="rounded-xl bg-brand-soft p-4">
+          <div className="min-w-0 rounded-xl bg-brand-soft p-4">
             <p className="text-sm font-medium text-brand-soft-fg">{t("finance.plan.shareOther", { name: beneficiaryName })}</p>
             <AmountText
               cents={otherShare?.shareCents ?? current.bookableCents}

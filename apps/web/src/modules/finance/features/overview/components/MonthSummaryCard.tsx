@@ -85,7 +85,7 @@ export function MonthSummaryCard({ householdId }: { householdId: string }) {
             return (
               <li
                 key={entry.period}
-                className="flex flex-1 flex-col items-center gap-1"
+                className="flex min-w-0 flex-1 flex-col items-center gap-1"
                 aria-label={`${monthShortLabel(entry.period, locale)}: ${formatCurrency(entry.totalCents)}`}
               >
                 <div className="flex h-16 w-full items-end">

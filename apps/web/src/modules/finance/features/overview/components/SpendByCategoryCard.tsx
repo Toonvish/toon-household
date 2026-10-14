@@ -82,7 +82,7 @@ export function SpendByCategoryCard({
               <li key={entry.categoryId ?? "none"} className="flex flex-col gap-1">
                 <div className="flex items-baseline justify-between gap-3 text-sm">
                   <span className="min-w-0 truncate font-medium text-fg">{label}</span>
-                  <AmountText cents={entry.totalCents} colorNegative={false} size="sm" />
+                  <AmountText cents={entry.totalCents} colorNegative={false} size="sm" className="shrink-0" />
                 </div>
                 <div className="h-2 w-full overflow-hidden rounded-full bg-surface-2">
                   <div className="h-full rounded-full bg-brand" style={{ width: `${widthPct}%` }} />
@@ -93,8 +93,8 @@ export function SpendByCategoryCard({
           {restCents > 0 ? (
             <li className="flex flex-col gap-1">
               <div className="flex items-baseline justify-between gap-3 text-sm">
-                <span className="font-medium text-fg-muted">{t("finance.balance.byCategory.other")}</span>
-                <AmountText cents={restCents} colorNegative={false} size="sm" className="text-fg-muted" />
+                <span className="min-w-0 truncate font-medium text-fg-muted">{t("finance.balance.byCategory.other")}</span>
+                <AmountText cents={restCents} colorNegative={false} size="sm" className="shrink-0 text-fg-muted" />
               </div>
               <div className="h-2 w-full overflow-hidden rounded-full bg-surface-2">
                 <div

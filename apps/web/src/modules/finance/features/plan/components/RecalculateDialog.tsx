@@ -113,7 +113,7 @@ export function RecalculateDialog({ householdId }: { householdId: string }) {
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="border-t border-line-strong font-semibold">
+                  <tr className="border-t border-line-strong font-medium">
                     <td className="py-1.5">{t("finance.plan.recalculate.total")}</td>
                     <td colSpan={2} />
                     <td className="py-1.5 text-right tabular-nums">

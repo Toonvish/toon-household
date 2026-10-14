@@ -54,7 +54,7 @@ export function RecentTransactionsCard({
               >
                 <div className="min-w-0 flex-1">
                   <p className="block truncate text-sm font-medium text-fg">{transaction.description}</p>
-                  <p className="mt-0.5 flex items-center gap-1.5 text-xs text-fg-muted">
+                  <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-fg-muted">
                     <span>
                       {transaction.dateSource === "estimated" ? "~" : ""}
                       {formatDate(transaction.bookedAt)}
@@ -62,7 +62,7 @@ export function RecentTransactionsCard({
                     {transaction.origin !== "manual" ? <OriginBadge origin={transaction.origin} /> : null}
                   </p>
                 </div>
-                <AmountText cents={transaction.amountCents} size="sm" />
+                <AmountText cents={transaction.amountCents} size="sm" className="shrink-0" />
               </AppLink>
             </li>
           ))}

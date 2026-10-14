@@ -78,7 +78,7 @@ export function FixedCostItemList({
                     : t("finance.plan.items.validityOpen", { from: periodShort(item.activeFrom) })}
                 </p>
               </div>
-              <AmountText cents={item.amountCents} colorNegative={false} size="sm" />
+              <AmountText cents={item.amountCents} colorNegative={false} size="sm" className="shrink-0" />
               <ActionMenu
                 label={t("finance.common.actions")}
                 items={[

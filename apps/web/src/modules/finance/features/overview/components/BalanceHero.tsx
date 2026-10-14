@@ -58,8 +58,8 @@ export function BalanceHero({
   return (
     <Card padding="lg" className="flex flex-col gap-4">
       <div>
-        <p className="text-sm font-medium text-fg-muted">{t("finance.balance.asOf", { date: formatDateTime(asOf) })}</p>
-        <div className="mt-2 flex flex-col items-start gap-1">
+        <p className="text-xs font-medium text-fg-muted">{t("finance.balance.asOf", { date: formatDateTime(asOf) })}</p>
+        <div className="mt-2 flex min-w-0 flex-col items-start gap-1">
           <AmountText
             cents={amountCents}
             colorNegative={false}
@@ -103,7 +103,7 @@ export function BalanceHero({
 
       {detailsOpen ? (
         <dl className="flex flex-col gap-2 rounded-xl bg-surface-2 p-3 text-sm">
-          <p className="mb-1 font-semibold text-fg">{t("finance.balance.breakdown.title")}</p>
+          <p className="mb-1 font-medium text-fg">{t("finance.balance.breakdown.title")}</p>
           <BreakdownRow label={t("finance.balance.breakdown.split")} cents={breakdown.splitOtherCents * viewerSign} />
           <BreakdownRow
             label={t("finance.balance.breakdown.forOther", { name: otherName })}
@@ -122,8 +122,8 @@ export function BalanceHero({
 function BreakdownRow({ label, cents }: { label: string; cents: number }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <dt className="text-fg-muted">{label}</dt>
-      <dd>
+      <dt className="min-w-0 text-fg-muted">{label}</dt>
+      <dd className="shrink-0">
         <AmountText cents={cents} showPlusSign size="sm" />
       </dd>
     </div>
