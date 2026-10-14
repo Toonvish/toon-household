@@ -16,6 +16,7 @@ import type { AnyRoute, LinkProps } from "@tanstack/react-router";
 import type { router } from "@/router";
 import { PROFILE_NAV_ITEM, primaryNavItems, secondaryNavItems } from "@/components/layout/nav-items";
 import { SHOPPING_MUTATION_KEYS } from "./features/shopping/lib/offline";
+import { PlanNewTrailing, RecipeCountTrailing, ShoppingCountTrailing } from "./nav-trailing";
 
 /** Every full path of the module's route tree (router-core joins them the same way at init). */
 function fullPaths(route: AnyRoute, prefix = ""): string[] {
@@ -69,6 +70,24 @@ describe("recipeModule — navigation (R/CLAUDE.md 'Navigation')", () => {
       "common.nav.groups",
     ]);
     expect(items.map((item) => item.to)).toEqual(["/recipe/collections", "/recipe/tags", "/households"]);
+  });
+
+  test("sidebar trailing slots (plan m4-design-pass §1 decision 6): count · Neu · count on the tabs only", () => {
+    expect(recipeModule.navItems.map((item) => item.trailing)).toEqual([
+      RecipeCountTrailing,
+      PlanNewTrailing,
+      ShoppingCountTrailing,
+    ]);
+    for (const item of recipeModule.secondaryNavItems) {
+      expect("trailing" in item).toBe(false);
+    }
+    // The shell passes them through untouched.
+    const items = primaryNavItems({ ...context, pathname: "/recipe" });
+    expect(items.slice(0, 3).map((item) => item.trailing)).toEqual([
+      RecipeCountTrailing,
+      PlanNewTrailing,
+      ShoppingCountTrailing,
+    ]);
   });
 
   test("Import is not a tab (Plan took its slot) and Search is not a destination", () => {

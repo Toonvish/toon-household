@@ -1,5 +1,6 @@
 import { CircleUser, House, Users, type LucideIcon } from "lucide-react";
 import type { ModuleId } from "@toon/shared";
+import type { ComponentType } from "react";
 import type { MessageKey } from "@/lib/i18n";
 import type { WebModule } from "@/modules/types";
 
@@ -42,6 +43,15 @@ export interface NavItem {
   icon: LucideIcon;
   /** Home and a module's home match exactly; the rest match their subtree. */
   exact: boolean;
+  /**
+   * SIDEBAR ONLY (plan m4-design-pass §1 decision 6): drawn after the label in `SideNav`'s
+   * primary list — toon-recipe's per-item count or "Neu" pill. The tab bar ignores it (R
+   * draws counts in the sidebar only). A COMPONENT, not a value, so the module's own query
+   * hooks run inside it at render time; it positions itself (`ml-auto`) and renders
+   * nothing while its value is unknown. Declared by the module manifest, so it lives in
+   * the manifest's static import graph and must stay shell-free (SPEC §2).
+   */
+  trailing?: ComponentType<{ isActive: boolean }>;
 }
 
 /** The one widening from {@link NavPath} to `<Link to>` — see the note on `NavPath`. */
@@ -113,7 +123,8 @@ export function activeModule(
  * imports the layout, and a constant here would read the registry mid-cycle (plan §1
  * decision 6).
  *
- *  - Inside a module: that module's own three `navItems` · Profil.
+ *  - Inside a module: that module's own three `navItems` (passed through untouched, so a
+ *    `trailing` slot survives) · Profil.
  *  - Outside (Home, Settings, Gruppen): Home · the enabled modules, at most two · Profil.
  *
  * With no module enabled (all of M1) the result is `[HOME_NAV_ITEM, PROFILE_NAV_ITEM]`.

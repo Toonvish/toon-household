@@ -151,3 +151,91 @@ describe("secondaryNavItems", () => {
     }
   });
 });
+
+/*
+ * The REAL build's tab sets (plan m4-design-pass M4-T02 work 6; SPEC D6, §5): the registry's
+ * own manifests, so a manifest change that breaks the module-less or in-module tab bar fails
+ * here. Labels are pinned by key and by their German value (D10 byte-identity).
+ */
+describe("primaryNavItems — the build's modules (SPEC §5)", () => {
+  const setup = async () => {
+    const { WEB_MODULES } = await import("@/modules");
+    const { setLocaleForTest, translate } = await import("@/lib/i18n/store");
+    setLocaleForTest("de");
+    const tabs = (pathname: string, enabledModuleIds: readonly string[]) =>
+      primaryNavItems({ pathname, modules: WEB_MODULES, enabledModuleIds }).map((item) => ({
+        to: item.to,
+        labelKey: item.labelKey,
+        label: translate(item.labelKey),
+      }));
+    return { tabs, translate, WEB_MODULES };
+  };
+
+  test("outside a module, recipe + finance enabled: Start · Rezepte · Finanzen · Profil", async () => {
+    const { tabs } = await setup();
+    for (const pathname of ["/", "/settings", "/households"]) {
+      expect(tabs(pathname, ["recipe", "finance"])).toEqual([
+        { to: "/", labelKey: "home.nav.label", label: "Start" },
+        { to: "/recipe", labelKey: "common.nav.recipes", label: "Rezepte" },
+        { to: "/finance", labelKey: "finance.module.name", label: "Finanzen" },
+        { to: "/settings", labelKey: "common.nav.profile", label: "Profil" },
+      ]);
+    }
+  });
+
+  test("outside a module, recipe only: Start · Rezepte · Profil", async () => {
+    const { tabs } = await setup();
+    expect(tabs("/", ["recipe"]).map((tab) => tab.label)).toEqual(["Start", "Rezepte", "Profil"]);
+    expect(tabs("/", ["recipe"]).map((tab) => tab.to)).toEqual(["/", "/recipe", "/settings"]);
+  });
+
+  test("outside a module, none enabled: Start · Profil", async () => {
+    const { tabs } = await setup();
+    expect(tabs("/", []).map((tab) => tab.to)).toEqual(["/", "/settings"]);
+    expect(tabs("/settings", []).map((tab) => tab.labelKey)).toEqual(["home.nav.label", "common.nav.profile"]);
+  });
+
+  test("inside /finance/transactions: the three finance items · Profil", async () => {
+    const { tabs, translate } = await setup();
+    expect(tabs("/finance/transactions", ["recipe", "finance"])).toEqual([
+      { to: "/finance", labelKey: "finance.nav.overview", label: translate("finance.nav.overview") },
+      { to: "/finance/transactions", labelKey: "finance.nav.transactions", label: translate("finance.nav.transactions") },
+      { to: "/finance/new", labelKey: "finance.nav.create", label: translate("finance.nav.create") },
+      { to: "/settings", labelKey: "common.nav.profile", label: "Profil" },
+    ]);
+  });
+
+  test("inside /recipe/plan: the three recipe items · Profil", async () => {
+    const { tabs } = await setup();
+    expect(tabs("/recipe/plan", ["recipe", "finance"]).map((tab) => [tab.to, tab.labelKey])).toEqual([
+      ["/recipe", "common.nav.recipes"],
+      ["/recipe/plan", "common.nav.plan"],
+      ["/recipe/shopping", "common.nav.shopping"],
+      ["/settings", "common.nav.profile"],
+    ]);
+  });
+
+  test("a module item's `trailing` survives primaryNavItems; core items carry none", async () => {
+    const { WEB_MODULES } = await setup();
+    const inside = primaryNavItems({ pathname: "/recipe", modules: WEB_MODULES, enabledModuleIds: ["recipe"] });
+    const recipe = WEB_MODULES.find((module) => module.id === "recipe");
+    expect(inside.slice(0, 3).map((item) => item.trailing)).toEqual(
+      (recipe?.navItems ?? []).map((item: NavItem) => item.trailing),
+    );
+    expect(inside.slice(0, 3).every((item) => typeof item.trailing === "function")).toBe(true);
+    expect(inside.at(-1)?.trailing).toBeUndefined();
+    const outside = primaryNavItems({ pathname: "/", modules: WEB_MODULES, enabledModuleIds: ["recipe", "finance"] });
+    expect(outside.every((item) => item.trailing === undefined)).toBe(true);
+  });
+
+  test("a fake module's trailing component is passed through by identity", () => {
+    const Trailing = () => null;
+    const withTrailing: NavItem[] = [{ ...recipeTabs[0]!, trailing: Trailing }, ...recipeTabs.slice(1)];
+    const items = primaryNavItems({
+      pathname: "/recipe",
+      modules: [fakeModule("recipe", withTrailing)],
+      enabledModuleIds: [],
+    });
+    expect(items[0]?.trailing).toBe(Trailing);
+  });
+});

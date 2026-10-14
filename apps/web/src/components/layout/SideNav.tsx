@@ -18,8 +18,9 @@ import { useNavItems } from "./use-nav-items";
  *  2b. `ModuleSwitcher variant="segmented"` — Home + the enabled build modules (SPEC D6,
  *     §5); renders nothing while no build module is enabled.
  *  3. The primary items, the same set as the tab bar. R's per-item counts and the "Neu"
- *     pill are dropped: the core cannot count a module's rows (SPEC §2), and both
- *     belong to the recipe module's design pass (M2/M4).
+ *     pill come from the module through `NavItem.trailing` (plan m4-design-pass §1
+ *     decision 6): the core cannot count a module's rows (SPEC §2), so the module's
+ *     own component renders its slot. The tab bar ignores the slot.
  *  4. The "Organisieren" group: the active module's sidebar-only items + the core items.
  *  5. The footer account row, one link to `/settings`.
  *
@@ -69,6 +70,7 @@ export function SideNav() {
                       aria-hidden="true"
                     />
                     {t(item.labelKey)}
+                    {item.trailing ? <item.trailing isActive={isActive} /> : null}
                   </>
                 )}
               </Link>
