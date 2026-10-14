@@ -15,7 +15,7 @@
  *                         built by the module (`modules/<id>/routes.tsx`, component
  *                         `moduleLayoutComponent(id)`, parent `householdScopedRoute`)
  *                         /recipe/…  the recipe module (M2), incl. the `/recipe/search`
- *                         redirect; M3 adds /finance/…
+ *                         redirect; /finance/…  the finance module (M3)
  *
  * `rootRoute`, `appRoute`, `householdScopedRoute` and the `pick` helper live in
  * `route-roots.tsx` (plan m2-recipe-module §1 decisions 10 and 15) so a module's route

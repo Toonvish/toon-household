@@ -11,13 +11,13 @@
  * - `onEnable` — seats the two participants from the enable settings (or requires the
  *   existing two), else `422 finance_participants_required`; then the plan row.
  *
- * `householdRouter` (M3-T03b): the participants routes; the ledger routers are empty stubs until
- * M3-T05/T06 fill them.
+ * `householdRouter`: the participants routes plus the ledger routers (transactions, categories,
+ * tags, plan, balance, settlements), mounted under `/api/households/:householdId/finance/`.
  *
- * `start` / `shutdown` (M3-T06, plan decision 7): the boot catch-up of the fixed-cost plan
+ * `start` / `shutdown` (plan decision 7): the boot catch-up of the fixed-cost plan
  * and its 6-hour accrual tick (`./services/plan/scheduler.ts`).
  *
- * `seedDemo` (M3-T09, `./seed.ts`): two participants, a non-participant, ~8 transactions, one
+ * `seedDemo` (`./seed.ts`): two participants, a non-participant, ~8 transactions, one
  * settlement and the fixed-cost plan; idempotent.
  */
 import type { ApiModule } from "../types.ts";

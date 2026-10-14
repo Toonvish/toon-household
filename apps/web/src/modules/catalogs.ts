@@ -11,9 +11,9 @@
  * index-signature type widens `MessageKey` to `string`, and every `t()` typo compiles.
  * No type annotation, ever — let inference keep the literal keys.
  *
- * M2 registered recipe: `./recipe/catalogs/index.ts` spreads the module's six namespace
- * files (`recipe.*`). M3 registers finance the same way, as one more spread of the literal objects
- * (`./finance/catalogs/index.ts`, `finance.*`).
+ * `./recipe/catalogs/index.ts` spreads the module's six namespace files (`recipe.*`) and
+ * `./finance/catalogs/index.ts` the finance ones (`finance.*`), each as one more spread of the
+ * literal objects.
  */
 import { financeDe, financeEn } from "./finance/catalogs/index.ts";
 import { recipeDe, recipeEn } from "./recipe/catalogs/index.ts";
