@@ -1,4 +1,4 @@
-import { MutationCache, QueryCache, QueryClient } from "@tanstack/react-query";
+import { MutationCache, QueryCache, QueryClient, onlineManager } from "@tanstack/react-query";
 import { isApiError } from "./api";
 import { STALE_TIME, queryKeys, retryDelay, shouldRetry } from "./queries";
 
@@ -43,6 +43,24 @@ export function createQueryClient(): QueryClient {
   });
   return client;
 }
+
+/**
+ * TanStack's `onlineManager` starts as "online" and only changes on a browser `online` /
+ * `offline` EVENT, so an app cold-started or reloaded while offline believes it is online: a
+ * restored paused write is run again, fails, and then waits in an unpaused retry that
+ * `shouldPersistMutation` (paused mutations only) drops from the persisted cache, so a second
+ * reload while still offline loses the queued booking. Seeding the manager from
+ * `navigator.onLine` once at boot keeps the restored mutation paused (and so persisted).
+ * The browser's events keep driving it afterwards.
+ */
+export function seedOnlineManager(
+  navigatorOnLine: boolean | undefined = typeof navigator === "undefined" ? undefined : navigator.onLine,
+  manager: Pick<typeof onlineManager, "setOnline"> = onlineManager,
+): void {
+  if (navigatorOnLine === false) manager.setOnline(false);
+}
+
+seedOnlineManager();
 
 /**
  * THE client for the running app, at module scope so HMR keeps the cache.

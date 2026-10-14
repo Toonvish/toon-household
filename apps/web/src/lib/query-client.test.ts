@@ -6,7 +6,7 @@
 import { describe, expect, test } from "bun:test";
 import { ApiError } from "./api";
 import { queryKeys } from "./queries";
-import { createQueryClient } from "./query-client";
+import { createQueryClient, seedOnlineManager } from "./query-client";
 
 const ME_DATA = { user: null, households: [], activeHouseholdId: null };
 
@@ -75,5 +75,20 @@ describe("createQueryClient — module_disabled", () => {
       .execute(undefined)
       .catch(() => undefined);
     expect(client.getQueryState(queryKeys.me())?.isInvalidated).toBe(false);
+  });
+});
+
+describe("seedOnlineManager", () => {
+  test("a boot while the browser is offline marks the manager offline, so restored writes stay paused", () => {
+    const calls: boolean[] = [];
+    seedOnlineManager(false, { setOnline: (online) => void calls.push(online) });
+    expect(calls).toEqual([false]);
+  });
+
+  test("an online or unknown boot leaves TanStack's default (online) alone", () => {
+    const calls: boolean[] = [];
+    seedOnlineManager(true, { setOnline: (online) => void calls.push(online) });
+    seedOnlineManager(undefined, { setOnline: (online) => void calls.push(online) });
+    expect(calls).toEqual([]);
   });
 });
