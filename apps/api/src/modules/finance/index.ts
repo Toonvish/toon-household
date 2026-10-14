@@ -17,11 +17,13 @@
  * `start` / `shutdown` (M3-T06, plan decision 7): the boot catch-up of the fixed-cost plan
  * and its 6-hour accrual tick (`./services/plan/scheduler.ts`).
  *
- * Still to come in M3: `seedDemo` (M3-T09).
+ * `seedDemo` (M3-T09, `./seed.ts`): two participants, a non-participant, ~8 transactions, one
+ * settlement and the fixed-cost plan; idempotent.
  */
 import type { ApiModule } from "../types.ts";
 import { financeHouseholdRouter } from "./routes/index.ts";
 import { financeTables } from "./schema.ts";
+import { seedFinanceDemo } from "./seed.ts";
 import { onFinanceEnable, onFinanceHouseholdCreated } from "./setup.ts";
 import { runBootCatchUp, startAccrualScheduler, stopAccrualScheduler } from "./services/plan/scheduler.ts";
 
@@ -31,6 +33,7 @@ export const financeModule: ApiModule = {
   schema: financeTables,
   onHouseholdCreated: onFinanceHouseholdCreated,
   onEnable: onFinanceEnable,
+  seedDemo: seedFinanceDemo,
   start: async () => {
     await runBootCatchUp();
     startAccrualScheduler();

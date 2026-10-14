@@ -132,6 +132,8 @@ code is the smallest possible one and is recorded in the plan and in `docs/adr/`
   shopping-list merge rule, the fold columns, the Fixkostenplan rounding, `expectedBalanceCents`,
   the verified-e-mail gate, the service-worker rules, the four theme blocks, the sticky-bar flex
   chain — is binding for the module that inherits it.
+  One recorded exception: finance's tests run on the shared memory DB and prove real
+  transactions on a temp file DB instead of running the whole suite on one (ADR 0003).
 - **D14 — Repository.** `github.com/Toonvish/toon-household`, public, fresh history (no subtree
   merge; the sources stay as they are), Bun workspaces with the same three workspaces
   (`packages/shared`, `apps/api`, `apps/web`) and module directories inside each (§3).
