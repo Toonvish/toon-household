@@ -1,4 +1,5 @@
 import { Outlet } from "@tanstack/react-router";
+import { PhoneHeaderRow } from "@/components/layout/PhoneHeaderRow";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { LoadingBlock } from "@/components/ui/Spinner";
 import { useActiveHousehold } from "@/lib/session";
@@ -15,9 +16,22 @@ export default function FinanceGate() {
   const { householdId } = useActiveHousehold();
   const participants = useFinanceParticipants(householdId);
 
-  if (participants.isPending) return <LoadingBlock />;
+  // The phone chips stay reachable while loading and on error (the TopBar is gone).
+  if (participants.isPending) {
+    return (
+      <div className="flex flex-col gap-4">
+        <PhoneHeaderRow />
+        <LoadingBlock />
+      </div>
+    );
+  }
   if (participants.isError) {
-    return <ErrorState error={participants.error} onRetry={() => void participants.refetch()} />;
+    return (
+      <div className="flex flex-col gap-4">
+        <PhoneHeaderRow />
+        <ErrorState error={participants.error} onRetry={() => void participants.refetch()} />
+      </div>
+    );
   }
   if (participants.data.viewerSlot === null) {
     return <NonParticipantState participants={participants.data.items} />;

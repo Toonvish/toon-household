@@ -1824,3 +1824,12 @@ a one-word string; the checks were run under bash.
 | Offline capture queued, kept over reloads, replayed once | 9.7 (13 of 13) |
 | `LINKS_FIN`, `NOROUTER`, `NOCORE`, `NOSHADOW` on the merged tree | 9.2 |
 | No `M3:` placeholder left | 9.2, 9.1 |
+
+### 9.8 Review fix: phone header row on Übersicht and Fixkosten
+
+Review finding (medium): `OverviewPage` and `PlanPage` do not use `PageHeader`, so on phones they
+opened with the balance/plan card and no household or module chip (SPEC §5, D6). Fixed: both render
+`PhoneHeaderRow` directly (also in their loading and error states), as does `FinanceGate` while it
+loads or fails. `modules/finance/phone-header.test.ts` reads the lazy screen list out of
+`routes.tsx` and asserts every screen renders `<PageHeader>` or `<PhoneHeaderRow>`. Recipe has the
+same gap on most screens (M2); handed to M4 in CLAUDE.md "Obligations".

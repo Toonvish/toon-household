@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { currentPeriod, previousPeriod } from "@toon/shared";
+import { PhoneHeaderRow } from "@/components/layout/PhoneHeaderRow";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { categoriesQuery } from "@/modules/finance/lib/queries";
 import { useRequiredHouseholdId } from "@/lib/session";
@@ -34,6 +35,11 @@ function rangeBounds(range: SpendRangeKey): { from?: string; to: string } {
  * reason the app exists), then the two "Auswertung" cards, then the recent
  * list. `RequireHousehold` already guarantees a household by the time this
  * mounts.
+ *
+ * No `PageHeader` (the screen has no title), but on phones it still opens with the shell's
+ * `PhoneHeaderRow` (household + module chips, SPEC D6/§5): the TopBar is gone, so without it a
+ * phone user landing here from Home could not switch module or household. It is also in the
+ * error state, so a failing balance query never strands the user. Hidden from `lg`.
  */
 export function OverviewPage() {
   const householdId = useRequiredHouseholdId();
@@ -51,11 +57,18 @@ export function OverviewPage() {
   const ownName = members.own?.displayName ?? "";
 
   if (balance.isError) {
-    return <ErrorState error={balance.error} onRetry={() => void balance.refetch()} />;
+    return (
+      <div className="flex flex-col gap-4">
+        <PhoneHeaderRow />
+        <ErrorState error={balance.error} onRetry={() => void balance.refetch()} />
+      </div>
+    );
   }
 
   return (
     <div className="flex flex-col gap-4">
+      <PhoneHeaderRow />
+
       <BalanceHero
         balance={balance.data}
         isLoading={balance.isPending || members.isLoading}

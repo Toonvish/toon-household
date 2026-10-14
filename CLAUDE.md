@@ -544,6 +544,11 @@ Each later plan lists and closes them (full text: `docs/plans/m3-finance-module.
 §9; earlier ones in `docs/plans/m0-scaffold.md` §4, `docs/plans/m1-core.md` §6 and §8 and
 `docs/plans/m2-recipe-module.md` §8 and §9). M0, M1, M2 and M3 closed theirs.
 
+- M4: recipe screens without a `PhoneHeaderRow` on phones (the TopBar is gone, so those screens have
+  no household/module chips): every recipe screen except the library and the shopping lists (plan,
+  detail, edit, new, collections, tags, cards, import, shopping detail/history). Finance is fixed
+  (`modules/finance/phone-header.test.ts` guards it by reading `routes.tsx`); add the same guard for
+  recipe. The headless checks do not test for the chips.
 - M4: "Gruppe" vs "Haushalt" copy (owner decision, ADR), `NotFoundPage`'s recipe icon, the phone
   module chip as a real `ActionMenu` sheet, `scrollWidth` measurement with the scrollbar gutter; the
   Home cards' final design (finance's card is a first version), toon-recipe's sidebar per-item counts
