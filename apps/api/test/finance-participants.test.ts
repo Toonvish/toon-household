@@ -185,6 +185,56 @@ describe("PUT", () => {
     expect(await list(owner, householdId)).toEqual(before);
   });
 
+  test("(c2) replacing a participant who never paid is still 409 while ANY transaction exists; a swap stays allowed", async () => {
+    const { owner, b, c, householdId } = await trio();
+    // Owner pays SPLIT_EQUAL: Bea (who never paid) owes half. Every row involves both slots.
+    await db.insert(financeTransactions).values({
+      id: crypto.randomUUID(),
+      householdId,
+      payerId: owner.id,
+      splitMode: "SPLIT_EQUAL",
+      amountCents: 1_000,
+      description: "Einkauf",
+      bookedAt: Date.now(),
+      dateSource: "day",
+      origin: "manual",
+      categorySource: "manual",
+    });
+    const before = await list(owner, householdId);
+
+    const replace = await call(participantsPath(householdId), {
+      method: "PUT",
+      cookie: owner.cookie,
+      body: { participants: [{ userId: owner.id, memberSlot: 1 }, { userId: c.id, memberSlot: 2 }] },
+    });
+    expect(replace.status).toBe(409);
+    expect((await errorOf(replace)).code).toBe("finance_participant_in_use");
+    expect(await list(owner, householdId)).toEqual(before);
+
+    // Cleo did not inherit Bea's debt: she has no seat and the gate refuses her.
+    const cleoBalance = await call(`/api/households/${householdId}/finance/balance`, { cookie: c.cookie });
+    expect(cleoBalance.status).toBe(403);
+
+    // Swapping the same two users nobody leaves, so it stays allowed.
+    const swap = await call(participantsPath(householdId), {
+      method: "PUT",
+      cookie: owner.cookie,
+      body: { participants: [{ userId: b.id, memberSlot: 1 }, { userId: owner.id, memberSlot: 2 }] },
+    });
+    expect(swap.status).toBe(200);
+  });
+
+  test("(c3) with an empty ledger a replacement is allowed", async () => {
+    const { owner, c, householdId } = await trio();
+    const replace = await call(participantsPath(householdId), {
+      method: "PUT",
+      cookie: owner.cookie,
+      body: { participants: [{ userId: owner.id, memberSlot: 1 }, { userId: c.id, memberSlot: 2 }] },
+    });
+    expect(replace.status).toBe(200);
+    expect((await list(owner, householdId)).items.map((item) => item.userId)).toEqual([owner.id, c.id]);
+  });
+
   test("(d) invalid bodies are 422: the same user twice, a non-member, one entry", async () => {
     const { owner, b, householdId } = await trio();
     const outsider = await createUser("Outsider");

@@ -157,11 +157,13 @@ no console errors and `scrollWidth <= clientWidth`; `i18n:check` shows only clas
      carry a code): exactly two entries, slots exactly {1, 2}, two different users, both members of
      the household, else `422 finance_participants_required` (key
      `server.finance.participantsRequired`, or `server.finance.participantNotMember` for a
-     non-member). A user who leaves their slot (present before, absent after) while
-     `finance_transactions.payer_id` or `finance_incomes.person_id` names them in this household →
+     non-member). A user who leaves their slot (present before, absent after) while the household has ANY
+     `finance_transactions` row (every row involves both slots: SPLIT_EQUAL, OTHER_ONLY and
+     SETTLEMENT store only the payer, the counterparty is "the other slot") or a
+     `finance_incomes.person_id` names them →
      `409 finance_participant_in_use` (`server.finance.participantInUse`), nothing written. Swapping
      the same two users between slots is allowed (the ledger stores payer ids; every projection is
-     computed at read time). When the plan's `payer_id` is an outgoing user (who has no rows, else
+     computed at read time). When the plan's `payer_id` is an outgoing user (the ledger is empty, else
      409), it is set to the incoming user of the same slot. A kept user keeps `display_name` and
      `joined_at`; a new one gets `display_name = users.name` (trimmed, ≤ 80) and `joined_at = now`.
    - `PATCH /api/households/:id/finance/participants/me` (`requireVerifiedEmail()`,
@@ -875,8 +877,8 @@ recipe-cross-household,import-order}.test.ts`.
    partner → 2, a plan row `enabled: false`, `payer_id` = owner, `start_period: "2026-01"`; (h)
    `joinAsSecondMember` then seats the member in slot 2 and the hidden partner holds no slot;
    (i) `assignParticipants` on the service: same user twice, one entry, a non-member → 422 with the
-   decision-4 codes; replacing a user named as payer by a `finance_transactions` row (inserted
-   through the db) → 409 `finance_participant_in_use` and nothing changed; without such a row → ok
+   decision-4 codes; replacing a participant while a `finance_transactions` row exists (inserted
+   through the db; also when the outgoing user never paid) → 409 `finance_participant_in_use` and nothing changed; without such a row → ok
    and the plan payer follows the slot; a kept user keeps `display_name` and `joined_at`; (j)
    disable (core `DELETE …/modules/finance`) then re-enable WITHOUT a body → 200 and the same
    participants (data kept, D2); (k) `createSoloFinanceHousehold` yields one participant row and
@@ -1713,7 +1715,11 @@ seed's catch-up already booked everything). Curl with three cookie jars (final r
   **409 `category_in_use`**, with `reassignTo`: **204** and the row moved; deleting `fixkosten`: 409
   `category_system`. Tag rename 200 (`usageCount` 1).
 - `PUT …/finance/participants` replacing robin by kim: **409 `finance_participant_in_use`**, participants
-  unchanged.
+  unchanged. (Review finding, fixed afterwards: this 409 passed only because robin had paid rows. The
+  original rule looked at `payer_id` only, so replacing a participant who never paid answered 200 and
+  the incoming user inherited the outgoing one's share, since SPLIT_EQUAL, OTHER_ONLY and SETTLEMENT
+  store only the payer. The rule is now "ANY `finance_transactions` row of the household, or an income
+  of the outgoing user" (SPEC D3); `finance-participants.test.ts` (c2) covers the never-paid case.)
 - Module switch: `DELETE …/modules/finance` 204; `GET …/finance/balance` **404
   `module_disabled`**; `POST …/modules/finance` with **no body 200**, `transactions` total unchanged
   (19 before and after) and the two participants intact (data kept, D2).

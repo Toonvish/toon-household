@@ -159,12 +159,15 @@ export async function slot1UserId(db: DbLike, householdId: string): Promise<stri
  *   `422 finance_participants_required` (`server.finance.participantsRequired`);
  * - both are core members of the household, else the same code with
  *   `server.finance.participantNotMember`;
- * - a user who LEAVES the budget (seated before, absent after) while a
- *   `finance_transactions.payer_id` or `finance_incomes.person_id` of this household
- *   names them → `409 finance_participant_in_use`, nothing written. Swapping the same two
- *   users between slots is allowed: the ledger stores payer ids and every projection is
- *   computed at read time;
- * - when the plan's `payer_id` is an outgoing user (who has no rows, else 409 above), it
+ * - a user who LEAVES the budget (seated before, absent after) while the ledger has rows
+ *   → `409 finance_participant_in_use`, nothing written. In the two-person ledger EVERY
+ *   `finance_transactions` row involves both slots (SPLIT_EQUAL, OTHER_ONLY and SETTLEMENT
+ *   store only the payer; the counterparty is "the other slot"), so ANY transaction row of
+ *   the household blocks a replacement, not just one that names the outgoing user as payer;
+ *   a `finance_incomes.person_id` naming the outgoing user blocks it too. Swapping the same
+ *   two users between slots is allowed: nobody leaves, and every projection is computed at
+ *   read time;
+ * - when the plan's `payer_id` is an outgoing user (the ledger is empty, else 409 above), it
  *   moves to the incoming user of the same slot;
  * - a kept user keeps `display_name` and `joined_at`; a new one gets `users.name`
  *   (trimmed, ≤ 80) and `joined_at` = the module clock.
@@ -202,17 +205,19 @@ export async function assignParticipants(
   const outgoingIds = outgoing.map((row) => row.userId);
 
   if (outgoingIds.length > 0) {
-    const payerRows = await db
+    // Any transaction row involves both slots, so a replaced participant would silently inherit
+    // the outgoing one's share of every row (SPEC D3: refused while the ledger has rows).
+    const transactionRows = await db
       .select({ id: financeTransactions.id })
       .from(financeTransactions)
-      .where(and(eq(financeTransactions.householdId, householdId), inArray(financeTransactions.payerId, outgoingIds)))
+      .where(eq(financeTransactions.householdId, householdId))
       .limit(1);
     const incomeRows = await db
       .select({ id: financeIncomes.id })
       .from(financeIncomes)
       .where(and(eq(financeIncomes.householdId, householdId), inArray(financeIncomes.personId, outgoingIds)))
       .limit(1);
-    if (payerRows.length > 0 || incomeRows.length > 0) throw participantInUse();
+    if (transactionRows.length > 0 || incomeRows.length > 0) throw participantInUse();
   }
 
   const timestamp = nowMs();
