@@ -21,6 +21,7 @@ import {
   buttonClasses,
 } from "@/components/ui";
 import { useToast } from "@/components/ui";
+import { PhoneHeaderRow } from "@/components/layout/PhoneHeaderRow";
 import { formatDate } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 import { apiFieldErrors, validate, type FieldErrors } from "@/lib/validation";
@@ -79,6 +80,7 @@ export default function HouseholdDetailPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
+      <PhoneHeaderRow />
       <header className="flex flex-col gap-2">
         <AppLink to="/households" className="text-sm text-fg-muted hover:text-fg">
           {t("household.detail.backLink")}

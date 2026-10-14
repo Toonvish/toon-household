@@ -44,6 +44,7 @@ import {
 import { useTheme, type ThemePreference } from "@/lib/theme";
 import { apiFieldErrors, validate, type FieldErrors } from "@/lib/validation";
 import { PageHeader } from "@/components/layout/AppShell";
+import { PhoneHeaderRow } from "@/components/layout/PhoneHeaderRow";
 import { AppLink } from "@/lib/nav";
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader } from "@/components/ui/Card";
@@ -90,6 +91,7 @@ export function SettingsPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
+      <PhoneHeaderRow />
       <PageHeader title={t("auth.settings.title")} description={t("auth.settings.description")} />
 
       <Card padding="lg">
