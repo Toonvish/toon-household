@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { EllipsisVertical } from "lucide-react";
+import { Check, EllipsisVertical } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useT } from "@/lib/i18n";
 import { Dialog } from "./Dialog";
@@ -14,6 +14,18 @@ export interface ActionMenuItem {
   description?: string;
   variant?: "default" | "danger";
   disabled?: boolean;
+  /**
+   * The entry that is already in effect (e.g. the active module in the module switcher):
+   * the row gets the brand-soft treatment, `aria-current="true"` and a trailing check.
+   */
+  current?: boolean;
+}
+
+/** What {@link ActionMenuProps.renderTrigger} must spread onto its own trigger element. */
+export interface ActionMenuTriggerProps {
+  onClick: () => void;
+  "aria-haspopup": "dialog";
+  "aria-expanded": boolean;
 }
 
 export interface ActionMenuProps {
@@ -30,6 +42,13 @@ export interface ActionMenuProps {
   triggerVariant?: IconButtonVariant;
   triggerSize?: IconButtonSize;
   className?: string;
+  /**
+   * A custom trigger in place of the default icon-only `IconButton` — for a trigger that
+   * has to SAY something (the phone module chip names the active module). Spread the
+   * given props onto the element; `label`, `icon`, `triggerVariant`, `triggerSize` and
+   * `className` only style the default trigger and are ignored when this is set.
+   */
+  renderTrigger?: (trigger: ActionMenuTriggerProps) => ReactNode;
 }
 
 /**
@@ -39,6 +58,11 @@ export interface ActionMenuProps {
  *
  * Use it whenever a header would otherwise grow a row of icon buttons: on a phone that
  * row steals width from the heading next to it and reflows as buttons appear.
+ *
+ * Two optional extensions (plan m4-design-pass §1 decision 5), both off by default:
+ * `renderTrigger` swaps the icon trigger for the caller's own element (the phone module
+ * chip), and `ActionMenuItem.current` marks the entry already in effect (the active
+ * module), so a "pick one" sheet shares this one interaction model too.
  */
 export function ActionMenu({
   label,
@@ -48,6 +72,7 @@ export function ActionMenu({
   triggerVariant = "surface",
   triggerSize = "md",
   className,
+  renderTrigger,
 }: ActionMenuProps) {
   const t = useT();
   const [open, setOpen] = useState(false);
@@ -67,18 +92,26 @@ export function ActionMenu({
 
   if (actions.length === 0) return null;
 
+  const trigger: ActionMenuTriggerProps = {
+    onClick: () => setOpen(true),
+    "aria-haspopup": "dialog",
+    "aria-expanded": open,
+  };
+
   return (
     <>
-      <IconButton
-        label={triggerLabel}
-        icon={icon ?? <EllipsisVertical />}
-        variant={triggerVariant}
-        size={triggerSize}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => setOpen(true)}
-        className={className}
-      />
+      {renderTrigger ? (
+        renderTrigger(trigger)
+      ) : (
+        <IconButton
+          label={triggerLabel}
+          icon={icon ?? <EllipsisVertical />}
+          variant={triggerVariant}
+          size={triggerSize}
+          className={className}
+          {...trigger}
+        />
+      )}
 
       <Dialog
         open={open}
@@ -101,13 +134,16 @@ export function ActionMenu({
                 type="button"
                 disabled={item.disabled}
                 onClick={() => select(item)}
+                aria-current={item.current ? "true" : undefined}
                 className={cn(
                   "flex min-h-12 w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors duration-150",
                   "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
                   "disabled:pointer-events-none disabled:opacity-55",
-                  item.variant === "danger"
-                    ? "text-danger hover:bg-danger-soft"
-                    : "text-fg hover:bg-surface-2",
+                  item.current
+                    ? "bg-brand-soft text-brand-soft-fg"
+                    : item.variant === "danger"
+                      ? "text-danger hover:bg-danger-soft"
+                      : "text-fg hover:bg-surface-2",
                 )}
               >
                 {item.icon ? (
@@ -123,6 +159,7 @@ export function ActionMenu({
                     </span>
                   ) : null}
                 </span>
+                {item.current ? <Check className="size-5 shrink-0" aria-hidden="true" /> : null}
               </button>
             </li>
           ))}

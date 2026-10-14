@@ -8,8 +8,8 @@
  * registered router tree stays strict (decision 10), and so the catalog objects keep their
  * literal keys (H gotcha "`MessageKey` must stay a literal union").
  *
- * STATIC IMPORT GRAPH (decision 15): this file, `routes.tsx`, `HomeCard.tsx`, the catalogs and
- * `features/shopping/lib/offline.ts` never import the module registry or the shell (the
+ * STATIC IMPORT GRAPH (decision 15): this file, `routes.tsx`, `HomeCard.tsx`, `nav-trailing.tsx`,
+ * the catalogs and `features/shopping/lib/offline.ts` never import the module registry or the shell (the
  * layout components: the app shell, the tab bar, `use-nav-items`…). The registry evaluates
  * `WEB_MODULES = [recipeModule]`; a path back into it from here would read `recipeModule`
  * in its temporal dead zone the moment anything imports this manifest first — which
@@ -28,6 +28,7 @@ import type { WebModule } from "@/modules/types";
 import { recipeDe, recipeEn } from "./catalogs/index.ts";
 import { registerShoppingMutationDefaults } from "./features/shopping/lib/offline";
 import { RecipeHomeCard } from "./HomeCard";
+import { PlanNewTrailing, RecipeCountTrailing, ShoppingCountTrailing } from "./nav-trailing";
 import { recipeRouteTree } from "./routes";
 
 export const recipeModule = {
@@ -37,9 +38,17 @@ export const recipeModule = {
   basePath: "/recipe",
   route: recipeRouteTree,
   navItems: [
-    { to: "/recipe", labelKey: "common.nav.recipes", icon: BookOpen, exact: true },
-    { to: "/recipe/plan", labelKey: "common.nav.plan", icon: CalendarDays, exact: false },
-    { to: "/recipe/shopping", labelKey: "common.nav.shopping", icon: ShoppingBasket, exact: false },
+    // `trailing` = the sidebar's count / "Neu" pill (R `SideNav.tsx`; plan m4-design-pass §1
+    // decision 6); the tab bar ignores it.
+    { to: "/recipe", labelKey: "common.nav.recipes", icon: BookOpen, exact: true, trailing: RecipeCountTrailing },
+    { to: "/recipe/plan", labelKey: "common.nav.plan", icon: CalendarDays, exact: false, trailing: PlanNewTrailing },
+    {
+      to: "/recipe/shopping",
+      labelKey: "common.nav.shopping",
+      icon: ShoppingBasket,
+      exact: false,
+      trailing: ShoppingCountTrailing,
+    },
   ],
   secondaryNavItems: [
     { to: "/recipe/collections", labelKey: "common.nav.collections", icon: Folder, exact: false },
