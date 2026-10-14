@@ -3,9 +3,13 @@
  * FAKE module slices, so the rules are pinned without a real module or a DOM.
  */
 import { describe, expect, test } from "bun:test";
+import { createRootRoute } from "@tanstack/react-router";
 import { BookOpen, House, Receipt } from "lucide-react";
 import type { WebModule } from "@/modules/types";
 import { activeSwitcherItem, moduleSwitcherItems } from "./module-switcher-items";
+
+/** A stand-in for a module's layout route (`WebModule.route`); these rules never read it. */
+const fakeRoute = createRootRoute();
 
 function fakeModule(id: "recipe" | "finance"): WebModule {
   return {
@@ -13,7 +17,7 @@ function fakeModule(id: "recipe" | "finance"): WebModule {
     nameKey: id === "recipe" ? "common.nav.recipes" : "home.title",
     icon: id === "recipe" ? BookOpen : Receipt,
     basePath: `/${id}`,
-    routes: [],
+    route: fakeRoute,
     navItems: [],
     secondaryNavItems: [],
     homeCard: () => null,

@@ -11,7 +11,7 @@ function fake(id: ModuleId): WebModule {
   return {
     id,
     basePath: `/${id}`,
-    routes: [],
+    route: undefined,
     homeCard: () => null,
   } as unknown as WebModule;
 }

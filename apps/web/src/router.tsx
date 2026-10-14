@@ -6,16 +6,20 @@
  *   root                  SessionProvider + Outlet; notFound -> NotFoundPage
  *     public              /login  /register  /oauth/callback  /invite/$token
  *                         /forgot-password  /reset-password/$token  /verify-email/$token
- *     app (pathless)      RequireAuth + AppShell + Outlet
+ *     app (pathless)      RequireAuth + AppShell + Outlet (attached here, see AppLayout)
  *       /households  /households/$householdId  /settings
  *                         session only: how a user WITHOUT a household gets one
  *       household-scoped (pathless)  RequireActiveHousehold
  *         /               Home (module-less)
- *         /<module>       one layout route per WEB_MODULES entry, component
- *                         `moduleLayoutComponent(module.id)` (RequireModule); the module's
- *                         `routes` are its children (M2 recipe, M3 finance)
- * No `/search` and no recipe routes here: they arrive with the recipe module (M2), under
- * `/recipe`.
+ *         /<module>       one layout route per WEB_MODULES entry: `module.route`, owned and
+ *                         built by the module (`modules/<id>/routes.tsx`, component
+ *                         `moduleLayoutComponent(id)`, parent `householdScopedRoute`)
+ *                         /recipe/…  the recipe module (M2), incl. the `/recipe/search`
+ *                         redirect; M3 adds /finance/…
+ *
+ * `rootRoute`, `appRoute`, `householdScopedRoute` and the `pick` helper live in
+ * `route-roots.tsx` (plan m2-recipe-module §1 decisions 10 and 15) so a module's route
+ * tree can name its parent without importing this file, which imports the registry.
  *
  * SCREENS ARE CODE-SPLIT WITH `lazyRouteComponent`, not a bare `React.lazy`, and the
  * difference is not cosmetic. The router preloads a route's component by calling
@@ -28,13 +32,7 @@
  *
  * Export every screen as its module's DEFAULT export.
  */
-import {
-  Outlet,
-  createRootRoute,
-  createRoute,
-  createRouter,
-  lazyRouteComponent,
-} from "@tanstack/react-router";
+import { Outlet, createRoute, createRouter, lazyRouteComponent } from "@tanstack/react-router";
 import { AppShell } from "@/components/layout/AppShell";
 import { NotFoundPage } from "@/components/layout/NotFoundPage";
 import { LoadingBlock } from "@/components/ui/Spinner";
@@ -45,51 +43,9 @@ import { OAuthCallbackPage } from "@/core/features/auth/OAuthCallbackPage";
 import { RegisterPage } from "@/core/features/auth/RegisterPage";
 import { ResetPasswordPage } from "@/core/features/auth/ResetPasswordPage";
 import { VerifyEmailPage } from "@/core/features/auth/VerifyEmailPage";
-import { RequireActiveHousehold, RequireAuth, SessionProvider } from "@/lib/session";
+import { RequireAuth } from "@/lib/session";
 import { WEB_MODULES } from "@/modules";
-import { moduleLayoutComponent } from "@/modules/layout";
-
-/* -------------------------------------------------------------------------- */
-/* helpers                                                                    */
-/* -------------------------------------------------------------------------- */
-
-function optionalString(value: unknown): string | undefined {
-  return typeof value === "string" && value.length > 0 ? value : undefined;
-}
-
-/**
- * Search-param validators return objects with OPTIONAL keys only, so `<Link to="/">`
- * never has to pass a `search` prop.
- */
-function pick<Keys extends string>(
-  search: Record<string, unknown>,
-  keys: readonly Keys[],
-): Partial<Record<Keys, string>> {
-  const result: Partial<Record<Keys, string>> = {};
-  for (const key of keys) {
-    const value = optionalString(search[key]);
-    if (value !== undefined) result[key] = value;
-  }
-  return result;
-}
-
-/* -------------------------------------------------------------------------- */
-/* root                                                                       */
-/* -------------------------------------------------------------------------- */
-
-function RootLayout() {
-  // SessionProvider lives inside the router so a 401 can navigate client-side.
-  return (
-    <SessionProvider>
-      <Outlet />
-    </SessionProvider>
-  );
-}
-
-const rootRoute = createRootRoute({
-  component: RootLayout,
-  notFoundComponent: NotFoundPage,
-});
+import { appRoute, householdScopedRoute, pick, rootRoute } from "@/route-roots";
 
 /* -------------------------------------------------------------------------- */
 /* public routes                                                              */
@@ -160,34 +116,17 @@ function AppLayout() {
   );
 }
 
-/** Pathless layout route: everything below it requires a session. */
-const appRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  id: "app",
-  component: AppLayout,
-});
-
 /**
- * Second pathless layout route: everything below it additionally needs an ACTIVE
- * HOUSEHOLD (Home and every module — the household owns the content).
- *
- * The guard is a layout route rather than a wrapper around each screen because a
- * wrapper is a different component than the lazy one, and `.preload` lives on the
- * lazy component — wrapping it hides that property from the router and kills
- * preloading. `/households`, `/households/$householdId` and `/settings` stay outside:
- * they are how a user WITH no household gets one, so guarding them would deadlock.
+ * The shell is attached HERE, not in `route-roots.tsx` (plan m2-recipe-module §1
+ * decision 15): `AppShell` reaches the registry (`BottomTabBar` → `use-nav-items` →
+ * `@/modules`), and the registry's manifests import their route trees, whose parent
+ * lives in `route-roots.tsx`. Keeping the shell out of that file keeps every manifest's
+ * static import graph free of the registry, so importing a manifest first (its tests do)
+ * cannot hit a TDZ `ReferenceError`. `Route.update` (router-core 1.171.28) merges the
+ * option into the existing instance, so every child's `getParentRoute()` still returns
+ * this same `appRoute`; it runs at module scope, before `createRouter` below.
  */
-const householdScopedRoute = createRoute({
-  getParentRoute: () => appRoute,
-  id: "household-scoped",
-  component: function HouseholdScopedLayout() {
-    return (
-      <RequireActiveHousehold>
-        <Outlet />
-      </RequireActiveHousehold>
-    );
-  },
-});
+appRoute.update({ component: AppLayout });
 
 const homeRoute = createRoute({
   getParentRoute: () => householdScopedRoute,
@@ -196,35 +135,26 @@ const homeRoute = createRoute({
 });
 
 /**
- * One layout route per module at its `basePath` (SPEC §2): the module's `routes` are
- * its children, the first one being the module home. M1 has no modules, so this maps
- * an empty list. Open for M2: router-core calls each child's `getParentRoute()` at
- * init and requires it to return THIS layout instance, so the first module must give
- * its routes a way to reach it without importing this file (a cycle through
- * `modules/index.ts`) — e.g. the layout moves into a module-owned file the manifest
- * exports, or `routes` becomes a factory taking the parent.
+ * One layout route per module at its `basePath` (SPEC §2): `module.route`, built by the
+ * module itself in its `routes.tsx` with `getParentRoute: () => householdScopedRoute`
+ * (from `route-roots.tsx`) and `component: moduleLayoutComponent(module.id)`, its
+ * children attached with `addChildren`; the first child is the module home.
  *
- * The module-enabled guard sits HERE: the component is `moduleLayoutComponent(module.id)`
- * (`modules/layout.tsx`, `<RequireModule moduleId><Outlet/></RequireModule>`), so a
- * disabled module redirects to Home with a toast (SPEC §5) before any module chunk loads —
- * on the layout, never as a wrapper around a lazy screen, which would hide `.preload` from
- * the router. `modules/layout.test.tsx` pins the factory; `modules/enabled.test.ts` pins
- * the decision.
+ * The module-enabled guard sits on that layout (`modules/layout.tsx`, `<RequireModule
+ * moduleId><Outlet/></RequireModule>`), so a disabled module redirects to Home with a
+ * toast (SPEC §5) before any module chunk loads — never as a wrapper around a lazy
+ * screen, which would hide `.preload` from the router. `modules/layout.test.tsx` pins
+ * the factory; `modules/enabled.test.ts` pins the decision.
  *
- * TYPE NOTE (measured in M0): because `WEB_MODULES` is `readonly WebModule[]` and
- * `routes` is `AnyRoute[]`, these children make the registered tree loose — `<Link to>`
- * is then unchecked app-wide (`to="/nonexistent"` compiles). M2 should restore the
- * strict tree by keeping the registry literal-typed (`[recipeModule] as const` with
- * concrete route tuples), the same trick `modules/catalogs.ts` uses for `MessageKey`.
- * Nav items do not depend on either state — see `NavPath` in nav-items.ts.
+ * TYPE NOTE. `WEB_MODULES` is `[recipeModule] as const satisfies readonly WebModule[]`
+ * and each manifest is literal-typed (`satisfies WebModule<id>`, no annotation), so the
+ * mapped tuple below carries the concrete route types and the registered tree is STRICT:
+ * a raw `<Link to="/recipe/nope">` fails `tsc` (pinned by an `@ts-expect-error` in
+ * `modules/recipe/manifest.test.ts`). Recipe screens navigate through the string-typed
+ * `AppLink` / `useAppNavigate` (`@/lib/nav`), which the tree does not check — the
+ * plan's `LINKS` grep does. Nav items keep their own `NavPath` union (nav-items.ts).
  */
-const moduleRoutes = WEB_MODULES.map((module) =>
-  createRoute({
-    getParentRoute: () => householdScopedRoute,
-    path: module.basePath,
-    component: moduleLayoutComponent(module.id),
-  }).addChildren(module.routes),
-);
+const moduleRoutes = WEB_MODULES.map((module) => module.route);
 
 /* -------------------------------------------------------------------------- */
 /* session-only screens                                                       */

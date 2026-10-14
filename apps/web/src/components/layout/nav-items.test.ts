@@ -3,6 +3,7 @@
  * functions fed FAKE module slices, so the rules are pinned without a real module or a DOM.
  */
 import { describe, expect, test } from "bun:test";
+import { createRootRoute } from "@tanstack/react-router";
 import { BookOpen, CalendarDays, Receipt, ShoppingBasket, Tag, Wallet } from "lucide-react";
 import type { WebModule } from "@/modules/types";
 import {
@@ -15,13 +16,16 @@ import {
   type NavItem,
 } from "./nav-items";
 
+/** A stand-in for a module's layout route (`WebModule.route`); these rules never read it. */
+const fakeRoute = createRootRoute();
+
 function fakeModule(id: "recipe" | "finance", navItems: NavItem[], secondary: NavItem[] = []): WebModule {
   return {
     id,
     nameKey: "home.title",
     icon: id === "recipe" ? BookOpen : Receipt,
     basePath: `/${id}`,
-    routes: [],
+    route: fakeRoute,
     navItems,
     secondaryNavItems: secondary,
     homeCard: () => null,

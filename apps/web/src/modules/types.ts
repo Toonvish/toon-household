@@ -16,7 +16,7 @@
  */
 import type { QueryClient } from "@tanstack/react-query";
 import type { AnyRoute } from "@tanstack/react-router";
-import type { LocaleCatalog, ModuleId, NamespaceCatalog } from "@toon/shared";
+import type { ModuleId, NamespaceCatalog } from "@toon/shared";
 import type { LucideIcon } from "lucide-react";
 import type { ComponentType } from "react";
 import type { NavItem } from "@/components/layout/nav-items";
@@ -31,11 +31,15 @@ export interface WebModule<Id extends ModuleId = ModuleId> {
   /** The module's URL prefix; the active module IS the URL prefix (SPEC §5). */
   basePath: `/${Id}`;
   /**
-   * Children of the module layout route `router.tsx` creates at `basePath`; the first
-   * one is the module home. Screens are `lazyRouteComponent`s (R gotcha: a hand-rolled
-   * lazy wrapper kills intent preloading).
+   * The module's layout route at `basePath`, owned by the module (`modules/<id>/routes.tsx`,
+   * plan m2-recipe-module §1 decision 10): built with `component: moduleLayoutComponent(id)`
+   * (`@/modules/layout`) and `getParentRoute: () => householdScopedRoute` (`@/route-roots`),
+   * its children attached with `addChildren`; the first child is the module home.
+   * `router.tsx` adds it under `householdScopedRoute`. Screens are `lazyRouteComponent`s
+   * (R gotcha: a hand-rolled lazy wrapper kills intent preloading), which also keeps them —
+   * and the shell they import — out of the manifest's static import graph (decision 15).
    */
-  routes: AnyRoute[];
+  route: AnyRoute;
   /** Exactly three; the shell appends the shared Profil tab (M1, SPEC D6). */
   navItems: NavItem[];
   /** Sidebar-only; each one must also be reachable from a tab screen (D6). */
@@ -61,10 +65,16 @@ export interface WebModule<Id extends ModuleId = ModuleId> {
    * The module's two catalogs, keys prefixed `<id>.`. The TYPE-level registration is
    * `modules/catalogs.ts` (literal-typed spread), not this field — this one is the
    * runtime handle (e.g. for tests that walk every module's catalogs).
+   *
+   * `en` is typed like `de` (prefixed keys, string-or-plural values). The per-key
+   * `en`-mirrors-`de` check is `LocaleCatalog<typeof xDe>` on each namespace file; here,
+   * `LocaleCatalog<NamespaceCatalog<Id>>` would demand a plural for EVERY key (its
+   * conditional sees the wide `string | PluralForms` value), which no real catalog meets —
+   * the first real manifest (M2 recipe) proved it.
    */
   catalogs: {
     de: NamespaceCatalog<Id>;
-    en: LocaleCatalog<NamespaceCatalog<Id>>;
+    en: NamespaceCatalog<Id>;
   };
   /** Rendered on `/settings` while the module is enabled (finance: participants, D3). */
   settingsSections?: ComponentType[];
