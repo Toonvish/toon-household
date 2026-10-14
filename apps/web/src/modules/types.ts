@@ -78,4 +78,14 @@ export interface WebModule<Id extends ModuleId = ModuleId> {
   };
   /** Rendered on `/settings` while the module is enabled (finance: participants, D3). */
   settingsSections?: ComponentType[];
+  /**
+   * The module's own "Aktivieren" dialog, for a module that cannot be enabled without
+   * settings (finance: the two participants, SPEC D3). When present, the core's enable
+   * actions (Home `ModuleCards`, `ManageModulesDialog`) open it instead of POSTing at once;
+   * the dialog calls `enableModule(householdId, id, settings)` itself and calls `onClose`
+   * when done or dismissed. Disabling stays the core's. A §2 contract extension
+   * (docs/plans/m3-finance-module.md §1 decision 7). Part of the manifest's STATIC import
+   * graph, so it must not import the registry or the shell.
+   */
+  enableDialog?: ComponentType<{ open: boolean; onClose: () => void }>;
 }
