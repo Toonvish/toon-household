@@ -9,7 +9,7 @@
  * a trap: a `display: none` `<img>` is still fetched, so every recipe would load
  * its image twice.
  */
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback, useRef, useSyncExternalStore } from "react";
 
 /** Tailwind's `sm`. Below it there is one column and no room for a card. */
 export const SM_QUERY = "(min-width: 40rem)";
@@ -26,10 +26,20 @@ export function useMediaQuery(query: string): boolean {
     [query],
   );
 
-  const getSnapshot = useCallback(
-    () => (typeof window === "undefined" ? false : window.matchMedia(query).matches),
-    [query],
-  );
+  // While the page is being PRINTED the browser evaluates every media query against the PAPER
+  // width (A4 is ~794 CSS px), so a phone's `(min-width: 40rem)` flips to true mid-print and
+  // React swaps the phone markup for the desktop markup in the middle of the snapshot: printing the
+  // recipe detail from a 390 px window produced a truncated hybrid (steps 3 to 7 missing; found by
+  // printing to PDF in M4-T09). The last value seen on SCREEN is held for the duration of the
+  // print, so paper shows the markup the reader was looking at (print.css is written for both).
+  const screenValue = useRef<boolean | undefined>(undefined);
+  const getSnapshot = useCallback(() => {
+    if (typeof window === "undefined") return false;
+    const matches = window.matchMedia(query).matches;
+    if (window.matchMedia("print").matches && screenValue.current !== undefined) return screenValue.current;
+    screenValue.current = matches;
+    return matches;
+  }, [query]);
 
   return useSyncExternalStore(subscribe, getSnapshot, () => false);
 }
