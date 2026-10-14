@@ -62,12 +62,19 @@
    * The phone branch keeps Ingredients AND Method in the DOM at all times and
    * toggles between them with the `hidden` attribute under a `Tabs` control (a
    * conditional render would print only whichever tab was open). The shell's own
-   * reset already sets `[hidden]{display:none!important}` for the screen; this
-   * clears it back for print so both panels render on paper regardless of which
-   * one was showing on screen.
+   * reset sets `[hidden]{display:none!important}` for the screen INSIDE `@layer base`
+   * (styles/index.css), and for `!important` declarations the cascade inverts the layer
+   * order: an UNLAYERED `!important` rule loses to a layered one, whatever its
+   * specificity. So this override has to sit in the same layer to win (it then wins on
+   * specificity), or a phone prints the ingredients and never the method (found by
+   * printing to PDF in M4-T09; the unlayered version measured `display: none`).
+   * `flex`, not `block`: the panels are `flex flex-col` on screen. Direct children of
+   * `.recipe-print` only, so no other `hidden` element is revealed.
    */
-  .recipe-print [hidden] {
-    display: block !important;
+  @layer base {
+    .recipe-print > [hidden] {
+      display: flex !important;
+    }
   }
 
   /* Steps lose their button chrome in print. */
