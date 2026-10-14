@@ -28,7 +28,7 @@ export function PageHeader({ title, description, actions, above, className }: Pa
       {above}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
-          <h1 className="font-display text-display-2xl leading-[1.05] font-medium text-fg lg:text-display-3xl lg:leading-[1.1]">
+          <h1 className="font-display text-display-2xl font-medium text-fg lg:text-display-3xl">
             {title}
           </h1>
           {description ? <p className="mt-1 text-sm text-fg-muted">{description}</p> : null}

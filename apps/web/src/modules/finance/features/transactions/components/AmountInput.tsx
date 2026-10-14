@@ -79,9 +79,9 @@ export function AmountInput({ valueCents, onChange, error, id: idProp, autoFocus
           value={text}
           onChange={(event) => commit(event.currentTarget.value, isCredit)}
           className={cn(
-            "w-full min-w-0 rounded-xl border border-line bg-surface px-4 py-4 text-right text-4xl font-semibold",
+            "w-full min-w-0 rounded-xl border border-line bg-surface px-4 py-4 text-right font-display text-display-4xl font-medium",
             "text-fg tabular-nums shadow-soft transition-colors duration-150",
-            "placeholder:text-fg-subtle placeholder:font-normal",
+            "placeholder:text-fg-subtle",
             "focus:border-brand focus:outline-2 focus:outline-offset-0 focus:outline-brand/40",
             "aria-[invalid=true]:border-danger aria-[invalid=true]:focus:outline-danger/40",
           )}

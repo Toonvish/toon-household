@@ -126,7 +126,8 @@ export function EditTransactionPage() {
 
   if (transactionQuery.data.origin !== "manual") {
     return (
-      <div className="mx-auto w-full max-w-md p-4">
+      <div className="flex flex-col gap-4">
+        <PageHeader title={t("finance.transactions.edit.title")} />
         <ErrorState
           title={t("finance.transactions.detail.title")}
           description={t("finance.transactions.generatedHint")}
@@ -152,7 +153,7 @@ export function EditTransactionPage() {
 
         <div className="flex-1" />
 
-        <div className="sticky bottom-tabbar -mx-gutter border-t border-line bg-bg/95 px-gutter py-3 backdrop-blur-md lg:mx-0 lg:rounded-b-card">
+        <div className="sticky bottom-tabbar z-20 -mb-4 bleed-gutter-inset border-t border-line bg-bg/95 py-3 backdrop-blur-sm">
           <Button type="submit" fullWidth loading={updateMutation.isPending}>
             {t("finance.transactions.form.submitEdit")}
           </Button>

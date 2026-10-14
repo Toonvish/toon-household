@@ -75,7 +75,7 @@ export function KindPicker({ value, onChange, amountCents, otherName }: KindPick
                 <Icon aria-hidden="true" className={cn("size-5", active ? "text-brand" : "text-fg-muted")} />
                 {active ? <Check aria-hidden="true" className="size-4 text-brand" /> : null}
               </span>
-              <span className="text-sm leading-tight font-semibold">{label}</span>
+              <span className="text-control leading-tight font-semibold">{label}</span>
               <span className="text-xs leading-snug text-fg-muted">{hint}</span>
             </button>
           );
