@@ -116,7 +116,8 @@ export function NewTransactionPage() {
 
   if (!other) {
     return (
-      <div className="mx-auto w-full max-w-md p-4">
+      <div className="flex flex-col gap-4">
+        <PageHeader title={t("finance.transactions.new.title")} />
         <EmptyState
           icon={<UserPlus />}
           title={t("finance.nav.household")}
@@ -145,7 +146,7 @@ export function NewTransactionPage() {
 
         <div className="flex-1" />
 
-        <div className="sticky bottom-tabbar -mx-gutter border-t border-line bg-bg/95 px-gutter py-3 backdrop-blur-md lg:mx-0 lg:rounded-b-card">
+        <div className="sticky bottom-tabbar z-20 -mb-4 bleed-gutter-inset border-t border-line bg-bg/95 py-3 backdrop-blur-sm">
           <Button type="submit" fullWidth loading={createMutation.isPending}>
             {t("finance.transactions.form.submitCreate")}
           </Button>

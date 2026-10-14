@@ -94,7 +94,7 @@ function CategoryTile({ label, active, onClick }: { label: string; active: boole
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "min-h-12 rounded-xl border px-3 py-2 text-left text-sm font-medium transition-colors duration-150",
+        "min-h-12 min-w-0 rounded-xl border px-3 py-2 text-left text-control font-medium transition-colors duration-150",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
         active ? "border-brand bg-brand-soft text-brand-soft-fg" : "border-line bg-surface text-fg hover:border-line-strong",
       )}

@@ -17,10 +17,10 @@ export interface AmountTextProps extends Omit<HTMLAttributes<HTMLSpanElement>, "
 }
 
 const sizes = {
-  sm: "text-sm",
-  md: "text-base",
-  lg: "text-xl",
-  xl: "text-4xl",
+  sm: "text-sm font-semibold",
+  md: "text-base font-semibold",
+  lg: "font-display text-display-lg font-medium",
+  xl: "font-display text-display-4xl font-medium",
 } as const;
 
 /**
@@ -43,7 +43,7 @@ export function AmountText({
   return (
     <span
       className={cn(
-        "font-semibold tabular-nums",
+        "tabular-nums",
         sizes[size],
         colorNegative && negative && "text-danger",
         className,

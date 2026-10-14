@@ -112,7 +112,7 @@ export function TransactionList({
     <div className="flex flex-col gap-6">
       {groups.map(([key, dayItems]) => (
         <section key={key} aria-label={formatDate(dayItems[0]?.bookedAt)}>
-          <h2 className="sticky top-topbar z-10 -mx-gutter mb-2 bg-bg/95 px-gutter py-1.5 eyebrow text-fg-faint backdrop-blur-md lg:top-0 lg:mx-0 lg:px-0">
+          <h2 className="sticky top-0 z-10 mb-2 bleed-gutter-inset bg-bg/95 py-1.5 eyebrow text-fg-faint backdrop-blur-sm">
             {formatDate(dayItems[0]?.bookedAt)}
           </h2>
           <div className="flex flex-col gap-2">
