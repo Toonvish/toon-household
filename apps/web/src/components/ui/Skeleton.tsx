@@ -57,7 +57,7 @@ export function SkeletonList({
     return (
       <div className="flex flex-col gap-2" {...common}>
         {Array.from({ length: count }, (_, index) => (
-          <div key={index} className="grid grid-cols-[5.25rem_1fr] items-center gap-3 p-2">
+          <div key={index} className="grid grid-cols-[5.25rem_minmax(0,1fr)] items-center gap-3 p-2">
             <Skeleton className="size-21" rounded="md" />
             <div className="flex min-w-0 flex-col gap-2">
               <Skeleton className="h-3 w-1/4" />
