@@ -115,7 +115,7 @@ SPEC §3 with what M0 to M3 actually created:
   `modules`, `households`, `auth`, `middleware`, `import-order`, `recipe-module`,
   `recipe-cross-household`, `recipes*`, `tags-kind`, `plan`, `cards`, `shopping*`, `uploads`,
   `import/` with its fixtures in `test/fixtures/import/`, …).
-  `modules/finance/` is `index.ts` (the `ApiModule`: `onHouseholdCreated`, `onEnable`, `start`,
+  `modules/finance/` is `index.ts` (the `ApiModule`: `onHouseholdCreated`, `onEnable`, `onMemberRemoving`, `start`,
   `shutdown`, `seedDemo`), `schema.ts` (the 11 `finance_` tables), `middleware.ts`
   (`requireFinanceParticipant`), `setup.ts` (default categories, `ensureFinanceHousehold`), `seed.ts`,
   `lib/clock.ts` (`nowMs`, `setClockForTest`), `routes/{index,participants,transactions,categories,tags,
@@ -307,6 +307,13 @@ the code actually relies on or introduced.
   `["toon","me"]` on `404 module_disabled`, so a stale bundle and a live disable take one path. Core
   query-key segments (`me`, `sessions`, `oauth-providers`, `households`, `invite`, `detail`, `members`,
   `invites`) never equal a module id.
+- **A seated participant cannot leave while the ledger has rows.** `removeMember` (core) runs every
+  build module's `onMemberRemoving(householdId, userId, tx)` before deleting the membership, whether
+  or not the module is enabled for the household (rows outlive a disable). Finance's hook
+  (`assertParticipantMayLeave`) answers `409 member_has_ledger` (`server.household.memberHasLedger`,
+  toon-finance's text) when the leaver holds a slot and the household has ANY `finance_transactions`
+  row or an income naming them (same predicate as the `finance_participant_in_use` replacement rule:
+  every row involves both slots). Without a seat, or with an empty ledger, leaving is allowed.
 - **Enabling finance needs two participants (D3).** `onEnable` seats the two users from the enable
   POST's `settings` (`{ participants: [{ userId, memberSlot: 1 }, { userId, memberSlot: 2 }] }`) or, on a
   re-enable without a body, requires the two existing `finance_participants` rows, else `422
@@ -551,7 +558,8 @@ Each later plan lists and closes them (full text: `docs/plans/m3-finance-module.
   through the old-hostname redirect (with the Caddyfile; note `/plan` exists in both sources); image
   build with `WITH_OCR=1 WITH_PDF=0`.
 - M7: `docs/API.md` (recipe and finance sections), `docs/modules/recipe.md`, `docs/modules/finance.md`;
-  decide the member-leaves hook (a core action that removes a household member who is a finance
-  participant does not consult finance: the slot row stays, the ledger keeps working, the leaver loses
-  access through `requireHouseholdRole`); the N-person ledger stays out (D3); switching the whole test
+  the member-leaves veto exists (`ApiModule.onMemberRemoving`; finance refuses a seated participant's
+  leaving with `409 member_has_ledger` while the ledger has rows, so no ghost participant can appear;
+  an empty-ledger leaver keeps a slot row that an admin replaces through `PUT …/participants`); M7
+  documents it in `docs/API.md` and may extend it to other modules; the N-person ledger stays out (D3); switching the whole test
   suite to a temp-file DB (ADR 0003's consequence).

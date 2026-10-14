@@ -290,6 +290,7 @@ export const serverDe = {
   "server.content.planBookingDescription": "Fixkostenanteil {period}",
   "server.content.planAdjustmentDescription": "Korrektur Fixkostenanteil {period}",
   "server.content.settlementDescription": "Ausgleichszahlung",
+  "server.household.memberHasLedger": "Zu dieser Person gibt es noch Buchungen. Sie müssen zuerst entfernt werden.",
   "server.household.needsSecondMember": "Für diese Buchungsart braucht der Haushalt ein zweites Mitglied.",
   "server.plan.disabled": "Der Fixkostenplan ist nicht aktiv.",
   "server.plan.incomplete": "Für die Berechnung fehlen Fixkosten oder ein Einkommen.",

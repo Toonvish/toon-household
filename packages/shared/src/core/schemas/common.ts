@@ -131,6 +131,8 @@ export const ERROR_CODES = [
   "finance_participants_required",
   /** Finance (M3 decision 4): a participant who has ledger entries cannot give up their slot. */
   "finance_participant_in_use",
+  /** Finance (toon-finance, SPEC D13): a seated participant with ledger entries cannot leave the household. */
+  "member_has_ledger",
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
 

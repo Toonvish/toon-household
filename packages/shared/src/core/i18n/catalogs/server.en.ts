@@ -270,6 +270,7 @@ export const serverEn: LocaleCatalog<ServerCatalog> = {
   "server.content.planBookingDescription": "Fixed-cost share {period}",
   "server.content.planAdjustmentDescription": "Correction fixed-cost share {period}",
   "server.content.settlementDescription": "Settlement",
+  "server.household.memberHasLedger": "There are still transactions for this person. Remove them first.",
   "server.household.needsSecondMember": "This transaction kind needs a second household member.",
   "server.plan.disabled": "The fixed-cost plan is not active.",
   "server.plan.incomplete": "Fixed costs or an income are missing for this calculation.",

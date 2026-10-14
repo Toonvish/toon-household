@@ -162,6 +162,8 @@ export interface ApiModule {
   onHouseholdCreated?(householdId, tx): Promise<void>   // e.g. finance seeds its 21 categories
   onEnable?(householdId, settings, tx): Promise<void>   // e.g. finance validates its two participants;
                                               // `settings` is the body of the enable POST ({ settings? }), null without one
+  onMemberRemoving?(householdId, userId, tx): Promise<void>   // runs in removeMember before the row is deleted; may veto
+                                              // by throwing (finance: 409 member_has_ledger, D13)
   legacyMigration?: LegacyMigrator            // §6: the module's part of migrate:legacy
   afterMigrate?(database): Promise<void>      // runs after every migrate() in runMigrations (db:migrate, seed, tests);
                                               // idempotent, no transaction; e.g. recipe's folded-column backfill

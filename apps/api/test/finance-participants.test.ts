@@ -9,12 +9,12 @@
  * verified-e-mail override is handed back in `afterEach`.
  */
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { setVerifiedEmailRequired } from "../src/core/services/auth/verifiedEmail.ts";
 import { db } from "../src/db/client.ts";
 import { runMigrations } from "../src/db/migrate.ts";
-import { users } from "../src/db/schema.ts";
+import { householdMembers, users } from "../src/db/schema.ts";
 import { notFoundHandler, onErrorHandler } from "../src/lib/errors.ts";
 import { localeMiddleware } from "../src/lib/locale.ts";
 import type { AppEnv } from "../src/lib/types.ts";
@@ -332,5 +332,97 @@ describe("the module chain in front of the routes", () => {
 
     const anonymous = await call(participantsPath(householdId));
     expect(anonymous.status).toBe(401);
+  });
+});
+
+describe("a participant leaving the household (toon-finance member_has_ledger, SPEC D13)", () => {
+  const membersPath = (householdId: string, userId: string): string =>
+    `/api/households/${householdId}/members/${userId}`;
+
+  async function isMember(householdId: string, userId: string): Promise<boolean> {
+    const rows = await db
+      .select({ userId: householdMembers.userId })
+      .from(householdMembers)
+      .where(and(eq(householdMembers.householdId, householdId), eq(householdMembers.userId, userId)));
+    return rows.length > 0;
+  }
+
+  async function bookRow(householdId: string, payerId: string): Promise<void> {
+    await db.insert(financeTransactions).values({
+      id: crypto.randomUUID(),
+      householdId,
+      payerId,
+      splitMode: "SPLIT_EQUAL",
+      amountCents: 1_000,
+      description: "Einkauf",
+      bookedAt: Date.now(),
+      dateSource: "day",
+      origin: "manual",
+      categorySource: "manual",
+    });
+  }
+
+  test("(h) a seated participant with ledger rows cannot leave or be removed: 409 member_has_ledger, nothing changes", async () => {
+    const { owner, b, householdId } = await trio();
+    await bookRow(householdId, b.id);
+    const before = await list(owner, householdId);
+
+    const leave = await call(membersPath(householdId, b.id), { method: "DELETE", cookie: b.cookie });
+    expect(leave.status).toBe(409);
+    expect((await errorOf(leave)).code).toBe("member_has_ledger");
+
+    const removed = await call(membersPath(householdId, b.id), { method: "DELETE", cookie: owner.cookie });
+    expect(removed.status).toBe(409);
+    expect((await errorOf(removed)).code).toBe("member_has_ledger");
+
+    expect(await isMember(householdId, b.id)).toBe(true);
+    expect(await list(owner, householdId)).toEqual(before);
+
+    // The partner who never paid is just as bound: every row involves both slots.
+    const ownerLeaves = await call(membersPath(householdId, owner.id), { method: "DELETE", cookie: owner.cookie });
+    expect(ownerLeaves.status).toBe(409);
+  });
+
+  test("(h2) once the ledger rows are gone the participant may leave", async () => {
+    const { b, householdId } = await trio();
+    await bookRow(householdId, b.id);
+    expect((await call(membersPath(householdId, b.id), { method: "DELETE", cookie: b.cookie })).status).toBe(409);
+    await db.delete(financeTransactions).where(eq(financeTransactions.householdId, householdId));
+    expect((await call(membersPath(householdId, b.id), { method: "DELETE", cookie: b.cookie })).status).toBe(204);
+    expect(await isMember(householdId, b.id)).toBe(false);
+  });
+
+  test("(h3) a member without a seat leaves freely, ledger or not", async () => {
+    const { owner, c, householdId } = await trio();
+    await bookRow(householdId, owner.id);
+    const leave = await call(membersPath(householdId, c.id), { method: "DELETE", cookie: c.cookie });
+    expect(leave.status).toBe(204);
+    expect(await isMember(householdId, c.id)).toBe(false);
+  });
+
+  test("(h4) a seated participant with an empty ledger may leave and an admin can seat a replacement (no dead end)", async () => {
+    const { owner, b, c, householdId } = await trio();
+    expect((await call(membersPath(householdId, b.id), { method: "DELETE", cookie: b.cookie })).status).toBe(204);
+
+    const replace = await call(participantsPath(householdId), {
+      method: "PUT",
+      cookie: owner.cookie,
+      body: { participants: [{ userId: owner.id, memberSlot: 1 }, { userId: c.id, memberSlot: 2 }] },
+    });
+    expect(replace.status).toBe(200);
+    expect((await list(owner, householdId)).items.map((item) => item.userId)).toEqual([owner.id, c.id]);
+  });
+
+  test("(h5) the veto applies while finance is disabled: its rows outlive a disable (D2)", async () => {
+    const { owner, b, householdId } = await trio();
+    await bookRow(householdId, b.id);
+    const disable = await call(`/api/households/${householdId}/modules/finance`, {
+      method: "DELETE",
+      cookie: owner.cookie,
+    });
+    expect(disable.status).toBeLessThan(300);
+    const leave = await call(membersPath(householdId, b.id), { method: "DELETE", cookie: b.cookie });
+    expect(leave.status).toBe(409);
+    expect((await errorOf(leave)).code).toBe("member_has_ledger");
   });
 });

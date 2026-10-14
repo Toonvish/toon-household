@@ -263,6 +263,35 @@ export async function assignParticipants(
   }
 }
 
+/**
+ * The finance half of "a member leaves" (the module's `onMemberRemoving` hook; toon-finance
+ * `removeMember`'s `member_has_ledger` guard, SPEC D13): a SEATED participant may not leave the
+ * household while the ledger has rows, because their balance would hang off a member who no
+ * longer exists, and {@link assignParticipants} would then refuse to replace them too (a dead
+ * end no admin action could clear). Same predicate as the replacement rule: ANY
+ * `finance_transactions` row of the household (every row involves both slots) or a
+ * `finance_incomes.person_id` naming the leaver → `409 member_has_ledger`. A member without a
+ * seat, and a seated one with an empty ledger, may leave (the latter's slot row stays until an
+ * admin seats someone else, which an empty ledger allows).
+ */
+export async function assertParticipantMayLeave(db: DbLike, householdId: string, userId: string): Promise<void> {
+  const seat = await participantSlotOf(db, householdId, userId);
+  if (seat === null) return;
+  const transactionRows = await db
+    .select({ id: financeTransactions.id })
+    .from(financeTransactions)
+    .where(eq(financeTransactions.householdId, householdId))
+    .limit(1);
+  const incomeRows = await db
+    .select({ id: financeIncomes.id })
+    .from(financeIncomes)
+    .where(and(eq(financeIncomes.householdId, householdId), eq(financeIncomes.personId, userId)))
+    .limit(1);
+  if (transactionRows.length > 0 || incomeRows.length > 0) {
+    throw ApiError.conflict("member_has_ledger", "server.household.memberHasLedger");
+  }
+}
+
 /** {@link assignParticipants} inside its own transaction (the PUT route's entry point). */
 export async function saveParticipants(
   db: Database,

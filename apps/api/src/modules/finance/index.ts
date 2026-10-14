@@ -11,6 +11,9 @@
  * - `onEnable` — seats the two participants from the enable settings (or requires the
  *   existing two), else `422 finance_participants_required`; then the plan row.
  *
+ * - `onMemberRemoving` — a seated participant cannot leave while the ledger has rows,
+ *   `409 member_has_ledger` (toon-finance's guard, SPEC D13).
+ *
  * `householdRouter`: the participants routes plus the ledger routers (transactions, categories,
  * tags, plan, balance, settlements), mounted under `/api/households/:householdId/finance/`.
  *
@@ -25,6 +28,7 @@ import { financeHouseholdRouter } from "./routes/index.ts";
 import { financeTables } from "./schema.ts";
 import { seedFinanceDemo } from "./seed.ts";
 import { onFinanceEnable, onFinanceHouseholdCreated } from "./setup.ts";
+import { assertParticipantMayLeave } from "./services/participants/participants.service.ts";
 import { runBootCatchUp, startAccrualScheduler, stopAccrualScheduler } from "./services/plan/scheduler.ts";
 
 export const financeModule: ApiModule = {
@@ -33,6 +37,7 @@ export const financeModule: ApiModule = {
   schema: financeTables,
   onHouseholdCreated: onFinanceHouseholdCreated,
   onEnable: onFinanceEnable,
+  onMemberRemoving: (householdId, userId, tx) => assertParticipantMayLeave(tx, householdId, userId),
   seedDemo: seedFinanceDemo,
   start: async () => {
     await runBootCatchUp();

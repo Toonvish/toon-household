@@ -1511,9 +1511,14 @@ CLAUDE.md names no file that does not exist.
    temp file DB, T09 records the exact failure in the ADR and the test asserts the strongest
    property that holds.
 6. **Participant churn vs core membership.** Removing a household member who is a finance
-   participant is a core action that does not consult finance: the slot row stays (FK `restrict`
-   only blocks deleting the USER), the ledger keeps working, and the leaver loses access through
-   `requireHouseholdRole`. A core→module "member leaving" hook is out of M3 (§7).
+   participant used to be a core action that did not consult finance. REVISED after the M3 review
+   (finding: a leaver with ledger rows left a ghost participant that no admin could replace, because
+   `PUT …/participants` answers 409 `finance_participant_in_use` while any transaction exists): the
+   core now calls `ApiModule.onMemberRemoving` before deleting the `household_members` row and
+   finance vetoes with `409 member_has_ledger` (toon-finance's guard, SPEC D13) for a seated
+   participant while the household has any `finance_transactions` row or an income naming them. A
+   seated participant with an empty ledger may leave; the slot row stays until an admin seats
+   someone else (an empty ledger allows it). `finance-participants.test.ts` (h)…(h5).
 7. **Typed router hooks in F screens** must all become `@/lib/nav` helpers; `NOROUTER` and
    `LINKS_FIN` are the checks, T12's clicks the backstop (string-typed links compile wrong).
 8. **Port size.** T05 (20 files), T06 (21), T08 (16) are mechanical with exact tables; the API

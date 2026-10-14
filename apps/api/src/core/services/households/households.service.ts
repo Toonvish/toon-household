@@ -18,6 +18,8 @@ import type { Database } from "../../../db/client.ts";
 import { householdMembers, households, users } from "../../../db/schema.ts";
 import type { HouseholdRow } from "../../../db/schema.ts";
 import { ApiError } from "../../../lib/errors.ts";
+import { API_MODULES } from "../../../modules/index.ts";
+import type { ApiModule } from "../../../modules/types.ts";
 import type { Membership } from "../../../lib/types.ts";
 import { normalizeStoredUploadUrl } from "../../../lib/uploadUrls.ts";
 import { toHouseholdMember, toHouseholdWithRole } from "./mappers.ts";
@@ -263,12 +265,15 @@ export async function updateMemberRole(
 /**
  * Removes a member (admin+) or lets a member leave the household themselves.
  * Admins may not remove someone above their own rank, and the last owner
- * cannot leave -> 409 `last_owner`.
+ * cannot leave -> 409 `last_owner`. Every build module's `onMemberRemoving` hook runs
+ * first and may veto (finance: 409 `member_has_ledger` while the ledger has rows, SPEC D13);
+ * a veto deletes nothing.
  */
 export async function removeMember(
   db: DbLike,
   actor: Membership,
   targetUserId: string,
+  modules: readonly ApiModule[] = API_MODULES,
 ): Promise<void> {
   const { householdId } = actor;
   const target = await loadMemberRow(db, householdId, targetUserId);
@@ -287,6 +292,8 @@ export async function removeMember(
       isSelf ? "server.group.transferOwnershipFirst" : "server.group.lastOwner",
     );
   }
+
+  for (const module of modules) await module.onMemberRemoving?.(householdId, targetUserId, db);
 
   await db
     .delete(householdMembers)

@@ -54,6 +54,14 @@ export interface ApiModule {
    * `ApiError` (e.g. finance validates its two participants, SPEC D3).
    */
   onEnable?(householdId: string, settings: unknown, tx: DbExecutor): Promise<void>;
+  /**
+   * Runs inside `removeMember` (a member leaves, or an admin removes one) BEFORE the
+   * `household_members` row is deleted, for EVERY build module whether or not the household
+   * has it enabled (its rows outlive a disable, D2). A module that keeps rows naming the
+   * member refuses by throwing an `ApiError`, e.g. finance's `409 member_has_ledger`
+   * (toon-finance `removeMember`, SPEC D13): nothing is deleted then.
+   */
+  onMemberRemoving?(householdId: string, userId: string, tx: DbExecutor): Promise<void>;
   /** The module's part of `migrate:legacy` (SPEC §6). */
   legacyMigration?: LegacyMigrator;
   /**
