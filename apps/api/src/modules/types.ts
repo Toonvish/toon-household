@@ -65,6 +65,13 @@ export interface ApiModule {
    */
   afterMigrate?(database: Database): Promise<void>;
   /**
+   * Runs once at boot (index.ts), after `await dbReady` and before the server takes
+   * traffic: a module starts its background work here, e.g. finance's boot catch-up and
+   * its 6-hour accrual tick (plan M3 decision 7). Never called under `bun test`. A
+   * rejection is logged in English and the boot continues with the other modules.
+   */
+  start?(): Promise<void>;
+  /**
    * Graceful teardown on SIGTERM/SIGINT (index.ts), e.g. recipe terminates its
    * long-lived OCR worker. Never called under `bun test`. Should not throw; a
    * rejection is logged and the process exits anyway.

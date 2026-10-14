@@ -13,6 +13,8 @@
     "seed": "bun scripts/seed.ts",
     "auth:reset-password": "bun scripts/reset-password.ts",
     "uploads:gc": "bun scripts/uploads-gc.ts",
+    "plan:run": "bun scripts/plan-run.ts",
+    "finance:import-xlsx": "bun scripts/finance-import-xlsx.ts",
     "db:studio": "bunx drizzle-kit studio"
   },
   "dependencies": {

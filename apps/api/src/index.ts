@@ -198,6 +198,13 @@ if (!env.isTest) {
   // done under `bun test`, where this module is imported for `app.fetch` and a
   // top-level await would serialise every test file behind it.
   await dbReady;
+  for (const module of API_MODULES) {
+    try {
+      await module.start?.();
+    } catch (error) {
+      console.error(`[api] start of module ${module.id} failed:`, error);
+    }
+  }
   console.log(
     `[api] toon-household API on http://localhost:${env.API_PORT} (db: ${env.databaseKind}, origins: ${env.webOrigins.join(", ")}, mail: ${env.mailTransport}, web: ${env.webDistDir ?? "extern"})`,
   );
