@@ -18,7 +18,7 @@
  * route types and the registered tree stays strict (decision 10). A consumer that wants
  * the wide type takes `readonly WebModule[]` — the tuple is assignable to it.
  *
- * M2: `recipeModule`. M3 appends `financeModule`.
+ * Today: `recipeModule`. M3 appends `financeModule`.
  */
 import { recipeModule } from "./recipe";
 import type { WebModule } from "./types";

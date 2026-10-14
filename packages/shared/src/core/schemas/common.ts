@@ -164,7 +164,7 @@ export type PaginationQuery = z.infer<typeof PaginationQuerySchema>;
  * Optional parts of the app a deployment can be built or configured without.
  *
  * Core features are named here; each module's `healthFeatures()` merges its own booleans in (SPEC §2) —
- * recipe's `ocrImport`/`pdfImport` return with M2. An unknown key reads as unavailable.
+ * recipe's `ocrImport`/`pdfImport` arrive through its `healthFeatures()`. An unknown key reads as unavailable.
  *
  * This is what lets the UI stop offering something the server cannot do, instead
  * of showing a button that answers 501. It rides on `/api/health` because that is
