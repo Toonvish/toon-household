@@ -14,13 +14,16 @@
  * `householdRouter` (M3-T03b): the participants routes; the ledger routers are empty stubs until
  * M3-T05/T06 fill them.
  *
- * Still to come in M3: `start` + `shutdown` (the accrual scheduler, M3-T06), `seedDemo`
- * (M3-T09).
+ * `start` / `shutdown` (M3-T06, plan decision 7): the boot catch-up of the fixed-cost plan
+ * and its 6-hour accrual tick (`./services/plan/scheduler.ts`).
+ *
+ * Still to come in M3: `seedDemo` (M3-T09).
  */
 import type { ApiModule } from "../types.ts";
 import { financeHouseholdRouter } from "./routes/index.ts";
 import { financeTables } from "./schema.ts";
 import { onFinanceEnable, onFinanceHouseholdCreated } from "./setup.ts";
+import { runBootCatchUp, startAccrualScheduler, stopAccrualScheduler } from "./services/plan/scheduler.ts";
 
 export const financeModule: ApiModule = {
   id: "finance",
@@ -28,4 +31,11 @@ export const financeModule: ApiModule = {
   schema: financeTables,
   onHouseholdCreated: onFinanceHouseholdCreated,
   onEnable: onFinanceEnable,
+  start: async () => {
+    await runBootCatchUp();
+    startAccrualScheduler();
+  },
+  shutdown: async () => {
+    stopAccrualScheduler();
+  },
 };
