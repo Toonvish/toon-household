@@ -7,7 +7,6 @@
  * created by inserting a `sessions` row and sending the documented
  * `toon_session` cookie — no dependency on the auth routes.
  */
-import { foldText } from "@toon/shared";
 import { afterEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "../src/db/client.ts";
@@ -17,6 +16,7 @@ import {
   householdMembers,
   householdModules,
   households,
+  recipes,
   sessions,
   users,
 } from "../src/db/schema.ts";
@@ -159,7 +159,7 @@ describe("GET /api/households", () => {
     const owner = await createUser("Lister");
     const stranger = await createUser("Stranger");
     const householdId = await createHousehold(owner, "Meine Rezepte");
-    // M2: the recipe row (and its recipe count) returns with the recipe module.
+    // Counts per module are not reported (ADR 0001).
 
     const mine = await body<{ items: HouseholdPayload["household"][] }>(
       await call("/api/households", { cookie: owner.cookie }),
@@ -557,7 +557,14 @@ describe("update and delete a household", () => {
     await db
       .insert(householdMembers)
       .values({ id: crypto.randomUUID(), householdId, userId: admin.id, role: "admin" });
-    // M2: the recipe-row cascade assertion returns with the recipe module.
+    const recipeResponse = await call(`/api/households/${householdId}/recipe/recipes`, {
+      method: "POST",
+      cookie: owner.cookie,
+      body: { title: "Suppe", ingredients: [], steps: [], tags: [] },
+    });
+    expect(recipeResponse.status).toBe(201);
+    const recipeId = (await body<{ recipe: { id: string } }>(recipeResponse)).recipe.id;
+    expect(await db.select().from(recipes).where(eq(recipes.id, recipeId))).toHaveLength(1);
 
     expect(
       (await call(`/api/households/${householdId}`, { method: "DELETE", cookie: admin.cookie })).status,
@@ -568,6 +575,7 @@ describe("update and delete a household", () => {
     ).toBe(204);
 
     expect(await db.select().from(households).where(eq(households.id, householdId))).toHaveLength(0);
+    expect(await db.select().from(recipes).where(eq(recipes.householdId, householdId))).toHaveLength(0);
     expect(await db.select().from(householdModules).where(eq(householdModules.householdId, householdId))).toHaveLength(0);
     expect(await db.select().from(householdMembers).where(eq(householdMembers.householdId, householdId))).toHaveLength(0);
   });
