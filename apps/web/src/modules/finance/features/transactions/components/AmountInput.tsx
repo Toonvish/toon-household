@@ -79,14 +79,17 @@ export function AmountInput({ valueCents, onChange, error, id: idProp, autoFocus
           value={text}
           onChange={(event) => commit(event.currentTarget.value, isCredit)}
           className={cn(
-            "w-full min-w-0 rounded-xl border border-line bg-surface px-4 py-4 text-right font-display text-display-4xl font-medium",
+            "w-full min-w-0 rounded-xl border border-line bg-surface py-4 pl-4 pr-12 text-right font-display text-display-4xl font-medium",
             "text-fg tabular-nums shadow-soft transition-colors duration-150",
             "placeholder:text-fg-subtle",
             "focus:border-brand focus:outline-2 focus:outline-offset-0 focus:outline-brand/40",
             "aria-[invalid=true]:border-danger aria-[invalid=true]:focus:outline-danger/40",
           )}
         />
-        <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-4 my-auto text-display-lg text-fg-subtle">
+        {/* The glyph lives in the input's reserved right gutter (`pr-12` above), vertically centred by the
+            flex box: an `absolute inset-y-0` span with `my-auto` has no height of its own, so it stuck to
+            the top and overprinted the last digit of the right-aligned amount (M4 review). */}
+        <span aria-hidden="true" data-amount-currency className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-display-lg text-fg-subtle">
           €
         </span>
       </div>

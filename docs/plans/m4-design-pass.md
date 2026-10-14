@@ -1231,3 +1231,11 @@ not repeated; this run is the indicator.)
   `modules/recipe/features/recipes/print-css.test.ts`.
 - **Handed on** (CLAUDE.md "Obligations"): M5 `migrate:legacy`, M6 redirects and Docker, M7 docs; the owner
   decisions of section 7 stay open; the printed phone detail's scaler and shopping link (9.8).
+- **Review fix (medium): the euro sign overlapped the amount in `AmountInput`.** The input was `px-4` and the
+  glyph an `absolute inset-y-0 right-4 my-auto` span, so it sat in the same right-hand 1rem as the right-aligned
+  digits and, with no height of its own, stuck to the top. The input now reserves `pr-12` and the glyph is
+  centred with `flex items-center`. `AmountInput.test.ts` reads the source (reserved gutter at least offset plus
+  glyph width, no `my-auto`, no symmetric `px-*`). A headless run on the built app measured the real boxes at
+  390 and 1440, light and dark, empty and typed ("1.234,56"): glyph left 342 vs content right 325 (390) and 1361
+  vs 1344 (1440), glyph centre within 1px of the input centre, no console error. The four `finance-new` and the
+  two `finance-transaction-edit` screenshots were retaken.
