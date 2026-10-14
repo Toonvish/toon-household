@@ -344,12 +344,12 @@ function AppearanceCard({
               onClick={() => onChange(option.value)}
               className={
                 active
-                  ? "flex min-h-20 flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-brand bg-brand-soft text-sm font-medium text-brand-soft-fg"
-                  : "flex min-h-20 flex-col items-center justify-center gap-1.5 rounded-xl border border-line bg-surface text-sm text-fg-muted hover:bg-surface-2"
+                  ? "flex min-h-20 min-w-0 flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-brand bg-brand-soft text-sm font-medium text-brand-soft-fg"
+                  : "flex min-h-20 min-w-0 flex-col items-center justify-center gap-1.5 rounded-xl border border-line bg-surface text-sm text-fg-muted hover:bg-surface-2"
               }
             >
               <option.icon className="size-5" aria-hidden="true" />
-              {t(option.labelKey)}
+              <span className="block min-w-0 max-w-full truncate px-1">{t(option.labelKey)}</span>
             </button>
           );
         })}
@@ -407,7 +407,7 @@ function LanguageCard() {
                 }
               >
                 <option.icon className="size-5" aria-hidden="true" />
-                {t(option.labelKey)}
+                <span className="block min-w-0 max-w-full truncate px-1">{t(option.labelKey)}</span>
               </button>
             );
           })}

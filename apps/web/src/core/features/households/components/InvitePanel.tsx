@@ -202,7 +202,7 @@ export function InvitePanel({ householdId, householdName, enabled }: InvitePanel
               {errors._form}
             </p>
           ) : null}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_11rem]">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_11rem]">
             <Input
               label={t("household.invite.emailLabel")}
               type="email"
