@@ -42,7 +42,7 @@ headless numbers, the four-combination measurement, the print and offline runs a
 index; section 10 is "what changed vs plan"; no deviation from SPEC §1, no new ADR, ADR 0004 gained one
 consequence bullet). Next: **M5 migration** (`migrate:legacy`, SPEC §6 and §8), then M6 deploy, M7 harden.
 
-What exists after M4: the three workspaces build, typecheck and test green (`bun test`: 1828 pass in 105 files).
+What exists after M4: the three workspaces build, typecheck and test green (`bun test`: 1832 pass in 106 files).
 Two modules are built: `API_MODULES` and `WEB_MODULES` are `[recipe, finance]` and `/api/health`
 reports `modules: ["recipe","finance"]`. The recipe module is as after M2 (recipes with search and
 filters, tags, collections, URL / photo / PDF import, meal plan with cook log, shopping lists with the
@@ -78,7 +78,10 @@ offline note on the built app (8 checks). 78 viewport PNGs are committed in
 defects (each its own commit): the Buchen bar overlapped the tab bar's 1px border, Settings / Gruppen /
 Gruppe detail had no phone header row, `print.css` could not reveal the hidden phone panels (an
 unlayered `!important` loses to the `@layer base` reset), and `useMediaQuery` flipped the recipe
-detail's markup mid-print.
+detail's markup mid-print. The M4 review added one more fix: `AmountInput` reserves `pr-12` and centres
+the euro glyph with `flex items-center` (a height-less `absolute my-auto` span had overprinted the
+right-aligned digits); `AmountInput.test.ts` guards it from the source and the six affected screenshots
+were retaken.
 
 `bun run i18n:check` exits 1 by design; its parity half is OK and its leftover-German half reports
 138 hits: 128 German labels or umlaut examples quoted in doc comments (18 of them in finance code:

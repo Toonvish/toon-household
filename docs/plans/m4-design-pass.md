@@ -1,7 +1,8 @@
 # M4 — design pass: plan
 
-**Status: PLANNED (rev. 1, 2026-10-14).** Section 9 (integration record) and section 10 ("what
-changed vs plan") are written by M4-T09 and the milestone close.
+**Status: DONE (2026-10-14).** Section 9 is the integration record, section 10 "what changed vs plan"
+(no deviation from SPEC §1, no ADR; ADR 0004 gained one consequence bullet). Final tree after the review
+fix: `bun test` 1832 pass in 106 files, typecheck and build green.
 
 Milestone M4 of `docs/SPEC.md` §8, written by the planner of the `build-household` workflow. Paths:
 `H` = `/home/erics/software/toon-household` (this repo), `R` = `/home/erics/software/toon-recipe`,
@@ -1231,6 +1232,9 @@ not repeated; this run is the indicator.)
   `modules/recipe/features/recipes/print-css.test.ts`.
 - **Handed on** (CLAUDE.md "Obligations"): M5 `migrate:legacy`, M6 redirects and Docker, M7 docs; the owner
   decisions of section 7 stay open; the printed phone detail's scaler and shopping link (9.8).
+- **Gate numbers after the review fix**: section 9.2 records the tree before it; the final tree has 1832
+  pass in 106 files (the fix added `AmountInput.test.ts` cases, 1828 before). One full `bun test` run under
+  load reported 1 fail that did not reproduce on two reruns (1832 pass, 0 fail); no test was changed for it.
 - **Review fix (medium): the euro sign overlapped the amount in `AmountInput`.** The input was `px-4` and the
   glyph an `absolute inset-y-0 right-4 my-auto` span, so it sat in the same right-hand 1rem as the right-aligned
   digits and, with no height of its own, stuck to the top. The input now reserves `pr-12` and the glyph is
