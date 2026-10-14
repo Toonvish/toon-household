@@ -1611,3 +1611,203 @@ four combinations with screenshots. M5: `migrate:legacy` maps F's tables to Tabl
 `finance_settings`, `fixed_cost_plans` → `finance_fixed_cost_plans`, and proves the balance
 invariant. M6: old-path redirects for F bookmarks. M7: `docs/modules/finance.md`, `docs/API.md`
 finance section, the member-leaves hook decision (risk 6).
+
+## 9. Integration record
+
+Written by M3-T12 on the merged tree (`main`, 2026-10-14). Logs live under `data/` (git-ignored):
+`m3-t12-{install,typecheck,test,build,i18n}.log`, `m3-t12-db.log`, `m3-t12-curl.log`,
+`m3-t12-headless.log`, `m3-t12-offline.log`, `m3-t12-offline-recipe.log`; every one ends in
+`exit=$?`. The scripts (curl walkthrough, Playwright 1.64 with the cached Chromium 1248) live in the
+session scratch directory outside the repo; the API ran as `WEB_DIST_DIR=./apps/web/dist bun run
+start` on `:3001` against a fresh `data/m3.db` (the built app, service worker active), so one
+server served the curl, headless and offline runs.
+
+### 9.1 Fixes found by the integration run (each its own commit)
+
+| Failing check | Cause | Commit |
+| --- | --- | --- |
+| Offline replay, second reload while offline: a finance booking queued offline replayed after ONE reload but was gone after TWO (persisted blob after the second reload: no mutation; rows after going online: 0) | TanStack's `onlineManager` starts "online" and changes only on a browser `online` / `offline` event. A page reloaded while offline therefore believed it was online: the restored paused mutation re-ran, failed and waited in an unpaused in-memory retry, and the persist policy (paused mutations only, F gotcha 9, SPEC D9) wrote the blob again without it. `seedOnlineManager()` in `lib/query-client.ts` seeds the manager from `navigator.onLine` once at boot, with two unit tests. Trace of the persisted blob every 500 ms after the reload: `----------------` before, `QQQQQQQQQQQQQQQQ` after. The recipe shopping outbox shares the path: the M2 offline script re-run on the fixed build is still 11 of 11 | `1f314e4` |
+| `grep 'M3:'` over `apps packages scripts` (acceptance: no placeholder left, and no comment still describing finance as future work) | `modules/finance/index.ts` said the ledger routers were "empty stubs until M3-T05/T06", `router.tsx` "M3 adds /finance/…", `modules/catalogs.ts` "M3 registers finance". The grep itself found nothing (no `M3:` marker survived); the three comments were reworded | `55b4ee2` |
+
+No other product defect was found; the harness scripts needed corrections (9.9), none of them a
+product change.
+
+### 9.2 Gates (final tree)
+
+| Gate | Result |
+| --- | --- |
+| `bun install --frozen-lockfile` | exit 0 (`Checked 436 installs across 625 packages (no changes)`) |
+| `bun run typecheck` | `[typecheck] OK`, exit 0 (shared, api, three web projects) |
+| `bun test` | 1728 pass, 0 fail, 9604 expect() calls, 95 files, exit 0 (1726 before the two `seedOnlineManager` tests) |
+| `bun run build` | exit 0 (Vite build plus `dist/sw.js` and workbox) |
+| `bun run i18n:check` | exit 1 by design; **parity half `[i18n:check] OK`**; leftover half 137 hits, classified in 9.4 |
+| `LINKS_FIN`, `NOROUTER`, `NOCORE`, `NOSHADOW` (section 3) | all four: no match (`! grep …` succeeds) |
+| `SERVERKEYS` (every `"server.…"` literal of the ported F files exists in the core catalog) | no key missing |
+| `grep 'M3:'` over `apps packages scripts` (`*.ts`, `*.tsx`) | no match; `apps/web/src/features` does not exist |
+
+### 9.3 Exit criterion: every F test file has a passing counterpart
+
+Checked mechanically against `/home/erics/software/toon-finance` (read-only): the number of
+`test(` / `it(` cases per mapped file is equal or higher in H for every pair of section 8:
+
+| F file | H counterpart | cases F / H |
+| --- | --- | --- |
+| shared `money`, `ledger`, `period`, `plan`, `tags`, `schemas` | `finance-<same>.test.ts` | 15/15, 17/17, 17/17, 11/11, 3/3, 24/24 |
+| shared `i18n` | `finance-i18n.test.ts` + `i18n.test.ts` | 21/31 |
+| api `transactions`, `idempotency`, `balance`, `settlements`, `categories`, `tags`, `plan` | `finance-<same>.test.ts` | 9/9, 10/10, 2/2, 5/5, 5/5, 4/4, 15/15 |
+| api `import-haushalt` | `finance-import-xlsx.test.ts` | 43/43 |
+| api `households`, `smoke`, `auth`, `invites` | `finance-participants` + `finance-module` + core `households`, `smoke`, `auth`, `finance-file-db` | 8/46, 10/30, 12/40, 12/24 (H counts include the core's own cases) |
+| web `format`, `queries`, `offline` | `modules/finance/…` | 7/7, 3/3, 5/5 |
+| web `persist`, `i18n`, `unsavedWork`, `validation` | `modules/finance/persist.test.ts` + core `persist`, core `i18n`, `unsavedWork`, `validation` | 13/42, 13/17, 5/5, 6/6 |
+
+The named cases exist and pass: `halfForOther(-101)` is `-50` (`finance-money.test.ts:24`), "a SECOND
+retroactive correction of the same period books a second, distinct adjustment"
+(`finance-plan.test.ts:462`), the import/plan period collision ("imported rent and the live plan
+never collide", "a period covered by an IMPORT row is never given a plan adjustment";
+`isPeriodBooked` is exercised through them, F has no direct test of it either) and `409
+balance_stale` (`finance-settlements.test.ts:30`, and live in 9.5).
+
+### 9.4 `i18n:check` leftover hits, all classified (137)
+
+| Class | Count | Where |
+| --- | --- | --- |
+| Comment quotes of German labels or umlaut examples, recipe and core (as in M2) | 110 | unchanged from M2's 120 minus its 10 content-vocabulary lines |
+| Comment quotes of German labels or toon-finance doc quotes, NEW in finance code | 17 | `AmountText.tsx` (2, a quoted CLAUDE.md sentence), `routes.tsx`, `index.ts`, `overview/lib/queries.ts`, `TransactionDetailPage`, `EditTransactionPage`, `CategorySheet`, `TransactionFormFields`, `TransactionFilters`, `TransactionList`, `TransactionsPage`, `NewTransactionPage` (2), `lib/kinds.ts` (an example sentence "…teilt 12,50 €…"), api `lib/clock.ts` (`[API-DOMÄNE]` tag), shared `tags.ts` ("überwiesen") |
+| Content vocabulary (German recipe language, never through `t()`) | 10 | `IngredientsEditor.tsx:290`, `ParsedRecipeEditor.tsx:84`, `draftEdit.ts:459`, `html/entities.ts:23-29` |
+| Real German UI literal in code | 0 | every hit outside the content class starts with `*`, `//`, `/**` or `{/*` (checked mechanically: 127 comment lines, 10 code lines, all 10 in recipe) |
+
+The check was not suppressed or edited by T12; `scripts/i18n-check.ts` is unchanged. Finance's seed
+content (`seed.ts`) and the xlsx importer's parsers are German on purpose and are not scanned
+(`apps/api/scripts` is outside `PORTED_ROOTS`; the seed is allow-listed).
+
+### 9.5 Fresh-DB walkthrough (`data/m3.db`)
+
+`bun run db:migrate` exit 0 (`0000_core`, `0001_recipe`, `0002_finance`); `bun run seed` exit 0 (the
+recipe data, then `[seed] finance enabled: demo = Person 1, Robin = Person 2, Kim stays a
+non-participant`, `8 transactions and 1 settlement`, `Fixkostenplan from 2026-08: 3 period(s)
+booked`); `bun run seed` again exit 0 (`finance ledger already present`, every recipe "already
+present": idempotent); `bun run plan:run` exit 0 (`booked 0 period(s), skipped 0, 0 ct total`: the
+seed's catch-up already booked everything). Curl with three cookie jars (final run,
+`data/m3-t12-curl.log`, exit 0; a second POST of every transaction with the same `mutationId`):
+
+- `GET /api/health`: `modules: ["recipe","finance"]`, features unchanged. Login 200 for demo, robin,
+  kim; `GET /api/auth/me` lists `modules: ["recipe","finance"]` for "Familie" (owner demo).
+- Participants: demo `viewerSlot` 1, robin 2, **kim `null`**, all three see the same two items
+  ordered by slot. Kim on `balance`, `transactions`, `plan`, `categories`, `tags`, `settlements`:
+  **403 `finance_not_participant`** (every method of every ledger router, plan decision 3).
+- Demo creates MINE_SPLIT 1001, THEIRS_SPLIT 801, FOR_THEM 500, TRANSFER 2000: first POST **201**, the
+  same body and `mutationId` again **200**, and the list holds **exactly one row per description**
+  (`total` 4 for the run's tag). Projections: `payerShareCents` 501 / `otherShareCents` 500 for the odd
+  cent of 1001 (the payer keeps it), `splitMode` `SPLIT_EQUAL`, `OTHER_ONLY`, `SETTLEMENT`;
+  `kind=` filters return the matching row for demo and, for robin, the crossed projection (robin's
+  MINE_SPLIT is demo's THEIRS_SPLIT row; FOR_THEM and TRANSFER match nothing for robin). `amountCents: 0`:
+  422 `transaction_amount_zero`.
+- Summary 200 (`totalExpenseCents` 181097 after the run, 3 months, 7 categories). Balance: demo
+  `viewerBalanceCents` 127036, **robin −127036** (same `balanceCents`, negated for slot 2).
+- Settlement with `expectedBalanceCents` 127037: **409 `balance_stale`** with
+  `details.currentBalanceCents` 127036; with 127036: **201**, `splitMode` `SETTLEMENT`, balance after 0.
+- Plan: GET (`enabled: true`, `startPeriod` 2026-08, `lastBookedPeriod` 2026-10, 2 items, 2 incomes,
+  `pendingPeriods: []`), preview 2026-10 (cost 103000, income 560000), `POST /plan/run` 200 with nothing to
+  book.
+- Categories: create two (201), rename (200), delete with a booking attached and no `reassignTo`:
+  **409 `category_in_use`**, with `reassignTo`: **204** and the row moved; deleting `fixkosten`: 409
+  `category_system`. Tag rename 200 (`usageCount` 1).
+- `PUT …/finance/participants` replacing robin by kim: **409 `finance_participant_in_use`**, participants
+  unchanged.
+- Module switch: `DELETE …/modules/finance` 204; `GET …/finance/balance` **404
+  `module_disabled`**; `POST …/modules/finance` with **no body 200**, `transactions` total unchanged
+  (19 before and after) and the two participants intact (data kept, D2).
+
+### 9.6 Headless (Playwright 1.64, Chromium 1248, de-DE, scratch directory outside the repo; one login per user, `storageState` reused)
+
+`data/m3-t12-headless.log`, **137 of 137 checks pass**, exit 0, on the final build:
+
+- **Nine screens at 390x844 and 1440x900, each in `colorScheme` light and dark** (demo): Home (finance
+  card), `/finance`, `/finance/transactions`, `/finance/transactions/$id`, `…/edit`, `/finance/new`,
+  `/finance/plan`, `/finance/categories`, `/settings` ("Finanzen: Teilnehmende"). Every one rendered
+  (no "Diese Seite gibt es nicht", the expected text present), **`scrollWidth <= clientWidth`**
+  (375 <= 390 and 1425 <= 1440 because of `scrollbar-gutter: stable`), and **no console errors** in any
+  of the four combinations. `body` background differs: `rgb(250, 245, 238)` light against `rgb(23, 18,
+  15)` dark at both widths.
+- Navigation chrome: at 390 the tab bar (`nav.fixed`) inside `/finance` is exactly **Übersicht,
+  Buchungen, Erfassen, Profil** (no Fixkosten, Kategorien or Gruppen) and the sidebar is `display:
+  none`; clicking each tab lands on its own path. At 1440 the sidebar (`aside[data-app-shell]`, width
+  236) carries Übersicht, Buchungen, Erfassen, Profil, then Fixkosten, Kategorien, Gruppen, the tab
+  bar is hidden, and each item lands on `/finance/transactions`, `/finance/new`, `/finance/plan`,
+  `/finance/categories`, `/finance`, `/households`. No unprefixed finance `href` on `/finance`.
+- Reachability at 390 (F "Navigation"): FixedCostCard → `/finance/plan`; the SpendByCategoryCard footer
+  ("Kategorien verwalten") → `/finance/categories`.
+- **"Buchen" bar above the tab bar** at 390 on `/finance/new` (button bottom 772 px <= tab bar top 783
+  px, F gotcha 15); typing 12,34 and a description and tapping Buchen shows the "Gebucht." toast and
+  the API holds exactly one row with amount 1234.
+- **Kim (household member, not a participant)** at 390 and 1440: `/finance`, `/finance/transactions`,
+  `/finance/new`, `/finance/plan`, `/finance/categories` all show "Du nimmst an der Haushaltskasse nicht
+  teil" naming "Demo Koch" and "Robin", no overflow; Home's finance card shows "Die Haushaltskasse
+  dieses Haushalts führen Demo Koch und Robin." and no balance. A separate probe of kim's six pages
+  recorded **no 4xx response** except the pre-login `/api/auth/me` 401 (the gate never fires a ledger
+  query for a non-participant).
+- **Enable flow** (fresh households created through the API): a one-member household's "Aktivieren" dialog says
+  "Lade zuerst jemanden ein" and offers no submit; a household with demo and kim opens "Finanzen
+  aktivieren" with Platz 1 preselected as the viewer, Platz 2 = Kim, "Aktivieren" enables finance
+  (participants API: demo slot 1, Kim slot 2) and `/finance` renders.
+- **Disabled module**: after `DELETE …/modules/finance`, loading `/finance` redirects to Home with the
+  toast "Dieses Modul ist für diesen Haushalt nicht aktiviert." (the SPA notices on the first `404
+  module_disabled`, by design); Home's "Aktivieren" opens the dialog, confirming re-enables it
+  (household lists `["recipe","finance"]`) and `/finance/transactions` shows the ledger with its data.
+
+### 9.7 Offline replay on the built app
+
+`bun run build`, `WEB_DIST_DIR=./apps/web/dist bun run start`, service worker active and controlling
+the page after one reload (`data/m3-t12-offline.log`, **13 of 13 pass**, exit 0, on the build that
+contains the 9.1 fix): `/finance/new` online, `context.setOffline(true)`, 7,77 EUR and a description,
+Buchen: the toast "Gespeichert. Wird übertragen, sobald du online bist." appears and the form clears at
+once; after the persister throttle the booking is a **paused mutation in the IndexedDB cache**; reload
+while offline: the page renders from the service worker and the booking is **still in the persisted
+cache** (trace `QQQQQQQQQQQQQQQQ` over 8 s); a **second** reload offline: still there; `setOffline(false)`:
+the API shows **exactly one row** with that description (amount 777), still one row after settling, the
+paused mutation has left the persisted cache, and no console errors other than the browser's own
+offline network lines (3 ignored). Before the 9.1 fix the same script failed three checks (blob without
+the mutation after reload, rows 0 after replay). The M2 recipe offline script (11 checks) was re-run
+against the same build, with its household pointed at "Familie" because the seed now leaves several
+households: 11 of 11 pass (`data/m3-t12-offline-recipe.log`). Risk 10 (a stale participant cache queuing
+writes for a removed participant) is unchanged: the replay would get 403 and `shouldRetry` never retries
+a 4xx, so the outbox drops it; not exercised.
+
+### 9.8 Observations recorded, not fixed (M4 and later)
+
+- The finance UI has no "N changes waiting" indicator: `finance.common.syncPending` is in the catalog
+  but nothing renders it (toon-finance's shell did; H's shell has no sync badge). The only feedback for a
+  queued write is the toast above. Handed to M4 (CLAUDE.md obligations).
+- Risk 9 (seed side effects) came true as expected: the demo household has three members, so the
+  headless counts of M2 ("1 Mitglied") read "3 Mitglieder" now; nothing else in the M2 checks depended
+  on it.
+- The browser logs "Failed to load resource … 404" for the expected `module_disabled` answer; the
+  headless check allows exactly that line in that block and no other.
+
+### 9.9 Corrections to the run scripts themselves (not product changes)
+
+A first curl run was started twice against one database because a `pkill -f` matched the shell and
+killed it, so the first log mixed two runs; the final log is from a fresh `data/m3.db`, one run. The
+headless script needed: `getByPlaceholder` for the Betrag and Beschreibung inputs (a `getByLabel("Betrag")`
+also matches the Erstattung switch), the sidebar's "Gruppen" click moved to the end (it leaves the finance
+layout), and household switching done through a non-SPA page: `["toon","me"]` is persisted, so a household
+created through the API after the SPA visited `/` is unknown to it, and `localStorage` `toon.activeHouseholdId`
+wins over the profile's `activeHouseholdId` (an accepted invite also moves the invitee's household; three
+earlier headless runs failed on a stale active household left by the run before). Both lessons are
+in CLAUDE.md "Headless runs". `ls` is an alias in the user's zsh, which made `NOSHADOW`'s directory list
+a one-word string; the checks were run under bash.
+
+### 9.10 Exit criteria (section 1) against the evidence
+
+| Criterion | Evidence |
+| --- | --- |
+| Gates green | 9.2 (install, typecheck, test 1728 pass, build exit 0; i18n parity OK) |
+| Every F test file has a passing counterpart (map in section 8), incl. `halfForOther(-101) === -50`, the single-rounding plan share, "a SECOND retroactive correction", `isPeriodBooked`, `409 balance_stale` | 9.3 (equal or higher case counts per file; the named cases located), 9.5 (`balance_stale` live) |
+| A household with three members assigns two participants and the third sees the non-participant state (API test + headless) | 9.5 (kim: `viewerSlot` null, 403 `finance_not_participant` on six routes) and 9.6 (kim's five screens and Home card); the API tests are `finance-participants.test.ts` and `finance-module.test.ts` |
+| Finance screens render at 390 and 1440 in dark and light with no console errors and `scrollWidth <= clientWidth` | 9.6 (nine screens x two widths x two schemes) |
+| `i18n:check` shows only classified hits | 9.4 (127 comment quotes + 10 recipe content lines, 0 real) |
+| Tab bar and sidebar per F "Navigation", reachability, "Buchen" bar above the tab bar | 9.6 |
+| Enable flow, `module_disabled` and non-participant states | 9.5, 9.6 |
+| Offline capture queued, kept over reloads, replayed once | 9.7 (13 of 13) |
+| `LINKS_FIN`, `NOROUTER`, `NOCORE`, `NOSHADOW` on the merged tree | 9.2 |
+| No `M3:` placeholder left | 9.2, 9.1 |
