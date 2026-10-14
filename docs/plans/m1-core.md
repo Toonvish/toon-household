@@ -1,5 +1,7 @@
 # M1 — core: plan
 
+**Status: DONE (2026-10-14).** Exit criteria met after review; see "8. What changed vs plan" at the end.
+
 Milestone M1 of `docs/SPEC.md` §8. Written 2026-10-13 by the planner of the `build-household`
 workflow; revised the same day after plan review (grep verifies that matched existing lines,
 the T07 helper imports, T08 split, T09 deps, the module-guard check). Paths: `H` = `/home/erics/software/toon-household` (this repo), `R` =
@@ -1415,3 +1417,89 @@ console error on the logged-out `/login` visit is the browser's own line for the
 leftover hits all comment quotes); walkthrough in tests and curl; Home empty state at 390 and
 1440 px; `GET /api/households/:id` returns `modules`; `moduleGuard` and `moduleLayoutComponent`
 tests are part of the 426 passing tests. M1 exit criteria met.
+
+## 8. What changed vs plan
+
+Milestone closed 2026-10-14 after review. Gates on the final tree (`2650283`): `bun install
+--frozen-lockfile`, `bun run typecheck`, `bun test` (431 pass, 0 fail, 30 files; 426 at the T12
+integration record plus 5 added by the review commits) and `bun run build` exit 0; `bun run
+i18n:check` exits 1 by design, its parity half is OK and its leftover-German half lists 16 hits, all
+"comment quote" false positives (classified in section 7). The review re-ran the headless check
+(fresh DB, `migrate` + `seed` exit 0, dev server, Playwright 1.64, de-DE) at 390 and 1440 px: logged
+out `/` goes to `/login`; Home shows "Familie" and "Noch keine Module aktiviert"; at 390 the tab bar
+is "Start", "Profil" and the sidebar is hidden; at 1440 the sidebar carries the household switcher
+and "Gruppen" under ORGANISIEREN; `/settings` shows the Gruppen card; no horizontal overflow; no
+console errors.
+
+**One deviation from SPEC §1 survived review: D10, recorded in
+`docs/adr/0001-household-copy-without-recipe-counts.md`** (two household strings lose their recipe
+count). SPEC D10 was amended in the ADR's commit. Everything else below is plan-level and touches
+no decision; SPEC text that merely became more precise (section 2 and 3 notes) was adjusted in the
+docs-sync commit of this milestone.
+
+### Deviations from the plan
+
+Expected in section 4 and confirmed:
+
+1. **Copy keeps toon-recipe's "Gruppe" wording** in every household screen, the switcher, mails and
+   server errors; `DEFAULT_HOUSEHOLD_NAME` stays "Meine Rezepte"; catalog KEYS are renamed
+   (`groups.*` to `household.*`, `auth.register.groupName.*` to `auth.register.householdName.*`,
+   `auth.settings.groups.*` to `auth.settings.households.*`), values are not. The visible cost (Home
+   says "Haushalt", the switcher "Gruppe") is an owner decision for M4.
+2. **`HouseholdWithRole` drops `recipeCount` and gains `modules: string[]`.** The review found that the
+   two strings that printed the count (`household.detail.meta`, `household.danger.warning`) had been
+   changed without an ADR; ADR 0001 now records them, `household.count.recipes` is not ported, both
+   keys stay in `NEW_GERMAN`, and `i18n.test.ts` pins the values.
+3. `household_modules` rows for `recipe` are written on every new household (`initializeHousehold`:
+   register, OAuth sign-up, `POST /api/households`, seed) although the M1 build has no recipe
+   module; `POST .../modules/:moduleId` accepts any `MODULE_IDS` id.
+4. Disabling a module deletes its `household_modules` row (the `settings` JSON is lost); module data
+   stays in its tables. A row's existence is the enabled state.
+5. SPEC section 3's `core/routes/{households,members,invites,modules}.ts` are `register...Routes()`
+   functions on the one `householdRoutes` Hono instance (invite-token routes first), not sub-apps.
+   The `/uploads/:filename` route is inline in `apps/api/src/index.ts` (the wiring file), the media
+   services are `core/services/media/{uploads,thumbnails}.ts`.
+6. `lib/nav.tsx`, `lib/permissions.ts` (`hasAtLeast`) and `lib/share.ts` are core; nothing lives
+   under `apps/web/src/features/`.
+7. Ported tests that needed recipe code lost those cases with `M2:` placeholder comments:
+   `uploads.test.ts` 27 to 25, `verified-email-gate.test.ts` 17 to 12 (gate cases retargeted to
+   `PATCH /api/households/:id` and `POST /api/households`), `households.test.ts` 21 to 24 (recipe
+   cascade/count steps out, module-row tests in). auth 40/40, password-reset 30/30, mail, smtp,
+   static-web, thumbnails and smoke are complete. `core-walkthrough.test.ts` (9 tests) and
+   `modules.test.ts` are new.
+8. `server.group.*` keys and `{groupName}` placeholders keep their names.
+9. No migration, no service-worker rule change.
+
+Not in the plan, found in the review or the integration:
+
+10. Review fix `098586c`: the core cases of toon-recipe's `schemas.test.ts` (`ApiErrorSchema`,
+    `RegisterRequestSchema`) are ported into `packages/shared/test/core.test.ts`; the remaining cases
+    (recipe, plan, import, shopping schemas) go to M2.
+11. `<html>` carries `scrollbar-gutter: stable` (toon-recipe's, unchanged), so `scrollWidth` is
+    375/1425 against `clientWidth` 390/1440 under classic scrollbars; M1's no-overflow check is
+    `scrollWidth <= clientWidth`. M4's exit criterion (`scrollWidth === clientWidth`) has to account
+    for the gutter when it measures.
+12. The phone module chip opens a `Dialog` sheet in the `ActionMenu` pattern rather than the
+    `ActionMenu` component itself (SPEC section 5 allows "a `Dialog`-based sheet"); visual alignment
+    is M4.
+13. `NotFoundPage` still shows toon-recipe's `CookingPot` icon and wording (`common.notFound.*`,
+    byte-identical by D10); a household-neutral icon is M4.
+14. The "a route under a disabled module redirects to Home" criterion is proven by unit tests only
+    (`moduleGuard`, `moduleLayoutComponent`, the `module_disabled` invalidation), since no module
+    route exists yet; the browser check is handed to M2.
+15. Finance can be enabled over the API without its two participants: the build has no finance
+    module, so no `onEnable` refuses. D3's "enabled when its two slots are assigned" is enforced by
+    finance's `onEnable` in M3 (the hook contract and the "a refused enable writes nothing" test
+    already exist).
+16. `withTransaction` degrades to sequential execution under `bun test` (`file::memory:`), so a test
+    of "a refusing `onEnable` writes nothing" passes because the hook runs BEFORE the insert; that
+    order is load-bearing (risk 4, confirmed).
+17. Workflow, not the app: commit trailers vary (Haiku, Sonnet or Opus 5.5 on the tasks, one review
+    commit with Fable 5.1); the harness line of each session is what CLAUDE.md asks for. One gate
+    log was written outside the repo (scratchpad); nothing outside the repo is referenced.
+
+### Obligations carried forward
+
+Section 6 stands; CLAUDE.md "Obligations handed to later milestones" mirrors it. Additions from the
+review: items 14 and 15 above (M2 headless disabled-module check; M3 `onEnable` participant check),
+the remaining `schemas.test.ts` cases (M2), the `NotFoundPage` icon and the chip/sheet polish (M4).

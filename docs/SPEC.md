@@ -187,7 +187,14 @@ Rules:
   generalised). Shared logic goes to `packages/shared/src/core` or stays inside the module's own
   `packages/shared/src/modules/<id>`.
 - `requireModule(id)` runs after `requireHouseholdRole("member")` and reads
-  `household_modules`; the web shell reads `household.modules` from `GET /api/households/:id`.
+  `household_modules`; the web shell reads `household.modules` from `GET /api/households/:id`
+  (and from `/api/auth/me`, which is persisted).
+- A `household_modules` row IS the enabled state. `POST` / `DELETE
+  /api/households/:householdId/modules/:moduleId` (owner/admin, verified e-mail) upsert or delete
+  it; disabling keeps the module's own data, so enabling again brings it back. The build module's
+  `onEnable` runs before the row is written and may refuse by throwing an `ApiError`. Every new
+  household gets a row per `DEFAULT_ENABLED_MODULES` (`recipe`) through `initializeHousehold`, and
+  each build module's `onHouseholdCreated` runs after it.
 - A module's drizzle migration is a normal file in `apps/api/drizzle/`; the module prefix is the
   namespace. There is one migration journal.
 - `/api/health` reports `modules: ["recipe", "finance"]` (the build's modules) and the merged
@@ -211,6 +218,8 @@ apps/api/src/
   env.ts  db/{client,migrate,schema.ts,schema/core.ts}
   lib/  middleware/{session,household,verifiedEmail,module,staticWeb}.ts
   core/routes/{auth,households,members,invites,modules}.ts  core/services/{auth,households,mail,media}/
+                         (members/invites/modules export register…Routes(router) onto the one
+                         householdRoutes instance, invite-token routes first; /uploads is inline in index.ts)
   modules/index.ts
   modules/recipe/{index.ts,schema.ts,routes/,services/}     routes: recipes, imports, shopping, cards, plan
   modules/finance/{index.ts,schema.ts,routes/,services/}    routes: transactions, categories, tags, plan, balance, settlements
@@ -220,11 +229,12 @@ apps/api/drizzle/        one journal
 apps/web/src/
   router.tsx             app layout → household-scoped layout → Home, Settings, one layout route per module
   lib/                   api.ts (the ONLY fetch), queries.ts, session.tsx (RequireAuth, RequireActiveHousehold,
-                         RequireModule), persist.ts, pwa.ts, unsavedWork.ts, i18n/
+                         RequireModule), persist.ts, pwa.ts, unsavedWork.ts, nav.tsx, permissions.ts,
+                         share.ts, i18n/
   components/ui/         toon-recipe's primitives, the ONLY primitives
   components/layout/     AppShell, BottomTabBar, SideNav, ModuleSwitcher, HouseholdSwitcher, nav-items.ts
   core/features/{auth,home,households,settings}/
-  modules/index.ts
+  modules/index.ts       (+ catalogs.ts, persist.ts, enabled.ts: moduleGuard, layout.tsx: moduleLayoutComponent)
   modules/recipe/{index.ts,features/,catalogs/}
   modules/finance/{index.ts,features/,catalogs/}
   styles/{index.css,theme.css}   toon-recipe's, unchanged except new tokens in all four blocks
