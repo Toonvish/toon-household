@@ -160,11 +160,15 @@ export interface ApiModule {
   schema: Record<string, Table>   // drizzle tables, all prefixed `<id>_`
   healthFeatures?(): Record<string, boolean>   // merged into /api/health features
   onHouseholdCreated?(householdId, tx): Promise<void>   // e.g. finance seeds its 21 categories
-  onEnable?(householdId, settings, tx): Promise<void>   // e.g. finance validates its two participants
+  onEnable?(householdId, settings, tx): Promise<void>   // e.g. finance validates its two participants;
+                                              // `settings` is the body of the enable POST ({ settings? }), null without one
   legacyMigration?: LegacyMigrator            // §6: the module's part of migrate:legacy
   afterMigrate?(database): Promise<void>      // runs after every migrate() in runMigrations (db:migrate, seed, tests);
                                               // idempotent, no transaction; e.g. recipe's folded-column backfill
-  shutdown?(): Promise<void>                  // SIGTERM/SIGINT in index.ts; e.g. recipe stops its OCR worker
+  start?(): Promise<void>                     // once at boot in index.ts, after `await dbReady`, never under test;
+                                              // e.g. finance's boot catch-up and 6-hour accrual tick; a rejection is logged
+  shutdown?(): Promise<void>                  // SIGTERM/SIGINT in index.ts; e.g. recipe stops its OCR worker,
+                                              // finance stops the accrual tick
   seedDemo?(database, { householdId, userId }): Promise<void>   // the module's part of `bun run seed`, idempotent
   uploadReferences?(database): Promise<string[]>   // every stored upload value the module's rows hold;
                                               // uploads:gc keeps a file iff the core or any module references it
@@ -186,7 +190,11 @@ export interface WebModule {
   mutationDefaults?(queryClient): void   // offline outbox registration, called before the persister restores
   persistMutationNamespaces?: string[][]   // key paths after "toon" whose paused mutations are persisted, e.g. ["finance","tx"]; pairs with mutationDefaults (D9; added in M0)
   catalogs: { de: NamespaceCatalog; en: LocaleCatalog<...> }
-  settingsSections?: ComponentType[]     // rendered on /settings when enabled
+  settingsSections?: ComponentType[]     // rendered on /settings for each enabled module, after the core sections
+                                         // (finance: the participants section)
+  enableDialog?: ComponentType<{ open: boolean; onClose: () => void }>   // "Aktivieren" on Home / Manage modules opens
+                                         // it instead of one direct POST; it calls enableModule(householdId, id, settings)
+                                         // (finance: pick the two participants, D3)
 }
 ```
 
@@ -197,9 +205,10 @@ Rules:
   generalised). Shared logic goes to `packages/shared/src/core` or stays inside the module's own
   `packages/shared/src/modules/<id>`.
 - Hooks added after M0 (recorded here because the contract is this section): `afterMigrate`,
-  `shutdown`, `seedDemo` and `uploadReferences` on the API side, `persistMutationNamespaces` (M0) and
-  the module-owned `route` on the web side (M2; it replaced `routes: AnyRoute[]`, which could not
-  reach its layout parent without importing `router.tsx`). The core reads `API_MODULES` /
+  `shutdown`, `seedDemo` and `uploadReferences` on the API side (M2) and `start` (M3), `persistMutationNamespaces`
+  (M0), the module-owned `route` (M2; it replaced `routes: AnyRoute[]`, which could not reach its layout parent
+  without importing `router.tsx`) and `enableDialog` (M3) on the web side. `settingsSections` was declared in M0
+  and is rendered by `SettingsPage` since M3. The core reads `API_MODULES` /
   `WEB_MODULES` inside functions only, because several services sit in an import cycle with the
   registry (`session.ts` → `auth/users.ts` → `households/modules.ts` → `modules/index.ts` → a
   manifest → its routers → `session.ts`; `import-order.test.ts` loads each real entry point first in
@@ -208,7 +217,11 @@ Rules:
   already ran them (plus `requireModule(id)`) for a `householdRouter`. A module router adds
   `requireVerifiedEmail()` itself and `requireHouseholdRole("admin")` on a route that needs it; a
   `userRouter` runs `requireSession()` itself and is not behind `requireModule` (a user-owned row,
-  e.g. a recipe card, follows its owner, not a household).
+  e.g. a recipe card, follows its owner, not a household). A module may narrow access further with its
+  own middleware: finance's `requireFinanceParticipant()` (every ledger router, every method) answers a
+  household member without one of the two slots `403 finance_not_participant`, and carries the participant
+  in a module-local `ContextVariableMap` augmentation, so the core's `AppVariables` stays module-free.
+  The only finance route a non-participant reaches is `GET …/finance/participants`.
 - A module's web manifest must keep its static import graph free of the shell and the registry:
   `modules/<id>/index.ts`, `routes.tsx`, `HomeCard.tsx` and the catalogs import neither `@/modules`
   nor `@/components/layout`, and every screen in `routes.tsx` is a `lazyRouteComponent`. Otherwise
@@ -235,7 +248,7 @@ Rules:
 ```
 package.json             workspaces apps/*, packages/*; scripts: dev, build, start, test, typecheck,
                          i18n:check, db:generate, db:migrate, db:studio, seed, migrate:legacy,
-                         auth:reset-password, uploads:gc, plan:run
+                         auth:reset-password, uploads:gc, plan:run, finance:import-xlsx
 scripts/                 dev.ts, typecheck.ts, i18n-check.ts (both from toon-recipe, extended)
 packages/shared/src/
   core/                  i18n runtime + server catalogs, schemas for auth/households/modules, calendar.ts,
@@ -243,7 +256,9 @@ packages/shared/src/
   modules/registry.ts
   modules/recipe/        units, ingredients, numbers, duration, tags, shopping.ts, barcode.ts, qr.ts,
                          schemas/{recipe,plan,import,shopping,card}.ts, index.ts barrel
-  modules/finance/       money.ts, ledger.ts, period.ts, plan.ts, categories.ts, tags.ts, schemas
+  modules/finance/       money.ts, ledger.ts, period.ts, plan.ts, categories.ts, tags.ts,
+                         schemas/{common,transactions,categories,tags,plan,balance,settlements,participants}.ts,
+                         index.ts barrel (finance tag schemas and pagination are exported as Finance…)
 apps/api/src/
   index.ts               wiring: health, uploads, /api/auth, /api/households, module mounts, staticWeb LAST
   env.ts  db/{client,migrate,schema.ts,schema/core.ts}
@@ -255,8 +270,13 @@ apps/api/src/
   modules/recipe/{index.ts,schema.ts,migrate.ts,seed.ts,routes/,services/}
                          routes: recipes (+ tags, collections), imports, shopping, cards, plan; services/ mirrors
                          toon-recipe's services/ (recipes, import, ocr, plan, shopping, cards)
-  modules/finance/{index.ts,schema.ts,routes/,services/}    routes: transactions, categories, tags, plan, balance, settlements
-apps/api/scripts/        migrate, seed, reset-password, uploads-gc, plan-run, migrate-legacy.ts, legacy/{recipe,finance}.ts
+  modules/finance/{index.ts,schema.ts,middleware.ts,setup.ts,seed.ts,lib/clock.ts,routes/,services/}
+                         routes: participants, transactions, categories, tags, plan, balance, settlements;
+                         services/ mirrors toon-finance's (ledger, categories, tags, plan) plus participants/
+                         (replaces household_members, D3), settings/ (finance_settings) and support.ts; tables
+                         are `finance_*` and their TS identifiers carry a `finance` prefix
+apps/api/scripts/        migrate, seed, reset-password, uploads-gc, plan-run, finance-import-xlsx.ts + finance-import/,
+                         migrate-legacy.ts, legacy/{recipe,finance}.ts
                          (seed and uploads-gc only call the manifests' seedDemo / uploadReferences hooks)
 apps/api/test/           all api tests (test/, never tests/)
 apps/api/drizzle/        one journal
@@ -275,7 +295,10 @@ apps/web/src/
   modules/recipe/{index.ts,routes.tsx,HomeCard.tsx,features/,catalogs/,lib/}
                          lib/{api,queries,format}.ts are shims: `export * from "@/lib/<x>"` plus the module's own
                          fetchers, query keys/options and formatters (the core lib stays module-free)
-  modules/finance/{index.ts,features/,catalogs/}
+  modules/finance/{index.ts,routes.tsx,HomeCard.tsx,features/,components/,catalogs/,lib/}
+                         features/{transactions,overview,plan,categories,participants}/ (participants is new:
+                         FinanceGate, NonParticipantState, ParticipantsSection, EnableFinanceDialog);
+                         components/{AmountText,KindBadge,PeriodLabel,PageHeader}; lib/ shims like recipe's
   styles/{index.css,theme.css}   toon-recipe's, unchanged except new tokens in all four blocks
   public/fonts/          Newsreader + Figtree woff2 + licences
 docker/                  Caddyfile, entrypoint.sh, env.example, toon-deploy.sh

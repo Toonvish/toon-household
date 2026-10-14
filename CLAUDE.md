@@ -31,50 +31,72 @@ to `docs/plans/` and commits per task; it never pushes.
 ## Status
 
 Milestones done: **M0 scaffold** (2026-10-13, plan `docs/plans/m0-scaffold.md`, "what changed vs
-plan" in its section 6), **M1 core** (2026-10-14, plan `docs/plans/m1-core.md`, section 8) and
+plan" in its section 6), **M1 core** (2026-10-14, plan `docs/plans/m1-core.md`, section 8),
 **M2 recipe module** (2026-10-14, plan `docs/plans/m2-recipe-module.md`; section 9 is the
-integration record with the gate logs, curl walkthrough and headless results; section 10 is "what
-changed vs plan": no deviation from SPEC §1, so no new ADR). Next: M3 finance module (SPEC §8).
+integration record, section 10 "what changed vs plan": no deviation from SPEC §1, no ADR) and
+**M3 finance module** (2026-10-14, plan `docs/plans/m3-finance-module.md`; section 9 is the
+integration record with the gate logs, curl walkthrough, headless and offline results; two ADRs,
+below). Next: M4 design pass (SPEC §8), then M5 migration, M6 deploy, M7 harden.
 
-What exists after M2: the three workspaces build, typecheck and test green (`bun test`: 1391 pass in
-69 files). The recipe module is complete and is the only module (`API_MODULES` and `WEB_MODULES` are
-`[recipe]`, `/api/health` reports `modules: ["recipe"]` plus the `ocrImport` / `pdfImport` flags):
-recipes with search and filters, tags (course vs free), collections, URL / photo / PDF import with
-the draft review, meal plan with the cook log, shopping lists with the offline outbox, cards
-(EAN-13 / UPC / Code128 / QR), uploads with thumbnails, `uploads:gc`, the recipe demo data in `seed`,
-the service-worker rules, and the Home card. The web tabs are Rezepte `/recipe`, Plan `/recipe/plan`,
-Einkauf `/recipe/shopping`, Profil (shell); secondary Sammlungen `/recipe/collections`, Tags
-`/recipe/tags`, then the shell's Gruppen. Every toon-recipe test file has a counterpart (map in the
-plan's section 8). Verified on the merged tree by a fresh-DB curl walkthrough and a headless
-Chromium run at 390 and 1440 px (146 checks, plus the offline replay on the built app); see the
-plan's section 9. Still **no finance**, no `plan:run`, no `migrate:legacy`, no Docker files.
+What exists after M3: the three workspaces build, typecheck and test green (`bun test`: 1728 pass in
+95 files). Two modules are built: `API_MODULES` and `WEB_MODULES` are `[recipe, finance]` and
+`/api/health` reports `modules: ["recipe","finance"]`. The recipe module is as after M2 (recipes with
+search and filters, tags, collections, URL / photo / PDF import, meal plan with cook log, shopping
+lists with the offline outbox, cards, uploads with thumbnails, the service-worker rules, the Home
+card). The finance module is toon-finance's ledger on `finance_` tables: transactions with the four
+viewer-projected kinds (MINE_SPLIT, THEIRS_SPLIT, FOR_THEM, TRANSFER), categories (21 defaults),
+tags, the Fixkostenplan with `plan:run` and the accrual scheduler, balance, settlements
+(`409 balance_stale`), the offline capture outbox, `finance_participants` (exactly two slots by user
+id, D3), the participants settings section, the enable dialog, the non-participant and
+module-disabled states, the demo ledger in `seed`, and the one-off `finance:import-xlsx` importer.
+Web tabs inside `/finance`: Übersicht, Buchungen, Erfassen (+ Profil); sidebar-only Fixkosten
+`/finance/plan` and Kategorien `/finance/categories` (+ the shell's Gruppen). Every toon-finance test
+file has a counterpart (map in the plan's section 8; per-file case counts are equal or higher).
+Verified on the merged tree by a fresh-DB curl walkthrough, a headless Chromium run at 390 and
+1440 px in light and dark (137 checks) and the offline replay on the built app (13 checks); see the
+plan's section 9. Still no `migrate:legacy` (M5), no Docker files (M6), no `docs/API.md` or
+`docs/modules/*.md` (M7).
 
 `bun run i18n:check` exits 1 by design; its parity half is OK and its leftover-German half reports
-120 hits: 110 German labels or umlaut examples quoted in doc comments and 10 lines of content
-vocabulary (the ingredient-paste placeholder, `UNIT_SUGGESTIONS`, `STEP_HEADING_RE`, the seven
-`html/entities.ts` umlaut entities). All are false positives; classify each hit, never suppress the
-check. The files under `features/plan` and `features/cards` are scanned here (toon-recipe never
-scanned them); their hits are comment quotes.
+137 hits: 127 German labels or umlaut examples quoted in doc comments (17 of them in finance code:
+`AmountText`, `routes.tsx`, the transaction screens, `kinds.ts`, `clock.ts`, shared `tags.ts`) and 10
+lines of recipe content vocabulary (the ingredient-paste placeholder, `UNIT_SUGGESTIONS`,
+`STEP_HEADING_RE`, the seven `html/entities.ts` umlaut entities). All are false positives; classify
+each hit, never suppress the check. The files under `features/plan` and `features/cards` are scanned
+here (toon-recipe never scanned them); their hits are comment quotes. `apps/api/scripts` is not
+scanned, so the importer's German content parsers do not show up.
 
-ADRs: `docs/adr/0001-household-copy-without-recipe-counts.md` (D10: `household.detail.meta` and
-`household.danger.warning` lose their recipe count, `household.count.recipes` is not ported, because
-the core cannot count a module's rows; the recipe module supplies its own count, see
-`useHouseholdRecipeCount`). M2 deviated from nothing else in SPEC §1; its plan-level choices (module
-hooks, URL scheme, table identifiers) are in the plan's section 6 and SPEC §2 / §3.
+ADRs (`docs/adr/`, each edits the SPEC text in the same commit):
+- `0001-household-copy-without-recipe-counts.md` (D10: `household.detail.meta` and
+  `household.danger.warning` lose their recipe count, `household.count.recipes` is not ported, because
+  the core cannot count a module's rows; the recipe module supplies its own count, see
+  `useHouseholdRecipeCount`).
+- `0002-finance-validation-wording-from-the-core.md` (D10: finance's generic Zod validation messages
+  render the core's wording, e.g. "Darf höchstens 200 Zeichen lang sein" instead of F's "Höchstens 200
+  Zeichen."; finance's field-specific messages keep their text under bound-suffixed keys).
+- `0003-finance-tests-on-the-shared-memory-db.md` (D13: toon-finance's gotcha 2, ledger tests on a
+  temp file DB, becomes: the shared `file::memory:` DB plus `finance-file-db.test.ts`, which runs the
+  ledger's write paths on a temp `file:` database and proves rollback and claim-plus-row atomicity).
+
+M3 deviated from nothing else in SPEC §1; its plan-level choices (non-participants see nothing of the
+ledger, `start` and `enableDialog`, table identifiers) are in the plan's section 6 and SPEC §2 / §3.
 
 ## Layout (as built)
 
 Package names are `@toon/shared`, `@toon/api`, `@toon/web`; the root is `toon-household`. Paths per
-SPEC §3 with what M0 to M2 actually created:
+SPEC §3 with what M0 to M3 actually created:
 
 - `packages/shared/src/` — `index.ts` (the ONLY entry: the vite alias maps exactly `"@toon/shared"`,
   never import a subpath), `core/` (`i18n/` runtime + `catalogs/server.{de,en}.ts`, `schemas/`
   `common|household|user|auth`, `calendar.ts`, `text.ts`), `modules/registry.ts` (`MODULE_IDS`,
   `ModuleIdSchema`, `DEFAULT_ENABLED_MODULES = ["recipe"]`), `modules/recipe/` (`units`,
   `ingredients`, `numbers`, `duration`, `tags`, `shopping`, `barcode`, `qr`, `schemas/{recipe,plan,
-  import,shopping,card}.ts`, `index.ts` barrel re-exported from the package entry). Tests flat in
-  `packages/shared/test/` under toon-recipe's file names (the recipe schema tests are
-  `recipe-schemas.test.ts` plus `core.test.ts`).
+  import,shopping,card}.ts`, `index.ts` barrel re-exported from the package entry), `modules/finance/`
+  (`money`, `ledger`, `period`, `plan`, `categories`, `tags`, `schemas/{common,transactions,categories,
+  tags,plan,balance,settlements,participants}.ts`, `index.ts` barrel; the tag schemas and the 50/200
+  pagination are exported as `FinanceTag…` / `FinancePaginationQuery…` because the barrel is flat). Tests
+  flat in `packages/shared/test/` under toon-recipe's file names (the recipe schema tests are
+  `recipe-schemas.test.ts` plus `core.test.ts`) and `finance-<name>.test.ts` for toon-finance's.
 - `apps/api/src/` — `index.ts` wiring (health, `/uploads/:filename` inline, `mountModules`,
   `/api/auth`, `/api/households`, SIGTERM/SIGINT calling each module's `shutdown`, static web LAST),
   `env.ts`, `db/{client,migrate,schema}.ts` + `db/schema/core.ts`, `lib/`,
@@ -93,6 +115,17 @@ SPEC §3 with what M0 to M2 actually created:
   `modules`, `households`, `auth`, `middleware`, `import-order`, `recipe-module`,
   `recipe-cross-household`, `recipes*`, `tags-kind`, `plan`, `cards`, `shopping*`, `uploads`,
   `import/` with its fixtures in `test/fixtures/import/`, …).
+  `modules/finance/` is `index.ts` (the `ApiModule`: `onHouseholdCreated`, `onEnable`, `start`,
+  `shutdown`, `seedDemo`), `schema.ts` (the 11 `finance_` tables), `middleware.ts`
+  (`requireFinanceParticipant`), `setup.ts` (default categories, `ensureFinanceHousehold`), `seed.ts`,
+  `lib/clock.ts` (`nowMs`, `setClockForTest`), `routes/{index,participants,transactions,categories,tags,
+  plan,balance,settlements}.ts` and `services/{ledger,categories,tags,plan}/` mirroring toon-finance's
+  `services/` one to one plus `participants/`, `settings/` and `support.ts`. Finance scripts:
+  `apps/api/scripts/plan-run.ts`, `finance-import-xlsx.ts` and `finance-import/{amounts,categorize,dates,
+  rent,xlsx-reader}.ts`; the migration is `0002_finance.sql`. Finance tests are
+  `apps/api/test/finance-*.test.ts` (`module`, `participants`, `transactions`, `idempotency`, `balance`,
+  `settlements`, `categories`, `tags`, `plan`, `import-xlsx`, `cross-household`, `file-db`, `seed`) with
+  `test/support/{finance-harness,finance-synthetic-workbook}.ts`.
 - `apps/web/src/` — `main.tsx`, `app.tsx`, `route-roots.tsx` (`rootRoute`, `appRoute` without a
   component, `householdScopedRoute`; imports no shell and no registry), `router.tsx` (attaches
   `AppLayout` = `RequireAuth` + `AppShell` with `appRoute.update`, builds the tree: public auth
@@ -110,8 +143,17 @@ SPEC §3 with what M0 to M2 actually created:
   `features/{recipes,collections,tags,import,shopping,cards,plan}/` mirroring toon-recipe's
   `features/` (`recipes/print.css` included). Catalogs of the core live in
   `lib/i18n/catalogs/{common,home,auth,household}.{de,en}.ts`. Tests are co-located `*.test.ts(x)`
-  under `tsconfig.test.json` (`modules/recipe/{manifest,persist}.test.ts` among them). Nothing lives
-  under `apps/web/src/features/` (SPEC §3).
+  under `tsconfig.test.json` (`modules/{recipe,finance}/{manifest,persist}.test.ts` among them). Nothing
+  lives under `apps/web/src/features/` (SPEC §3).
+  `modules/finance/` is `index.ts` (the `WebModule`, with `settingsSections` and `enableDialog`),
+  `routes.tsx` (the module layout route `/finance`, the pathless `participant-gate` route, seven lazy
+  screens; `TX_FILTER_PARAMS` and its `validateSearch` live here), `HomeCard.tsx`, `catalogs/` (namespace
+  files `common|nav|transactions|categories|plan|balance|settings|participants` plus `index.ts`, every key
+  prefixed `finance.`), `lib/{api,queries,format,participants}.ts` (shims over the core lib plus the
+  ledger fetchers, keys, formatters and `useFinanceHousehold` / `useOtherParticipant`),
+  `components/{AmountText,KindBadge,PeriodLabel,PageHeader}.tsx` and `features/{transactions,overview,
+  plan,categories,participants}/` mirroring toon-finance's `features/` (`participants` is new:
+  `FinanceGate`, `NonParticipantState`, `ParticipantsSection`, `EnableFinanceDialog`).
 - `scripts/` — `dev.ts`, `typecheck.ts`, `i18n-check.ts`. `.github/workflows/ci.yml` (verify job with
   a poppler step for `pdf-rasterize.test.ts`; no docker-build until M6; `i18n:check` is a local gate
   because it needs the sibling source repos). `docs/design/recipe-redesign/` is the copied design
@@ -120,10 +162,15 @@ SPEC §3 with what M0 to M2 actually created:
   `email_verification_tokens`, `households`, `household_members`, `household_invites`,
   `household_modules`, `legacy_ids` (its column is named `table` per D12; the TS property is
   `tableName`). Recipe tables are all `recipe_*` (`recipe_recipes`, `recipe_tags`,
-  `recipe_recipe_tags`, `recipe_cards`, …), `group_id` is `household_id`.
+  `recipe_recipe_tags`, `recipe_cards`, …), `group_id` is `household_id`. Finance tables are all
+  `finance_*`: `finance_participants` (replaces toon-finance's `household_members`: PK `(household_id,
+  user_id)`, `member_slot` 1 or 2 with a unique index and a CHECK, `display_name`, `joined_at`),
+  `finance_settings` (`default_locale`), `finance_categories`, `finance_tags`, `finance_transactions`,
+  `finance_transaction_tags`, `finance_fixed_cost_plans`, `finance_fixed_cost_items`,
+  `finance_incomes`, `finance_accrual_runs`, `finance_mutation_claims`.
 
-Not yet present (so do not look for them): `modules/finance` on either side, `plan:run` (M3),
-`migrate:legacy` (M5), Dockerfile and compose (M6), `docs/API.md`, `docs/modules/*.md` (M7).
+Not yet present (so do not look for them): `migrate:legacy` (M5), Dockerfile and compose (M6),
+`docs/API.md`, `docs/modules/*.md` (M7).
 
 ## Commands
 
@@ -149,7 +196,18 @@ Run from the repo root. Bun 1.4.2 (`.bun-version`); `bun install --frozen-lockfi
 - `bun run seed`: idempotent demo data on `DATABASE_URL` (migrates first; needs `SESSION_SECRET`):
   user `demo@toon.local` / `demo1234`, the household "Familie" with the default module rows, then each
   build module's `seedDemo` (recipe: tags, three recipes, a plan week, cook log, the shopping list
-  "Rewe" with bought history).
+  "Rewe" with bought history; finance: two more users, `robin@toon.local` in slot 2 and
+  `kim@toon.local` as a household member WITHOUT a slot, both with password `demo1234`, about eight
+  transactions covering the four kinds, one settlement, the fixed-cost items and both incomes, the plan
+  enabled from two periods ago and one catch-up run).
+- `bun run plan:run [householdId]`: the fixed-cost catch-up by hand (the API already runs it at boot
+  and every 6 hours); without an argument it runs every household with finance enabled; a disabled or
+  incomplete plan is reported, never a crash.
+- `bun run finance:import-xlsx -- <Haushalt.xlsx> [--household <id>] [--dry-run] [--excel-text-quirk]`:
+  toon-finance's one-off workbook import. Without `--household` (or with `--dry-run`) it only reads the
+  workbook and prints the reconciliation report and never opens the database; writing needs a
+  household that already has its two participants. Console output is English; the German content
+  parsers sit in `apps/api/scripts/finance-import/` (not scanned by `i18n:check`).
 - `bun run uploads:gc [-- --dry-run] [-- --min-age-hours=N]`: deletes files in `UPLOAD_DIR` that no
   row references (the core's avatars and household images plus every module's `uploadReferences`;
   generated `*.thumb.webp` follow their original); files younger than 24 h are always kept.
@@ -161,13 +219,13 @@ Environment switches of the recipe module (`env.ts`): `IMPORT_OCR_ENABLED` (phot
 `IMPORT_ALLOW_PRIVATE_HOSTS=1` (dev only, ignored in production: lets the URL importer fetch a
 localhost fixture, otherwise the SSRF guard blocks it), `UPLOAD_DIR`. All default off.
 
-Arrive later: `bun run plan:run` (M3), `bun run migrate:legacy` (M5).
+Arrives later: `bun run migrate:legacy` (M5).
 
 ## Conventions
 
 The conventions are toon-recipe's `CLAUDE.md` "Conventions" plus toon-finance's "Konventionen"
 (money is integer cents everywhere; no float touches a user amount), with these household-wide rules
-from SPEC and M0 to M2:
+from SPEC and M0 to M3:
 
 - Tables prefixed per module (`recipe_`, `finance_`), core tables not. API paths under
   `/api/households/:householdId/<module>/` (user-scoped: `/api/<module>/`). Query keys
@@ -186,6 +244,15 @@ from SPEC and M0 to M2:
   German VALUES keep "Gruppe" and `DEFAULT_HOUSEHOLD_NAME` stays "Meine Rezepte" (D10; a rename to
   "Haushalt" is an owner decision, M4 at the earliest, and needs an ADR). Server keys `server.group.*`
   and `{groupName}` placeholders keep their names.
+- Renames from toon-finance (apply them to every later port): `household_members` →
+  `finance_participants` (by user id; `HouseholdContext` is `FinanceParticipantContext`, imported as
+  `requireFinanceParticipantContext as requireHouseholdContext` so route bodies stay F's),
+  `members.service` → `participants.service`, `useHousehold` / `useOtherMember` → `useFinanceHousehold` /
+  `useOtherParticipant`, F's unprefixed catalog keys (`transactions.list.title`) → `finance.…`, F's
+  URLs `/transactions`, `/new`, `/plan`, `/categories` → `/finance/…` (F's `/` is `/finance`, F's
+  `/household` is the core's Gruppen plus the participants section on `/settings`), typed router hooks
+  (`Link`, `useNavigate`, `useParams`, `useBlocker`) → `@/lib/nav`. Finance's TS identifiers carry a
+  `finance` prefix and ported files import them aliased (see the gotcha below).
 - Core helpers a recipe port needs are core, not module code: `@/lib/nav` (`AppLink`,
   `useAppNavigate`, `useRouteParam(s)`, `useNavigationGuard`), `@/lib/permissions` (`hasAtLeast`),
   `@/lib/share` (`shareOrCopy`, `copyToClipboard`); `canModifyOwn` stays with the recipe module.
@@ -196,7 +263,7 @@ from SPEC and M0 to M2:
 - Ported tests that need unported code are removed with a placeholder comment naming the returning
   milestone, never skipped silently.
 
-## Gotchas in use (M0 to M2)
+## Gotchas in use (M0 to M3)
 
 Binding gotchas of the sources stay binding inside their module (SPEC D13); these are the ones
 the code actually relies on or introduced.
@@ -240,17 +307,25 @@ the code actually relies on or introduced.
   `["toon","me"]` on `404 module_disabled`, so a stale bundle and a live disable take one path. Core
   query-key segments (`me`, `sessions`, `oauth-providers`, `households`, `invite`, `detail`, `members`,
   `invites`) never equal a module id.
-- **Finance enable is unchecked until M3.** Nothing refuses `POST …/modules/finance` for a household
-  without its two participants (D3) because the build has no finance module; finance's `onEnable`
-  must throw an `ApiError` then (the hook contract and a "refused enable writes nothing" test exist).
+- **Enabling finance needs two participants (D3).** `onEnable` seats the two users from the enable
+  POST's `settings` (`{ participants: [{ userId, memberSlot: 1 }, { userId, memberSlot: 2 }] }`) or, on a
+  re-enable without a body, requires the two existing `finance_participants` rows, else `422
+  finance_participants_required` and nothing is written (`finance-module.test.ts` pins the refusal). The
+  core stores the settings JSON in `household_modules.settings` and finance never reads it back:
+  `finance_participants` is the truth, so `DELETE …/modules/finance` then `POST` with no body brings the
+  ledger back intact. The web side: a manifest with `enableDialog` makes Home's "Aktivieren" and the
+  Manage-modules dialog open that component instead of one direct POST (`EnableFinanceDialog`: viewer
+  preselected as Platz 1, Platz 2 chosen from the household's members, a one-member household gets the
+  "Lade zuerst jemanden ein" text and no submit).
 - **Uploads are signed, not cookie-checked.** `/uploads/:filename` answers 404 for an unsigned,
   forged or expired URL (`lib/uploadUrls.ts`); `<name>.thumb.webp` is built with `sharp` on first
   request and falls back to the original (short cache) when sharp cannot convert.
 - **Cross-household guard (D8).** The household comes from `:householdId` only. Every by-id lookup in
   a module service filters by `membership.householdId` and answers `404 not_found` for another
   household's id; `test/recipe-cross-household.test.ts` addresses every recipe by-id route with
-  another household's id (cards: another user's card). Each finance resource gets the same test in
-  M3.
+  another household's id (cards: another user's card), `test/finance-cross-household.test.ts` does the
+  same for every finance by-id route (transaction, category, tag, fixed-cost item, income). A new
+  by-id route gets its case in the same commit.
 - **`MessageKey` must stay a literal union (D10).** `modules/catalogs.ts` objects
   (`MODULE_CATALOGS_DE/EN`) are literal-typed with no annotation, ever: an index-signature type
   turns `MessageKey` into `string` and every `t()` typo compiles. A literal-union test and a
@@ -269,21 +344,26 @@ the code actually relies on or introduced.
   the one `NetworkFirst` rule: `/api/auth/`, the recipe `imports`, `shopping-lists`, `plan` and
   `/api/recipe/cards` (all NetworkOnly: a cached copy would hand TanStack a stale list or wallet),
   then `recipes|tags|collections` (NetworkFirst, cache `toon-api-recipes`), and `/uploads/` (CacheFirst).
-  M3 appends finance's rules the same way (union of both sources' lists, D9). `/api` and `/uploads`
-  stay out of the navigation fallback; `skipWaiting` is off. The dev server has no service worker:
+  Finance's one rule is `NetworkOnly` for `/api/households/<id>/finance/…` (toon-finance gotcha 11: the
+  offline copy of the ledger IS the persisted TanStack cache, the store the paused mutations live in; a
+  `NetworkFirst` hit would overwrite the optimistic row with a stale body), placed before the recipe
+  `NetworkFirst` rule. `/api` and `/uploads` stay out of the navigation fallback; `skipWaiting` is off. The dev server has no service worker:
   check offline behaviour on the built app (`bun run build`, then `WEB_DIST_DIR=./apps/web/dist bun
   run start`).
-- **The route tree is strict, with one hole.** `WEB_MODULES = [recipeModule] as const satisfies
-  readonly WebModule[]` and `recipeModule` carries no type annotation, so `router.tsx`'s
-  `WEB_MODULES.map((m) => m.route)` keeps the concrete route types and a raw
-  `<Link to="/recipe/nope">` fails `tsc`. The hole: recipe screens navigate through `AppLink` /
+- **The route tree is strict, with one hole.** `WEB_MODULES = [recipeModule, financeModule] as const
+  satisfies readonly WebModule[]` and neither manifest carries a type annotation (`satisfies
+  WebModule<"…">` only), so `router.tsx`'s `WEB_MODULES.map((m) => m.route)` keeps the concrete route
+  types and a raw `<Link to="/recipe/nope">` fails `tsc`. The hole: recipe and finance screens navigate
+  through `AppLink` /
   `useAppNavigate` (`@/lib/nav`, `to: string`) and `import/lib/navigation.ts`'s template-string
   `go(…)`, which `tsc` does NOT check (toon-recipe's own shape). An unprefixed target (`/plan`
   instead of `/recipe/plan`) compiles and lands on `NotFoundPage`. **The LINKS grep is the check,
   not `tsc`** (it also finds toon-recipe's 46 old targets in the source tree, and nothing in this
   one):
   `! grep -rnE "(\bto[=:] ?|\bgo\(|\bgoTo\()[\"'\`]/(recipes|plan|shopping|import|collections|tags|search|groups)\b|\bto[=:] ?[\"']/[\"']|useUrlRecipeFilters\([\"']/[\"']\)" apps/web/src/modules/recipe`.
-  Run it after every web port; a headless pass that clicks the links is the second check.
+  Finance has the same hole and its own grep (`LINKS_FIN`, with `NOROUTER`, `NOCORE` and `NOSHADOW` in
+  the finance gotcha below). Run them after every web port; a headless pass that clicks the links is
+  the second check.
 - **A module owns its layout route and its static import graph stays shell-free (SPEC §2).**
   `WebModule.route` is built in `modules/<id>/routes.tsx` with `getParentRoute: () =>
   householdScopedRoute` from `route-roots.tsx`, which imports neither `@/modules` nor the shell;
@@ -306,8 +386,8 @@ the code actually relies on or introduced.
   (index names `recipe_…_household_…`, because SQLite index names are global), but the drizzle
   identifiers stay toon-recipe's (`recipes`, `tags`, `recipeTags`, `cards`, `shoppingLists`, …) so the
   services port with path changes only; the column property is `householdId`. `db/schema.ts` re-exports
-  every module's schema FLAT, so **M3 must give finance's TS identifiers a `finance` prefix**
-  (`financeTags`, …), or `tags` collides. Raw SQL strings and `explain` text follow the SQL names.
+  every module's schema FLAT, which is why finance's identifiers DO carry a `finance` prefix (next
+  gotchas). Raw SQL strings and `explain` text follow the SQL names.
 - **Fold columns and the backfill.** `title_fold`, `description_fold`, `name_fold` are `NOT NULL`
   with no default (the fresh `0001_recipe.sql` has no `DEFAULT ''`; services write them through
   `foldText`). `backfillFoldedColumns` lives in `modules/recipe/migrate.ts` and runs as the module's
@@ -344,6 +424,87 @@ the code actually relies on or introduced.
   `CLAUDE.md` before touching search (pre-folded columns), import (SSRF guard, JSON-LD `@graph`
   references), OCR subprocesses, cards (EAN check digits, crispEdges), print styles and the shopping
   merge rules.
+- **Finance TS identifiers carry a `finance` prefix; ported files import them aliased.** SQL names are
+  `finance_*` (index and CHECK names too, e.g. `finance_transactions_household_external_key_uidx`,
+  `finance_transactions_amount_not_zero`), the drizzle identifiers are `financeTransactions`,
+  `financeCategories`, `financeTags`, `financeParticipants`, … because `db/schema.ts` re-exports flat and
+  recipe owns `tags`. A ported service keeps toon-finance's body with `import { financeTransactions as
+  transactions } from "../../schema.ts"`. The same trap on the shared side: finance's tag schemas and
+  its 50/200 pagination are exported as `FinanceTag…` / `FinancePaginationQuery…`, and consumers alias
+  them back (`FinanceTagResponse as TagResponse`); the bare names are recipe's and the core's types,
+  `request<T>` compiles with the wrong shape, so a missed alias is silent. `origin` keeps no drizzle
+  default (toon-finance gotcha 37). `isUniqueViolation` (core `auth/users.ts`) walks the error's cause
+  chain, because drizzle wraps every query error (toon-finance gotcha 50).
+- **Participants and the gate (D3, plan m3 decisions 3-5).** Exactly two `finance_participants` rows per
+  household, by user id, slots 1 and 2 (unique index plus CHECK). A household member without a slot is a
+  non-participant and sees nothing of the ledger: every ledger router (`transactions`, `categories`,
+  `tags`, `plan`, `balance`, `settlements`) runs `requireVerifiedEmail()` then `requireFinanceParticipant()`
+  for every method, so a non-participant gets `403 finance_not_participant` on reads too (the kinds and
+  the balance sign are projections onto a viewer's slot and mean nothing for a third person). The only
+  route they reach is `GET …/finance/participants` (`{ items, viewerSlot }`, `viewerSlot: null` for them).
+  `PUT …/participants` (admin) replaces the two (validated in the SERVICE, toon-finance gotcha 47; `409
+  finance_participant_in_use` when a leaving user is a payer or income person), `PATCH …/participants/me`
+  edits the own display name. `requireFinanceParticipant` is a hoisted function declaration (import
+  cycle, see above) and its context lives in a module-local `ContextVariableMap` augmentation. The web
+  gate is the pathless `participant-gate` route under `/finance` (`FinanceGate` renders
+  `NonParticipantState` instead of the outlet); Home's finance card shows the one-line state and never
+  fires the ledger queries for a non-participant (the headless run saw zero 4xx for kim).
+  `participants` is in the persist allow-list: a cold offline start must know the viewer's slot.
+- **The `start` hook and the clock.** `ApiModule.start` runs once in `index.ts` after `await dbReady`,
+  never under `bun test`; finance awaits the boot catch-up of the fixed-cost plan and starts the 6-hour
+  accrual tick, `shutdown` stops it. Every finance timestamp and the plan's `start_period` come from the
+  module clock `modules/finance/lib/clock.ts` (`nowMs()`, `setClockForTest`), never `Date.now()` and
+  never the core `support.ts` `nowMs`: toon-finance's plan tests pin the clock before creating the
+  household and expect the plan to start in that period.
+- **`settingsSections` are rendered.** `SettingsPage` renders each enabled module's `settingsSections`
+  after the core sections (finance: `ParticipantsSection`, owners and admins change the two slots, a
+  participant edits their own display name). `EnableFinanceDialog` and `ParticipantsSection` are static
+  manifest imports, so they obey the shell-free graph rule above.
+- **Finance server catalog (ADR 0002).** The core catalogs `server.{de,en}.ts` carry the finance keys in
+  one marked section "finance module (M3)"; the core Zod resolver passes `{bound}`. F's description
+  bounds live under `server.zod.field.description.too_small.1` / `…too_big.200`. A new finance
+  server string goes to the core catalog; a new web string goes to
+  `modules/finance/catalogs/participants.{de,en}.ts` AND `NEW_GERMAN` in `scripts/i18n-check.ts`
+  (15 web and 4 server keys are new German). A key diff of every `"server.…"` literal in the ported
+  files against the core catalog must stay empty. Content language (category names, plan and settlement
+  descriptions written into rows) follows `finance_settings.default_locale`, never the viewer's
+  interface language (toon-finance gotcha 41).
+- **The finance test harness gives toon-finance's names H semantics (plan m3 decision 18).** In
+  toon-finance a one-member household is a valid ledger; here finance needs two participants, so
+  `apps/api/test/support/finance-harness.ts` `createHousehold(owner, name)` creates the household, joins
+  a hidden partner and enables finance with both as participants, and `joinAsSecondMember` moves the
+  partner out of slot 2 for the given member (call it before anything is booked). Ported test bodies
+  stay toon-finance's. For H's own tests use `createPlainHousehold`, `addMember`, `enableFinance` (returns
+  the `Response`, asserts nothing) and, only for one regression test, `createSoloFinanceHousehold`
+  (one participant seeded through the db, unreachable through the API). Ledger HTTP tests run on the
+  shared `file::memory:` DB where `withTransaction` degrades; the real-transaction proof is
+  `finance-file-db.test.ts` (ADR 0003, deviation from toon-finance gotcha 2).
+- **The finance greps** (run after every finance port; each finds toon-finance's own shapes in its tree
+  and nothing in this one). `LINKS_FIN`: `! grep -rnE "(\bto[=:] ?|\bgo\(|\bgoTo\()[\"'\`]/(transactions|new|plan|categories|household)\b|\bto[=:] ?[\"']/[\"']" apps/web/src/modules/finance`.
+  `NOROUTER` (typed router hooks do not survive in screens): `! grep -rnE "\b(Link|useNavigate|useParams|useBlocker)\b[^;]*from \"@tanstack/react-router\"" apps/web/src/modules/finance/features apps/web/src/modules/finance/components`.
+  `NOCORE` (no unprefixed catalog keys): `! grep -rnE "[\"'\`](common|nav|transactions|categories|plan|balance|settings)\.[a-zA-Z]" apps/web/src/modules/finance --include='*.ts' --include='*.tsx' --exclude-dir=catalogs`.
+  `NOSHADOW` (no bare `TagResponse`, `TagListResponse`, `UpdateTagRequest`, `PaginationQuery` imports from
+  `@toon/shared` in `apps/web/src/modules/finance`, `apps/api/src/modules/finance`, `apps/api/scripts`)
+  is the `grep -rnP` in plan m3 section 3. Run them under bash: in zsh quote the `--include` globs, and
+  `ls` is an alias in the user's zsh, so `NOSHADOW`'s directory list needs `command ls`.
+- **Inherited finance gotchas stay binding inside `modules/finance`** (SPEC D13): read toon-finance's
+  `CLAUDE.md` before touching the ledger arithmetic (31 `halfForOther(-101)` is `-50`; 32 halve per
+  transaction; 33 the plan share is rounded once; 35 booked periods are immutable; 44 and 53
+  `lastBookedPeriod`), settlements (36 `expectedBalanceCents` is required, `409 balance_stale` carries the
+  current balance), the balance sign (38: the UI never shows a raw sign, `viewerBalanceCents` is the
+  viewer's projection), idempotency (9, 10, 46: `mutationId` is minted at the call site and claimed by an
+  INSERT on the primary key; a replay answers 200 with the current state), the offline outbox (7-9,
+  11), the sticky "Buchen" bar (15: `.bottom-tabbar`, never `bottom-0`) and the import/plan collision
+  rule (45, `isPeriodBooked`). Money is integer cents; the ledger-spec numbers are the spec.
+- **The offline queue survives a second reload (M3-T12 fix).** TanStack's `onlineManager` starts
+  "online" and only changes on a browser event, so an app reloaded while offline believed it was online:
+  the restored paused write re-ran, failed and waited in an unpaused retry, which the persist policy
+  (paused mutations only) dropped from IndexedDB, and a second reload lost the booking.
+  `lib/query-client.ts` `seedOnlineManager()` seeds the manager from `navigator.onLine` once at boot; the
+  headless run reloads twice offline and replays exactly once. There is no "N changes waiting" indicator
+  in the finance UI (the `finance.common.syncPending` plural is in the catalog but unused; the shell
+  has no sync badge): the only feedback is the "Gespeichert. Wird übertragen, sobald du online bist."
+  toast. M4 may add one.
 - **Headless runs.** Install Playwright in a scratch directory outside the repo (a `bun add` log ending
   in `exit=$?`), log in with `fetch("/api/auth/login")` from the page, assert `scrollWidth <=
   clientWidth`, and never match the tab bar by its `aria-label` (`SideNav` carries the same one and
@@ -352,7 +513,14 @@ the code actually relies on or introduced.
   after a few runs: restart the API. `position: fixed` elements have `offsetParent === null`; test
   visibility with `getBoundingClientRect` and computed `display`. A module disabled through the API
   behind the SPA's back is noticed on the first `404 module_disabled` (the query client invalidates
-  `["toon","me"]`), not before: re-enable through the Home "Aktivieren" button in a test.
+  `["toon","me"]`), not before: re-enable through the Home "Aktivieren" button in a test. The same
+  staleness bites test setup: `["toon","me"]` is persisted, so a household created through the API
+  AFTER the SPA already visited `/` in that browser context is unknown to the SPA; create it from a
+  non-SPA page (`goto("/api/health")`, then `fetch`). The active household is `localStorage`
+  `toon.activeHouseholdId` first, then the profile's `activeHouseholdId`: to switch in a test, PATCH
+  `/api/auth/me` and set the localStorage key on a non-SPA page before loading `/`; accepting an invite
+  also moves the invitee's active household. Reuse a saved `storageState` per user instead of logging in
+  per context.
 - **`scrollbar-gutter: stable`** on `<html>` (toon-recipe's) makes `scrollWidth` 375/1425 against
   `clientWidth` 390/1440 under classic scrollbars; check no-overflow as `scrollWidth <= clientWidth`.
 - **i18n-check from worktrees** resolves the source repos via the git common dir; it needs
@@ -362,26 +530,28 @@ the code actually relies on or introduced.
 
 ## Obligations handed to later milestones
 
-Each later plan lists and closes them (full text: `docs/plans/m2-recipe-module.md` §8 and its §9;
-earlier ones in `docs/plans/m0-scaffold.md` §4 and `docs/plans/m1-core.md` §6 and §8). M0, M1 and M2
-closed theirs.
+Each later plan lists and closes them (full text: `docs/plans/m3-finance-module.md` §7 and §8 and its
+§9; earlier ones in `docs/plans/m0-scaffold.md` §4, `docs/plans/m1-core.md` §6 and §8 and
+`docs/plans/m2-recipe-module.md` §8 and §9). M0, M1, M2 and M3 closed theirs.
 
-- M3: finance's TS table identifiers get a `finance` prefix (`financeTags`, …), because
-  `db/schema.ts` re-exports every module flat; finance's `onEnable` refuses a household without its
-  two participants (D3; the hook contract and a "refused enable writes nothing" test exist); a
-  cross-household sweep test like `recipe-cross-household.test.ts` for every finance by-id route;
-  finance's service-worker rules (NetworkOnly before NetworkFirst); `persistMutationNamespaces`
-  next to `mutationDefaults` with a paused-mutation persistence test, as `modules/recipe/persist.test.ts`;
-  the `LINKS` grep adapted to `apps/web/src/modules/finance` for every finance port; finance's
-  `afterMigrate` only if a SQL migration cannot express a data fix.
 - M4: "Gruppe" vs "Haushalt" copy (owner decision, ADR), `NotFoundPage`'s recipe icon, the phone
   module chip as a real `ActionMenu` sheet, `scrollWidth` measurement with the scrollbar gutter; the
-  Home cards' final design, toon-recipe's sidebar per-item counts and the Plan "Neu" pill, the PWA
-  manifest `shortcuts` (`/recipe/import`, `/recipe/recipes/new`), print-to-PDF verification of
-  `print.css`.
+  Home cards' final design (finance's card is a first version), toon-recipe's sidebar per-item counts
+  and the Plan "Neu" pill, the PWA manifest `shortcuts` (`/recipe/import`, `/recipe/recipes/new`),
+  print-to-PDF verification of `print.css`; the token-by-token D5 audit of the finance screens and
+  dark/light screenshots in all four combinations; an "N changes waiting" indicator for the offline
+  outbox (finance has none, see the offline gotcha).
 - M5: `migrate:legacy` maps toon-recipe's tables to `recipe_*` (plan m2 Table C) and relies on
-  `afterMigrate` for the folded columns.
-- M6: redirects from toon-recipe's old paths (`/recipes/…`, `/plan`, `/shopping`, `/import`) for
-  bookmarks arriving through the old-hostname redirect (with the Caddyfile); image build with
-  `WITH_OCR=1 WITH_PDF=0`.
-- M7: `docs/API.md`, `docs/modules/recipe.md`.
+  `afterMigrate` for the folded columns; it maps toon-finance's `household_members` to
+  `finance_participants` (with `display_name`), `households.default_locale` to `finance_settings`,
+  `fixed_cost_plans` to `finance_fixed_cost_plans` and the other tables to their `finance_*` names
+  (plan m3 decision 2), and proves the balance invariant.
+- M6: redirects from toon-recipe's old paths (`/recipes/…`, `/plan`, `/shopping`, `/import`) and from
+  toon-finance's (`/transactions`, `/new`, `/plan`, `/categories`, `/household`) for bookmarks arriving
+  through the old-hostname redirect (with the Caddyfile; note `/plan` exists in both sources); image
+  build with `WITH_OCR=1 WITH_PDF=0`.
+- M7: `docs/API.md` (recipe and finance sections), `docs/modules/recipe.md`, `docs/modules/finance.md`;
+  decide the member-leaves hook (a core action that removes a household member who is a finance
+  participant does not consult finance: the slot row stays, the ledger keeps working, the leaver loses
+  access through `requireHouseholdRole`); the N-person ledger stays out (D3); switching the whole test
+  suite to a temp-file DB (ADR 0003's consequence).
