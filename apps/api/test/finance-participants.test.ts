@@ -125,7 +125,13 @@ describe("GET and the participant gate", () => {
     expect(asBProbe.status).toBe(200);
     expect(await asBProbe.json()).toEqual({ householdId, userId: b.id, memberSlot: 2 });
 
-    // M3-T05: C on GET …/finance/balance → 403, B → 200 returns with the ledger routes.
+    // The ledger's own balance route behind the same gate (toon-finance GET …/balance, M3 decision 3).
+    const balanceUrl = `/api/households/${householdId}/finance/balance`;
+    const asCBalance = await call(balanceUrl, { cookie: c.cookie });
+    expect(asCBalance.status).toBe(403);
+    expect((await errorOf(asCBalance)).code).toBe("finance_not_participant");
+    const asBBalance = await call(balanceUrl, { cookie: b.cookie });
+    expect(asBBalance.status).toBe(200);
   });
 });
 
