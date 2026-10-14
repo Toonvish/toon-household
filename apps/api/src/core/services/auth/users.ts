@@ -163,10 +163,30 @@ export async function updateUser(
   return row;
 }
 
-/** True for a SQLite UNIQUE constraint failure, whatever the driver wraps it in. */
+const UNIQUE_VIOLATION_RE = /unique constraint|sqlite_constraint_unique|constraint failed: users\.email/i;
+
+/**
+ * True for a SQLite UNIQUE constraint failure, whatever the driver wraps it in
+ * — and it always wraps it in something. Drizzle turns EVERY query failure
+ * into a `DrizzleQueryError` whose own `message` is only `Failed query: insert
+ * into "…" …` and whose `code` is `undefined`; the driver's `LibsqlError`
+ * (`SQLITE_CONSTRAINT: UNIQUE constraint failed: …`) sits one level down in
+ * `cause`. Inspecting just the top level therefore answers `false` for every
+ * unique violation drizzle can produce and turns each 409 built on this helper
+ * into a 500 (toon-finance gotcha 50, plan M3 decision 16). Hence: walk the
+ * chain, depth-capped so a self-referential `cause` cannot spin.
+ */
 export function isUniqueViolation(error: unknown): boolean {
-  const message = error instanceof Error ? `${error.message} ${String((error as { code?: unknown }).code ?? "")}` : String(error);
-  return /unique constraint|sqlite_constraint_unique|constraint failed: users\.email/i.test(message);
+  let current: unknown = error;
+  for (let depth = 0; current !== null && current !== undefined && depth < 5; depth++) {
+    const text =
+      current instanceof Error
+        ? `${current.message} ${String((current as { code?: unknown }).code ?? "")}`
+        : String(current);
+    if (UNIQUE_VIOLATION_RE.test(text)) return true;
+    current = current instanceof Error ? current.cause : undefined;
+  }
+  return false;
 }
 
 /** Fallback display name for OAuth profiles without a name ("max" from "max@x.de"). */

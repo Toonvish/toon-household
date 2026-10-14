@@ -15,6 +15,13 @@
       "when": 1791958679960,
       "tag": "0001_recipe",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791967075703,
+      "tag": "0002_finance",
+      "breakpoints": true
     }
   ]
 }

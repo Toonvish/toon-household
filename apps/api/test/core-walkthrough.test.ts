@@ -7,6 +7,9 @@
  *   modules on GET /api/households/:id -> A disables `recipe` -> B's /api/auth/me shows WG with
  *   `["finance"]`.
  *
+ * Since M3 finance's `onEnable` needs its two participants (SPEC D3, plan M3 decision 4), so A
+ * enables it with A in slot 1 and B in slot 2.
+ *
  * Everything runs against the shared `db` (libSQL `file::memory:` is per client, so a different
  * client would be a different database). The e-mail confirmation gate is forced OFF under
  * `bun test`, which is the default self-hosted behaviour; its own cases live in
@@ -66,6 +69,8 @@ interface MePayload {
 describe("M1 core walkthrough", () => {
   let cookieA = "";
   let cookieB = "";
+  let userIdA = "";
+  let userIdB = "";
   let householdA = "";
   let wg = "";
   let inviteToken = "";
@@ -79,6 +84,7 @@ describe("M1 core walkthrough", () => {
     cookieA = cookieOf(response);
     expect(cookieA).not.toBe("");
     const body = (await response.json()) as MePayload;
+    userIdA = body.user.id;
     expect(body.households).toHaveLength(1);
     expect(body.households[0]?.modules).toEqual(["recipe"]);
     householdA = body.households[0]?.id ?? "";
@@ -134,6 +140,7 @@ describe("M1 core walkthrough", () => {
     });
     expect(register.status).toBe(201);
     cookieB = cookieOf(register);
+    userIdB = ((await register.json()) as MePayload).user.id;
 
     const preview = await call(`/api/households/invites/${inviteToken}`);
     expect(preview.status).toBe(200);
@@ -163,10 +170,18 @@ describe("M1 core walkthrough", () => {
     expect(me.activeHouseholdId).toBe(wg);
   });
 
-  test("A enables finance: 200 and modules [recipe, finance]; B's attempt is 403", async () => {
+  test("A enables finance with A and B as participants: 200 and modules [recipe, finance]; B's attempt is 403", async () => {
     const enabled = await call(`/api/households/${wg}/modules/finance`, {
       method: "POST",
       cookie: cookieA,
+      body: {
+        settings: {
+          participants: [
+            { userId: userIdA, memberSlot: 1 },
+            { userId: userIdB, memberSlot: 2 },
+          ],
+        },
+      },
     });
     expect(enabled.status).toBe(200);
     const body = (await enabled.json()) as { household: HouseholdDto };
