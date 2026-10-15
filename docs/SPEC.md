@@ -104,7 +104,9 @@ code is the smallest possible one and is recorded in the plan and in `docs/adr/`
   shopping list is the one feature editable offline (`setMutationDefaults`, `offlineFirst`,
   client-minted `mutationId`), finance's transaction capture likewise (`["toon","finance","tx",…]`
   namespace, `mutation_claims`). `PERSIST_BUSTER` starts at `household-v1`. Service worker: `/api`
-  and `/uploads` never cached; the `NetworkOnly` list is the union of both sources' lists.
+  and `/uploads` are never served by the navigation fallback; the runtime rules are the union of both
+  sources' (`NetworkOnly` first, then recipe's `NetworkFirst` read cache and `CacheFirst` uploads as
+  toon-recipe has them, ADR 0011).
 - **D10 — i18n.** The typed catalog layer, de as the source catalog, en typed as
   `LocaleCatalog<typeof de>`; namespaces prefixed per module (`recipe.*`, `finance.*`, core
   `common.*`, `auth.*`, `household.*`, `home.*`). **Every German UI string of both apps stays
