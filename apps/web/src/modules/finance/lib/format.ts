@@ -25,6 +25,7 @@ import { getLocale } from "@/lib/i18n/store.ts";
 interface Formatters {
   currency: Intl.NumberFormat;
   date: Intl.DateTimeFormat;
+  dayHeading: Intl.DateTimeFormat;
   dateTime: Intl.DateTimeFormat;
   month: Intl.DateTimeFormat;
 }
@@ -35,6 +36,12 @@ function build(intlLocale: string): Formatters {
   return {
     currency: new Intl.NumberFormat(intlLocale, { style: "currency", currency: "EUR" }),
     date: new Intl.DateTimeFormat(intlLocale, { day: "2-digit", month: "2-digit", year: "numeric" }),
+    dayHeading: new Intl.DateTimeFormat(intlLocale, {
+      weekday: "long",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }),
     dateTime: new Intl.DateTimeFormat(intlLocale, {
       day: "2-digit",
       month: "2-digit",
@@ -66,6 +73,19 @@ export function formatDate(iso: string | Date | null | undefined, locale: Locale
   const date = typeof iso === "string" ? new Date(iso) : iso;
   if (Number.isNaN(date.getTime())) return "–";
   return formatters(locale).date.format(date);
+}
+
+/**
+ * `"Freitag, 21.08.2026"` — the heading of one day's group in the
+ * transaction list. The weekday is not decoration: people remember "das war
+ * am Samstag" long after they have forgotten the date, and it is what makes
+ * the grouped list scannable enough to drop the date from every row.
+ */
+export function formatDayHeading(iso: string | Date | null | undefined, locale: Locale = getLocale()): string {
+  if (!iso) return "–";
+  const date = typeof iso === "string" ? new Date(iso) : iso;
+  if (Number.isNaN(date.getTime())) return "–";
+  return formatters(locale).dayHeading.format(date);
 }
 
 /** `"09.08.2026, 13:04"`. */
