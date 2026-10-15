@@ -118,10 +118,12 @@ code is the smallest possible one and is recorded in the plan and in `docs/adr/`
   `caddy`, bridge network `toon`, volumes `toon-data`, `caddy-data`, `caddy-config`, Caddy
   `2.11.4-alpine` pinned), with the Caddyfile's hardening and `fwd` snippets taken verbatim from
   toon-edge and the recipe import timeouts kept. One `TOON_HOSTNAME` (e.g. `haushalt.<domain>`),
-  `TOON_TLS_ISSUER` acme/internal as before. The Caddyfile may serve the two old hostnames as
-  `redir https://{$TOON_HOSTNAME}{uri} permanent` blocks when `RECIPE_HOSTNAME` /
-  `FINANCE_HOSTNAME` are set, so old bookmarks land on the new app; they are optional and removed
-  after cutover. The image is published to `ghcr.io/toonvish/toon-household` by `release.yml`
+  `TOON_TLS_ISSUER` acme/internal as before. The Caddyfile may serve the two old hostnames when `RECIPE_HOSTNAME` /
+  `FINANCE_HOSTNAME` are set, so old bookmarks land on the new app: each block maps its source's
+  old paths to the new ones (`/plan` is `/recipe/plan` on the recipe host and `/finance/plan` on the
+  finance host), answers `/sw.js` with a self-retiring service worker so an installed old PWA lets
+  go, and falls back to `redir https://{$TOON_HOSTNAME}{uri} permanent` (ADR 0008); they are
+  optional and removed after cutover. The image is published to `ghcr.io/toonvish/toon-household` by `release.yml`
   (`WITH_OCR=1 WITH_PDF=0` as toon-recipe does), deployed by `deploy.yml` + `docker/toon-deploy.sh`
   with a forced-command SSH key, as toon-recipe does. The old stacks are stopped at cutover, their
   volumes kept until the owner deletes them (`docs/deployment.md` "Cutover from toon-edge").

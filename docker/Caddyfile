@@ -1,0 +1,299 @@
+# =============================================================================
+# Caddy in front of toon-household (SPEC D11).
+#
+# WHY THERE IS A PROXY AT ALL: the PWA needs a SECURE CONTEXT. Browsers refuse to
+# register a service worker over plain http (localhost excepted), and without the
+# service worker there is no install prompt and no offline mode: the shopping
+# list and the finance capture are meant to work with the wifi off. So the app
+# is always served over TLS, whatever it runs on.
+#
+# CERTIFICATES: TWO MODES, ONE VARIABLE, and it applies to EVERY site here.
+#
+#   TOON_TLS_ISSUER=acme      (default) a real, publicly trusted certificate.
+#                             Needs a hostname that resolves to this machine from
+#                             the internet and ports 80 + 443 reachable. Nothing
+#                             to install on any device: this is the normal case
+#                             for a VPS with a domain.
+#   TOON_TLS_ISSUER=internal  Caddy's OWN local CA. No domain, no open ports, no
+#                             ACME account: for a LAN box or a local test run.
+#
+#   ⚠ In `internal` mode a device that does not trust that CA gets a warning AND
+#     NO PWA: clicking through the interstitial does NOT make the origin secure,
+#     the service worker still refuses to register. The root certificate is served
+#     at http://<host>/toon-root-ca.crt for exactly that reason and has to be
+#     installed once per device. In `acme` mode none of that applies.
+#
+# For a DNS-01 challenge (a public domain on a machine with NO open ports) the
+# issuer becomes `acme { dns <provider> … }` and Caddy needs to be rebuilt with
+# that DNS plugin; see docs/deployment.md.
+#
+# VALIDATE BEFORE RELOADING: a syntax error here takes the whole app offline.
+# Run it through compose, so the stack's .env is interpolated exactly as `up` does:
+#
+#   docker compose run --rm --no-deps --entrypoint caddy caddy validate --config /etc/caddy/Caddyfile
+#
+# THE OLD HOSTNAMES (optional, ADR 0008). While RECIPE_HOSTNAME / FINANCE_HOSTNAME
+# are set, the two hostnames toon-edge used to serve keep answering: each maps
+# its old app's paths to the new ones (`/plan` means the meal plan on the recipe
+# host and the Fixkostenplan on the finance host), answers `/sw.js` with a worker
+# that retires the old installed PWA, and redirects everything else to the same
+# path on TOON_HOSTNAME. Unset, each falls back to a placeholder address under the
+# reserved `.invalid` TLD that no request ever reaches. Caddy's `{$VAR:default}`
+# falls back only when the variable is UNSET; a set-but-EMPTY variable leaves a
+# site without an address and the config fails to load, which is why compose
+# hands the Caddy non-empty defaults (docker-compose.yml). Remove the two blocks
+# once the old hostnames are retired. Every target is pinned by
+# apps/web/src/legacy-redirects.test.ts against the app's route tree.
+# =============================================================================
+{
+	# No admin API: it is a full control plane over the proxy, and nothing here
+	# needs it. Off by default is one less thing listening in the container.
+	admin off
+
+	# One issuer for every site, so the optional old-hostname sites below get the
+	# same certificates as the app without a `tls` block of their own (a `tls`
+	# block on the `http://…invalid` placeholder address would be a config error).
+	cert_issuer {$TOON_TLS_ISSUER:acme}
+}
+
+# -----------------------------------------------------------------------------
+# The next two snippets are copied VERBATIM from toon-edge's Caddyfile (SPEC D11)
+# and must stay byte-identical (apps/api/test/deploy-caddyfile.test.ts pins their
+# digests). Two of their comments describe toon-edge's world: there are no longer
+# two apps behind this proxy, and the API reads the LAST X-Forwarded-For hop, not
+# the FIRST entry (toon-finance gotcha 74). The API also sends its own
+# Content-Security-Policy, hashed over the built index.html (M3b, ADR 0007).
+# Neither fact changes the snippets: the header overwrite in `fwd` is what makes
+# the last hop the real peer, and the CSP stays out of the proxy.
+# -----------------------------------------------------------------------------
+
+(hardening) {
+	# The API is the only thing that may set the session cookie, and it does it
+	# with HttpOnly/SameSite already. These are the headers a proxy can add that
+	# the app cannot usefully set for itself.
+	header {
+		# NO Content-Security-Policy here on purpose. The apps are same-origin end
+		# to end, so a strict one would be cheap in principle — but vite inlines a
+		# small bootstrap script, so a policy without the matching hash silently
+		# turns the app into a blank page. Add one only together with a build that
+		# emits the hashes, and test it on a phone before deploying.
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		# HSTS belongs with a publicly trusted certificate and is therefore on by
+		# default. Set TOON_HSTS_MAX_AGE=0 for a LAN/internal-CA install: pinning
+		# HTTPS for a name you may later reuse is a good way to lock yourself out,
+		# and `max-age=0` is the documented way to release a pin a browser has
+		# already stored.
+		Strict-Transport-Security "max-age={$TOON_HSTS_MAX_AGE:31536000}"
+		-Server
+	}
+}
+
+(fwd) {
+	# ----------------------------------------------------------------------
+	# KEEP THIS, EVEN THOUGH CADDY LOGS IT AS "UNNECESSARY".
+	#
+	# Both apps run with TRUST_PROXY=1 behind this proxy, so they believe
+	# X-Forwarded-For and use the FIRST entry as the client address for every
+	# rate-limit bucket (login, registration, password reset). A client that can
+	# choose that value has no rate limit at all — a fresh header per request is
+	# a fresh bucket per request.
+	#
+	# Measured behaviour of `curl -H "X-Forwarded-For: 1.2.3.4"`:
+	#
+	#   Caddy default ................ upstream sees the real peer  (safe)
+	#   + trusted_proxies 0.0.0.0/0 ... upstream sees "1.2.3.4, <peer>"  (!)
+	#   + this header_up ............. upstream sees the real peer  (safe)
+	#
+	# So Caddy's default is already correct and Caddy is right that the line
+	# changes nothing TODAY — it is here for the second row. Adding a
+	# `trusted_proxies` line (a common copy-paste when putting another proxy or
+	# Cloudflare in front) silently re-opens the bypass, and this overwrite is
+	# what keeps that from turning into an auth-bruteforcing hole across BOTH
+	# apps at once. Cost: one startup warning per site. Keep it.
+	# ----------------------------------------------------------------------
+	header_up X-Forwarded-For {remote_host}
+	header_up X-Real-IP {remote_host}
+}
+
+# -----------------------------------------------------------------------------
+# The app, over HTTPS.
+# TOON_HOSTNAME comes from the compose .env. Use the SAME name on every device: a
+# certificate is issued per name, so reaching the machine by IP is a fresh
+# warning, and WEB_ORIGIN (hence the links in outgoing mails) is built from it.
+# -----------------------------------------------------------------------------
+{$TOON_HOSTNAME} {
+	tls {
+		issuer {$TOON_TLS_ISSUER:acme}
+	}
+
+	encode zstd gzip
+
+	reverse_proxy app:3001 {
+		import fwd
+
+		# Generous, because the slowest request in this app is a recipe import. A
+		# URL import waits on a foreign site, and a photo/PDF import (opt-in, off
+		# by default) uploads up to 15 MB and then runs OCR on a small CPU. These
+		# keep the proxy from timing the request out before this app's import
+		# endpoints are done.
+		transport http {
+			read_timeout 300s
+			write_timeout 300s
+		}
+	}
+
+	import hardening
+}
+
+# -----------------------------------------------------------------------------
+# The old hostnames (ADR 0008): the self-retiring service worker.
+#
+# An installed old PWA asks for /sw.js on its update check. A redirect there is a
+# FAILED update, so the old worker would keep serving its precached shell forever,
+# and that shell's /api calls would be redirected cross-origin and fail. A 200
+# with this worker replaces it: it deletes the old caches, unregisters itself and
+# reloads every open window, which then reaches the network, gets the 301 below
+# and lands on the new app. IndexedDB of the old origin is left alone (an unsent
+# offline write there is lost with the old API; the cutover tells everybody to
+# open both old apps online once first).
+#
+# `handle` only, in the sites that import this: `redir` sorts BEFORE `handle` and
+# a bare one would swallow /sw.js.
+# -----------------------------------------------------------------------------
+(retire_old_worker) {
+	handle /sw.js {
+		header Content-Type "text/javascript; charset=utf-8"
+		header Cache-Control "no-cache"
+		respond * <<JS
+			// Retires the service worker of the app that used to live on this hostname (toon-household ADR 0008).
+			self.addEventListener("install", () => self.skipWaiting());
+			self.addEventListener("activate", (event) => {
+			  event.waitUntil((async () => {
+			    for (const key of await caches.keys()) await caches.delete(key);
+			    await self.clients.claim();
+			    await self.registration.unregister();
+			    for (const client of await self.clients.matchAll({ type: "window" })) client.navigate(client.url);
+			  })());
+			});
+			JS 200
+	}
+}
+
+# -----------------------------------------------------------------------------
+# toon-recipe's old hostname (optional; Table R of docs/plans/m6-deploy.md).
+# Each old path goes to its new place under /recipe; the group screens became
+# the household screens (a group id is the household id). Everything else (auth
+# links, /settings, /uploads, /api, unknown paths) keeps its path: SPEC D11's rule.
+# -----------------------------------------------------------------------------
+{$RECIPE_HOSTNAME:http://old-recipe-hostname.unset.invalid} {
+	import retire_old_worker
+
+	handle / {
+		redir https://{$TOON_HOSTNAME}/recipe{?query} permanent
+	}
+	handle /search {
+		redir https://{$TOON_HOSTNAME}/recipe{?query} permanent
+	}
+	handle /recipes/* {
+		redir https://{$TOON_HOSTNAME}/recipe{uri} permanent
+	}
+	@import path /import /import/*
+	handle @import {
+		redir https://{$TOON_HOSTNAME}/recipe{uri} permanent
+	}
+	@collections path /collections /collections/*
+	handle @collections {
+		redir https://{$TOON_HOSTNAME}/recipe{uri} permanent
+	}
+	handle /tags {
+		redir https://{$TOON_HOSTNAME}/recipe{uri} permanent
+	}
+	@shopping path /shopping /shopping/*
+	handle @shopping {
+		redir https://{$TOON_HOSTNAME}/recipe{uri} permanent
+	}
+	handle /plan {
+		redir https://{$TOON_HOSTNAME}/recipe{uri} permanent
+	}
+	handle /groups {
+		redir https://{$TOON_HOSTNAME}/households{?query} permanent
+	}
+	@groups path_regexp groups ^/groups/(.*)$
+	handle @groups {
+		redir https://{$TOON_HOSTNAME}/households/{re.groups.1}{?query} permanent
+	}
+	handle {
+		redir https://{$TOON_HOSTNAME}{uri} permanent
+	}
+
+	import hardening
+}
+
+# -----------------------------------------------------------------------------
+# toon-finance's old hostname (optional; Table R of docs/plans/m6-deploy.md).
+# The ledger screens go under /finance, the household screen to the household
+# screens (the participants section is on /settings). F's password-reset links
+# carry tokens that were not migrated (SPEC §6 step 5): they land on the form
+# that asks for a new link. Everything else keeps its path: SPEC D11's rule.
+# -----------------------------------------------------------------------------
+{$FINANCE_HOSTNAME:http://old-finance-hostname.unset.invalid} {
+	import retire_old_worker
+
+	handle / {
+		redir https://{$TOON_HOSTNAME}/finance permanent
+	}
+	@transactions path /transactions /transactions/*
+	handle @transactions {
+		redir https://{$TOON_HOSTNAME}/finance{uri} permanent
+	}
+	handle /new {
+		redir https://{$TOON_HOSTNAME}/finance/new permanent
+	}
+	handle /plan {
+		redir https://{$TOON_HOSTNAME}/finance/plan permanent
+	}
+	handle /categories {
+		redir https://{$TOON_HOSTNAME}/finance/categories permanent
+	}
+	handle /household {
+		redir https://{$TOON_HOSTNAME}/households permanent
+	}
+	handle /password/forgot {
+		redir https://{$TOON_HOSTNAME}/forgot-password permanent
+	}
+	@password_reset path /password/reset /password/reset/*
+	handle @password_reset {
+		redir https://{$TOON_HOSTNAME}/forgot-password permanent
+	}
+	handle {
+		redir https://{$TOON_HOSTNAME}{uri} permanent
+	}
+
+	import hardening
+}
+
+# -----------------------------------------------------------------------------
+# Plain HTTP: the ACME challenge (handled by Caddy itself, ahead of these routes),
+# the local root certificate, and a redirect for everything else.
+#
+# The CA certificate is served over http ON PURPOSE: a device that does not trust
+# the CA yet cannot fetch it over the HTTPS that this same CA signs without hitting
+# the very warning we are trying to remove. What is published here is a PUBLIC
+# certificate; the CA's private key never leaves the caddy-data volume. In `acme`
+# mode there is no local CA and this route simply answers 404.
+# -----------------------------------------------------------------------------
+http://{$TOON_HOSTNAME} {
+	handle /toon-root-ca.crt {
+		root * /data/caddy/pki/authorities/local
+		rewrite * /root.crt
+		header Content-Type application/x-x509-ca-cert
+		header Content-Disposition "attachment; filename=toon-root-ca.crt"
+		file_server
+	}
+
+	handle {
+		redir https://{host}{uri} permanent
+	}
+}
