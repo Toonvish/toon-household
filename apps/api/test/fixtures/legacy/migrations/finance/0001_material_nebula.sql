@@ -1,0 +1,1 @@
+ALTER TABLE `invites` ADD `mail_delivery` text DEFAULT 'not_configured' NOT NULL;

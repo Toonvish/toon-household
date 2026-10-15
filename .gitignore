@@ -2,6 +2,8 @@ node_modules/
 dist/
 data/
 *.db
+# the legacy migration fixtures are the one tracked pair of databases (rollback journal, no -wal)
+!apps/api/test/fixtures/legacy/*.db
 *.db-*
 *.sqlite
 *.sqlite-*
