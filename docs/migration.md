@@ -3,10 +3,13 @@
 This is the operator's guide to `bun run migrate:legacy`, the one-off tool that moves the data of the
 two old apps into the household database. It is written for the person doing the cutover. The design
 behind it is in `docs/SPEC.md` (D11, D12, §6, §9), the decision record for the odd ledger states is
-`docs/adr/0005-legacy-migration-ledger-states.md`, and the plan is `docs/plans/m5-migration.md`.
+`docs/adr/0005-legacy-migration-ledger-states.md`, the one for toon-finance's placeholder members and
+their claim links is `docs/adr/0006-placeholder-members-and-claim-invites.md`, and the plans are
+`docs/plans/m5-migration.md` and `docs/plans/m3b-finance-sync.md` (decisions 13 and 14).
 
 Contents: [Purpose and scope](#purpose-and-scope) · [What is migrated](#what-is-migrated-and-what-is-not) ·
-[The rules](#the-rules) · [Preparing the inputs](#preparing-the-inputs) · [Where the target comes from](#where-the-target-comes-from) ·
+[The rules](#the-rules) · [Placeholders and claim links](#placeholders-and-claim-links) ·
+[Preparing the inputs](#preparing-the-inputs) · [Where the target comes from](#where-the-target-comes-from) ·
 [Commands](#commands) · [The report](#the-report) · [Failures](#when-something-fails) · [Cutover order](#cutover-order)
 
 ## Purpose and scope
@@ -24,8 +27,9 @@ Contents: [Purpose and scope](#purpose-and-scope) · [What is migrated](#what-is
   after any run.
 - **Either source may be absent.** At least one of `--recipe-db` and `--finance-db` is required, so a
   recipe-only or finance-only migration is possible.
-- **Out of scope** (SPEC §9): sessions, finance invites, finance password-reset tokens, and any
-  merging of ledgers. Everyone logs in again after the cutover.
+- **Out of scope** (SPEC §9): sessions, finance invites (except the claim invite of a placeholder,
+  see [Placeholders and claim links](#placeholders-and-claim-links)), finance password-reset tokens,
+  and any merging of ledgers. Everyone logs in again after the cutover.
 
 ## What is migrated, and what is not
 
@@ -38,14 +42,16 @@ table is `docs/plans/m5-migration.md` section 2.
 | recipe `groups`, `group_members`, `group_invites` | `households`, `household_members`, `household_invites` (same ids; `group_id` becomes `household_id`) |
 | every recipe table (`tags`, `recipes`, ingredients, steps, collections, meal plan, cook log, import drafts, shopping lists and their items, catalog, bought history, mutations, `cards`) | the `recipe_*` tables of the same meaning; folded search columns are recomputed |
 | recipe uploads directory (`<uuid>.<ext>` and `<name>.thumb.webp`) | the target upload directory (files copied, never overwritten) |
-| finance `users` | `users` (only for people who have no recipe account) |
+| finance `users` | `users` (only for people who have no recipe account); a placeholder (no password) becomes a user row with no e-mail and no password |
 | finance `households` | a merge decision, a new `households` row, and `finance_settings` (`default_locale`) |
 | finance `household_members` | `finance_participants` (slot, `display_name`, `joined_at` kept), plus `household_members` rows where a household is created or a member added |
 | finance `categories`, `tags`, `transactions`, `transaction_tags`, `mutation_claims`, `fixed_cost_items`, `incomes`, `fixed_cost_plans`, `accrual_runs` | `finance_categories`, `finance_tags`, `finance_transactions`, `finance_transaction_tags`, `finance_mutation_claims`, `finance_fixed_cost_items`, `finance_incomes`, `finance_fixed_cost_plans`, `finance_accrual_runs` |
+| finance `invites` with `claims_user_id` | one pending claim invite per placeholder in `household_invites` (a still-pending legacy one is reused, otherwise a fresh one is created) |
 | (new) | one `household_modules` row per module: `recipe` for every household that came from a recipe group, `finance` for every household that received a finance household |
 
 **Not migrated** (the report lists them under "Not migrated by design"): `sessions` of both apps,
-finance `invites`, finance `password_reset_tokens`. After the cutover everybody signs in again.
+finance `invites` (other than a reused claim invite), finance `password_reset_tokens`. After the
+cutover everybody signs in again.
 
 Values that change on the way: `users.email` is trimmed and lower-cased; upload URLs in `avatar_url`,
 `image_url` and `cover_image_url` lose their signature and origin and become plain `/uploads/<name>`
@@ -69,6 +75,11 @@ Users are matched by the normalised e-mail address (`trim` plus lower case).
   **unconfirmed** (`email_verified = 0`, no verification timestamp). Before they can write anything they
   confirm their address (when mail is configured) or you run `bun run auth:reset-password <email>`
   to give them a reset link.
+- **Finance placeholders** (toon-finance's members without an account: `password_hash` is NULL, and so
+  must be the e-mail, otherwise the run reports an error) become user rows of their own with **no
+  e-mail and no password**, unconfirmed, keeping the finance id. They are never matched or grouped by
+  e-mail, cannot sign in, and get a claim link (see [Placeholders and claim
+  links](#placeholders-and-claim-links)). The report counts them as `Finance placeholders (no account)`.
 - **A user id already taken** by the target, or by another user decided in the same run, gets a fresh
   UUID and a warning, so two legacy ids that happen to be equal never collide.
 - **An account that already exists in the target.** If somebody registered in the new app first and has
@@ -91,13 +102,17 @@ Users are matched by the normalised e-mail address (`trim` plus lower case).
 
 - **Every recipe group becomes a household with the same id** (a fresh UUID if the id is taken).
 - **Each finance household** is proposed one of three outcomes:
-  - **merge** into the recipe group that contains all of its members. If several groups do, the one
+  - **merge** into the recipe group that contains all of its members **that have an account**
+    (placeholders are in no recipe group and do not count; they join the target household as
+    `member`, and the proposal's Reason column shows `(adds placeholder <finance id>)`). If several groups do, the one
     with the most recipes wins, then the oldest, then the lowest id. A group is used by at most one
     finance household; a second one that would share it becomes `new` (reason `group-taken`).
   - **new**: a household of its own when no group fits. The finance household's creator becomes the
     owner (the remaining member with the lowest slot when the creator has left), the other member is a
     `member`.
   - **skip**: a finance household with no members; its rows are skipped, not errors.
+  - A finance household whose members are **all placeholders** is the error `no-account-members`
+    (exit 1) unless `--mapping` names its recipe group: nobody could sign in to it.
 - **The proposal is printed in every run** (`== Household mapping proposal ==`) and is deterministic.
   Review it before applying.
 - **`--mapping <file>` overrides the proposal.** The file is JSON with exactly one top-level key:
@@ -167,6 +182,42 @@ target. The balance in cents, the transaction count and the sum of all amounts m
 slot-1 person must be the mapped legacy slot-1 person; otherwise the household is `FAIL`, the run
 exits 1 and `--apply` writes nothing. Plan payers are re-checked to be participants afterwards.
 
+## Placeholders and claim links
+
+toon-finance can seat a person **without an account** (a placeholder) so the ledger can name them as
+payer before they ever sign in; a **claim link** later turns that placeholder into an account by
+registration, with the same user id, so every booking, income and seat stays theirs (ADR 0006).
+
+- **The rule.** Each migrated placeholder becomes a member (`member` role) of the household its finance
+  seat lands in, keeps its slot and display name in `finance_participants`, and gets **exactly one
+  pending claim invite**. A legacy claim invite of that placeholder that is still pending and not
+  expired is **reused**: its token, creation and expiry dates and e-mail are kept, so a link already
+  handed out keeps working (a token the target already holds is replaced by a fresh one, with a
+  warning). Otherwise a fresh one is **created**: no e-mail, role `member`, invited by the household's
+  owner, valid for 14 days from the run. Redeeming it is only possible by registering (`/invite/<token>`
+  in the web app): the new account is the placeholder's row, unconfirmed until the address is confirmed.
+- **Where the link appears.** In the report section `== Placeholders and claim invites ==`, which
+  lists every placeholder with its legacy and target user id, the target household, the slot and the
+  claim invite state (`would-create` / `would-reuse` in a dry run, `created` / `reused` in an apply,
+  `already-migrated` once written). The link itself, `<WEB_ORIGIN>/invite/<token>`, is printed **only by
+  `--apply`**: below that table on stdout and as `inviteUrl` in that run's `--report` JSON. A dry run
+  (alone or as the first pass of `--apply`) never prints a link.
+- **The apply report is a credential.** Whoever holds a claim link becomes that person in the
+  household and sees their ledger. Hand each link to its person privately (in person or a private
+  message), and treat the apply output and its `--report` JSON like a password: write the report to a
+  private directory **outside any repository** (not `migration-out/`, not this checkout), never
+  commit it, never paste it into an issue, chat or log, and delete it once every link is redeemed or
+  replaced.
+- **Printing a link again.** Run the same `--apply` command again. It writes nothing (the ledger says
+  everything is migrated) and re-prints the link of every claim invite that is still pending and not
+  expired (state `already-migrated`). An accepted, revoked or expired invite is not printed; after the
+  cutover an admin creates a new claim link from the household's member list in the app.
+- **The origin of the link** is the first entry of `WEB_ORIGIN` (a comma-separated list, as for the
+  API), read like `DATABASE_URL`: the process environment, then the root `.env`, then `.env.local`,
+  default `http://localhost:5173`. **Set it to the new site's public origin** for the apply
+  (`WEB_ORIGIN=https://<new-hostname>`), or the printed links point at localhost (the token in them is
+  still right; only the origin would need changing by hand).
+
 ## Preparing the inputs
 
 The tool never reads a live database. Stop the old apps, copy their data out, and point the tool at the
@@ -202,8 +253,9 @@ ls -la migration-in/recipe migration-in/finance      # local.db, local.db-wal, l
 order), so the WAL is complete.
 
 **Schema-version check.** Each input must be at the exact migration the tool was written for
-(toon-recipe: 9 migrations, last `0008_shopping_bought`; toon-finance: 2 migrations, last
-`0001_material_nebula`). Otherwise the tool stops with exit 2 and writes nothing:
+(toon-recipe: 9 migrations, last `0008_shopping_bought`; toon-finance: 3 migrations, last
+`0002_placeholder_members`, the version that knows placeholder members). Otherwise the tool stops with
+exit 2 and writes nothing:
 
 ```
 legacy recipe database is at migration 7 of 9; start the old app once (it migrates on boot) and copy it again
@@ -223,6 +275,8 @@ process environment wins** over the file. Relative values (and relative input pa
 the repository root, not the current directory.
 
 - `DATABASE_URL` must be a local `file:` URL. A `libsql://` target is refused (exit 2).
+- `WEB_ORIGIN` (first entry, default `http://localhost:5173`) is the origin of the claim links an
+  apply prints; see [Placeholders and claim links](#placeholders-and-claim-links).
 - A missing `DATABASE_URL` is exit 2 with: `DATABASE_URL is not set (process environment or the
   repo's root .env); point it at the target, e.g. DATABASE_URL=file:./migration-out/toon.db`.
 - **A root `.env` that points `DATABASE_URL` at your development database would be your target.**
@@ -244,6 +298,8 @@ variables below are the ones used throughout this guide.
 ```bash
 export DATABASE_URL=file:./migration-out/toon.db
 export UPLOAD_DIR=./migration-out/uploads
+export WEB_ORIGIN=https://<new-hostname>       # the origin of the claim links an apply prints
+export PRIVATE_DIR=/root/toon-cutover-private  # outside any repository: apply reports go here
 ```
 
 The synopsis (`--help` prints it):
@@ -260,7 +316,7 @@ bun run migrate:legacy -- [--recipe-db <file>] [--recipe-uploads <dir>] [--finan
 | `--finance-db <file>` | the copied toon-finance `local.db` |
 | `--mapping <json>` | household overrides, see [Households](#households) (requires `--finance-db`) |
 | `--apply` | write for real; without it nothing is written |
-| `--report <file>` | also write the report of the last pass as JSON |
+| `--report <file>` | also write the report of the last pass as JSON (an apply report holds claim links: write it to `$PRIVATE_DIR`) |
 | `--help` | print the usage block |
 
 1. **Dry run** (the default). Writes nothing. Exit 0 means a clean report.
@@ -285,17 +341,21 @@ bun run migrate:legacy -- [--recipe-db <file>] [--recipe-uploads <dir>] [--finan
 4. **Apply.** The tool first repeats the dry pass; if that reports any error it stops with exit 1 and
    `Nothing was written.` Otherwise it creates the target (running every schema migration on it),
    copies the rows in dependency order in transactions of 500 rows, copies the uploads, and re-checks
-   the balances.
+   the balances. Its output and its report carry the placeholders' claim links: they are credentials
+   (see [Placeholders and claim links](#placeholders-and-claim-links)), so the report goes to
+   `$PRIVATE_DIR`, never into the repository.
 
    ```bash
+   mkdir -p -m 700 "$PRIVATE_DIR"
    bun run migrate:legacy -- \
      --recipe-db migration-in/recipe/local.db --recipe-uploads migration-in/recipe/uploads \
      --finance-db migration-in/finance/local.db --mapping migration-in/mapping.json \
-     --apply --report migration-out/apply.json
+     --apply --report "$PRIVATE_DIR/apply.json"
    ```
 
 5. **Run `--apply` a second time** with the same arguments. It must write nothing and end with
-   `[migrate:legacy] already migrated: nothing written.` That proves the first run was complete.
+   `[migrate:legacy] already migrated: nothing written.` That proves the first run was complete. It
+   also re-prints every still-pending claim link (the way to get a link again).
 
 ## The report
 
@@ -306,12 +366,13 @@ totals and the exit code. Sections, always in this order:
 | --- | --- |
 | `== Inputs ==` | mode, target, and per source the path, the schema version and the row count of each table |
 | `== Household mapping proposal ==` | the table `Finance household / Members / Decision / Target household / Reason` |
-| `== Users ==` | counts, and every e-mail that exists in both apps (which id, which password) |
+| `== Users ==` | counts (placeholders included), and every e-mail that exists in both apps (which id, which password) |
 | `== Rows per table ==` | read, written, already migrated and skipped, per table and source, with totals |
 | `== Skipped rows ==` | every row not migrated, with its reason; an error is marked as such |
-| `== Not migrated by design ==` | sessions, finance invites, finance reset tokens |
+| `== Not migrated by design ==` | sessions, finance invites (without the reused claim invites), finance reset tokens |
 | `== Uploads ==` | source files, copied (or "would copy" in a dry run), already present, bytes, conflicts, referenced-but-missing, ignored entries |
 | `== Finance balance per household ==` | legacy and migrated balance, transaction count and amount sum, and `OK` or `FAIL` |
+| `== Placeholders and claim invites ==` | every finance placeholder: legacy and target user id, finance and target household, slot, claim invite state; in an `--apply` run also the claim links (credentials) |
 | `== Warnings ==` | the ADR 0005 cases, matched accounts, taken ids, missing uploads |
 | `== Errors ==` | anything that makes the run fail |
 
@@ -335,22 +396,24 @@ Example output, **abridged, from the real dry run of the fixtures** (`apps/api/t
 invented people and amounts; the target path is that run's temporary directory; your numbers differ):
 
 ```
-[migrate:legacy] mode: dry-run (nothing is written to /tmp/tmp.idwYBnLkxF/target.db)
-[migrate:legacy] uploads: /tmp/tmp.idwYBnLkxF/uploads
+[migrate:legacy] mode: dry-run (nothing is written to /tmp/tmp.yhyUdniHa0/target.db)
+[migrate:legacy] uploads: /tmp/tmp.yhyUdniHa0/uploads
 
 == Household mapping proposal ==
-Finance household                                         Members                                Decision  Target household                                         Reason
---------------------------------------------------------  -------------------------------------  --------  -------------------------------------------------------  ------------
-Kasse Anna & Ben (00000005-0000-4000-8000-000000000001)   anna@example.test, ben@example.test    merge     Familie Beispiel (00000002-0000-4000-8000-000000000001)  most-recipes
-Kasse Cleo & Dana (00000005-0000-4000-8000-000000000002)  cleo@example.test, dana@example.test   merge     WG Gartenstraße (00000002-0000-4000-8000-000000000003)   only-group
-Emil & Fritz (00000002-0000-4000-8000-000000000002)       emil@example.test, fritz@example.test  new       Emil & Fritz (483d9d2b-b12a-4435-8dcb-38804ff89f8a)      no-group
-Gina allein (00000005-0000-4000-8000-000000000004)        gina@example.test                      new       Gina allein (00000005-0000-4000-8000-000000000004)       no-group
-Leer (00000005-0000-4000-8000-000000000005)               -                                      skip      -                                                        no-members
+Finance household                                         Members                                                              Decision  Target household                                         Reason
+--------------------------------------------------------  -------------------------------------------------------------------  --------  -------------------------------------------------------  ------------------------------------------------------------------
+Kasse Anna & Ben (00000005-0000-4000-8000-000000000001)   anna@example.test, ben@example.test                                  merge     Familie Beispiel (00000002-0000-4000-8000-000000000001)  most-recipes
+Kasse Cleo & Dana (00000005-0000-4000-8000-000000000002)  cleo@example.test, dana@example.test                                 merge     WG Gartenstraße (00000002-0000-4000-8000-000000000003)   only-group
+Emil & Fritz (00000002-0000-4000-8000-000000000002)       emil@example.test, fritz@example.test                                new       Emil & Fritz (c15ca8e6-11ae-4a84-8123-17f391a9bd0d)      no-group
+Gina allein (00000005-0000-4000-8000-000000000004)        gina@example.test                                                    new       Gina allein (00000005-0000-4000-8000-000000000004)       no-group
+Leer (00000005-0000-4000-8000-000000000005)               -                                                                    skip      -                                                        no-members
+Kasse Anna & Pia (00000005-0000-4000-8000-000000000006)   anna@example.test, placeholder 00000006-0000-4000-8000-000000000008  merge     Freundeskreis (00000002-0000-4000-8000-000000000002)     only-group (adds placeholder 00000006-0000-4000-8000-000000000008)
 
 == Users ==
 Recipe users: 4
-Finance users: 7
-Target users: 7
+Finance users: 8
+Finance placeholders (no account): 1
+Target users: 8
 Collisions (same e-mail in both apps):
 E-mail             Recipe id                             Finance id                            Target id                             Password  Note
 -----------------  ------------------------------------  ------------------------------------  ------------------------------------  --------  -------------------------------------------------------------------------------
@@ -363,11 +426,12 @@ dana@example.test  00000001-0000-4000-8000-000000000004  00000006-0000-4000-8000
 Table                         Source   Read  Written  Already migrated  Skipped
 ----------------------------  -------  ----  -------  ----------------  -------
 users                         recipe   4     4        0                 0
-users                         finance  7     7        0                 0
+users                         finance  8     8        0                 0
 oauth_accounts                recipe   1     1        0                 0
 ...
-households                    finance  5     4        0                 1
-Total                                  242   240      0                 2
+households                    finance  6     5        0                 1
+household_invites             finance  1     1        0                 0
+Total                                  276   274      0                 2
 
 == Skipped rows ==
 Table                     Source   Legacy id                             Error  Reason
@@ -390,12 +454,18 @@ Finance household                                         Target household      
 --------------------------------------------------------  ------------------------------------  -----------------  --------------  ----------------  ---------  -----------  ----------  ------------  ------
 Kasse Anna & Ben (00000005-0000-4000-8000-000000000001)   00000002-0000-4000-8000-000000000001  anna@example.test  119486 ct       119486 ct         13         13           166995 ct   166995 ct     OK
 Kasse Cleo & Dana (00000005-0000-4000-8000-000000000002)  00000002-0000-4000-8000-000000000003  cleo@example.test  1675 ct         1675 ct           6          6            14651 ct    14651 ct      OK
-Emil & Fritz (00000002-0000-4000-8000-000000000002)       483d9d2b-b12a-4435-8dcb-38804ff89f8a  emil@example.test  1900 ct         1900 ct           4          4            9998 ct     9998 ct       OK
+Emil & Fritz (00000002-0000-4000-8000-000000000002)       c15ca8e6-11ae-4a84-8123-17f391a9bd0d  emil@example.test  1900 ct         1900 ct           4          4            9998 ct     9998 ct       OK
 Gina allein (00000005-0000-4000-8000-000000000004)        00000005-0000-4000-8000-000000000004  gina@example.test  2500 ct         2500 ct           2          2            3500 ct     3500 ct       OK
+Kasse Anna & Pia (00000005-0000-4000-8000-000000000006)   00000002-0000-4000-8000-000000000002  anna@example.test  2100 ct         2100 ct           3          3            6900 ct     6900 ct       OK
+
+== Placeholders and claim invites ==
+Finance user                          Target user                           Finance household                     Target household                      Slot  Claim invite
+------------------------------------  ------------------------------------  ------------------------------------  ------------------------------------  ----  ------------
+00000006-0000-4000-8000-000000000008  00000006-0000-4000-8000-000000000008  00000005-0000-4000-8000-000000000006  00000002-0000-4000-8000-000000000002  2     would-reuse
 
 == Warnings ==
-- user gina@example.test (finance id 00000001-0000-4000-8000-000000000003): the id is already taken in the target, new id 354d7981-a3b9-4988-8645-b61a4d7d6927
-- finance household 00000002-0000-4000-8000-000000000002 (Emil & Fritz): the id 00000002-0000-4000-8000-000000000002 is already taken in the target, new id 483d9d2b-b12a-4435-8dcb-38804ff89f8a
+- user gina@example.test (finance id 00000001-0000-4000-8000-000000000003): the id is already taken in the target, new id adfcf046-d206-4a97-9648-3e1fd02cc3d1
+- finance household 00000002-0000-4000-8000-000000000002 (Emil & Fritz): the id 00000002-0000-4000-8000-000000000002 is already taken in the target, new id c15ca8e6-11ae-4a84-8123-17f391a9bd0d
 - finance household 00000005-0000-4000-8000-000000000004 (Gina allein): one participant; seat the second with PUT …/finance/participants (gina@example.test is the only participant)
 - finance household 00000005-0000-4000-8000-000000000004 (Gina allein): the only participant gina@example.test sat in slot 2 and is re-seated in slot 1 (ADR 0005)
 - uploads: 00000009-0000-4000-8000-000000000006.jpg is referenced by a legacy row but missing in /home/erics/software/toon-household/apps/api/test/fixtures/legacy/uploads
@@ -405,7 +475,7 @@ Gina allein (00000005-0000-4000-8000-000000000004)        00000005-0000-4000-800
 == Errors ==
 (none)
 
-[migrate:legacy] dry run complete: 240 rows would be written, 7 files would be copied. Nothing was written.
+[migrate:legacy] dry run complete: 274 rows would be written, 7 files would be copied. Nothing was written.
 ```
 
 Notes on reading it:
@@ -414,10 +484,18 @@ Notes on reading it:
   `@toon/api migrate:legacy: `. The excerpt above has the prefix removed; the `--report` JSON never
   has it. The exit code of the script is the exit code of the command.
 - A household or user whose id was already taken gets a fresh random UUID **per pass**. The dry run
-  shows one (`483d9d2b-...` above) and the `--apply` pass writes another; the final report of the apply
+  shows one (`c15ca8e6-...` above) and the `--apply` pass writes another; the final report of the apply
   names the one that was written.
 - A dry run against a target that already holds the migrated rows says `already migrated, nothing would
   be written.` in its last line.
+- The placeholder row says `would-reuse`: FH6's legacy claim invite is still pending. The `--apply` of
+  the same inputs says `reused` and adds, below the table, one line per link (`<token>` stands for the
+  real token here on purpose):
+
+  ```
+  Claim links (each one is a credential: hand it over privately, never commit or paste this output):
+    00000006-0000-4000-8000-000000000008  https://<new-hostname>/invite/<token>
+  ```
 
 ## When something fails
 
@@ -489,13 +567,19 @@ reversible by starting the old stacks again.
 5. **Apply** into `migration-out/`, then apply again to prove it is complete:
 
    ```bash
+   export WEB_ORIGIN=https://<new-hostname> PRIVATE_DIR=/root/toon-cutover-private
+   mkdir -p -m 700 "$PRIVATE_DIR"
    bun run migrate:legacy -- --recipe-db migration-in/recipe/local.db \
      --recipe-uploads migration-in/recipe/uploads --finance-db migration-in/finance/local.db \
-     --apply --report migration-out/apply.json
+     --apply --report "$PRIVATE_DIR/apply.json"
    bun run migrate:legacy -- --recipe-db migration-in/recipe/local.db \
      --recipe-uploads migration-in/recipe/uploads --finance-db migration-in/finance/local.db --apply
    # the second run must end with: [migrate:legacy] already migrated: nothing written.
    ```
+
+   Both runs print the claim links of the finance placeholders (`== Placeholders and claim invites ==`).
+   They are credentials: do not paste the output anywhere, and keep `$PRIVATE_DIR` outside any
+   repository.
 
 6. **Copy the result into the new stack's volume**, before that stack has ever started (a started
    stack would have created its own empty database). Rename the database to the name the new stack's
@@ -532,7 +616,9 @@ reversible by starting the old stacks again.
    Sign in (each person uses the e-mail and password they had; OAuth-only recipe accounts use their
    provider; finance-only accounts need the address confirmation or a password-reset link from
    `bun run auth:reset-password <email>`). Open a recipe, the meal plan, a shopping list, and the
-   finance overview: the balance must equal the migrated balance in the report. Act on the ADR 0005
+   finance overview: the balance must equal the migrated balance in the report. Hand each claim link
+   privately to its person; registering through it makes them the placeholder (same seat, same
+   bookings), and they then confirm their address. Act on the ADR 0005
    warnings (seat the second participant of a solo ledger, check the plan payer, remove an income that
    names someone who is not a participant).
 

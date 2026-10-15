@@ -550,6 +550,7 @@ describe("(f) report", () => {
       "== Not migrated by design ==",
       "== Uploads ==",
       "== Finance balance per household ==",
+      "== Placeholders and claim invites ==",
       "== Warnings ==",
       "== Errors ==",
     ]);

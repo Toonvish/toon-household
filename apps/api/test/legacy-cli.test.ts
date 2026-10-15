@@ -22,7 +22,7 @@ import { exitCodeFor, totalWritten } from "../scripts/legacy/report.ts";
 import { runLegacyMigration } from "../scripts/legacy/run.ts";
 import { migrateUsers } from "../scripts/legacy/users.ts";
 import { CliUsageError, resolveCliEnv } from "../scripts/migrate-legacy.ts";
-import { EXPECTED, FINANCE_HOUSEHOLDS, FINANCE_USERS, GROUPS } from "./fixtures/legacy/facts.ts";
+import { EXPECTED, FH6_CLAIM_INVITE, FINANCE_HOUSEHOLDS, FINANCE_USERS, GROUPS } from "./fixtures/legacy/facts.ts";
 import { openLegacy } from "../scripts/legacy/sources.ts";
 import { countRows, createLegacyRun, FIXTURE_DIR, type LegacyRun, sha256File } from "./support/legacy-harness.ts";
 
@@ -217,7 +217,9 @@ describe("migrate:legacy (subprocess)", () => {
     const dir = tempDir("toon-legacy-cli-");
     const target = join(dir, "target.db");
     const uploads = join(dir, "uploads");
-    const env = { DATABASE_URL: `file:${target}`, UPLOAD_DIR: uploads };
+    const env = { DATABASE_URL: `file:${target}`, UPLOAD_DIR: uploads, WEB_ORIGIN: "https://toon.example/,http://localhost:5173" };
+    // pia's claim link (plan m3b decision 14): the fixture's pending legacy claim invite is reused
+    const claimUrl = `https://toon.example/invite/${FH6_CLAIM_INVITE.token}`;
     const fixtureHashes = [RECIPE_DB, FINANCE_DB].map(sha256File);
 
     // (a) dry run against an absent target
@@ -232,6 +234,17 @@ describe("migrate:legacy (subprocess)", () => {
     expect(dry.stdout).toContain(`Finance placeholders (no account): ${EXPECTED.placeholders}`);
     expect(dry.stdout).toContain("== Finance balance per household ==");
     expect(dry.stdout.match(/ OK$/gm)).toHaveLength(EXPECTED.balances.ok);
+    // the placeholder section sits between the balances and the warnings; a dry run shows no link
+    const headings = ["== Finance balance per household ==", "== Placeholders and claim invites ==", "== Warnings =="].map(
+      (heading) => dry.stdout.split("\n").indexOf(heading),
+    );
+    expect(headings.every((index) => index > -1)).toBe(true);
+    expect([...headings].sort((a, b) => a - b)).toEqual(headings);
+    const placeholderSection = dry.stdout.slice(dry.stdout.indexOf("== Placeholders and claim invites =="), dry.stdout.indexOf("== Warnings =="));
+    expect(placeholderSection).toContain(FINANCE_USERS.pia.id);
+    expect(placeholderSection).toMatch(/ would-reuse$/m);
+    expect(dry.stdout).not.toContain("/invite/");
+    expect(dry.stdout).not.toContain(FH6_CLAIM_INVITE.token);
     expect(dry.stdout).toMatch(/\[migrate:legacy\] dry run complete: \d+ rows would be written, \d+ files would be copied\. Nothing was written\.\n$/);
     expect(existsSync(target)).toBe(false);
     expect(existsSync(`${target}-wal`)).toBe(false);
@@ -243,15 +256,27 @@ describe("migrate:legacy (subprocess)", () => {
     expect(applied.stderr).toBe("");
     expect(applied.code).toBe(0);
     expect(applied.stdout).toMatch(/\[migrate:legacy\] applied: \d+ rows written, 7 files copied\.\n$/);
+    expect(applied.stdout).toMatch(/ reused$/m);
+    expect(applied.stdout).toContain(`  ${FINANCE_USERS.pia.id}  ${claimUrl}`);
+    expect(applied.stdout.match(/\/invite\//g)).toHaveLength(1);
     const migrated = await targetCounts(target);
     expect(migrated.users).toBe(EXPECTED.users);
     expect(readdirSync(uploads)).toHaveLength(EXPECTED.uploads.sourceFiles);
     expect([RECIPE_DB, FINANCE_DB].map(sha256File)).toEqual(fixtureHashes);
 
-    // (c) the second apply writes nothing
-    const again = cli([...INPUT_ARGS, "--apply"], env);
+    // (c) the second apply writes nothing and re-prints the still-pending claim link (stdout and JSON)
+    const againReport = join(dir, "out", "again.json");
+    const again = cli([...INPUT_ARGS, "--apply", "--report", againReport], env);
     expect(again.code).toBe(0);
     expect(again.stdout.endsWith("[migrate:legacy] already migrated: nothing written.\n")).toBe(true);
+    expect(again.stdout).toMatch(/ already-migrated$/m);
+    expect(again.stdout).toContain(claimUrl);
+    const againJson = JSON.parse(readFileSync(againReport, "utf8")) as {
+      placeholders: { financeUserId: string; claimInvite: string; inviteUrl?: string }[];
+    };
+    expect(againJson.placeholders).toEqual([
+      expect.objectContaining({ financeUserId: FINANCE_USERS.pia.id, claimInvite: "already-migrated", inviteUrl: claimUrl }),
+    ]);
     expect(await targetCounts(target)).toEqual(migrated);
 
     // (d) a dry run against the migrated target leaves the real files byte-identical
@@ -263,6 +288,8 @@ describe("migrate:legacy (subprocess)", () => {
       "[migrate:legacy] dry run complete: already migrated, nothing would be written. Nothing was written.",
     );
     expect(hashes()).toEqual(before);
+    expect(dryAgain.stdout).toMatch(/ already-migrated$/m);
+    expect(dryAgain.stdout).not.toContain("/invite/");
     expect(existsSync(`${target}-wal`) ? statSync(`${target}-wal`).size : 0).toBe(0);
     expect(await targetCounts(target)).toEqual(migrated);
 
@@ -281,8 +308,15 @@ describe("migrate:legacy (subprocess)", () => {
     const reportPath = join(dir, "out", "r.json");
     const reported = cli([...INPUT_ARGS, "--report", reportPath], env);
     expect(reported.code).toBe(0);
-    const json = JSON.parse(readFileSync(reportPath, "utf8")) as { balances: unknown[]; summary: { exitCode: number } };
+    const json = JSON.parse(readFileSync(reportPath, "utf8")) as {
+      balances: unknown[];
+      placeholders: { inviteUrl?: string }[];
+      summary: { exitCode: number };
+    };
     expect(json.balances).toHaveLength(EXPECTED.balances.rows);
+    expect(json.placeholders).toHaveLength(1);
+    expect(json.placeholders[0]?.inviteUrl).toBeUndefined();
+    expect(readFileSync(reportPath, "utf8")).not.toContain("/invite/");
     expect(json.summary.exitCode).toBe(0);
 
     // (g) a remote target is refused
@@ -317,13 +351,13 @@ describe("resolveCliEnv", () => {
   test("a root .env supplies DATABASE_URL and UPLOAD_DIR, resolved against the repo root", () => {
     const root = tempDir("toon-cli-env-");
     writeFileSync(join(root, ".env"), "DATABASE_URL=file:./x.db\nUPLOAD_DIR=./up\n");
-    expect(resolveCliEnv({}, root)).toEqual({ databaseUrl: `file:${join(root, "x.db")}`, uploadDir: join(root, "up") });
+    expect(resolveCliEnv({}, root)).toEqual({ databaseUrl: `file:${join(root, "x.db")}`, uploadDir: join(root, "up"), webOrigin: "http://localhost:5173" });
   });
 
   test("the .env line syntax of the env module: export prefix, quotes, trailing comments", () => {
     const root = tempDir("toon-cli-env-");
     writeFileSync(join(root, ".env"), `export DATABASE_URL="file:./q.db"\nUPLOAD_DIR=./u # the uploads\n`);
-    expect(resolveCliEnv({}, root)).toEqual({ databaseUrl: `file:${join(root, "q.db")}`, uploadDir: join(root, "u") });
+    expect(resolveCliEnv({}, root)).toEqual({ databaseUrl: `file:${join(root, "q.db")}`, uploadDir: join(root, "u"), webOrigin: "http://localhost:5173" });
   });
 
   test("the upload directory defaults to ./data/uploads", () => {
@@ -331,7 +365,20 @@ describe("resolveCliEnv", () => {
     expect(resolveCliEnv({ DATABASE_URL: "file:/abs/t.db" }, root)).toEqual({
       databaseUrl: "file:/abs/t.db",
       uploadDir: join(root, "data/uploads"),
+      webOrigin: "http://localhost:5173",
     });
+  });
+
+  test("the web origin of claim links is the first WEB_ORIGIN entry without a trailing slash (plan m3b decision 14)", () => {
+    const root = tempDir("toon-cli-env-");
+    writeFileSync(join(root, ".env"), "DATABASE_URL=file:./x.db\nWEB_ORIGIN=https://from-file.example\n");
+    expect(resolveCliEnv({}, root).webOrigin).toBe("https://from-file.example");
+    expect(
+      resolveCliEnv({ WEB_ORIGIN: " https://toon.example/ , http://localhost:5173" }, root).webOrigin,
+    ).toBe("https://toon.example");
+    expect(resolveCliEnv({ DATABASE_URL: "file:/abs/t.db" }, tempDir("toon-cli-env-")).webOrigin).toBe(
+      "http://localhost:5173",
+    );
   });
 
   test("a process-env DATABASE_URL wins over .env", () => {
@@ -344,7 +391,11 @@ describe("resolveCliEnv", () => {
     const root = tempDir("toon-cli-env-");
     writeFileSync(join(root, ".env"), "DATABASE_URL=file:./x.db\n");
     writeFileSync(join(root, ".env.local"), "DATABASE_URL=file:./other.db\nUPLOAD_DIR=./local-up\n");
-    expect(resolveCliEnv({}, root)).toEqual({ databaseUrl: `file:${join(root, "x.db")}`, uploadDir: join(root, "local-up") });
+    expect(resolveCliEnv({}, root)).toEqual({
+      databaseUrl: `file:${join(root, "x.db")}`,
+      uploadDir: join(root, "local-up"),
+      webOrigin: "http://localhost:5173",
+    });
   });
 
   test("no DATABASE_URL anywhere is an exit-2 error with the documented message", () => {

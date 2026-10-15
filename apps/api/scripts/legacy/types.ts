@@ -44,6 +44,12 @@ export interface MigrationContext {
   uploads: UploadOptions;
   mapping?: MappingOverride;
   chunkSize: number; // CHUNK_SIZE = 500 (SPEC §6.5); tests may lower it
+  /**
+   * The web origin claim links are built on (`<webOrigin>/invite/<token>`, plan m3b decision 14):
+   * the first `WEB_ORIGIN` entry. The CLI passes it to the REAL pass of `--apply` only; without it,
+   * or in a dry-run pass, no link is ever put into the report.
+   */
+  webOrigin?: string;
 }
 export interface TableCount {
   table: string;
@@ -119,6 +125,38 @@ export interface BalanceCheck {
   slot1Matches: boolean;
   ok: boolean;
 }
+/**
+ * What happened to a placeholder's claim invite (plan m3b decision 14): `would-*` in a dry-run
+ * pass, `created` / `reused` in an apply pass, `already-migrated` when the ledger holds
+ * `claim:<F user id>`; `no-household` when none of its finance households landed (the households
+ * step reported why), `failed` when the insert failed (an error in the report).
+ */
+export type ClaimInviteState =
+  | "would-create"
+  | "would-reuse"
+  | "created"
+  | "reused"
+  | "already-migrated"
+  | "no-household"
+  | "failed";
+/** One migrated toon-finance placeholder and its claim invite (`== Placeholders and claim invites ==`). */
+export interface PlaceholderEntry {
+  financeUserId: string;
+  targetUserId: string;
+  financeHouseholdId: string | null;
+  targetHouseholdId: string | null;
+  /** The placeholder's finance slot in that household (as copied to `finance_participants`). */
+  slot: number | null;
+  claimInvite: ClaimInviteState;
+  /** The target `household_invites.id` of the claim invite. */
+  inviteId?: string;
+  /**
+   * `<webOrigin>/invite/<token>`: ONLY in an apply pass with a web origin, and only while the invite
+   * is pending and unexpired. A live claim link is a credential (whoever holds it becomes this
+   * person), so the report holding it must stay outside any repository.
+   */
+  inviteUrl?: string;
+}
 export interface Report {
   mode: Mode;
   target: string;
@@ -137,6 +175,8 @@ export interface Report {
   notMigrated: NotMigrated[];
   uploads?: UploadSummary;
   balances: BalanceCheck[];
+  /** toon-finance placeholders and their claim invites (plan m3b decisions 13 and 14, ADR 0006). */
+  placeholders: PlaceholderEntry[];
   warnings: string[];
   errors: string[];
 }
