@@ -30,7 +30,8 @@ code is the smallest possible one and is recorded in the plan and in `docs/adr/`
 
 - **D1 — Household = recipe's group model, renamed.** A household has N members with roles
   `owner > admin > member`, a user can belong to several households, and `users.active_household_id`
-  persists the active one; the top bar has a household switcher. Invites, member management and
+  persists the active one; each shell screen's header row has a household switcher chip on phones and
+  the sidebar head has it from `lg` (ADR 0010). Invites, member management and
   the "content belongs to the household, not the user" rule come from `toon-recipe` decision 1
   unchanged. The recipe module's one exception (saved cards belong to the user) stays.
   Besides R's e-mail invites, a claim invite (no e-mail, naming a placeholder member) turns that
@@ -71,8 +72,9 @@ code is the smallest possible one and is recorded in the plan and in `docs/adr/`
   the finance-participant settings are designed inside it. `docs/redesign/` of toon-recipe is the
   design record and is copied into `docs/design/recipe-redesign/` for reference.
 - **D6 — Navigation = module-scoped tabs + a switcher.** Home (`/`) is a household screen with one
-  card per enabled module and the household switcher. A **module switcher** in the top bar (and
-  the sidebar head from `lg`) changes the active module; inside a module the phone tab bar shows
+  card per enabled module and the household switcher. A **module switcher** (the module chip of each
+  screen's header row on phones, the sidebar head from `lg`; there is no global top bar, ADR 0010)
+  changes the active module; inside a module the phone tab bar shows
   that module's own four tabs, so each module keeps the mobile layout it was designed for:
   recipe: Rezepte `/recipe` · Plan `/recipe/plan` · Einkauf `/recipe/shopping` · Profil `/settings`;
   finance: Übersicht `/finance` · Buchungen `/finance/transactions` · Erfassen `/finance/new` ·
@@ -102,12 +104,14 @@ code is the smallest possible one and is recorded in the plan and in `docs/adr/`
   shopping list is the one feature editable offline (`setMutationDefaults`, `offlineFirst`,
   client-minted `mutationId`), finance's transaction capture likewise (`["toon","finance","tx",…]`
   namespace, `mutation_claims`). `PERSIST_BUSTER` starts at `household-v1`. Service worker: `/api`
-  and `/uploads` never cached; the `NetworkOnly` list is the union of both sources' lists.
+  and `/uploads` are never served by the navigation fallback; the runtime rules are the union of both
+  sources' (`NetworkOnly` first, then recipe's `NetworkFirst` read cache and `CacheFirst` uploads as
+  toon-recipe has them, ADR 0011).
 - **D10 — i18n.** The typed catalog layer, de as the source catalog, en typed as
   `LocaleCatalog<typeof de>`; namespaces prefixed per module (`recipe.*`, `finance.*`, core
   `common.*`, `auth.*`, `household.*`, `home.*`). **Every German UI string of both apps stays
   byte-identical** (toon-recipe's refactor rule); new copy (Home, switcher, participant settings,
-  module-disabled states) is the only new German. One recorded exception (ADR 0001): the core
+  module-disabled states, and the placeholder and claim-invite copy of ADR 0006) is the only new German. One recorded exception (ADR 0001): the core
   cannot count recipes, so `household.detail.meta` and `household.danger.warning` drop the recipe
   count and `household.count.recipes` is not ported. A second recorded exception (ADR 0002): finance's generic Zod validation messages render the core's wording; finance's field-specific validation messages keep their text. toon-recipe's `scripts/i18n-check.ts` carries
   over and gains the finance tree; finance's "typecheck is the gate" rule is subsumed. Content
@@ -311,7 +315,8 @@ apps/api/scripts/        migrate, seed, reset-password, uploads-gc, plan-run, fi
                          households,recipe,uploads,finance,claims,balance,run}.ts (the library; not a module hook, §6;
                          claims.ts creates or reuses the claim invite of each migrated placeholder, ADR 0006)
                          (seed and uploads-gc only call the manifests' seedDemo / uploadReferences hooks)
-apps/api/test/           all api tests (test/, never tests/)
+apps/api/test/           all api tests (test/, never tests/); api-doc.test.ts keeps docs/API.md equal to the served routes,
+                         docs-paths.test.ts keeps the paths CLAUDE.md names real
 apps/api/drizzle/        one journal
 apps/web/src/
   route-roots.tsx        rootRoute, appRoute (no component), householdScopedRoute: the shell-free roots a module's
@@ -339,7 +344,7 @@ apps/web/src/
 docker/                  Caddyfile, entrypoint.sh, env.example, toon-deploy.sh
 docker-compose.yml  Dockerfile  .github/workflows/{ci,release,deploy}.yml
 docs/                    SPEC.md (this), API.md, deployment.md, i18n.md, migration.md, modules/{recipe,finance}.md,
-                         design/recipe-redesign/ (copied record), plans/, adr/
+                         open-work.md, design/recipe-redesign/ (copied record), plans/, adr/
 ```
 
 ## 4. Schema mapping
