@@ -1089,4 +1089,204 @@ takes its wallet with it.
 
 ## Finance module
 
-<!-- M7-T05 fills this section -->
+This section is toon-finance's API contract (`docs/spec.md` §3 of the source repository, in German there) in English, under H's paths, with every H change: the two finance seats (`finance_participants`, SPEC D3), the participant gate on every ledger route, the core's module chain, and ADRs 0002 (validation wording), 0004 (participant churn), 0006 (placeholder seats) and 0007 (where H leaves toon-finance 1715207). Request and response names are exports of `@toon/shared`; finance's flat barrel renamed the tag schemas and the 50 / 200 pagination, so the tag shapes below are `FinanceTagResponse`, `FinanceTagListResponse`, `FinanceUpdateTagRequest` and the list query is `FinancePaginationQuery` (the bare names are recipe's and the core's). The ledger arithmetic (halving, plan share, balance) is `packages/shared/src/modules/finance/ledger.ts`, `money.ts` and `plan.ts`; the rules that matter to a client are restated where a route exposes them.
+
+### Mount and access
+
+The module's `householdRouter` (`apps/api/src/modules/finance/routes/index.ts`) is mounted by `mountModules` at **`/api/households/:householdId/finance`**, behind the core chain `requireSession()` → `requireHouseholdRole("member")` → `requireModule("finance")` (see "Middleware chain and mount order"). Finance has no `userRouter`: every route is household-scoped. The seven routers are `participants`, `transactions`, `categories`, `tags`, `plan`, `balance` and `settlements`.
+
+On top of the chain, **every ledger router** (`transactions`, `categories`, `tags`, `plan`, `balance`, `settlements`) applies, for every method, `requireVerifiedEmail()` and then `requireFinanceParticipant()` (`apps/api/src/modules/finance/middleware.ts`):
+
+- **`403 finance_not_participant`** when the caller is a household member without one of the two finance seats. Reads are refused too: the kinds and the balance sign are projections onto a viewer's slot and mean nothing for a third person. The check reads `finance_participants` by the session user and the path household.
+- **`403 email_unverified`** for a write from an unconfirmed account on a deployment that gates on it (reads pass; see "Unconfirmed accounts are read-only"). The verified-email check runs first, so an unconfirmed non-participant sees `email_unverified`.
+- **`404 module_disabled`** while the household has not enabled finance (a disabled module keeps its rows, and enabling again brings the ledger back).
+
+The `participants` router is the exception: its `GET` is open to any household member (so a non-participant can learn their state and the web app can show the "not a participant" screen) and nothing is mounted with `use("*")` there. Its own gates are in the rows below.
+
+Auth column vocabulary of this section: `household:member+module:finance`, plus `+verified` (a write behind `requireVerifiedEmail()`) and `+finance:participant` (behind `requireFinanceParticipant()`).
+
+### Conventions
+
+- **Money is integer cents** (`…Cents`, signed `CentsSchema`), never a float or a decimal string. Formatting happens at the edge of the web app's render tree. The only forbidden transaction amount is `0` (`422 transaction_amount_zero`, thrown by the service because a Zod refinement could only ever surface as `validation_failed`); negative amounts are refunds and corrections and keep their sign. Fixed-cost items, incomes and settlement amounts must be greater than 0.
+- **Periods** are `YYYY-MM` text between `2000-01` and `2100-12` (`PeriodSchema`). `from` and `to` filters accept either an ISO date or time or a period; a bound that is neither is `422 validation_failed` with a detail on `from` or `to`. A period `to` is inclusive of the whole month. Timestamps are ISO-8601 on the wire and integer unix milliseconds in SQLite; every finance timestamp comes from the module clock (`apps/api/src/modules/finance/lib/clock.ts`).
+- **Lists** are `{ items, total, limit, offset }` with `FinancePaginationQuery`: `limit` default 50, 1 to 200; `offset` default 0. `GET …/categories`, `…/tags` and `…/balance/history` are bare `{ items }`.
+- **Booleans in a query string** (`includeAggregates`, `includeHidden`) accept `true`, `false`, `1` and `0`; any other value is `422`. `includeAggregates` defaults to `true`; `false` hides the rows tagged `sammelbuchung` (the one imported lump-sum row), which the balance and the lists include by default.
+- **Idempotency.** `POST …/transactions`, `PATCH …/transactions/:transactionId`, `DELETE …/transactions/:transactionId?mutationId=` and `POST …/settlements` take an optional client-minted `mutationId` (a UUID the client mints at the call site, once per user action, never per retry). The claim is an `INSERT` on the primary key of `finance_mutation_claims` (`onConflictDoNothing`), inside the same transaction as the write, never a read-then-write, so two concurrent deliveries cannot both apply. A replayed id applies **nothing** and answers **`200` with the current state** of the linked row (not `201`, not `409`); a replayed `DELETE` answers `204` even though the row is gone. The claim TTL is 14 days (`MUTATION_CLAIM_TTL_MS`); `pruneMutationClaims` implements the cleanup, but no scheduler tick calls it in H yet, so claims are in practice kept until pruned. The claim table is keyed by the id alone, so every lookup that follows a lost claim filters on the **path household**: a `mutationId` another household already used is never a replay (`PATCH` and `DELETE` answer `409 conflict`, `POST` answers `404 not_found` because the row it points at is not in this household) and never leaks that household's row. Without a `mutationId` there is no replay protection, which is allowed for calls that are idempotent anyway.
+- **Content language is not interface language.** `error.message` and every validation message follow the request's `Accept-Language` (see "Conventions"). Text the server **writes into rows** (the plan's booking description, the settlement description when no `note` is sent, the default category names at household creation) follows `finance_settings.default_locale`, never the viewer's language. A category's `label` in a response is rendered for the request's negotiated locale (`customLabel ?? catalog name`) and is never stored.
+- **Finance's generic validation messages** use the core's wording (ADR 0002), e.g. "Darf höchstens 200 Zeichen lang sein"; `code` and `details[].path` are unchanged.
+- **Cross-household guard (SPEC D8).** The household comes from `:householdId` only. A transaction, category, tag, fixed-cost item or income of another household is `404 not_found`, never revealed.
+
+### Participants — `apps/api/src/modules/finance/routes/participants.ts`
+
+A household has any number of core members; finance seats exactly **two** of them, by user id, in slot 1 and slot 2 (`finance_participants`). Slot 1 is the balance's anchor (positive `balanceCents` means slot 2 owes slot 1). A seat is a person, not an account: a **placeholder** (ADR 0006: a member without e-mail and password, added with `POST /api/households/:householdId/members`) may hold slot 2, so the ledger can name them before they ever sign in; a claim invite later turns the same user row into an account and no seat or `payerId` has to be re-pointed.
+
+| Method | Path | Auth | Request | Response | Status |
+| --- | --- | --- | --- | --- | --- |
+| GET | `/api/households/:householdId/finance/participants` | household:member+module:finance | – | `FinanceParticipantListResponse` | 200, 401, 403, 404 |
+| PUT | `/api/households/:householdId/finance/participants` | household:admin+module:finance+verified | `UpdateFinanceParticipantsRequest` | `FinanceParticipantListResponse` | 200, 401, 403, 403 `email_unverified`, 404, 409 `finance_participant_in_use`, 422 `finance_participants_required`, 422 |
+| PATCH | `/api/households/:householdId/finance/participants/me` | household:member+module:finance+verified+finance:participant | `UpdateFinanceDisplayNameRequest` | `FinanceParticipantResponse` | 200, 401, 403 `finance_not_participant`, 403 `email_unverified`, 404, 422 |
+| PATCH | `/api/households/:householdId/finance/participants/:userId` | household:member+module:finance+verified+finance:participant | `UpdateFinanceDisplayNameRequest` | `FinanceParticipantResponse` | 200, 401, 403 `finance_not_participant`, 403 `email_unverified`, 403 (the seat has an account), 404, 422 |
+
+Notes
+
+- **`GET`** answers `{ items, viewerSlot }`: one `FinanceParticipantResponse` per seat ordered by slot (`userId`, `memberSlot`, `displayName`, `name`, `email`, `hasAccount`, `joinedAt`; `email` is `null` and `hasAccount` is `false` for a placeholder) and the caller's own seat. **`viewerSlot` is `null` for a household member without a seat**, and this is the only finance route such a member reaches (every other route is `403 finance_not_participant`). The web app caches it so a cold offline start knows the viewer's slot.
+- **`PUT`** replaces the two seats and answers the new list. The rules live in the service (`assignParticipants`, `apps/api/src/modules/finance/services/participants/participants.service.ts`), not in Zod, because a Zod refinement cannot carry its own error code. The body is exactly two entries `{ userId, memberSlot }`:
+  - slots exactly {1, 2}, two different users, else **`422 finance_participants_required`** (`server.finance.participantsRequired`); both users must be members of the household, else the same code with `server.finance.participantNotMember`;
+  - a **placeholder may hold slot 2 only**: a placeholder in slot 1 is `422 validation_failed` with a detail on `participants.<index>.userId` and `server.finance.placeholderSlotOne` ("Eine Person ohne Konto kann nur Platz 2 belegen.");
+  - a user who **leaves the budget** (seated before, absent after) while the household has **any** `finance_transactions` row, or an income naming them, is **`409 finance_participant_in_use`** and nothing is written (ADR 0004). Any row blocks it, not only rows naming the outgoing user, because every two-person row involves both slots: a replacement would silently inherit the outgoing user's share of every row and of the balance. Swapping the same two users between slots is allowed (nobody leaves; every projection is computed at read time). A concurrent assignment that wins the slot's unique index answers the same `409`, never a 500;
+  - when the plan's payer is an outgoing user (the ledger is empty, else the `409` above), the payer moves to the incoming user of the same slot; a kept user keeps `displayName` and `joinedAt`, a new one gets their `users.name` (at most 80 characters) and the module clock.
+- **`PATCH …/participants/me`** renames the caller's own display name in the budget (`FinanceDisplayNameSchema`: trimmed, 1 to 80 characters, no control characters).
+- **`PATCH …/participants/:userId`** renames the **other** seat when it is a placeholder (toon-finance `b1b517d`, ADR 0006): `404` for a user without a seat in THIS household (another household's id too), `403 forbidden` when the seat has an account (their name is theirs to change through `…/participants/me`). `…/participants/me` is registered before `…/participants/:userId`, so `me` is never read as an id.
+- **Enabling finance** is a core route (`POST /api/households/:householdId/modules/finance`, see "Modules"): it seats the two participants from the enable body's `settings` with the `PUT` rules, or on a re-enable requires the two existing seats, else `422 finance_participants_required` and nothing is written. `finance_participants` is the truth; the core's stored `settings` JSON is never read back.
+- **A seated participant cannot leave the household while the ledger has rows** (`409 member_has_ledger`). That refusal is raised by the core's member removal through the module's `onMemberRemoving` veto, so it is documented with `DELETE /api/households/:householdId/members/:userId` in "Members and placeholders". With an empty ledger the seat is deleted, a slot-2 survivor is re-seated in slot 1 and the plan payer moves, leaving a one-seat ledger until an admin seats two people again through `PUT /api/households/:householdId/finance/participants`.
+- **A one-seat ledger** (after such a leave, or a migrated household with one participant, ADR 0005) answers `409 conflict` (`server.household.needsSecondMember`) for any booking that needs the other slot: `THEIRS_SPLIT` and `TRANSFER` transactions, a settlement against a positive balance, and the plan's accrual.
+
+### Transactions — `apps/api/src/modules/finance/routes/transactions.ts`
+
+Mounted at `/api/households/:householdId/finance/transactions`. Every method runs `requireVerifiedEmail()` then `requireFinanceParticipant()`.
+
+| Method | Path | Auth | Request | Response | Status |
+| --- | --- | --- | --- | --- | --- |
+| GET | `/api/households/:householdId/finance/transactions` | household:member+module:finance+finance:participant | `TransactionListQuery` (query) | `TransactionListResponse` | 200, 403 `finance_not_participant`, 404, 422 |
+| POST | `/api/households/:householdId/finance/transactions` | household:member+module:finance+verified+finance:participant | `CreateTransactionRequest` | `TransactionResponse` | 201 (+ `Location`; 200 on a replayed `mutationId`), 403 `finance_not_participant`, 403 `email_unverified`, 404, 409 `conflict` (one seat), 422, 422 `transaction_amount_zero` |
+| GET | `/api/households/:householdId/finance/transactions/summary` | household:member+module:finance+finance:participant | `TransactionSummaryQuery` (query) | `TransactionSummaryResponse` | 200, 403 `finance_not_participant`, 404, 422 |
+| GET | `/api/households/:householdId/finance/transactions/:transactionId` | household:member+module:finance+finance:participant | – | `TransactionResponse` | 200, 403 `finance_not_participant`, 404 |
+| PATCH | `/api/households/:householdId/finance/transactions/:transactionId` | household:member+module:finance+verified+finance:participant | `UpdateTransactionRequest` | `TransactionResponse` | 200, 403 `finance_not_participant`, 403 `email_unverified`, 404, 409 `transaction_generated`, 409 `conflict`, 422, 422 `transaction_amount_zero` |
+| DELETE | `/api/households/:householdId/finance/transactions/:transactionId` | household:member+module:finance+verified+finance:participant | `?mutationId=` (query) | – | 204, 403 `finance_not_participant`, 403 `email_unverified`, 404, 409 `transaction_generated`, 409 `conflict` |
+
+Notes
+
+- **`/summary` is registered before `/:transactionId`**, otherwise the literal path would be captured as an id.
+- **The client sends `kind`; the server stores `(payerId, splitMode)`.** `kindToStorage(kind, viewerId, otherId)` from `@toon/shared` runs server-side against the **session's** viewer, never a client-picked payer, so an offline-replayed create stays correct whoever is logged in when it is finally sent. The four kinds are a projection of `(payerId, splitMode)` onto the viewer, computed at read time and never persisted (`projectKind`):
+
+  | `kind` | `payerId` | `splitMode` | who bears what |
+  | --- | --- | --- | --- |
+  | `MINE_SPLIT` | the viewer | `SPLIT_EQUAL` | the viewer bears half plus an odd cent, the other person half |
+  | `THEIRS_SPLIT` | the other participant | `SPLIT_EQUAL` | the other person bears half plus an odd cent, the viewer half |
+  | `FOR_THEM` | the viewer | `OTHER_ONLY` | the other person bears 100 % |
+  | `TRANSFER` | the other participant | `SETTLEMENT` | pure money movement, no expense |
+
+  A row created by one participant reads back as the mirrored kind for the other. `THEIRS_SPLIT` and `TRANSFER` need the other seat; with a one-seat ledger they answer `409 conflict` (`server.household.needsSecondMember`). `TransactionResponse` carries `payerId` and `splitMode`, not `kind`; the client projects.
+- **`TransactionListQuery`**: `from`, `to` (ISO date or `YYYY-MM`), `kind` (a viewer projection resolved server-side: the two "theirs" kinds mean `payerId` is not the viewer, which stays correct for a seat-less or departed payer), `splitMode`, `payerId`, `categoryId`, `tagIds` (comma-separated ids, at most 10 are used; a row must carry **all**), `origin` (`manual`, `fixed_plan`, `fixed_plan_adjustment`, `import`), `q` (case-insensitive substring of `description`, at most 100 characters, no full-text search), `includeAggregates`, `sort` (`bookedAt`, `-bookedAt` default, `amount`, `-amount`), `limit`, `offset`.
+- **`TransactionResponse`** carries, besides the stored fields, what the server derives so the client never re-derives it: `otherShareCents` (what the non-paying person bears), `payerShareCents` (its exact complement), `balanceDeltaCents` (this row's contribution to the balance from slot 1's perspective) and `isExpense` (`splitMode !== "SETTLEMENT"`). Also `categorySlug`, `tags: { id, name }[]`, `dateSource` (`exact`, `day`, `month`, `estimated`), `origin`, `planPeriod` (`YYYY-MM` or `null`), `createdBy`, `createdAt`, `updatedAt`.
+- **`CreateTransactionRequest`**: `kind`, `amountCents` (signed, not 0), `description` (trimmed, 1 to 200 characters), `categoryId?` (`404 not_found` when it is not a category of this household), `tags?` (tag **names**, at most 20 per row; unknown names are created, matching is case-insensitive through the tag's `name_key`), `bookedAt?` (ISO, default now), `mutationId?`. `UpdateTransactionRequest` is the same shape, every field optional (**replace-all-when-present** for `tags`: present replaces every link, absent leaves them untouched).
+- **Only `origin = "manual"` rows can be edited or deleted.** A row booked by the fixed-cost plan or the one-off import is `409 transaction_generated`; a booked period is corrected by an adjustment row (see Plan), never edited.
+- **`GET …/summary`** returns the overview aggregates in one call: `{ from, to, totalExpenseCents, byCategory: { categoryId, categorySlug, totalCents, count }[], byMonth: { period, totalCents, balanceDeltaCents }[], settlementTotalCents }`. Settlements are excluded from `totalExpenseCents` and `byCategory`: they are debt movement, not consumption (one exported predicate, `isExpense`).
+
+### Categories — `apps/api/src/modules/finance/routes/categories.ts`
+
+Mounted at `/api/households/:householdId/finance/categories`. Every method runs `requireVerifiedEmail()` then `requireFinanceParticipant()`.
+
+| Method | Path | Auth | Request | Response | Status |
+| --- | --- | --- | --- | --- | --- |
+| GET | `/api/households/:householdId/finance/categories` | household:member+module:finance+finance:participant | `?includeHidden=` (query) | `CategoryListResponse` | 200, 403 `finance_not_participant`, 404 |
+| POST | `/api/households/:householdId/finance/categories` | household:member+module:finance+verified+finance:participant | `CreateCategoryRequest` | `CategoryResponse` | 201, 403 `finance_not_participant`, 403 `email_unverified`, 404, 409 `category_slug_taken`, 422 |
+| PATCH | `/api/households/:householdId/finance/categories/:categoryId` | household:member+module:finance+verified+finance:participant | `UpdateCategoryRequest` | `CategoryResponse` | 200, 403 `finance_not_participant`, 403 `email_unverified`, 404, 409 `category_system`, 422 |
+| DELETE | `/api/households/:householdId/finance/categories/:categoryId` | household:member+module:finance+verified+finance:participant | `?reassignTo=` (query) | – | 204, 400 (`reassignTo` is the category itself), 403 `finance_not_participant`, 403 `email_unverified`, 404, 409 `category_in_use`, 409 `category_system` |
+
+Notes
+
+- `GET` is sorted by `position`; hidden categories are left out unless `includeHidden` is `true` or `1`. `CategoryResponse` is `{ id, slug, label, customLabel, isSystem, isHidden, position, usageCount }`. **`label` is fully rendered**: `customLabel` when set, else the catalog name for `slug` in the request's negotiated locale. A client shows `label` and sends `label` back to rename, which sets `customLabel`; from then on it is stored content and is never translated again.
+- A household starts with 21 default categories (seeded for every new household, finance enabled or not). A new category gets `slug = "custom-" + id.slice(0, 8)`, so the default slugs keep their namespace, and is never a system row. `position` defaults to the end of the list.
+- **`fixkosten`** is the system category (`isSystem`) the plan books into: setting its `label` is `409 category_system` (hiding it or moving it is allowed) and deleting it is `409 category_system`.
+- `DELETE` of a category that still has transactions is `409 category_in_use` (the message carries the count) **unless** `?reassignTo=<categoryId>` names another category of the same household: then the transactions are re-pointed and the category removed in one transaction (`404` for an unknown target, `400 bad_request` for the category itself). An empty `reassignTo` counts as absent.
+
+### Tags — `apps/api/src/modules/finance/routes/tags.ts`
+
+Mounted at `/api/households/:householdId/finance/tags`. Every method runs `requireVerifiedEmail()` then `requireFinanceParticipant()`. There is **no `POST`**: a tag exists only as a side effect of attaching it to a transaction (`CreateTransactionRequest.tags`).
+
+| Method | Path | Auth | Request | Response | Status |
+| --- | --- | --- | --- | --- | --- |
+| GET | `/api/households/:householdId/finance/tags` | household:member+module:finance+finance:participant | `TagQuery` (query) | `FinanceTagListResponse` | 200, 403 `finance_not_participant`, 404, 422 |
+| PATCH | `/api/households/:householdId/finance/tags/:tagId` | household:member+module:finance+verified+finance:participant | `FinanceUpdateTagRequest` | `FinanceTagResponse` | 200, 403 `finance_not_participant`, 403 `email_unverified`, 404, 409 `tag_name_taken`, 422 |
+| DELETE | `/api/households/:householdId/finance/tags/:tagId` | household:member+module:finance+verified+finance:participant | – | – | 204, 403 `finance_not_participant`, 403 `email_unverified`, 404 |
+
+Notes
+
+- `GET` without `q` returns the most-used tags (`usageCount` descending, `limit` default 20, 1 to 100): the suggestions of the capture flow. With `q` it is a prefix match, ordered by name. `FinanceTagResponse` is `{ id, name, usageCount }`.
+- `PATCH` renames; a name another tag of the household already normalises to is `409 tag_name_taken`.
+- `DELETE` drops the tag and its links; the transactions are untouched.
+
+### Plan — `apps/api/src/modules/finance/routes/plan.ts`
+
+Mounted at `/api/households/:householdId/finance/plan`. The fixed-cost plan (one row per household), its items and incomes, the read-only preview, and the booking calls. Every method runs `requireVerifiedEmail()` then `requireFinanceParticipant()`. The booking itself is `apps/api/src/modules/finance/services/plan/accrual.service.ts`; the routes only call it.
+
+| Method | Path | Auth | Request | Response | Status |
+| --- | --- | --- | --- | --- | --- |
+| GET | `/api/households/:householdId/finance/plan` | household:member+module:finance+finance:participant | – | `PlanResponse` | 200, 403 `finance_not_participant`, 404 |
+| PATCH | `/api/households/:householdId/finance/plan` | household:member+module:finance+verified+finance:participant | `UpdatePlanRequest` | `PlanResponse` | 200, 403 `finance_not_participant`, 403 `email_unverified`, 404, 409 `plan_period_locked`, 422 (`validation_failed`, also for a payer who is not a participant: `server.finance.personNotParticipant`) |
+| GET | `/api/households/:householdId/finance/plan/preview` | household:member+module:finance+finance:participant | `PlanPreviewQuery` (query) | `PlanComputationResponse` | 200, 403 `finance_not_participant`, 404, 409 `plan_incomplete`, 422, 422 `plan_period_out_of_range` |
+| POST | `/api/households/:householdId/finance/plan/run` | household:member+module:finance+verified+finance:participant | `RunPlanRequest` | `RunPlanResponse` | 200, 403 `finance_not_participant`, 403 `email_unverified`, 404, 409 `plan_disabled`, 409 `plan_incomplete`, 422 |
+| POST | `/api/households/:householdId/finance/plan/recalculate` | household:member+module:finance+verified+finance:participant | `RecalculatePlanRequest` | `RecalculatePlanResponse` | 200, 403 `finance_not_participant`, 403 `email_unverified`, 404, 409 `plan_disabled`, 422 |
+| GET | `/api/households/:householdId/finance/plan/runs` | household:member+module:finance+finance:participant | `FinancePaginationQuery` (query) | `AccrualRunListResponse` | 200, 403 `finance_not_participant`, 404, 422 |
+| POST | `/api/households/:householdId/finance/plan/items` | household:member+module:finance+verified+finance:participant | `CreateFixedCostItemRequest` | `FixedCostItemResponse` | 201, 403 `finance_not_participant`, 403 `email_unverified`, 404, 422 |
+| PATCH | `/api/households/:householdId/finance/plan/items/:itemId` | household:member+module:finance+verified+finance:participant | `UpdateFixedCostItemRequest` | `FixedCostItemResponse` | 200, 403 `finance_not_participant`, 403 `email_unverified`, 404, 422 |
+| DELETE | `/api/households/:householdId/finance/plan/items/:itemId` | household:member+module:finance+verified+finance:participant | – | – | 204, 403 `finance_not_participant`, 403 `email_unverified`, 404 |
+| POST | `/api/households/:householdId/finance/plan/incomes` | household:member+module:finance+verified+finance:participant | `CreateIncomeRequest` | `IncomeResponse` | 201, 403 `finance_not_participant`, 403 `email_unverified`, 404, 409 `conflict`, 422 (`validation_failed`, also for a person who is not a participant: `server.finance.personNotParticipant`) |
+| PATCH | `/api/households/:householdId/finance/plan/incomes/:incomeId` | household:member+module:finance+verified+finance:participant | `UpdateIncomeRequest` | `IncomeResponse` | 200, 403 `finance_not_participant`, 403 `email_unverified`, 404, 409 `conflict`, 422 (`validation_failed`, also for a person who is not a participant: `server.finance.personNotParticipant`) |
+| DELETE | `/api/households/:householdId/finance/plan/incomes/:incomeId` | household:member+module:finance+verified+finance:participant | – | – | 204, 403 `finance_not_participant`, 403 `email_unverified`, 404 |
+
+Notes
+
+- **The plan payer and an income's person must be finance participants** (M3 review finding B, SPEC D3 and D8). `PATCH /api/households/:householdId/finance/plan { payerId }`, `POST /api/households/:householdId/finance/plan/incomes` and `PATCH /api/households/:householdId/finance/plan/incomes/:incomeId { personId }` answer **`422 validation_failed`** with a detail on `payerId` or `personId` and the message key **`server.finance.personNotParticipant`** for a household member without a seat, or a user of another household. `PATCH /api/households/:householdId/finance/plan { enabled: true }` without a `payerId` checks the payer of record the same way, because the payer may have been seated once and left since. The check lives in the plan service (the same issue shape as every other service-side validation), never in the route. A plan whose income names a non-participant (a migrated ledger, ADR 0005) stays `plan_incomplete` until the income is deleted or replaced.
+- **`PlanResponse`** is `{ plan: { enabled, payerId, startPeriod, lastBookedPeriod }, items, incomes, current, lastRun, pendingPeriods }`; `current` is `null` while the plan is incomplete for the current period and `pendingPeriods` is what a run would book right now. A new household's plan row is disabled, with slot 1 as payer and the current period as `startPeriod`.
+- **`PATCH /api/households/:householdId/finance/plan`** enables or disables the plan, changes the payer, or moves `startPeriod`. A `startPeriod` on or before a period that any transaction already occupies (`planPeriod`, whatever the origin, e.g. the one-off import's rent series) is `409 plan_period_locked`.
+- **`GET /api/households/:householdId/finance/plan/preview?period=`** is the read-only computation for one period: `422 plan_period_out_of_range` before `startPeriod` or after the current period, `409 plan_incomplete` when it cannot be computed (no active item, a person without an income valid in that period, or overlapping income rows of one person). `PlanComputationResponse` is `{ period, costTotalCents, incomeTotalCents, quoteNumerator, quoteDenominator, shares: { personId, incomeCents, shareCents }[], payerId, bookableCents, booked }`. The quote stays an integer fraction (`quoteNumerator` is the cost total, `quoteDenominator` the income total), never a float; only the non-paying person's share is rounded (once, half away from zero) and booked, and `payerShare = costTotal − otherShare` by definition. A share of exactly 0 books nothing.
+- **`POST /api/households/:householdId/finance/plan/run`** is the catch-up on demand (`through?` defaults to the current period): every missed period from `lastBookedPeriod + 1` (or `startPeriod`) is booked as a `fixed_plan` row, historically, from the items and incomes that applied **in** that period, never the future. `409 plan_disabled` while the plan is off; `409 plan_incomplete` when nothing could be booked because every candidate period lacked data. The same function runs at API boot (`ApiModule.start`, before traffic) and every 6 hours, and every path writes one `finance_accrual_runs` row.
+- **Booked periods are immutable.** `POST /api/households/:householdId/finance/plan/recalculate` with `{ dryRun }` recomputes every period the plan has walked past against today's items and incomes, each for the payer that period was booked under: the response lists `{ period, bookedCents, recomputedCents, deltaCents }`, the total and, unless `dryRun`, the **new** `fixed_plan_adjustment` rows (`amountCents = recomputed − effective booked`). The old rows are never touched, and re-running against unchanged data creates nothing. `409 plan_disabled` while the plan is off.
+- **`GET /api/households/:householdId/finance/plan/runs`** is the audit trail, most recent first (`AccrualRunResponse`: `trigger` of `boot`, `interval`, `manual` or `import`, the periods walked, `bookedCents`, `error` as English ops text or `null`).
+- **Items and incomes.** `CreateFixedCostItemRequest` is `{ label (1 to 80), amountCents (> 0), activeFrom, activeTo?, position? }`, `CreateIncomeRequest` is `{ personId, amountCents (> 0), validFrom, validTo? }`; the updates are partial. A `to` before its `from` is `422 validation_failed` (`server.validation.periodRange`; thrown by the service because a refinement on a partial PATCH cannot see the row's other half). A second income of the same person starting the same month is `409 conflict` (`server.plan.incomeOverlap`); a broader overlap is not rejected here and shows up as `plan_incomplete` at compute time.
+
+### Balance — `apps/api/src/modules/finance/routes/balance.ts`
+
+Mounted at `/api/households/:householdId/finance/balance`. Every method runs `requireVerifiedEmail()` then `requireFinanceParticipant()`.
+
+| Method | Path | Auth | Request | Response | Status |
+| --- | --- | --- | --- | --- | --- |
+| GET | `/api/households/:householdId/finance/balance` | household:member+module:finance+finance:participant | `BalanceQuery` (query) | `BalanceResponse` | 200, 403 `finance_not_participant`, 404, 422 |
+| GET | `/api/households/:householdId/finance/balance/history` | household:member+module:finance+finance:participant | `BalanceHistoryQuery` (query) | `BalanceHistoryResponse` | 200, 403 `finance_not_participant`, 404, 422 |
+
+Notes
+
+- **One sign convention, chosen once: a positive `balanceCents` means slot 2 owes slot 1.** `perspectiveUserId` is the slot-1 user the number is expressed for. **`viewerBalanceCents` is the viewer's projection** (`balanceCents`, negated when the viewer holds slot 2) and is what a client renders. **The UI never shows a raw sign**: it renders `viewerBalanceCents` through three catalog keys (owes you, you owe, settled), never `balanceCents`.
+- `BalanceResponse` is `{ balanceCents, perspectiveUserId, viewerUserId, viewerBalanceCents, asOf, breakdown: { splitOtherCents, forOtherCents, settledCents, transactionCount } }`. The breakdown exists so a screen can show why the number is what it is without deriving it a second time. Each `SPLIT_EQUAL` row contributes `halfForOther(amount)` (halved per transaction, never on the total; `halfForOther(-101)` is `-50`), signed by who paid; `OTHER_ONLY` and `SETTLEMENT` rows contribute the full amount.
+- `GET …/balance/history?from=&to=&includeAggregates=` is a running balance per period, `{ items: { period, deltaCents, balanceCents }[] }`.
+
+### Settlements — `apps/api/src/modules/finance/routes/settlements.ts`
+
+Mounted at `/api/households/:householdId/finance/settlements`. Every method runs `requireVerifiedEmail()` then `requireFinanceParticipant()`. There is no settlements table: a settlement **is** a transaction with `splitMode: "SETTLEMENT"`, and `GET` is the reader `GET /api/households/:householdId/finance/transactions?splitMode=SETTLEMENT&sort=-bookedAt` would give.
+
+| Method | Path | Auth | Request | Response | Status |
+| --- | --- | --- | --- | --- | --- |
+| GET | `/api/households/:householdId/finance/settlements` | household:member+module:finance+finance:participant | `FinancePaginationQuery` (query) | `TransactionListResponse` | 200, 403 `finance_not_participant`, 404, 422 |
+| POST | `/api/households/:householdId/finance/settlements` | household:member+module:finance+verified+finance:participant | `CreateSettlementRequest` | `SettlementResponse` | 201 (200 on a replayed `mutationId`), 403 `finance_not_participant`, 403 `email_unverified`, 404, 409 `balance_stale`, 409 `conflict` (one seat), 422, 422 `settlement_amount_invalid` |
+
+Notes
+
+- **`expectedBalanceCents` is required**: the balance the client displayed. When it no longer equals the current balance (the other person booked something thirty seconds ago) the server answers **`409 balance_stale`** with **`details.currentBalanceCents`** (and the amount in the message), nothing is booked, and the client asks again. Settling against a number the user was not shown is the one race in this app that costs real money.
+- `amountCents` defaults to `|balance|` and must be greater than 0 (`422 settlement_amount_invalid`, so a default settlement of a zero balance is refused too). The payer is derived from the balance's sign: a positive balance means slot 2 pays, otherwise slot 1. Partial payments need no special case (less than `|b|` leaves the rest open, more flips the sign; over-settlement is allowed and is not clamped). `note` (at most 200 characters) is the row's description; without one the server writes the settlement description in `finance_settings.default_locale`, in the `ausgleich` category.
+- `SettlementResponse` is `{ transaction, balance }` (the booked row and the balance after it). Settlements are never generated automatically: the monthly plan creates debt, not payment.
+
+### The member-leaves veto
+
+A seated participant cannot leave (or be removed from) the household while the ledger has rows: **`409 member_has_ledger`**, raised by the core's `DELETE /api/households/:householdId/members/:userId` through `ApiModule.onMemberRemoving` (ADR 0004). It is documented once, with the other member rules, in "Members and placeholders". toon-finance's own gotcha 69 (`anchorCannotLeave`, the refusal of an enabled plan's payer, the deletion of the leaver's incomes) does not exist in H (ADR 0007): this rule replaces it.
+
+### Tables (SQLite, `apps/api/src/modules/finance/schema.ts`)
+
+Eleven tables, all prefixed `finance_` (the drizzle identifiers carry a `finance` prefix too, because `apps/api/src/db/schema.ts` re-exports every module's schema flat); the migration is `apps/api/drizzle/0002_finance.sql`. Every household-scoped table cascades from `households`. Timestamps are integer unix milliseconds; `YYYY-MM` periods and the `start_period`-style columns are text with a `glob` CHECK.
+
+| Table | Primary key | Notes |
+| --- | --- | --- |
+| `finance_participants` | `(household_id, user_id)` | The two seats: `member_slot` (CHECK `finance_participants_slot_range`: `member_slot in (1, 2)`), `display_name`, `joined_at`. **Unique index `finance_participants_slot_uidx` on `(household_id, member_slot)`**, index on `user_id`. `user_id` is `ON DELETE restrict`. |
+| `finance_settings` | `household_id` | `default_locale` (`de` or `en`): the language of text the server writes into rows. |
+| `finance_categories` | `id` | `slug`, `custom_label`, `is_system`, `is_hidden`, `position`. Unique `(household_id, slug)`. |
+| `finance_tags` | `id` | `name`, `name_key` (normalised), `usage_count`. Unique `(household_id, name_key)`. |
+| `finance_transaction_tags` | `(transaction_id, tag_id)` | Both columns cascade. |
+| `finance_transactions` | `id` | `payer_id` (restrict), `split_mode` (`SPLIT_EQUAL`, `OTHER_ONLY`, `SETTLEMENT`), `amount_cents` (CHECK `finance_transactions_amount_not_zero`), `description`, `category_id` (`set null`), `booked_at`, `date_source`, `origin` (`manual`, `fixed_plan`, `fixed_plan_adjustment`, `import`), `plan_period` (CHECK format), `category_source`, `import_seq`, `external_key` (unique `(household_id, external_key)`: the plan's `fixedplan:{household}:{period}` and adjustment keys, the importer's keys), `created_by`. |
+| `finance_mutation_claims` | `id` (the client-minted `mutationId`) | `household_id`, `transaction_id` (`set null`), `applied_at` (indexed; TTL 14 days, see Conventions). |
+| `finance_fixed_cost_items` | `id` | `label`, `amount_cents` (> 0), `active_from`, `active_to` (CHECKs: format and `active_to >= active_from`), `position`. |
+| `finance_incomes` | `id` | `person_id` (restrict), `amount_cents` (> 0), `valid_from`, `valid_to` (same CHECKs). Unique `(household_id, person_id, valid_from)`. |
+| `finance_fixed_cost_plans` | `household_id` | One row per household: `enabled`, `payer_id` (restrict), `start_period`, `last_booked_period` (format CHECKs). |
+| `finance_accrual_runs` | `id` | The audit trail: `trigger`, `from_period`, `to_period`, `periods_booked`, `periods_skipped`, `booked_cents`, `error`, `started_at`, `finished_at`. Not the idempotency mechanism (that is `external_key`). |
+
+`finance_participants` replaces toon-finance's `household_members` (the two seats were the household there; here a household has any number of core members and finance seats two of them). `users` and `households` are core tables (see "Core tables"). Nothing else in the core knows finance's tables: the core reaches them only through the module's hooks (`onHouseholdCreated`, `onEnable`, `onMemberRemoving`, `start`, `shutdown`, `seedDemo`).

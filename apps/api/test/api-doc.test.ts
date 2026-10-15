@@ -19,7 +19,7 @@ import { join } from "node:path";
 import { app } from "../src/index.ts";
 
 /** Module ids whose routes must all have a row (grows with each module section). */
-const REQUIRED_MODULE_SECTIONS: string[] = ["recipe"];
+const REQUIRED_MODULE_SECTIONS: string[] = ["recipe", "finance"];
 
 /** Rows that document a route `app.routes` cannot list (a derived URL of an existing route). */
 const DOC_ONLY = ["GET /uploads/:filename.thumb.webp"];
