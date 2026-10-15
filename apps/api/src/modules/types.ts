@@ -21,17 +21,6 @@ export type DbTransaction = Parameters<Parameters<Database["transaction"]>[0]>[0
  */
 export type DbExecutor = Database | DbTransaction;
 
-/**
- * A module's part of `bun run migrate:legacy` (SPEC D12, §6). PLACEHOLDER: M5
- * defines the real shape (legacy client, household/user id maps, the
- * `legacy_ids` ledger, dry-run report). Declared now so a manifest can be typed
- * against it without M5 having to touch every module's `index.ts` twice.
- */
-export interface LegacyMigrator {
-  /** The legacy source this migrator reads, e.g. "recipe" or "finance". */
-  readonly source: string;
-}
-
 export interface ApiModule {
   id: ModuleId;
   /**
@@ -62,8 +51,6 @@ export interface ApiModule {
    * (toon-finance `removeMember`, SPEC D13): nothing is deleted then.
    */
   onMemberRemoving?(householdId: string, userId: string, tx: DbExecutor): Promise<void>;
-  /** The module's part of `migrate:legacy` (SPEC §6). */
-  legacyMigration?: LegacyMigrator;
   /**
    * Runs after every `migrate()` inside `runMigrations` (db/migrate.ts), for the
    * migrations `bun run db:migrate`, `seed` and every integration test apply. For
