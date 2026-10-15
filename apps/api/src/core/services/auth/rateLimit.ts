@@ -141,8 +141,8 @@ export function clientIp(c: Context): string {
   if (env.trustProxy) {
     // The LAST entry, not the first (toon-finance 1715207, gotchas 18 and 74). The
     // trusted proxy is the one hop we believe, and whatever it appended is the address
-    // it saw; the first entry is whatever the client chose to send. With the edge Caddy
-    // OVERWRITING the header (toon-edge's `header_up X-Forwarded-For {remote_host}`)
+    // it saw; the first entry is whatever the client chose to send. With the stack's own Caddy
+    // (docker/Caddyfile, SPEC D11) OVERWRITING the header (`header_up X-Forwarded-For {remote_host}`)
     // both are the same value — and if that line is ever dropped there, "last" still
     // yields the true peer while "first" would turn every rate limit into a
     // client-controlled no-op.

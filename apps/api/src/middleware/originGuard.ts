@@ -4,9 +4,10 @@
  * 1715207; plan m3b decision 15).
  *
  * `Lax` alone stops a cross-SITE form post from carrying the cookie, but it says
- * nothing about a sibling on the same site: the shared `toon-edge` proxy hosts SEVERAL
- * toon apps under one registrable domain, so a script running on another app's origin
- * is "same-site" for the browser and the household cookie rides along. And a body
+ * nothing about a sibling on the same site: sibling apps on one registrable domain existed
+ * under toon-edge, and the stack's own Caddy (docker/Caddyfile, SPEC D11) still answers the
+ * old hostnames with redirects during the cutover, so a script running on another app's
+ * origin is "same-site" for the browser and the household cookie rides along. And a body
  * parser that reads JSON out of any content type would accept a `text/plain` form
  * post, which is why `readJson` in core/routes/auth.ts also demands
  * `Content-Type: application/json`.

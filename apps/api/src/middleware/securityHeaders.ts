@@ -5,8 +5,8 @@
  * decision 16. Built on Hono's `secureHeaders`; the choices that differ from its
  * defaults, each for a reason:
  *
- *   - NO `Strict-Transport-Security`. TLS is terminated by the `toon-edge` Caddy, which
- *     owns HSTS (`TOON_HSTS_MAX_AGE`, SPEC D11) and deliberately sets 0 for an internal
+ *   - NO `Strict-Transport-Security`. TLS is terminated by the stack's own Caddy (docker/Caddyfile, SPEC D11), which
+ *     owns HSTS (`TOON_HSTS_MAX_AGE`) and deliberately sets 0 for an internal
  *     hostname with a self-signed certificate. An HSTS header pinned from inside the app
  *     would lock such a local stack out.
  *   - `Content-Security-Policy` with `script-src 'self'` plus the SHA-256 of every

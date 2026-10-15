@@ -64,7 +64,8 @@ app.use("*", localeMiddleware);
 
 // CSRF defence in depth for every state-changing API call (toon-finance gotcha 66,
 // plan m3b decision 15): a browser request from a foreign origin, or from a SIBLING
-// app on the shared toon-edge domain (which `SameSite=Lax` alone lets through), is
+// app on the same site (the old hostnames the stack's own Caddy redirects during the
+// cutover; `SameSite=Lax` alone lets such a request through), is
 // refused before any router parses its body or slides a session. After cors() so a
 // preflight still gets its CORS headers, after the locale so the 403 is localised,
 // before health, /uploads and mountModules. An Origin listed in WEB_ORIGIN passes
