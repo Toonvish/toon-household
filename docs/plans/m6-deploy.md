@@ -1228,7 +1228,7 @@ Precondition checked: `docker volume ls -q --filter name=toon-household_` listed
   with both modules; the recipe list of the first returned its migrated recipes, and the avatar URL of the profile is a signed
   `/uploads/…` URL. Finance balances: "Freundeskreis" (`…0002`) 2100 ct, equal to the report; "Familie Beispiel" (`…0001`)
   **222286 ct**, not the report's 119486 ct: see the defect below.
-- **Defect found by the rehearsal (the doc's "balance must equal the migrated balance" was wrong), fixed in commit `ab93a10`:** the first
+- **Defect found by the rehearsal (the doc's "balance must equal the migrated balance" was wrong), fixed in commit `ae6cee0`:** the first
   boot runs the finance `start` hook, the fixed-cost catch-up (`plan:run`), and the fixture's plan (`startPeriod 2026-07`, `lastBookedPeriod`
   behind) booked two `fixed_plan` rows `Fixkostenanteil 09/2026` and `10/2026` of 51400 ct each at 10:59:36, the moment of the boot:
   119486 + 2 x 51400 = 222286. Not a data defect (the migrated rows equal the report), but a check that a real operator would
@@ -1253,7 +1253,7 @@ remove"), `docker image rm toon-household:ocr` and `toon-household:local` (both 
 
 | Commit | File | Defect |
 | --- | --- | --- |
-| `ab93a10` | `docs/deployment.md`, `docs/migration.md` | step 8 said the balance equals the report; the first boot's plan catch-up adds `Fixkostenanteil` rows (9.7) |
+| `ae6cee0` | `docs/deployment.md`, `docs/migration.md` | step 8 said the balance equals the report; the first boot's plan catch-up adds `Fixkostenanteil` rows (9.7) |
 
 No defect in the Dockerfile, the compose file, the Caddyfile, the script or the workflows; no ADR change (0008 stands as written
 by T03). The workflows (`release.yml`, `deploy.yml`, the `ci.yml` docker-build job) were checked statically by their tests only: the first push
