@@ -1,0 +1,211 @@
+# =============================================================================
+# toon-household — the whole deployment, on any Linux box with Docker.
+#
+#   docker compose pull && docker compose up -d
+#
+# Configuration lives in a `.env` NEXT TO THIS FILE (copy docker/env.example).
+# For the default setup — a small VPS with a domain — only TOON_HOSTNAME,
+# SESSION_SECRET and the mail relay need a value.
+#
+# TWO SERVICES, AND NO API KEY REQUIRED BETWEEN THEM:
+#   app      the API + the PWA, one origin, one port (see Dockerfile)
+#   caddy    TLS termination, so the PWA gets the secure context it needs. It also
+#            serves the optional old-hostname redirects (RECIPE_HOSTNAME /
+#            FINANCE_HOSTNAME, SPEC D11, ADR 0008) that carry the bookmarks of
+#            toon-recipe and toon-finance over to this app; remove both variables
+#            after the cutover.
+#
+# Mail is the one thing with a choice to make, and with NO mail values set the app
+# logs every reset/invite link instead of sending it (the ConsoleMailer) — a
+# working install without a mail account, and one the UI reports honestly as
+# "not configured" rather than as a successful send. Point MAIL_HOST/MAIL_USER/…
+# at any provider's SMTP access, or set MAIL_TRANSPORT=resend + MAIL_API_KEY, when
+# you want delivery to a real inbox; the adapter is the same either way. There used
+# to be a third service here, a Mailpit container acting as a local SMTP sink — it
+# was only ever a viewer for mail that went nowhere, so a deployment with a relay
+# configured carried it for nothing. The database was always a local libSQL file,
+# so there is still no third-party account NEEDED to run this.
+# =============================================================================
+
+name: toon-household
+
+services:
+  app:
+    image: ${TOON_IMAGE:-ghcr.io/toonvish/toon-household:latest}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      API_PORT: "3001"
+      DEFAULT_LOCALE: ${DEFAULT_LOCALE:-de}
+
+      # --- database & files (both inside the one volume) ---
+      DATABASE_URL: "file:/app/data/local.db"
+      UPLOAD_DIR: /app/data/uploads
+
+      # --- public identity -------------------------------------------------
+      # The browser reaches everything through Caddy on this hostname. WEB_ORIGIN
+      # is what CORS allows and what the links in outgoing mails are built from, so
+      # it must be the address a phone actually uses — not `localhost`.
+      WEB_ORIGIN: "https://${TOON_HOSTNAME}"
+      OAUTH_REDIRECT_BASE: "https://${TOON_HOSTNAME}"
+      # EMPTY on purpose: the bundle then uses relative URLs and the API serves it
+      # from the same origin. Do not set this to an absolute address.
+      PUBLIC_API_URL: ""
+
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is missing - see docker/env.example}
+
+      # Caddy sits in front and OVERWRITES X-Forwarded-For (the `(fwd)` snippet in
+      # docker/Caddyfile). That overwrite is what makes trusting the header safe
+      # here; without it every rate limit would be bypassable by sending your own
+      # header. The API additionally reads the LAST hop (toon-finance gotcha 74), so
+      # even an appended header could not be spoofed by the client.
+      TRUST_PROXY: "1"
+
+      # --- mail ------------------------------------------------------------
+      # Unset means the ConsoleMailer: reset and invite links go to the container
+      # log and nothing is delivered. That is a deliberate state, not a silent
+      # failure — `mailDeliveryOf()` reports it as `not_configured` and the UI
+      # says so instead of claiming a mail went out.
+      #
+      # For real delivery, either any provider's SMTP access (MAIL_TRANSPORT=smtp
+      # plus MAIL_HOST and, if the relay authenticates, MAIL_USER/MAIL_PASSWORD)
+      # or Resend's HTTP API (MAIL_TRANSPORT=resend plus MAIL_API_KEY). See
+      # docs/deployment.md (the mail section).
+      #
+      # These pass through EMPTY rather than carrying a default: an empty value
+      # counts as unset (env.ts `rawEnv()`), so the defaults live in one place —
+      # MAIL_SECURITY=starttls on port 587, or 465 with MAIL_SECURITY=tls. There is
+      # no relay on the private network any more, so `none` is no longer a sensible
+      # default: it would now put credentials on the wire in cleartext, which
+      # env.ts refuses to do at all.
+      MAIL_TRANSPORT: ${MAIL_TRANSPORT:-console}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-}
+      MAIL_SECURITY: ${MAIL_SECURITY:-}
+      MAIL_USER: ${MAIL_USER:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-Haushalt <haushalt@localhost>}
+      # Read ONLY for MAIL_TRANSPORT=resend, and then required — env.ts refuses to
+      # boot without it. It has to be passed through even though the default stack
+      # does not use it: without this line `MAIL_TRANSPORT=resend` in the `.env`
+      # produces a container that cannot start, and the missing value is in a file
+      # the operator did fill in. Empty is correct for every SMTP setup, including
+      # Resend's own smtp.resend.com (there the key is MAIL_PASSWORD).
+      MAIL_API_KEY: ${MAIL_API_KEY:-}
+
+      # Photo and PDF import, two separate flags. Both off by default, matching an
+      # image built WITHOUT the `WITH_OCR=1` / `WITH_PDF=1` build args: the binaries
+      # are not installed, so there is nothing to enable. Set the build arg AND the
+      # variable to turn one on — see docs/deployment.md.
+      #
+      # The 1 GB combination is `IMPORT_OCR_ENABLED=1` with `IMPORT_PDF_ENABLED=0`:
+      # German photo import fits one core, a ten-page scan does not.
+      IMPORT_OCR_ENABLED: ${IMPORT_OCR_ENABLED:-0}
+      # DEFAULTS TO 0 RATHER THAN TO "follow IMPORT_OCR_ENABLED", even though the API
+      # itself treats unset as "follow". The published image ships WITHOUT poppler
+      # (release.yml builds WITH_PDF=0), so inheriting the photo flag would turn PDF
+      # import on against an image that cannot do it — the endpoint would advertise
+      # itself and then answer the documented 422. Turning PDFs on needs BOTH this
+      # variable and an image built with `--build-arg WITH_PDF=1`.
+      IMPORT_PDF_ENABLED: ${IMPORT_PDF_ENABLED:-0}
+      TESSERACT_LANGS: ${TESSERACT_LANGS:-deu}
+      # Peak concurrent tesseract processes, i.e. the memory ceiling. 1 is right for
+      # one core; raise it only after measuring with `docker stats`.
+      IMPORT_OCR_CONCURRENCY: ${IMPORT_OCR_CONCURRENCY:-1}
+
+      # --- OAuth (optional, third party by definition) ---------------------
+      # Left empty by default: e-mail + password is the self-hosted path and needs
+      # nobody's servers. Fill these in only if you want Google/GitHub sign-in.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+    volumes:
+      # The database and the uploads. THIS is the volume to back up — see
+      # docs/deployment.md.
+      - toon-data:/app/data
+    # No published port: only Caddy may reach the app. Publishing 3001 as well
+    # would offer the same site over plain http, where the PWA silently does not
+    # work and the session cookie loses its Secure flag.
+    expose:
+      - "3001"
+    networks:
+      - toon
+    # Without photo/PDF import this container is Bun, a libSQL file and the static
+    # PWA — a few hundred MB is plenty, and a limit below the machine's RAM is what
+    # keeps a runaway request from taking the Docker daemon with it. With OCR on,
+    # raise it: a tesseract worker on a 12 MP photo is the one thing here that can
+    # grow without bound. See docker/env.example.
+    mem_limit: ${TOON_MEM_LIMIT:-768m}
+    # The process runs as `bun` (uid 1000, see the Dockerfile) and needs no
+    # capability at all: no privileged port, no chown at runtime, no raw
+    # sockets. Dropping them all and forbidding privilege escalation costs
+    # nothing here and turns a code-execution bug into a shell with nothing
+    # to escalate into. tini as PID 1 works without capabilities.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  caddy:
+    # Pinned rather than `2-alpine`: a floating tag means `docker compose pull`
+    # can change the TLS terminator underneath a running install, and the symptom
+    # of a bad Caddy release is "the whole site is gone", on a machine you reach
+    # over that same site. Bump deliberately.
+    image: caddy:2.11.4-alpine
+    restart: unless-stopped
+    environment:
+      TOON_HOSTNAME: ${TOON_HOSTNAME:?TOON_HOSTNAME is missing - see docker/env.example}
+      # `acme` (default) = a real Let's Encrypt certificate, needs a public
+      # hostname and ports 80/443. `internal` = Caddy's local CA for a LAN box or
+      # a local test, and then TOON_HSTS_MAX_AGE=0 belongs with it.
+      TOON_TLS_ISSUER: ${TOON_TLS_ISSUER:-acme}
+      TOON_HSTS_MAX_AGE: ${TOON_HSTS_MAX_AGE:-31536000}
+      # OPTIONAL old hostnames (cutover only, SPEC D11, ADR 0008). Set = that old
+      # hostname redirects to TOON_HOSTNAME (path map, see docker/Caddyfile).
+      # Unset or empty = an http-only placeholder site that nothing ever reaches
+      # (Caddy needs a non-empty site address, and it treats an EMPTY variable as
+      # set, so compose's `:-` is what covers the set-but-empty case).
+      RECIPE_HOSTNAME: ${RECIPE_HOSTNAME:-http://old-recipe-hostname.unset.invalid}
+      FINANCE_HOSTNAME: ${FINANCE_HOSTNAME:-http://old-finance-hostname.unset.invalid}
+    ports:
+      - "80:80"
+      - "443:443"
+      # HTTP/3. Caddy has QUIC on by default and advertises it on every response
+      # (`alt-svc: h3=":443"`) — but QUIC is UDP, and a bare "443:443" publishes
+      # TCP only. Without this line every browser wastes a doomed UDP probe per
+      # session before falling back to h2. A host firewall that drops UDP 443
+      # degrades to exactly that fallback, nothing worse.
+      - "443:443/udp"
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      # caddy-data holds the ACME account and certificates — and in `internal`
+      # mode the local CA INCLUDING ITS PRIVATE KEY. Losing it there means a new
+      # CA, which means re-installing the root certificate on every phone. Keep it
+      # out of any backup you would share.
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - toon
+    logging: *logging
+
+  # There is deliberately no local SMTP sink here any more. If you ever add one
+  # back to look at outgoing mail on a test box, publish it as
+  # "127.0.0.1:8025:8025" and NEVER on a public or LAN address: its UI shows every
+  # password-reset and invite link, so whoever can open it can take over any
+  # account. Note that `ufw` does not protect a published container port — the
+  # loopback address in the `ports:` entry is the actual control.
+
+networks:
+  toon:
+    driver: bridge
+
+volumes:
+  toon-data:
+  caddy-data:
+  caddy-config:
