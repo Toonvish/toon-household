@@ -15,10 +15,11 @@
  */
 import { describe, expect, test } from "bun:test";
 import { and, eq } from "drizzle-orm";
-import { client, db } from "../src/db/client.ts";
+import { db } from "../src/db/client.ts";
 import { runMigrations } from "../src/db/migrate.ts";
 import { mealPlanEntries, recipeCookLog, recipes, sessions, users } from "../src/db/schema.ts";
 import { app } from "../src/index.ts";
+import { explain } from "./support/explain.ts";
 import { COOK_UNDO_WINDOW_MS } from "../src/modules/recipe/services/recipes/cookLog.ts";
 
 await runMigrations(db);
@@ -372,7 +373,7 @@ describe("DELETE /recipes/:recipeId/cooked (undo)", () => {
 
 describe("the lastCooked sort", () => {
   test("uses recipe_recipes_household_last_cooked_idx, not a temp b-tree", async () => {
-    const plan = await client.execute(
+    const plan = await explain(
       "explain query plan select * from recipe_recipes where household_id = 'x' " +
         "order by last_cooked_at desc, created_at desc limit 24",
     );

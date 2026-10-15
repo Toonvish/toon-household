@@ -1,16 +1,20 @@
 /**
- * The ledger's real-transaction proof (plan M3 decision 15, ADR 0003; toon-finance gotcha 2).
+ * The ledger's real-transaction proof (plan M3 decision 15; toon-finance gotcha 2; ADR 0003,
+ * superseded by ADR 0009).
  *
- * The whole suite runs on the one process-wide `file::memory:` client, where
- * `withTransaction` degrades to sequential statements (no rollback). This file therefore builds
- * its OWN temp `file:` database (`createDatabase` + `runMigrations`), inserts users, the
- * household and the two participants directly, and runs the finance write paths against it:
+ * Since M7-T02 the whole suite runs on one process-wide temp `file:` database (env.ts), so every
+ * `withTransaction` is real. This file still builds its OWN temp `file:` database
+ * (`createDatabase` + `runMigrations`) for (a)-(c), inserts users, the household and the two
+ * participants directly, and runs the finance write paths against it, isolated from the rest
+ * of the run (case (c) installs a trigger):
  *
  * (a) a finance `withTransaction` that throws after an insert leaves no row;
  * (b) `createSettlement` with a `mutationId`, twice, books one row and holds one claim;
  * (c) a `createTransaction` whose tag insert fails leaves neither the transaction nor its
  *     claim, and the same `mutationId` can be delivered again afterwards;
- * (d) `withTransaction` on the shared memory client still degrades (documents the boundary).
+ * (d) on the SHARED client the same holds: a throw inside the finance and the core
+ *     `withTransaction` rolls the insert back (under ADR 0003 this case documented the
+ *     opposite: on `file::memory:` the insert survived).
  */
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -28,6 +32,10 @@ import {
 } from "../src/modules/finance/schema.ts";
 import { createSettlement } from "../src/modules/finance/services/ledger/settlements.service.ts";
 import { createTransaction } from "../src/modules/finance/services/ledger/transactions.service.ts";
+import {
+  withTransaction as coreWithTransaction,
+  transactionsSupported,
+} from "../src/core/services/households/support.ts";
 import { withTransaction } from "../src/modules/finance/services/support.ts";
 import { ensureFinanceHousehold } from "../src/modules/finance/setup.ts";
 
@@ -189,19 +197,28 @@ describe("finance withTransaction on a real file database", () => {
   });
 });
 
-describe("the shared memory client (documents the boundary)", () => {
-  test("(d) withTransaction degrades to sequential statements: a throw does not roll back", async () => {
-    const id = crypto.randomUUID();
-    try {
-      await expect(
-        withTransaction(sharedDb, async (tx) => {
-          await tx.insert(users).values({ id, email: `degrade.${id.slice(0, 8)}@toon.test`, name: "Degrade" });
-          throw new Error("forced");
-        }),
-      ).rejects.toThrow("forced");
-      expect(await sharedDb.select({ id: users.id }).from(users).where(eq(users.id, id))).toHaveLength(1);
-    } finally {
-      await sharedDb.delete(users).where(eq(users.id, id));
+describe("the shared client is a real file database (ADR 0009)", () => {
+  test("(d) withTransaction on the shared client rolls back: a throw leaves no row", async () => {
+    expect(transactionsSupported).toBe(true);
+    for (const [label, run] of [
+      ["finance", withTransaction],
+      ["core", coreWithTransaction],
+    ] as const) {
+      const id = crypto.randomUUID();
+      try {
+        await expect(
+          run(sharedDb, async (tx) => {
+            await tx.insert(users).values({ id, email: `rollback.${id.slice(0, 8)}@toon.test`, name: label });
+            // Visible inside the transaction ...
+            expect(await tx.select({ id: users.id }).from(users).where(eq(users.id, id))).toHaveLength(1);
+            throw new Error(`forced ${label}`);
+          }),
+        ).rejects.toThrow(`forced ${label}`);
+        // ... and gone after the rollback.
+        expect(await sharedDb.select({ id: users.id }).from(users).where(eq(users.id, id))).toHaveLength(0);
+      } finally {
+        await sharedDb.delete(users).where(eq(users.id, id));
+      }
     }
   });
 });

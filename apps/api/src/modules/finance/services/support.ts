@@ -4,13 +4,16 @@
  *
  * `DbLike` / `Tx` are the core's (one definition for every service). `withTransaction`
  * is the module's own: toon-finance gotcha 2 says a ledger whose tests never see a real
- * transaction does not test its most important property, so this one opens a REAL
- * transaction on every database EXCEPT the shared `file::memory:` client under `bun
- * test` — there libSQL's `client.transaction()` opens a second connection that is a
- * fresh, empty database (see the core `support.ts`), and the statements run
- * sequentially on the shared client instead. A test that hands in its own `file:`
- * database (`createDatabase` + `runMigrations`, `test/finance-file-db.test.ts`) gets a
- * real transaction with rollback. Recorded as ADR 0003 (written by M3-T09).
+ * transaction does not test its most important property. Since ADR 0009 (M7-T02) the
+ * whole `bun test` run uses a fresh temp `file:` database (env.ts), so this opens a REAL
+ * transaction everywhere, under test too, and `test/finance-file-db.test.ts` (d) proves a
+ * rollback on the shared client. The one remaining exception is a shared client on a
+ * memory URL (an explicit `TEST_DATABASE_URL=file::memory:`): there libSQL's
+ * `client.transaction()` may open a second connection that is a fresh, empty database
+ * (see the core `support.ts`), so the statements run sequentially on the shared client
+ * instead. A database a test hands in itself (`createDatabase` + `runMigrations`) always
+ * gets a real transaction. ADR 0003 (written by M3-T09) recorded the memory-DB arrangement and
+ * is superseded by ADR 0009.
  */
 import { type Database, db as sharedDb } from "../../../db/client.ts";
 import { transactionsSupported } from "../../../core/services/households/support.ts";

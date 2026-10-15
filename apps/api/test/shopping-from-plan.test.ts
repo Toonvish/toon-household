@@ -12,10 +12,11 @@
  *    concurrency).
  */
 import { describe, expect, test } from "bun:test";
-import { client, db } from "../src/db/client.ts";
+import { db } from "../src/db/client.ts";
 import { runMigrations } from "../src/db/migrate.ts";
 import { householdMembers, sessions, users } from "../src/db/schema.ts";
 import { app } from "../src/index.ts";
+import { explain } from "./support/explain.ts";
 
 await runMigrations(db);
 
@@ -261,7 +262,7 @@ describe("GET /:listId/from-plan", () => {
 
 describe("query plan", () => {
   test("the plan-entry range scan and the ingredient lookup use their indexes, no TEMP B-TREE", async () => {
-    const planPlan = await client.execute(
+    const planPlan = await explain(
       "explain query plan select * from recipe_meal_plan_entries where household_id = 'x' " +
         "and planned_on >= '2026-01-01' and planned_on <= '2026-01-31' " +
         "order by planned_on asc, position asc",
@@ -270,7 +271,7 @@ describe("query plan", () => {
     expect(planDetail).toContain("recipe_meal_plan_entries_household_date_idx");
     expect(planDetail).not.toContain("TEMP B-TREE");
 
-    const ingredientPlan = await client.execute(
+    const ingredientPlan = await explain(
       "explain query plan select * from recipe_recipe_ingredients where recipe_id in ('a','b','c') " +
         "order by recipe_id asc, position asc",
     );

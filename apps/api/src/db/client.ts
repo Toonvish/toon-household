@@ -65,6 +65,23 @@ function prepareUrl(url: string): string {
  * meaningless at best — the storage engine is not ours — so they are skipped, as
  * they are for `:memory:` (no journal, nothing to tune).
  */
+/**
+ * Busy timeout of every connection to a local `file:` database, in ms.
+ *
+ * @libsql/client 0.18 keeps a POOL of connections per client: an operation borrows an
+ * idle one, a transaction holds its own until it settles, and the pool opens a new one
+ * whenever every connection is borrowed (e.g. a statement while a `withTransaction` is
+ * open). {@link LOCAL_FILE_PRAGMAS} run once, through the client, so they land on the
+ * first connection only; a later one starts with libSQL's defaults (measured in M7-T02:
+ * `busy_timeout` 0, `cache_size` -2000, `mmap_size` 0; `synchronous` FULL, `foreign_keys`
+ * ON and the persistent `journal_mode` WAL happen to match). The client's `timeout`
+ * option is applied by libSQL to EVERY connection it opens, so the busy timeout never
+ * depends on which connection a write borrows. The page-cache and mmap sizes are speed
+ * only and stay first-connection settings (the client has no per-connection hook).
+ * `test/db-pragmas.test.ts` pins the second connection's values.
+ */
+const BUSY_TIMEOUT_MS = 5000;
+
 const LOCAL_FILE_PRAGMAS: readonly string[] = [
   "journal_mode = WAL",
   "synchronous = FULL",
@@ -74,8 +91,9 @@ const LOCAL_FILE_PRAGMAS: readonly string[] = [
   // build flag.
   "foreign_keys = ON",
   // Wait rather than throw SQLITE_BUSY when another connection holds the write
-  // lock. The default is 0, i.e. fail immediately.
-  "busy_timeout = 5000",
+  // lock. The default is 0, i.e. fail immediately. Also passed to createClient as
+  // `timeout` (see BUSY_TIMEOUT_MS), which is what reaches the pool's other connections.
+  `busy_timeout = ${BUSY_TIMEOUT_MS}`,
   // 64 MB of page cache (negative = KiB, not pages). The default 2 MB cannot hold
   // the recipes table plus its indexes, so a list query re-read pages every time.
   "cache_size = -65536",
@@ -115,7 +133,11 @@ export interface CreatedDatabase {
 export function createDatabase(options: CreateDatabaseOptions = {}): CreatedDatabase {
   const url = prepareUrl(options.url ?? env.databaseUrl);
   const authToken = options.authToken ?? env.DATABASE_AUTH_TOKEN;
-  const client = createClient(authToken ? { url, authToken } : { url });
+  const client = createClient({
+    url,
+    ...(authToken ? { authToken } : {}),
+    ...(isLocalFile(url) ? { timeout: BUSY_TIMEOUT_MS } : {}),
+  });
   const db = drizzle(client, { schema, logger: env.DEBUG_SQL === true });
   return { client, db, ready: applyPragmas(client, url) };
 }

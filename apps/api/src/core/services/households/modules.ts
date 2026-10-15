@@ -50,8 +50,9 @@ export async function initializeHousehold(db: DbLike, householdId: string, modul
  *
  * ORDER IS LOAD-BEARING: the build module's `onEnable` hook runs BEFORE the row is written. A
  * hook may refuse by throwing an `ApiError` (finance validates its two participants, SPEC D3);
- * under `bun test` `withTransaction` runs without a transaction (`file::memory:`, see
- * support.ts), so "a refusal writes nothing" holds there only because nothing was written yet.
+ * "a refusal writes nothing" holds because nothing was written yet, and it must keep holding
+ * on a memory DB, where `withTransaction` runs without a transaction (see support.ts; `bun
+ * test` itself runs on a temp file DB with real transactions since ADR 0009).
  *
  * The row is upserted: a repeated enable keeps `enabled_at`; `settings` (JSON text) is replaced
  * only when the caller sent some, otherwise the existing row is left untouched. A module id the

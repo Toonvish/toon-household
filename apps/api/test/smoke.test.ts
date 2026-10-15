@@ -43,8 +43,10 @@ const CORE_TABLES = [
 ];
 
 describe("env", () => {
-  test("defaults to an in-memory DB under bun test", () => {
-    expect(env.DATABASE_URL).toBe("file::memory:");
+  // Until M7-T02 this asserted `file::memory:`; ADR 0009 moved the suite to a fresh temp file
+  // per process so every withTransaction is a real one (toon-finance gotcha 2).
+  test("defaults to a fresh temp file DB under bun test", () => {
+    expect(env.DATABASE_URL).toMatch(/^file:.*toon-household-test-\d+-[0-9a-f-]{36}\.db$/);
     expect(env.databaseKind).toBe("file");
     expect(env.webOrigins.length).toBeGreaterThan(0);
   });

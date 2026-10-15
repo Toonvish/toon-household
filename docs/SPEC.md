@@ -145,8 +145,8 @@ code is the smallest possible one and is recorded in the plan and in `docs/adr/`
   shopping-list merge rule, the fold columns, the Fixkostenplan rounding, `expectedBalanceCents`,
   the verified-e-mail gate, the service-worker rules, the four theme blocks, the sticky-bar flex
   chain — is binding for the module that inherits it.
-  One recorded exception: finance's tests run on the shared memory DB and prove real
-  transactions on a temp file DB instead of running the whole suite on one (ADR 0003).
+  ADR 0003 (finance tests on the shared memory DB) is superseded by ADR 0009: the whole suite
+  runs on a temp file DB, as toon-finance's gotcha 2 wants.
   Three more from the 1715207 sync (ADR 0007): toon-finance's leave rule (gotcha 69) is replaced by
   ADR 0004's, the CSP carries the recipe module's needs (`'wasm-unsafe-eval'`, `img-src` with `data:`
   `blob:` `https:`, `media-src` and `object-src` with `blob:`), and the origin guard trusts the

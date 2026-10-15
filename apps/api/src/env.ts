@@ -4,7 +4,8 @@
  *
  * Every variable is documented in /.env.example.
  */
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { LOCALES } from "@toon/shared";
 import { z } from "zod";
@@ -18,8 +19,8 @@ export const REPO_ROOT = resolve(import.meta.dir, "../../..");
  * existing process env always wins.
  */
 function loadRootDotEnv(): void {
-  // Never let a developer .env leak into `bun test` — tests use file::memory:
-  // unless the test itself sets the variable in process.env.
+  // Never let a developer .env leak into `bun test` — tests use a fresh temp file
+  // DB (see rawEnv) unless the test itself sets TEST_DATABASE_URL in process.env.
   if (process.env.NODE_ENV === "test") return;
   for (const file of [".env", ".env.local"]) {
     const path = join(REPO_ROOT, file);
@@ -307,11 +308,88 @@ const EnvSchema = z
 
 export type Env = z.infer<typeof EnvSchema>;
 
+/** `toon-household-test-<pid>-<uuid>.db`: the pid lets a later run tell a dead run's file. */
+const TEST_DB_PREFIX = "toon-household-test-";
+const TEST_DB_NAME = /^toon-household-test-(\d+)-[0-9a-f-]{36}\.db(?:-wal|-shm|-journal)?$/;
+
 /**
  * Test-friendly defaults so `bun test` works without any setup — and so a
  * developer .env (which Bun auto-loads from the cwd) can never point tests at
- * the real database. Override with TEST_DATABASE_URL if you really need a file.
+ * the real database.
+ *
+ * The default is a fresh TEMP FILE per process, not `file::memory:` (ADR 0009,
+ * toon-finance gotcha 2 and its `defaultTestDatabaseUrl()`): the ledger's tests
+ * must see real transactions, and `withTransaction` (core and finance
+ * `support.ts`) degrades to sequential statements on a memory URL. `bun test`
+ * runs every file in ONE process and this module is a singleton, so the URL
+ * resolved here the first time any test file imports `env.ts` is the one the
+ * whole run shares — exactly as the single `file::memory:` client was shared
+ * before. The file and its `-wal` / `-shm` siblings are removed when the
+ * process exits, or by the next run once the process is gone (see below).
+ *
+ * `TEST_DATABASE_URL` still overrides this (a fixed file, or an explicit
+ * `file::memory:`, which brings back the degraded, non-transactional mode).
  */
+function defaultTestDatabaseUrl(): string {
+  const dir = tmpdir();
+  sweepStaleTestDatabases(dir);
+  const path = join(dir, `${TEST_DB_PREFIX}${process.pid}-${crypto.randomUUID()}.db`);
+  // Synchronous on purpose: "exit" handlers cannot await. Errors are ignored — a
+  // leftover file in the OS temp dir is harmless, a crash on the way out is not.
+  // `bun test` (1.4) does not emit "exit" (nor "beforeExit") for its own process,
+  // so under the test runner the sweep above is what removes the file: the NEXT
+  // run deletes every test DB whose process is gone. The handler still covers a
+  // plain `bun` process started with NODE_ENV=test.
+  process.on("exit", () => removeTestDatabase(path));
+  return `file:${path}`;
+}
+
+/** Removes the test DB file and its WAL siblings; never throws. */
+function removeTestDatabase(path: string): void {
+  for (const file of [path, `${path}-wal`, `${path}-shm`, `${path}-journal`]) {
+    try {
+      rmSync(file, { force: true });
+    } catch {
+      // ignored, see defaultTestDatabaseUrl
+    }
+  }
+}
+
+/**
+ * Deletes the temp test DBs of `bun test` processes that no longer run (the pid is
+ * part of the file name). A live pid — a parallel run, or a reused pid — keeps its
+ * files; they go on a later run. Never throws.
+ */
+function sweepStaleTestDatabases(dir: string): void {
+  let names: string[];
+  try {
+    names = readdirSync(dir);
+  } catch {
+    return;
+  }
+  for (const name of names) {
+    const match = TEST_DB_NAME.exec(name);
+    if (!match) continue;
+    const pid = Number(match[1]);
+    if (pid === process.pid || processIsAlive(pid)) continue;
+    try {
+      rmSync(join(dir, name), { force: true });
+    } catch {
+      // ignored: someone else's file, or already gone
+    }
+  }
+}
+
+function processIsAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    // EPERM: the process exists but belongs to another user.
+    return (error as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
 function rawEnv(): Record<string, string | undefined> {
   const source: Record<string, string | undefined> = {};
   // Empty strings in .env ("DATABASE_AUTH_TOKEN=") mean "not set", so that
@@ -321,7 +399,7 @@ function rawEnv(): Record<string, string | undefined> {
     source[key] = value;
   }
   if (source.NODE_ENV === "test") {
-    source.DATABASE_URL = source.TEST_DATABASE_URL ?? "file::memory:";
+    source.DATABASE_URL = source.TEST_DATABASE_URL ?? defaultTestDatabaseUrl();
     source.DATABASE_AUTH_TOKEN = source.TEST_DATABASE_URL ? source.DATABASE_AUTH_TOKEN : undefined;
     source.SESSION_SECRET ??= "test-secret-test-secret-test-secret";
   }

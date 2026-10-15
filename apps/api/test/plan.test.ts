@@ -16,10 +16,11 @@
 import { PLAN_LIMITS } from "@toon/shared";
 import { afterAll, describe, expect, test } from "bun:test";
 import { and, eq } from "drizzle-orm";
-import { client, db } from "../src/db/client.ts";
+import { db } from "../src/db/client.ts";
 import { runMigrations } from "../src/db/migrate.ts";
 import { households, mealPlanEntries, recipes, sessions, users } from "../src/db/schema.ts";
 import { app } from "../src/index.ts";
+import { explain } from "./support/explain.ts";
 import { setVerifiedEmailRequired } from "../src/core/services/auth/verifiedEmail.ts";
 
 await runMigrations(db);
@@ -552,7 +553,7 @@ describe("cascades", () => {
 
 describe("the range read", () => {
   test("uses recipe_meal_plan_entries_household_date_idx, not a temp b-tree", async () => {
-    const plan = await client.execute(
+    const plan = await explain(
       "explain query plan select * from recipe_meal_plan_entries where household_id = 'x' " +
         "and planned_on >= '2026-01-01' and planned_on <= '2026-01-31' " +
         "order by planned_on asc, position asc",
