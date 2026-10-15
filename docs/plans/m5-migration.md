@@ -1,7 +1,7 @@
 # M5 — migration: plan
 
 **Status: DONE (2026-10-15).** Section 9 is the integration record, section 10 "what changed vs plan"
-(one deviation from SPEC §1, ADR 0005, taken in T05; no ADR 0006). Final tree: `bun test` 2010 pass in 114 files,
+(one deviation from SPEC §1, ADR 0005, taken in T05; no ADR 0006). Final tree after the review fixes: `bun test` 2016 pass in 115 files,
 typecheck and build green; no owner copy of production data was available, the fixtures and a copy of
 toon-recipe's dev database are the evidence (section 9.7). The plan itself was revised the same day after
 its review: mapping validation before any write, the CLI's `.env` and import order, the in-run id set, the
@@ -1359,7 +1359,8 @@ inputs and outputs: temp directories from `mktemp -d` for the fixture runs, `mig
 ### 9.1 Fixes found by the integration run
 
 None. Every gate and run below passed on the first attempt, so T10 has no fix commit; the only commit of the task
-is the documentation sync (SPEC §2, §3, §6, §7, `docs/migration.md`, CLAUDE.md, this plan).
+is the documentation sync (SPEC §2, §3, §6, §7, `docs/migration.md`, CLAUDE.md, this plan). The two defects the
+milestone review found afterwards are in section 10 ("Review fixes").
 
 ### 9.2 Gates (merged tree)
 
@@ -1367,7 +1368,7 @@ is the documentation sync (SPEC §2, §3, §6, §7, `docs/migration.md`, CLAUDE.
 | --- | --- | --- |
 | `bun install --frozen-lockfile` | exit 0, "Checked 436 installs across 625 packages (no changes)" | `m5-t10-install.log` |
 | `bun run typecheck` | exit 0, five projects, `[typecheck] OK` | `m5-t10-typecheck.log` |
-| `bun test` | exit 0, **2010 pass, 0 fail**, 11051 `expect()` calls, 114 files, 20.2 s (M4 closed at 1832 in 106 files: +178 tests, +8 files) | `m5-t10-test.log` |
+| `bun test` | exit 0, **2010 pass, 0 fail**, 11051 `expect()` calls, 114 files, 20.2 s (M4 closed at 1832 in 106 files: +178 tests, +8 files); after the two review fixes (section 10): 2016 pass, 0 fail, 11087 `expect()` calls, 115 files | `m5-t10-test.log` |
 | `bun test apps/api/test/legacy-` | 174 pass, 0 fail, 1152 `expect()` calls, 8 files (`legacy-{cli,finance,fixtures,framework,households,mapping,recipe,users}.test.ts`: 17, 19, 26, 21, 14, 37, 13, 15 tests) | task verify |
 | `bun run build` | exit 0 (Vite build plus the generated service worker) | `m5-t10-build.log` |
 | `bun run i18n:check` | exit 1 by design; step 1/2 (catalog parity) `[i18n:check] OK`; step 2/2 reports **138** hits, unchanged | `m5-t10-i18n.log` |
@@ -1501,10 +1502,23 @@ Commands, "Not yet present", seven M5 gotchas, Obligations); this plan.
   rule, `no-members` and `group-taken`, the verified-only e-mail match, exit codes, repo-root paths and the
   `DATABASE_URL` / `.env` source, R's tokens copied), `build.ts --check` in §7.
 - **Test count.** The plan's acceptance was "1832 + the new legacy tests": 2010 = 1832 + 174 in the eight `legacy-*`
-  files + 4 `import-order.test.ts` entries. The only M4 test file touched is `import-order.test.ts` (+5 lines); none was removed.
-- **T10 itself.** No defect was found, so there is no fix commit. The API of the dev-DB run was started as `bun
+  files + 4 `import-order.test.ts` entries at T10; the review fixes below add 6 (3 in `legacy-users.test.ts`, 15 to 18,
+  and the new `legacy-migration-doc.test.ts` with 3), so the closed tree is 2016 in 115 files (180 tests in the nine
+  `legacy-*` files). The only M4 test file touched is `import-order.test.ts` (+5 lines); none was removed.
+- **T10 itself.** No defect was found in the integration run, so there is no T10 fix commit; the two later review
+  fixes are listed next. The API of the dev-DB run was started as `bun
   apps/api/src/index.ts` from the repo root (the command `bun run start` wraps) so the pid is the server's own; the
   dev-DB evidence copy stays in the git-ignored `migration-in/dev-recipe/` and `migration-out/m5-dev/`.
+- **Review fixes (two commits after T10, no SPEC §1 deviation).**
+  1. `b31d3fe`: `migrateUsers`' resumed branch mapped a recipe user who arrived after a finance-only `--apply` onto the
+     finance-created account without the verified-only check (plan decision 9, SPEC §6.2, D4), so OAuth rows hung off
+     an unconfirmed account and the recipe row lost. The same rule as a fresh run now applies: an unconfirmed account is
+     an error (skip, exit 1), a confirmed one is matched with a warning. Tests: finance-then-both, the confirmed
+     variant, recipe-then-both.
+  2. `38898fc`: `docs/migration.md` step 6 copied the volume as root into a pre-filled named volume and left `local.db`,
+     its `-wal` and `uploads` root-owned, which the image's `USER bun` (SPEC D11, D13) could not write. The step now
+     chowns the copy to the bun uid; `legacy-migration-doc.test.ts` guards it, and the M6 obligation to check the uid
+     against the real image is recorded in CLAUDE.md.
 - **Owner data:** none available (9.7), as risk 11 anticipated.
 - **Observations, not fixed (no behaviour change needed):** every output line of `bun run migrate:legacy` carries the
   `@toon/api migrate:legacy: ` prefix of the workspace filter (documented in `docs/migration.md`; the JSON report is

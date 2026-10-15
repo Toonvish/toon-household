@@ -43,10 +43,10 @@ headless numbers, the four-combination measurement, the print and offline runs a
 index; section 10 is "what changed vs plan"; no deviation from SPEC §1, no new ADR, ADR 0004 gained one
 consequence bullet) and **M5 migration** (2026-10-15, plan `docs/plans/m5-migration.md`; section 9 is the
 integration record with the gates, the fixture, seeded-target and dev-DB runs and the plain statement that no
-owner copy was available; section 10 is "what changed vs plan"; one ADR, 0005, below). Next: **M6 deploy**,
+owner copy was available; section 10 is "what changed vs plan" and lists the two review fixes; one ADR, 0005, below). Next: **M6 deploy**,
 then M7 harden.
 
-What exists after M5: the three workspaces build, typecheck and test green (`bun test`: 2010 pass in 114 files).
+What exists after M5: the three workspaces build, typecheck and test green (`bun test`: 2016 pass in 115 files).
 Two modules are built: `API_MODULES` and `WEB_MODULES` are `[recipe, finance]` and `/api/health`
 reports `modules: ["recipe","finance"]`. The recipe module is as after M2 (recipes with search and
 filters, tags, collections, URL / photo / PDF import, meal plan with cook log, shopping lists with the
@@ -72,7 +72,7 @@ the recipe groups with each finance household merged, made new or skipped (the p
 finance balance per household to the cent and the second `--apply` writes nothing. The fixtures are
 `apps/api/test/fixtures/legacy/` (verbatim legacy migrations, the deterministic `build.ts`, the committed
 `recipe.db` and `finance.db`, `uploads/`, `facts.ts`, a README); the tests are `apps/api/test/legacy-*.test.ts`
-(174 tests in eight files) plus four `import-order.test.ts` entries. Verified in M5-T10 on the merged tree:
+(180 tests in nine files, the ninth being `legacy-migration-doc.test.ts`, which guards the cutover guide's step 6) plus four `import-order.test.ts` entries. Verified in M5-T10 on the merged tree:
 the fixture dry run, apply and second apply, a `--mapping` dry run, a run into a seeded target, `uploads:gc
 --dry-run`, and a recipe-only run on a copy of toon-recipe's dev database with the API started on the result.
 No owner copy of production data was available (`migration-in/` did not exist): the owner runs
@@ -725,7 +725,7 @@ the code actually relies on or introduced.
   fresh ids are random per pass, so a dry run and the `--apply` after it print different ones. A legacy
   user whose e-mail matches an existing target account is mapped onto it ONLY when that account has
   `email_verified_at` (the boolean alone is not evidence); an unconfirmed one is an error ("unverified
-  target account <email> blocks the merge", exit 1). A recipe account without a password (OAuth-only) keeps
+  target account <email> blocks the merge", exit 1). The rule holds on a resumed run too: a recipe user arriving after a finance-only `--apply` meets the finance-created (unconfirmed) account and is refused the same way (review fix `b31d3fe`). A recipe account without a password (OAuth-only) keeps
   none when a finance row with the same e-mail exists (finance never verified addresses, so its hash would
   be an account takeover); the report notes "finance password not carried". Finance-only users start
   unconfirmed.
