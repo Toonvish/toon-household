@@ -13,10 +13,16 @@
  * Method `ALL` (middleware registrations such as `app.use`) is not a route and is ignored.
  */
 import { ERROR_CODES } from "@toon/shared";
-import { describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { eq } from "drizzle-orm";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { setVerifiedEmailRequired } from "../src/core/services/auth/verifiedEmail.ts";
+import { db } from "../src/db/client.ts";
+import { runMigrations } from "../src/db/migrate.ts";
+import { users } from "../src/db/schema.ts";
 import { app } from "../src/index.ts";
+import { createHousehold, createUser } from "./support/finance-harness.ts";
 
 /** Module ids whose routes must all have a row (grows with each module section). */
 const REQUIRED_MODULE_SECTIONS: string[] = ["recipe", "finance"];
@@ -101,5 +107,55 @@ describe("docs/API.md matches the served routes", () => {
 
   test("the doc keeps the retired group vocabulary out of its auth levels and paths", () => {
     expect(doc).not.toMatch(/\/api\/groups|:groupId|group:(member|admin|owner)/);
+  });
+});
+
+/**
+ * The Auth column's `+verified` suffix is checked against behaviour, not against the source text:
+ * an unconfirmed owner of a household with both modules enabled sends every served module write
+ * (no body: the confirmed-address gate runs before any parsing) and the routes that answer
+ * `403 email_unverified` must be exactly the rows whose Auth cell carries `+verified`.
+ */
+describe("docs/API.md marks +verified on exactly the module writes that gate on it", () => {
+  const AUTH_ROW = /^\| (POST|PATCH|PUT|DELETE) \| `([^`]+)` \| ([^|]+) \|/gm;
+  const authOf = new Map<string, string>(
+    [...doc.matchAll(AUTH_ROW)].map((match) => [`${match[1]} ${match[2]}`, match[3] ?? ""]),
+  );
+  const moduleWrites = served.filter(
+    (entry) => !entry.startsWith("GET ") && moduleOf(pathOf(entry)) !== null && authOf.has(entry),
+  );
+
+  beforeAll(async () => {
+    await runMigrations(db);
+    setVerifiedEmailRequired(true);
+  });
+  afterAll(() => setVerifiedEmailRequired(null));
+
+  test("every served module write is documented with an Auth cell", () => {
+    const missing = served.filter(
+      (entry) => !entry.startsWith("GET ") && moduleOf(pathOf(entry)) !== null && !authOf.has(entry),
+    );
+    expect(missing).toEqual([]);
+    expect(moduleWrites.length).toBeGreaterThan(50);
+  });
+
+  test("the +verified rows are the writes that answer 403 email_unverified", async () => {
+    const owner = await createUser("Unconfirmed");
+    const householdId = await createHousehold(owner, "Doc gate");
+    await db.update(users).set({ emailVerified: false, emailVerifiedAt: null }).where(eq(users.id, owner.id));
+
+    const gated: string[] = [];
+    for (const entry of moduleWrites) {
+      const method = entry.slice(0, entry.indexOf(" "));
+      const path = pathOf(entry)
+        .replace(":householdId", householdId)
+        .replace(/:[A-Za-z]+/g, () => crypto.randomUUID());
+      const response = await app.request(path, { method, headers: { Cookie: owner.cookie } });
+      const payload = (await response.json().catch(() => null)) as { error?: { code?: string } } | null;
+      if (payload?.error?.code === "email_unverified") gated.push(entry);
+    }
+
+    const documented = moduleWrites.filter((entry) => (authOf.get(entry) ?? "").includes("+verified"));
+    expect(documented.sort()).toEqual(gated.sort());
   });
 });

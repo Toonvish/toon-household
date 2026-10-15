@@ -695,7 +695,10 @@ deletion is not exposed (see "Households").
 Such an account gets **`403 { code: "email_unverified" }`** on:
 
 - every `POST`/`PATCH`/`PUT`/`DELETE` under `/api/households/:householdId/recipe/recipes`, `/tags`, `/collections`,
-  `/imports` (all six sources, plus draft edit/delete and commit) and `/shopping-lists`,
+  `/imports` (all six sources, plus draft edit/delete and commit), `/shopping-lists` and `/plan`
+  (create, update, delete of a meal-plan entry),
+- every write under `/api/recipe/cards` (create, update, delete and `…/:cardId/used`), a user-scoped
+  router behind `requireSession()` that mounts `requireVerifiedEmail()` itself.
 
 ### Recipes — `apps/api/src/modules/recipe/routes/recipes.ts`
 
@@ -961,9 +964,9 @@ there is no author-or-admin check anywhere in this router.
 | --- | --- | --- | --- | --- | --- |
 | GET | `/api/households/:householdId/recipe/plan` | household:member+module:recipe | `MealPlanRangeQuery` (query: `from`, `to`) | `MealPlanRangeResponse` | 200, 403, 422 |
 | GET | `/api/households/:householdId/recipe/plan/last-planned` | household:member+module:recipe | `LastPlannedQuery` (query: `before`) | `LastPlannedResponse` | 200, 403, 422 |
-| POST | `/api/households/:householdId/recipe/plan` | household:member+module:recipe | `CreateMealPlanEntryRequest` | `MealPlanEntryResponse` | 200, 201, 403, 404, 409 `meal_plan_day_full`, 422 |
-| PATCH | `/api/households/:householdId/recipe/plan/:entryId` | household:member+module:recipe | `UpdateMealPlanEntryRequest` | `MealPlanEntryResponse` | 200, 403, 404, 409 `conflict` / `meal_plan_day_full`, 422 |
-| DELETE | `/api/households/:householdId/recipe/plan/:entryId` | household:member+module:recipe | – | – | 204, 403, 404 |
+| POST | `/api/households/:householdId/recipe/plan` | household:member+module:recipe+verified | `CreateMealPlanEntryRequest` | `MealPlanEntryResponse` | 200, 201, 403, 404, 409 `meal_plan_day_full`, 422 |
+| PATCH | `/api/households/:householdId/recipe/plan/:entryId` | household:member+module:recipe+verified | `UpdateMealPlanEntryRequest` | `MealPlanEntryResponse` | 200, 403, 404, 409 `conflict` / `meal_plan_day_full`, 422 |
+| DELETE | `/api/households/:householdId/recipe/plan/:entryId` | household:member+module:recipe+verified | – | – | 204, 403, 404 |
 
 Notes
 - **`plannedOn` is a CALENDAR DATE (`YYYY-MM-DD`), not a timestamp, and it is the CLIENT's calendar
@@ -1015,10 +1018,10 @@ the content".
 | Method | Path | Auth | Request | Response | Status |
 | --- | --- | --- | --- | --- | --- |
 | GET | `/api/recipe/cards` | session | – | `CardListResponse` | 200, 401 |
-| POST | `/api/recipe/cards` | session | `CreateCardRequest` | `CardResponse` | 201, 401, 403, 409 `card_already_saved`, 409 `too_many_cards`, 422 |
-| PATCH | `/api/recipe/cards/:cardId` | session (owner) | `UpdateCardRequest` | `CardResponse` | 200, 401, 403, 404, 409, 422 |
-| DELETE | `/api/recipe/cards/:cardId` | session (owner) | – | – | 204, 401, 403, 404 |
-| POST | `/api/recipe/cards/:cardId/used` | session (owner) | – | `CardResponse` | 200, 401, 403, 404 |
+| POST | `/api/recipe/cards` | session+verified | `CreateCardRequest` | `CardResponse` | 201, 401, 403, 409 `card_already_saved`, 409 `too_many_cards`, 422 |
+| PATCH | `/api/recipe/cards/:cardId` | session+verified (owner) | `UpdateCardRequest` | `CardResponse` | 200, 401, 403, 404, 409, 422 |
+| DELETE | `/api/recipe/cards/:cardId` | session+verified (owner) | – | – | 204, 401, 403, 404 |
+| POST | `/api/recipe/cards/:cardId/used` | session+verified (owner) | – | `CardResponse` | 200, 401, 403, 404 |
 
 Notes
 - **`format` is one of `qr · ean13 · ean8 · upca · code128 · code39 · itf`** (`BarcodeFormat`), the
