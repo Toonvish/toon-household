@@ -12,7 +12,8 @@ with room for more modules. The next session has no memory of this one, so the d
    binding inside the module that inherits them (SPEC D13). The source trees are never modified.
 3. `docs/plans/` — one plan per milestone (`m0-scaffold.md` …), written by the workflow; a plan names
    tasks, files and verify commands and, once done, its "what changed vs plan" section.
-4. `docs/adr/` — one record per deviation from SPEC §1 (`NNNN-slug.md`: date, context, decision,
+4. `docs/migration.md` — the operator's guide to `migrate:legacy` (inputs, rules, report, cutover order).
+5. `docs/adr/` — one record per deviation from SPEC §1 (`NNNN-slug.md`: date, context, decision,
    consequences; the ADR edits the SPEC text in the same commit).
 
 ## Fixed decisions
@@ -40,9 +41,12 @@ integration record with the gate logs, curl walkthrough, headless and offline re
 `docs/plans/m4-design-pass.md`; section 9 is the integration record with the gates, the curl and
 headless numbers, the four-combination measurement, the print and offline runs and the screenshot
 index; section 10 is "what changed vs plan"; no deviation from SPEC §1, no new ADR, ADR 0004 gained one
-consequence bullet). Next: **M5 migration** (`migrate:legacy`, SPEC §6 and §8), then M6 deploy, M7 harden.
+consequence bullet) and **M5 migration** (2026-10-15, plan `docs/plans/m5-migration.md`; section 9 is the
+integration record with the gates, the fixture, seeded-target and dev-DB runs and the plain statement that no
+owner copy was available; section 10 is "what changed vs plan"; one ADR, 0005, below). Next: **M6 deploy**,
+then M7 harden.
 
-What exists after M4: the three workspaces build, typecheck and test green (`bun test`: 1832 pass in 106 files).
+What exists after M5: the three workspaces build, typecheck and test green (`bun test`: 2010 pass in 114 files).
 Two modules are built: `API_MODULES` and `WEB_MODULES` are `[recipe, finance]` and `/api/health`
 reports `modules: ["recipe","finance"]`. The recipe module is as after M2 (recipes with search and
 filters, tags, collections, URL / photo / PDF import, meal plan with cook log, shopping lists with the
@@ -55,7 +59,24 @@ the enable dialog, the non-participant and module-disabled states, the demo ledg
 one-off `finance:import-xlsx` importer. Web tabs inside `/finance`: Übersicht, Buchungen, Erfassen
 (+ Profil); sidebar-only Fixkosten `/finance/plan` and Kategorien `/finance/categories` (+ the shell's
 Gruppen). Every toon-finance test file has a counterpart (map in the m3 plan's section 8). Still no
-`migrate:legacy` (M5), no Docker files (M6), no `docs/API.md` or `docs/modules/*.md` (M7).
+Docker files (M6), no `docs/API.md` or `docs/modules/*.md` (M7).
+
+What M5 added (migration, plan `m5-migration.md`): `bun run migrate:legacy`, the one-off, dry-run-by-default,
+idempotent import of toon-recipe's and toon-finance's databases and the recipe uploads into the household
+database (SPEC §6, D12). The CLI is `apps/api/scripts/migrate-legacy.ts`; its library is
+`apps/api/scripts/legacy/{types,sources,ledger,copy,report,users,mapping,households,recipe,uploads,finance,
+balance,run}.ts`; the operator's guide is `docs/migration.md`. It is not a module hook (`LegacyMigrator` and
+`ApiModule.legacyMigration` were deleted from the contract). Users are united by e-mail, households come from
+the recipe groups with each finance household merged, made new or skipped (the proposal is printed and
+`--mapping` overrides it), every row is recorded in `legacy_ids` in the same batch, the report proves the
+finance balance per household to the cent and the second `--apply` writes nothing. The fixtures are
+`apps/api/test/fixtures/legacy/` (verbatim legacy migrations, the deterministic `build.ts`, the committed
+`recipe.db` and `finance.db`, `uploads/`, `facts.ts`, a README); the tests are `apps/api/test/legacy-*.test.ts`
+(174 tests in eight files) plus four `import-order.test.ts` entries. Verified in M5-T10 on the merged tree:
+the fixture dry run, apply and second apply, a `--mapping` dry run, a run into a seeded target, `uploads:gc
+--dry-run`, and a recipe-only run on a copy of toon-recipe's dev database with the API started on the result.
+No owner copy of production data was available (`migration-in/` did not exist): the owner runs
+`docs/migration.md` at cutover.
 
 What M4 added (design pass, plan `m4-design-pass.md`): the Home cards as designed (recipe: a seven-day
 week strip with the next planned titles and the active shopping list's open-item count; finance: the
@@ -108,8 +129,13 @@ ADRs (`docs/adr/`, each edits the SPEC text in the same commit):
   row involves both slots; a seated participant leaving the household gets `409 member_has_ledger`
   while the ledger has rows, else the seat is deleted and a slot-2 survivor is re-seated in slot 1
   (M4-T01, finding A); the contract gained `onMemberRemoving`).
+- `0005-legacy-migration-ledger-states.md` (D2, D3, SPEC §6 step 4: toon-finance produces ledger states the
+  runtime refuses, so the legacy migration, and only it, writes the `finance` module row for a one-participant
+  household, re-seats a lone slot-2 participant in slot 1 although the ledger has rows, re-points a plan payer
+  who is not a participant to slot 1 and keeps an income naming a non-participant, each with a warning; the
+  runtime rules are unchanged).
 
-M3 and M4 deviated from nothing in SPEC §1 beyond ADRs 0001 to 0004 above; their plan-level choices
+M3 and M4 deviated from nothing in SPEC §1 beyond ADRs 0001 to 0004 above, M5 beyond ADR 0005; their plan-level choices
 (non-participants see nothing of the ledger, `start` and `enableDialog`, table identifiers, "Gruppe"
 stays, the recipe exceptions are pinned not converted, the outbox note is module-local) are in the
 plans' sections 6 and SPEC §2 / §3 / §5. The two M3 review findings (A, B) were fixed first in M4-T01;
@@ -119,7 +145,7 @@ it is covered by the import/plan collision tests).
 ## Layout (as built)
 
 Package names are `@toon/shared`, `@toon/api`, `@toon/web`; the root is `toon-household`. Paths per
-SPEC §3 with what M0 to M4 actually created:
+SPEC §3 with what M0 to M5 actually created:
 
 - `packages/shared/src/` — `index.ts` (the ONLY entry: the vite alias maps exactly `"@toon/shared"`,
   never import a subpath), `core/` (`i18n/` runtime + `catalogs/server.{de,en}.ts`, `schemas/`
@@ -145,7 +171,9 @@ SPEC §3 with what M0 to M4 actually created:
   `migrate.ts` (the fold backfill, run as `afterMigrate`), `seed.ts` (`seedDemo`), `routes/{index,
   recipes,imports,shopping,plan,cards}.ts` and `services/{recipes,import,ocr,plan,shopping,cards}/`
   mirroring toon-recipe's `services/` one to one (`import/` has `url/`, `html/`, `ocr/`).
-  `apps/api/scripts/{migrate,seed,reset-password,uploads-gc}.ts`, `apps/api/drizzle/{0000_core,
+  `apps/api/scripts/{migrate,seed,reset-password,uploads-gc,migrate-legacy}.ts` (`migrate-legacy.ts` is the
+  CLI, `apps/api/scripts/legacy/` its library, see the gotchas; the fixtures are
+  `apps/api/test/fixtures/legacy/`), `apps/api/drizzle/{0000_core,
   0001_recipe}.sql` (both generated by drizzle-kit). Tests in `apps/api/test/` (`core-walkthrough`,
   `modules`, `households`, `auth`, `middleware`, `import-order`, `recipe-module`,
   `recipe-cross-household`, `recipes*`, `tags-kind`, `plan`, `cards`, `shopping*`, `uploads`,
@@ -214,7 +242,7 @@ SPEC §3 with what M0 to M4 actually created:
   `finance_transaction_tags`, `finance_fixed_cost_plans`, `finance_fixed_cost_items`,
   `finance_incomes`, `finance_accrual_runs`, `finance_mutation_claims`.
 
-Not yet present (so do not look for them): `migrate:legacy` (M5), Dockerfile and compose (M6),
+Not yet present (so do not look for them): Dockerfile and compose (M6), `docs/deployment.md` (M6),
 `docs/API.md`, `docs/modules/*.md` (M7).
 
 ## Commands
@@ -267,7 +295,18 @@ Environment switches of the recipe module (`env.ts`): `IMPORT_OCR_ENABLED` (phot
 `IMPORT_ALLOW_PRIVATE_HOSTS=1` (dev only, ignored in production: lets the URL importer fetch a
 localhost fixture, otherwise the SSRF guard blocks it), `UPLOAD_DIR`. All default off.
 
-Arrives later: `bun run migrate:legacy` (M5).
+- `bun run migrate:legacy -- [--recipe-db <file>] [--recipe-uploads <dir>] [--finance-db <file>] [--mapping
+  <json>] [--apply] [--report <file>]`: the one-off legacy import (guide: `docs/migration.md`). The target is
+  `DATABASE_URL` (a local `file:` URL, process environment or the root `.env`) and `UPLOAD_DIR`; relative
+  paths resolve against the repo root. Without `--apply` nothing is written, not even the target file (the
+  dry run runs against a scratch copy); `--apply` repeats the dry pass and writes only if it is clean; a
+  second `--apply` ends with `[migrate:legacy] already migrated: nothing written.` Exit codes: 0 success, 1
+  errors found, 2 usage or input error. The fixture run:
+  `D=$(mktemp -d); NODE_ENV=development DATABASE_URL=file:$D/target.db UPLOAD_DIR=$D/uploads bun run
+  migrate:legacy -- --recipe-db apps/api/test/fixtures/legacy/recipe.db --recipe-uploads
+  apps/api/test/fixtures/legacy/uploads --finance-db apps/api/test/fixtures/legacy/finance.db` (add
+  `--apply` twice). `bun run` prefixes each output line with `@toon/api migrate:legacy: ` (the `bun
+  --filter` wrapper); the `--report` JSON has none.
 
 ## Conventions
 
@@ -311,7 +350,7 @@ from SPEC and M0 to M3:
 - Ported tests that need unported code are removed with a placeholder comment naming the returning
   milestone, never skipped silently.
 
-## Gotchas in use (M0 to M4)
+## Gotchas in use (M0 to M5)
 
 Binding gotchas of the sources stay binding inside their module (SPEC D13); these are the ones
 the code actually relies on or introduced.
@@ -651,12 +690,69 @@ the code actually relies on or introduced.
   `toon-recipe` and `toon-finance` next to the main checkout (or `I18N_CHECK_SOURCES`).
 - **Long commands** (cold `bun install`, docker build, headless browser) go to the background with one
   log ending in `exit=$?`.
+- **`migrate:legacy` reads snapshots and writes only through a redirected, validated path (plan m5
+  decisions 3, 5, 6, 16).** `sources.ts` copies each legacy file and its `-wal` (never `-shm`) into a scratch
+  directory and opens the copy with a plain `createClient` (not `createDatabase`: its WAL pragma rewrites a
+  header) plus `PRAGMA query_only = 1`; a copy of the main file alone loses every page still in the WAL, so
+  the operator copies the whole volume (`docs/migration.md`). A schema gate (exit 2) wants recipe at 9
+  migrations / `0008_shopping_bought` and finance at 2 / `0001_material_nebula`. Dry run = the full
+  pipeline against a scratch copy of the target; `--apply` = that pass, then the real write only if it is
+  clean, then a balance re-check. Every row and its `legacy_ids` entry go in the same
+  `client.batch(…, "write")` (chunks of 500); a mapped row is never updated again (a one-shot cutover that
+  resumes, not a sync).
+- **The CLI never imports `src/env.ts`, and its import order is load-bearing.** `env.ts` freezes
+  `env.databaseUrl` on first load and `src/db/client.ts` opens that database on import, so importing either
+  before the redirect would create and switch to WAL the REAL target during a dry run. `migrate-legacy.ts`
+  therefore imports only `node:` builtins and types statically, resolves `DATABASE_URL` and `UPLOAD_DIR`
+  itself (`resolveCliEnv`: process environment, then the root `.env` and `.env.local` with env.ts's
+  rules, kept in step by hand), points `process.env.DATABASE_URL` at the scratch copy BEFORE its first
+  dynamic import, then imports `src/db/client.ts`, then `src/db/migrate.ts` (the order `scripts/migrate.ts`
+  and `import-order.test.ts` prove: the finance balance service reaches `modules/index.ts` and the recipe
+  routes call `requireSession()` at module scope), and only then `./legacy/*`. A relative `file:` target
+  resolves against the repo root computed in the CLI file. The library takes the target `db` and `client` as
+  parameters and never uses the shared `db`. `legacy-cli.test.ts` guards the order textually and by
+  subprocess (no target file and no `-wal` after a dry run).
+- **Subprocess tests of the CLI set `NODE_ENV=development`.** The child inherits `NODE_ENV=test` and
+  `env.ts` (and `resolveCliEnv`, which reads no `.env` under test) would then force `file::memory:`; they
+  also pass an absolute `DATABASE_URL`, an explicit `UPLOAD_DIR` and a placeholder `SESSION_SECRET`.
+  Migration tests use their own temp-file targets and temp upload directories, never the shared
+  `file::memory:` db and never `env.uploadDir`.
+- **Claimed ids and the verified-only e-mail match (users, households).** `migrateUsers` decides every
+  recipe user first, then the finance-only ones, with an in-run `Set` of claimed target ids next to the DB
+  lookup: the fixture's gina has toon-finance's id equal to cleo's toon-recipe id and both rows land in one
+  batch, so a DB lookup alone would fail the primary key and "fix" the wrong row. A claimed id gets
+  `crypto.randomUUID()` and a warning; the same pattern covers household ids (FH3's id equals G2's). Those
+  fresh ids are random per pass, so a dry run and the `--apply` after it print different ones. A legacy
+  user whose e-mail matches an existing target account is mapped onto it ONLY when that account has
+  `email_verified_at` (the boolean alone is not evidence); an unconfirmed one is an error ("unverified
+  target account <email> blocks the merge", exit 1). A recipe account without a password (OAuth-only) keeps
+  none when a finance row with the same e-mail exists (finance never verified addresses, so its hash would
+  be an account takeover); the report notes "finance password not carried". Finance-only users start
+  unconfirmed.
+- **Ledger states the runtime refuses are written by the migration alone (ADR 0005).** A one-participant
+  finance household gets its `finance` module row, a lone slot-2 participant is re-seated in slot 1, a plan
+  payer who is not a participant is re-pointed to slot 1 and an income naming a non-participant is kept,
+  each a warning, never an error; the migration writes `household_modules` and `finance_participants`
+  directly and never calls `initializeHousehold`, `onHouseholdCreated` or `onEnable` (they would seed
+  default categories next to the copied ones). The balance invariant is identity-based: the legacy breakdown
+  is computed from the perspective of the legacy user who holds slot 1 in the TARGET and compared with
+  `getBalance` on the migrated rows (balance, transaction count, amount sum).
+- **The legacy fixtures are built, checked and tracked on purpose.** `apps/api/test/fixtures/legacy/
+  build.ts` rebuilds `recipe.db`, `finance.db` and `uploads/` deterministically from verbatim copies of the
+  two sources' migration SQL and `facts.ts` (argon2id hashes precomputed; Bun's hash is salted);
+  `build.ts --check` and `legacy-fixtures.test.ts` compare a logical dump with the committed files. The
+  rest of the repo ignores `*.db`; `.gitignore` un-ignores exactly `apps/api/test/fixtures/legacy/*.db`
+  (rollback journal, so no `-wal` is ever produced). Never edit the files under `migrations/` or the
+  databases by hand; change `facts.ts` or `build.ts` and rebuild.
+- **Migration evidence stays out of the tree.** `migration-in/` and `migration-out/` are in `.gitignore`;
+  real copies of the owner's data never get committed, and a record of a real run names counts and OK/FAIL
+  only, never people or amounts.
 
 ## Obligations handed to later milestones
 
 Each later plan lists and closes them (full text: `docs/plans/m4-design-pass.md` §8 and its §9; earlier ones
 in `docs/plans/m0-scaffold.md` §4, `docs/plans/m1-core.md` §6 and §8, `docs/plans/m2-recipe-module.md` §8 and
-§9, `docs/plans/m3-finance-module.md` §7 to §9). M0, M1, M2, M3 and M4 closed theirs; M4 closed findings A and
+§9, `docs/plans/m3-finance-module.md` §7 to §9, `docs/plans/m5-migration.md` §8). M0, M1, M2, M3, M4 and M5 closed theirs; M4 closed findings A and
 B, the recipe phone header and its guard, the ActionMenu chip, the NotFound icon, the sidebar counts and
 the Plan "Neu" pill, the Home cards, the manifest shortcuts and icons, theme-colour sync, the finance D5 audit,
 the outbox indicator, print-to-PDF, the `scrollWidth` measurement, and the dark/light screenshots with the
@@ -667,16 +763,17 @@ four-combination measurement.
   (the 34 arbitrary text sizes, the four uppercase labels, the two `←` back links, the `-mx-4` bars in
   `RecipeForm` and `ImportReviewPage`; toon-recipe's `docs/redesign/PR.md` keeps them open); finance print
   styles; a per-household PWA name or icon; a real iOS home-screen install check (needs a device).
-- M5: `migrate:legacy` maps toon-recipe's tables to `recipe_*` (plan m2 Table C) and relies on
-  `afterMigrate` for the folded columns; it maps toon-finance's `household_members` to
-  `finance_participants` (with `display_name`), `households.default_locale` to `finance_settings`,
-  `fixed_cost_plans` to `finance_fixed_cost_plans` and the other tables to their `finance_*` names
-  (plan m3 decision 2), and proves the balance invariant.
-- M6: redirects from toon-recipe's old paths (`/recipes/…`, `/plan`, `/shopping`, `/import`) and from
+- M5 (closed): `migrate:legacy` shipped with its fixtures, the report and the balance invariant, and
+  ADR 0005; plan `docs/plans/m5-migration.md` sections 8 to 10. Left for later: the owner's own cutover run
+  against copies of the production volumes (`docs/migration.md`; no owner copy existed in M5).
+- M6: `docs/deployment.md` "Cutover from toon-edge" links `docs/migration.md` and names the new stack's
+  volume and image for the copy-in step (migration.md's step 6 uses `<new-volume>` and `/app/data/local.db`
+  as placeholders to check against it); redirects from toon-recipe's old paths (`/recipes/…`, `/plan`, `/shopping`, `/import`) and from
   toon-finance's (`/transactions`, `/new`, `/plan`, `/categories`, `/household`) for bookmarks arriving
   through the old-hostname redirect (with the Caddyfile; note `/plan` exists in both sources); image
   build with `WITH_OCR=1 WITH_PDF=0`.
-- M7: `docs/API.md` (recipe and finance sections), `docs/modules/recipe.md`, `docs/modules/finance.md`;
+- M7: `docs/API.md` (recipe and finance sections; note that migrated finance-only accounts start
+  unconfirmed), `docs/modules/recipe.md`, `docs/modules/finance.md`;
   the member-leaves veto exists (`ApiModule.onMemberRemoving`; finance refuses a seated participant's
   leaving with `409 member_has_ledger` while the ledger has rows, so no ghost participant can appear;
   an empty-ledger leaver's seat is deleted, a slot-2 survivor is re-seated in slot 1, and an admin seats a

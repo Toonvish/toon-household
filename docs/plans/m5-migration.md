@@ -1,8 +1,13 @@
 # M5 — migration: plan
 
-**Status: PLANNED (2026-10-15; revised the same day after the plan review: mapping validation
-before any write, the CLI's `.env` and import order, the in-run id set, the verified-only e-mail
-match, non-participant plan payers and incomes, ADR 0005).** Milestone M5 of `docs/SPEC.md` §8, written by the planner of the
+**Status: DONE (2026-10-15).** Section 9 is the integration record, section 10 "what changed vs plan"
+(one deviation from SPEC §1, ADR 0005, taken in T05; no ADR 0006). Final tree: `bun test` 2010 pass in 114 files,
+typecheck and build green; no owner copy of production data was available, the fixtures and a copy of
+toon-recipe's dev database are the evidence (section 9.7). The plan itself was revised the same day after
+its review: mapping validation before any write, the CLI's `.env` and import order, the in-run id set, the
+verified-only e-mail match, non-participant plan payers and incomes, ADR 0005.
+
+Milestone M5 of `docs/SPEC.md` §8, written by the planner of the
 `build-household` workflow. Paths: `H` = `/home/erics/software/toon-household` (this repo),
 `R` = `/home/erics/software/toon-recipe`, `F` = `/home/erics/software/toon-finance` (both READ-ONLY:
 `cat`, `grep`, `diff`, `cp` out of them, `git log`; never run `bun install`, `bun test`, `sqlite3`
@@ -1344,8 +1349,167 @@ list. M7: `docs/API.md` notes that migrated finance-only accounts start unconfir
 
 ## 9. Integration record
 
-(Written by M5-T10.)
+Written by M5-T10 on the merged tree (`main`, HEAD `8220966` before the docs commit), run on 2026-10-15. Logs are
+in `data/` (git-ignored): `m5-t10-{install,typecheck,test,build,i18n,dbseed}.log`,
+`m5-t10-fixture-{dry,apply1,apply2,mapping}.log`, `m5-t10-seeded-{dry,apply1,apply2}.log`,
+`m5-t10-uploads-gc{,-age0}.log`, `m5-t10-dev-{dry,apply1,apply2,api}.log`. Every log ends in `exit=$?`. Evidence
+inputs and outputs: temp directories from `mktemp -d` for the fixture runs, `migration-in/dev-recipe/` and
+`migration-out/m5-dev/` for the dev-DB run (both git-ignored).
+
+### 9.1 Fixes found by the integration run
+
+None. Every gate and run below passed on the first attempt, so T10 has no fix commit; the only commit of the task
+is the documentation sync (SPEC §2, §3, §6, §7, `docs/migration.md`, CLAUDE.md, this plan).
+
+### 9.2 Gates (merged tree)
+
+| Gate | Result | Log |
+| --- | --- | --- |
+| `bun install --frozen-lockfile` | exit 0, "Checked 436 installs across 625 packages (no changes)" | `m5-t10-install.log` |
+| `bun run typecheck` | exit 0, five projects, `[typecheck] OK` | `m5-t10-typecheck.log` |
+| `bun test` | exit 0, **2010 pass, 0 fail**, 11051 `expect()` calls, 114 files, 20.2 s (M4 closed at 1832 in 106 files: +178 tests, +8 files) | `m5-t10-test.log` |
+| `bun test apps/api/test/legacy-` | 174 pass, 0 fail, 1152 `expect()` calls, 8 files (`legacy-{cli,finance,fixtures,framework,households,mapping,recipe,users}.test.ts`: 17, 19, 26, 21, 14, 37, 13, 15 tests) | task verify |
+| `bun run build` | exit 0 (Vite build plus the generated service worker) | `m5-t10-build.log` |
+| `bun run i18n:check` | exit 1 by design; step 1/2 (catalog parity) `[i18n:check] OK`; step 2/2 reports **138** hits, unchanged | `m5-t10-i18n.log` |
+| `bun run db:migrate`, `bun run seed`, `bun run seed` on a fresh `file:` DB | three times exit 0; the second seed says "already present" for every recipe and "finance ledger already present" | `m5-t10-dbseed.log` |
+| `build.ts --check` (fixtures) | "committed fixtures match a fresh build." | task verify |
+| source repos | `git status --short` in `toon-recipe` and `toon-finance` is empty | task verify |
+
+The 178 new tests are the 174 of the eight `legacy-*` files plus four `import-order.test.ts` entries (the legacy
+library's `run`, `households`, `finance` and `balance` entry points, each imported first in a fresh process).
+
+### 9.3 `i18n:check` leftover hits, all classified (138)
+
+M5 adds no scanned file (the legacy library and fixtures sit under `apps/api/scripts` and `apps/api/test`, outside the
+check), the count is the M4 count, and no hit sits in either path (0 of 138).
+
+- **128 German labels or umlaut examples quoted in doc comments** (this includes the JSX comment quoting "Tomaten,
+  geschält, aus der Dose" in `AddRecipeToListDialog.tsx`). False positives.
+- **10 lines of recipe content vocabulary**: the ingredient-paste placeholder in `IngredientsEditor.tsx`,
+  `UNIT_SUGGESTIONS` in `ParsedRecipeEditor.tsx`, `STEP_HEADING_RE` in `draftEdit.ts`, the seven umlaut entities in
+  `html/entities.ts`. German recipe content is content, never `t()`. False positives.
+- No German literal in code, no new German outside `NEW_GERMAN`.
+
+### 9.4 The fixture run (T08's three commands, a fresh `mktemp -d`, `NODE_ENV=development`)
+
+`m5-t10-fixture-{dry,apply1,apply2}.log`, all exit 0:
+
+1. **Dry run.** Prints the proposal and the report, ends with `dry run complete: 240 rows would be written, 7 files would
+   be copied. Nothing was written.` The temp directory then held no `target.db` and no `-wal` (the listing was empty
+   before the apply).
+2. **`--apply`** (`--report` written): `dry pass clean`, then `applied: 240 rows written, 7 files copied.` 242 rows
+   read, 240 written, 2 skipped (the empty finance household "Leer" and its plan, reason `no-members`, not errors);
+   0 errors, 0 conflicts.
+3. **Second `--apply`**: 0 written, 240 already migrated, 7 uploads already present, ends `already migrated:
+   nothing written.`
+
+Decisions printed in the proposal (fixture people are invented): FH1 merges into G1 (`most-recipes`), FH2 into G3
+(`only-group`), FH3 becomes a new household (`no-group`), FH4 a new household (`no-group`), FH5 is skipped
+(`no-members`). Collisions: four e-mails exist in both apps; ben's finance password is not carried (OAuth-only
+recipe account), the other three keep the recipe hash. Warnings (7): gina's id taken (re-keyed), FH3's id taken
+(re-keyed), FH4 one participant, FH4 slot-2 re-seat (ADR 0005), one upload referenced but missing
+(`...0006.jpg`), FH4's income naming a non-participant, FH4's plan payer re-pointed. Every one of the four ADR 0005
+cases appears. **Balance invariant, every run (dry, apply, second apply, mapping dry, seeded):** four households,
+all `OK`; legacy balance equals migrated balance, transaction count and amount sum equal.
+
+| Finance household (fixture) | Balance legacy = migrated | Transactions | Amount sum |
+| --- | --- | --- | --- |
+| FH1 Anna and Ben | 119486 ct | 13 | 166995 ct |
+| FH2 Cleo and Dana | 1675 ct | 6 | 14651 ct |
+| FH3 Emil and Fritz | 1900 ct | 4 | 9998 ct |
+| FH4 Gina alone | 2500 ct | 2 | 3500 ct |
+
+Two small facts worth knowing, both documented in `docs/migration.md`: a re-keyed id is a fresh random UUID per pass (the
+dry run printed `483d9d2b...` for FH3, the apply wrote `79b25aa8...`), and `bun run migrate:legacy` goes through
+`bun --filter`, which prefixes every output line with `@toon/api migrate:legacy: `.
+
+### 9.5 Mapping, seeded target and uploads:gc
+
+- **`--mapping` FH2 to G1** (a file `{"finance": {"<FH2>": "<G1>"}}` in a temp directory), dry run, exit 0,
+  `m5-t10-fixture-mapping.log`: FH2 shows `merge`, `Familie Beispiel`, reason `mapping (adds dana@example.test)`
+  (dana is not a member of G1, so she would be added); FH1 falls to `Freundeskreis` (G2, `only-group`, G1 now taken);
+  241 rows would be written (one more: dana's membership); all four balances `OK`; the directory held only the
+  mapping file afterwards.
+- **A run into a seeded target** (`db:migrate`, `seed`, `seed`, then dry, `--apply`, `--apply`; `m5-t10-seeded-*.log`):
+  dry run 240 rows, apply 240 rows and 7 files with 0 errors, second apply 0 written and `already migrated: nothing
+  written.`; the four balances `OK`. After the apply the target held 10 users (3 from the seed, 7 migrated), 6
+  households (the demo one, the three groups, two new from finance), 9 `household_modules` rows (5 finance, 4
+  recipe) and 9 recipes (3 demo, 6 migrated). No collision: the demo user and household share no id or e-mail with
+  the fixtures.
+- **`bun run uploads:gc -- --dry-run`** on that target with `UPLOAD_DIR` set (`m5-t10-uploads-gc.log`): `7 files
+  checked, 6 referenced, 1 too young (< 24 h), 0 deletable`. The one non-referenced file is `orphan.png`; it is
+  "too young" because the migration copies the files now (their age counts from the copy). With
+  `--min-age-hours=0` it reports `would delete: orphan.png (0 KB)` and nothing else (`m5-t10-uploads-gc-age0.log`). So
+  the migration's copy carries every referenced original and thumbnail and exactly one orphan.
+- **Usage errors**, by hand: an empty or `libsql://` `DATABASE_URL` and a `--finance-db` pointing at the recipe
+  database each exit 2 with "nothing was written"; the third case left no target file behind.
+
+### 9.6 Dev-DB run (recipe-only, secondary evidence)
+
+Inputs were copies of `toon-recipe/data/` made with `cp -p` (the three database files and `uploads/`) into
+`migration-in/dev-recipe/`; the files in `toon-recipe/data/` were never opened. `sha256sum` of the three copies is
+identical before and after the three runs (inputs untouched). Into `migration-out/m5-dev/` with
+`DATABASE_URL=file:./migration-out/m5-dev/toon.db`, `UPLOAD_DIR=./migration-out/m5-dev/uploads`
+(`m5-t10-dev-{dry,apply1,apply2}.log`, all exit 0):
+
+- Dry run: 131 rows would be written, 2 files would be copied; the target did not exist afterwards.
+- `--apply`: `applied: 131 rows written, 2 files copied.` (519318 bytes). Skipped rows: none. Warnings: none. Errors:
+  none. 19 sessions not migrated by design.
+- Second `--apply`: 0 written, 131 already migrated, 2 files already present, `already migrated: nothing written.`
+- Counts, legacy copy against target: users 3 = 3, groups 3 = households 3, recipes 4 = `recipe_recipes` 4, and 3
+  `household_modules` rows, all `recipe`. Also migrated: 19 tags, 43 ingredients, 17 steps, 20 recipe tags, 4 meal plan
+  entries, 2 import drafts, 1 shopping list, 2 password-reset tokens, 4 group members, 2 group invites.
+- The API was started on that target (`bun apps/api/src/index.ts`, the entry `bun run start` runs, with
+  `NODE_ENV=production` and the default port 3001; log `m5-t10-dev-api.log`): `curl /api/health` answered
+  `{"ok":true,"status":"ok",...,"database":"file","modules":["recipe","finance"],...}`, `GET /api/auth/me` answered 401
+  (a session is required), and the process was stopped with `kill <pid>`; the log shows `SIGTERM - stopping modules`
+  and `exit=0`. No login was tried (the dev passwords are not known to this record).
+
+### 9.7 Owner data
+
+**No owner copy was available.** `migration-in/recipe/local.db` and `migration-in/finance/local.db` do not exist (the
+whole `migration-in/` directory did not exist before this run), and toon-finance has no local database at all. The
+exit criterion "a run against copies of the owner's real data produces a report without errors" is therefore met by
+the fixtures (which carry every shape the plan lists, including all four ADR 0005 cases) and by the recipe-only
+run on a copy of toon-recipe's development database; **the finance side has been exercised on fixture data only**.
+The owner follows `docs/migration.md` at cutover (stop the stacks, copy both volumes including the `-wal`, dry run,
+read the report, apply twice); a report with errors stops `--apply` before anything is written.
+
+### 9.8 ADR 0005 against the code
+
+Checked on the merged tree and by the fixture run: the migration writes a `finance` row and one seat for a
+one-participant household, re-seats a lone slot-2 participant in slot 1 (warning), re-points a non-participant plan
+payer to slot 1 (warning) and keeps an income naming a non-participant (warning); it never calls `initializeHousehold`,
+`onHouseholdCreated` or `onEnable`; the runtime rules are untouched (no diff in `apps/api/src` of M5 except the deleted
+`LegacyMigrator` placeholder). The text of ADR 0005 and of SPEC D2, D3 and §6 step 4 match. No change needed.
+
+### 9.9 Docs synced
+
+SPEC §2 (the `legacyMigration?` line is gone, `grep legacyMigration docs/SPEC.md` finds nothing), §3 (the `scripts`
+listing names the CLI and the thirteen library files), §6 (the clarifications of section 7 below written into the
+numbered steps, the CLI and exit codes in the lead), §7 (the fixture path stays, with `build.ts --check`);
+`docs/migration.md` (the example block replaced by the real fixture dry-run excerpt, a reading note on the
+`bun --filter` prefix and the per-pass fresh ids); CLAUDE.md (read order, Status, "What exists", the ADR list, Layout,
+Commands, "Not yet present", seven M5 gotchas, Obligations); this plan.
 
 ## 10. What changed vs plan
 
-(Written by M5-T10.)
+- **No deviation from SPEC §1 beyond ADR 0005** (T05: D2, D3 and §6 step 4, SPEC edited in the same commit). T10 found
+  nothing that needed an ADR 0006.
+- **SPEC §2, §3, §6, §7** changed as section 7 announced: `legacyMigration?` removed, the file list of decision 1 in §3,
+  the clarifications in §6 (snapshots, scratch-copy dry run, the apply-after-clean-pass rule, the OAuth-only password
+  rule, `no-members` and `group-taken`, the verified-only e-mail match, exit codes, repo-root paths and the
+  `DATABASE_URL` / `.env` source, R's tokens copied), `build.ts --check` in §7.
+- **Test count.** The plan's acceptance was "1832 + the new legacy tests": 2010 = 1832 + 174 in the eight `legacy-*`
+  files + 4 `import-order.test.ts` entries. The only M4 test file touched is `import-order.test.ts` (+5 lines); none was removed.
+- **T10 itself.** No defect was found, so there is no fix commit. The API of the dev-DB run was started as `bun
+  apps/api/src/index.ts` from the repo root (the command `bun run start` wraps) so the pid is the server's own; the
+  dev-DB evidence copy stays in the git-ignored `migration-in/dev-recipe/` and `migration-out/m5-dev/`.
+- **Owner data:** none available (9.7), as risk 11 anticipated.
+- **Observations, not fixed (no behaviour change needed):** every output line of `bun run migrate:legacy` carries the
+  `@toon/api migrate:legacy: ` prefix of the workspace filter (documented in `docs/migration.md`; the JSON report is
+  clean); the ids re-keyed in a dry run differ from those of the apply (random per pass, documented); `uploads:gc`
+  keeps a migrated orphan for 24 hours after the copy.
+- **Left open for later milestones:** the owner's cutover run on real volumes; M6 links `docs/migration.md` from
+  `docs/deployment.md` and fixes the volume and image names that step 6 of the guide leaves as placeholders; M7 notes in
+  `docs/API.md` that migrated finance-only accounts start unconfirmed.

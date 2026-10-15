@@ -331,39 +331,93 @@ Money is printed as integer cents (`-1234 ct`), never as a float.
 conflict, an unverified target account). `2` usage, mapping or input error (missing file, wrong schema
 version, remote target, bad mapping), detected before anything is written.
 
-Example output, **abridged, from the fixture run** (invented fixture data; your numbers differ; the
-real run of the owner's copies replaces this block when it exists):
+Example output, **abridged, from the real dry run of the fixtures** (`apps/api/test/fixtures/legacy/`,
+invented people and amounts; the target path is that run's temporary directory; your numbers differ):
 
 ```
-[migrate:legacy] mode: dry-run (nothing is written to /work/toon-household/migration-out/toon.db)
-[migrate:legacy] uploads: /work/toon-household/migration-out/uploads
+[migrate:legacy] mode: dry-run (nothing is written to /tmp/tmp.idwYBnLkxF/target.db)
+[migrate:legacy] uploads: /tmp/tmp.idwYBnLkxF/uploads
 
 == Household mapping proposal ==
-Finance household   Members                                Decision  Target household  Reason
-Flat (fh-1)         anna@example.test, ben@example.test    merge     Family (g-1)      only-group
-...
+Finance household                                         Members                                Decision  Target household                                         Reason
+--------------------------------------------------------  -------------------------------------  --------  -------------------------------------------------------  ------------
+Kasse Anna & Ben (00000005-0000-4000-8000-000000000001)   anna@example.test, ben@example.test    merge     Familie Beispiel (00000002-0000-4000-8000-000000000001)  most-recipes
+Kasse Cleo & Dana (00000005-0000-4000-8000-000000000002)  cleo@example.test, dana@example.test   merge     WG Gartenstraße (00000002-0000-4000-8000-000000000003)   only-group
+Emil & Fritz (00000002-0000-4000-8000-000000000002)       emil@example.test, fritz@example.test  new       Emil & Fritz (483d9d2b-b12a-4435-8dcb-38804ff89f8a)      no-group
+Gina allein (00000005-0000-4000-8000-000000000004)        gina@example.test                      new       Gina allein (00000005-0000-4000-8000-000000000004)       no-group
+Leer (00000005-0000-4000-8000-000000000005)               -                                      skip      -                                                        no-members
 
 == Users ==
-Recipe users: ...
-Finance users: ...
+Recipe users: 4
+Finance users: 7
+Target users: 7
 Collisions (same e-mail in both apps):
-E-mail              Recipe id  Finance id  Target id  Password  Note
-anna@example.test   ...        ...         ...        recipe
+E-mail             Recipe id                             Finance id                            Target id                             Password  Note
+-----------------  ------------------------------------  ------------------------------------  ------------------------------------  --------  -------------------------------------------------------------------------------
+anna@example.test  00000001-0000-4000-8000-000000000001  00000006-0000-4000-8000-000000000001  00000001-0000-4000-8000-000000000001  recipe
+ben@example.test   00000001-0000-4000-8000-000000000002  00000006-0000-4000-8000-000000000002  00000001-0000-4000-8000-000000000002  none      finance password not carried (recipe account is OAuth-only; use password reset)
+cleo@example.test  00000001-0000-4000-8000-000000000003  00000006-0000-4000-8000-000000000003  00000001-0000-4000-8000-000000000003  recipe
+dana@example.test  00000001-0000-4000-8000-000000000004  00000006-0000-4000-8000-000000000004  00000001-0000-4000-8000-000000000004  recipe
+
+== Rows per table ==
+Table                         Source   Read  Written  Already migrated  Skipped
+----------------------------  -------  ----  -------  ----------------  -------
+users                         recipe   4     4        0                 0
+users                         finance  7     7        0                 0
+oauth_accounts                recipe   1     1        0                 0
 ...
+households                    finance  5     4        0                 1
+Total                                  242   240      0                 2
+
+== Skipped rows ==
+Table                     Source   Legacy id                             Error  Reason
+------------------------  -------  ------------------------------------  -----  --------------------------------------------------------------------------
+households                finance  00000005-0000-4000-8000-000000000005  no     finance household 00000005-0000-4000-8000-000000000005 skipped: no members
+finance_fixed_cost_plans  finance  00000005-0000-4000-8000-000000000005  no     finance household 00000005-0000-4000-8000-000000000005 skipped: no members
+
+== Uploads ==
+Source files: 7
+Would copy: 7
+Already present: 0
+Bytes copied: 0
+Conflicts: (none)
+Referenced but missing:
+  00000009-0000-4000-8000-000000000006.jpg
+Ignored entries: (none)
 
 == Finance balance per household ==
-Finance household  Target household  Slot 1             Legacy balance  Migrated balance  ...  Result
-Flat (fh-1)        g-1               anna@example.test  -1234 ct        -1234 ct          ...  OK
+Finance household                                         Target household                      Slot 1             Legacy balance  Migrated balance  Legacy tx  Migrated tx  Legacy sum  Migrated sum  Result
+--------------------------------------------------------  ------------------------------------  -----------------  --------------  ----------------  ---------  -----------  ----------  ------------  ------
+Kasse Anna & Ben (00000005-0000-4000-8000-000000000001)   00000002-0000-4000-8000-000000000001  anna@example.test  119486 ct       119486 ct         13         13           166995 ct   166995 ct     OK
+Kasse Cleo & Dana (00000005-0000-4000-8000-000000000002)  00000002-0000-4000-8000-000000000003  cleo@example.test  1675 ct         1675 ct           6          6            14651 ct    14651 ct      OK
+Emil & Fritz (00000002-0000-4000-8000-000000000002)       483d9d2b-b12a-4435-8dcb-38804ff89f8a  emil@example.test  1900 ct         1900 ct           4          4            9998 ct     9998 ct       OK
+Gina allein (00000005-0000-4000-8000-000000000004)        00000005-0000-4000-8000-000000000004  gina@example.test  2500 ct         2500 ct           2          2            3500 ct     3500 ct       OK
 
 == Warnings ==
-- finance household fh-4: plan payer carol@example.test is not a participant; payer set to dora@example.test
-...
+- user gina@example.test (finance id 00000001-0000-4000-8000-000000000003): the id is already taken in the target, new id 354d7981-a3b9-4988-8645-b61a4d7d6927
+- finance household 00000002-0000-4000-8000-000000000002 (Emil & Fritz): the id 00000002-0000-4000-8000-000000000002 is already taken in the target, new id 483d9d2b-b12a-4435-8dcb-38804ff89f8a
+- finance household 00000005-0000-4000-8000-000000000004 (Gina allein): one participant; seat the second with PUT …/finance/participants (gina@example.test is the only participant)
+- finance household 00000005-0000-4000-8000-000000000004 (Gina allein): the only participant gina@example.test sat in slot 2 and is re-seated in slot 1 (ADR 0005)
+- uploads: 00000009-0000-4000-8000-000000000006.jpg is referenced by a legacy row but missing in /home/erics/software/toon-household/apps/api/test/fixtures/legacy/uploads
+- income 00000007-0000-4000-8000-000000000024 of finance household 00000005-0000-4000-8000-000000000004 names fritz@example.test, who is not a participant; the plan stays incomplete until an admin deletes or replaces it
+- finance household 00000005-0000-4000-8000-000000000004: plan payer fritz@example.test is not a participant; payer set to gina@example.test
 
 == Errors ==
 (none)
 
-[migrate:legacy] dry run complete: ... rows would be written, ... files would be copied. Nothing was written.
+[migrate:legacy] dry run complete: 240 rows would be written, 7 files would be copied. Nothing was written.
 ```
+
+Notes on reading it:
+
+- `bun run migrate:legacy` goes through `bun --filter`, which prefixes every output line with
+  `@toon/api migrate:legacy: `. The excerpt above has the prefix removed; the `--report` JSON never
+  has it. The exit code of the script is the exit code of the command.
+- A household or user whose id was already taken gets a fresh random UUID **per pass**. The dry run
+  shows one (`483d9d2b-...` above) and the `--apply` pass writes another; the final report of the apply
+  names the one that was written.
+- A dry run against a target that already holds the migrated rows says `already migrated, nothing would
+  be written.` in its last line.
 
 ## When something fails
 

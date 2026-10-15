@@ -169,7 +169,6 @@ export interface ApiModule {
                                               // `settings` is the body of the enable POST ({ settings? }), null without one
   onMemberRemoving?(householdId, userId, tx): Promise<void>   // runs in removeMember before the row is deleted; may veto
                                               // by throwing (finance: 409 member_has_ledger, D13)
-  legacyMigration?: LegacyMigrator            // §6: the module's part of migrate:legacy
   afterMigrate?(database): Promise<void>      // runs after every migrate() in runMigrations (db:migrate, seed, tests);
                                               // idempotent, no transaction; e.g. recipe's folded-column backfill
   start?(): Promise<void>                     // once at boot in index.ts, after `await dbReady`, never under test;
@@ -291,7 +290,8 @@ apps/api/src/
                          (replaces household_members, D3), settings/ (finance_settings) and support.ts; tables
                          are `finance_*` and their TS identifiers carry a `finance` prefix
 apps/api/scripts/        migrate, seed, reset-password, uploads-gc, plan-run, finance-import-xlsx.ts + finance-import/,
-                         migrate-legacy.ts, legacy/{recipe,finance}.ts
+                         migrate-legacy.ts (the CLI), legacy/{types,sources,ledger,copy,report,users,mapping,
+                         households,recipe,uploads,finance,balance,run}.ts (the library; not a module hook, §6)
                          (seed and uploads-gc only call the manifests' seedDemo / uploadReferences hooks)
 apps/api/test/           all api tests (test/, never tests/)
 apps/api/drizzle/        one journal
@@ -389,28 +389,60 @@ the plan's `start_period` etc. → `finance_settings`; `categories`, `tags`, `tr
 ## 6. Migration CLI
 
 `apps/api/scripts/migrate-legacy.ts`, run as `bun run migrate:legacy -- --recipe-db <file>
---recipe-uploads <dir> --finance-db <file> [--mapping <json>] [--apply] [--report <file>]`.
+--recipe-uploads <dir> --finance-db <file> [--mapping <json>] [--apply] [--report <file>]`. At least one of
+`--recipe-db` and `--finance-db` is required. The legacy migrators are not part of the module contract (§2):
+the two legacy schemas are historical inputs of two specific apps, so the library sits in
+`apps/api/scripts/legacy/` and stays out of the server's import graph. The operator's guide is
+`docs/migration.md`; the plan with the decisions is `docs/plans/m5-migration.md`.
 
-1. **Load** both legacy DBs read-only (`@libsql/client` over `file:` URLs; never `bun:sqlite`).
+The target is `DATABASE_URL` (a local `file:` URL, from the process environment or the root `.env`; a
+remote one is refused) and the upload target is `UPLOAD_DIR` (default `./data/uploads`); relative paths,
+inputs included, resolve against the repository root. Exit codes: `0` success, `1` the run found errors
+(balance, failed insert, upload conflict, an unconfirmed target account), `2` usage, mapping or input
+error, detected before anything is written.
+
+1. **Load** both legacy DBs read-only (`@libsql/client` over `file:` URLs; never `bun:sqlite`). The
+   inputs are never opened in place: each file and its `-wal` (never `-shm`) is copied into a scratch
+   directory and the copy is opened with `PRAGMA query_only = 1`, so the operator's files are
+   byte-identical after any run. A schema gate refuses (exit 2) a database that is not at the last
+   migration of its source (recipe: 9, finance: 2).
 2. **Users**: union by `email_normalized`. A collision keeps the recipe row's id and password hash
    (recipe has OAuth links and the verified timestamp; finance's hash is only used when recipe has
-   none, i.e. the user existed only in finance). Report every collision.
+   none, i.e. the user existed only in finance). A recipe account without a password (OAuth-only)
+   stays without one: finance never verified addresses, so carrying its hash would let whoever
+   registered that address in finance sign into the OAuth account. Report every collision. A legacy
+   id already taken in the target or by an earlier user of the same run gets a fresh UUID. A legacy
+   user whose e-mail matches an account already in the target is mapped onto it only when that
+   account is confirmed (`email_verified_at` set); an unconfirmed one is an error (D4: no
+   auto-linking).
 3. **Households**: every recipe group → household (same id). For every finance household H with
    members {a, b}: if exactly one recipe group G contains both a and b, H merges into G; if several,
-   the one with the most recipes; if none, H becomes a new household with a and b as members (the
-   creator as owner). The proposal is printed as a table and can be overridden by
-   `--mapping` (`{"finance": {"<H.id>": "<G.id>" | "new"}}`).
+   the one with the most recipes (then the oldest, then the lowest id); if none, H becomes a new
+   household with a and b as members (the creator as owner). A group takes at most one finance
+   household (a second one becomes new, `group-taken`); a finance household without members is
+   skipped (`no-members`). The proposal is printed as a table and can be overridden by
+   `--mapping` (`{"finance": {"<H.id>": "<G.id>" | "new"}}`, legacy ids; validated before anything is
+   written).
 4. **Modules**: `recipe` enabled on every household that came from a group; `finance` enabled on
    every household that received a finance household, with `finance_participants` from
-   `member_slot`; a one-member finance household keeps one seat, in slot 1 (ADR 0005).
+   `member_slot`; a one-member finance household keeps one seat, in slot 1 (ADR 0005). The migration
+   writes these rows directly and does not call `onHouseholdCreated` or `onEnable`. A plan payer who
+   is not a participant is re-pointed to slot 1 and an income naming a non-participant is kept, each
+   with a warning (ADR 0005).
 5. **Rows**: module migrators copy tables in dependency order with `legacy_ids` lookups, chunked in
-   transactions of 500 rows, idempotent on `(table, legacy_source, legacy_id)`. Uploads are copied
-   with `cp`-like semantics (skip existing, verify size).
+   transactions of 500 rows, idempotent on `(table, legacy_source, legacy_id)`; the ledger entry is
+   written in the same batch as its row and a mapped row is never updated afterwards. Uploads are copied
+   with `cp`-like semantics (skip existing, verify size; a different size is an error, never an
+   overwrite). R's password-reset and e-mail verification tokens are copied; sessions, finance
+   invites and finance reset tokens are not (§9).
 6. **Report**: counts per table, collisions, merge decisions, skipped rows with reasons, and the
    finance balance per household before and after (the ledger invariant: the migrated balance equals
-   the legacy balance to the cent, or the run fails).
-7. Dry-run is the default; `--apply` writes. A second `--apply` run against the same inputs writes
-   nothing and reports "already migrated".
+   the legacy balance to the cent, or the run fails; checked from the perspective of the legacy user
+   who holds slot 1 in the target, with the transaction count and the amount sum).
+7. Dry-run is the default; it runs the whole pipeline against a scratch copy of the target (uploads are
+   only counted), so its report is real and nothing is written, not even the database file. `--apply`
+   repeats that pass first, writes only when it is clean, and re-checks the balances after the real
+   pass. A second `--apply` run against the same inputs writes nothing and reports "already migrated".
 
 Cutover order (`docs/deployment.md`): stop both old stacks (`docker compose down` without `-v`),
 copy `toon-recipe_toon-data` and `toon-finance_toon-data` out of their volumes, run the dry-run,
@@ -432,7 +464,7 @@ bun run i18n:check    # parity + leftover-German, read its output not its exit c
 Plus, for persistence or auth: `bun run db:migrate` and `bun run seed` against a fresh `file:` DB and
 the curl walkthrough; for the migration: `bun run migrate:legacy` against the fixture DBs in
 `apps/api/test/fixtures/legacy/` (small anonymised copies of both schemas with the collision and
-merge cases) and against real copies of the owner's data; for the Dockerfile, compose or
+merge cases, rebuilt by `build.ts` and checked with `build.ts --check`) and against real copies of the owner's data; for the Dockerfile, compose or
 `staticWeb`: build the image to a log file and run the stack with `TOON_TLS_ISSUER=internal`.
 Phone layouts (390px) and desktop (1440px) are verified in a headless browser installed in a scratch
 directory outside the repo, as toon-recipe's CLAUDE.md describes.
