@@ -38,7 +38,13 @@ import { apiFieldErrors, validate, type FieldErrors } from "@/lib/validation";
 import { isApiError } from "@/lib/api";
 import { copyToClipboard, shareOrCopy } from "@/lib/share";
 import { ROLE_LABEL_KEYS } from "../lib/roleLabels";
-import { INVITE_STATUS_LABELS, useCreateInvite, useHouseholdInvites, useRevokeInvite } from "../lib/queries";
+import {
+  INVITE_STATUS_LABELS,
+  useCreateInvite,
+  useHouseholdInvites,
+  useHouseholdMembers,
+  useRevokeInvite,
+} from "../lib/queries";
 
 /**
  * This panel always sends an address: `CreateInviteRequest.email` is optional only for a claim
@@ -127,6 +133,7 @@ const MAIL_OUTCOMES: Record<
 export function InvitePanel({ householdId, householdName, enabled }: InvitePanelProps) {
   const t = useT();
   const invites = useHouseholdInvites(householdId, enabled);
+  const members = useHouseholdMembers(householdId);
   const createInvite = useCreateInvite();
   const revokeInvite = useRevokeInvite();
   const toast = useToast();
@@ -199,6 +206,18 @@ export function InvitePanel({ householdId, householdName, enabled }: InvitePanel
       }
       setErrors(apiFieldErrors(error));
     }
+  }
+
+  /**
+   * What names an invite in a list: its address, or for a CLAIM invite (ADR 0006) the title
+   * `household.claim.title` with the placeholder's name (content, never translated).
+   */
+  function inviteTitle(invite: HouseholdInvite): string {
+    if (invite.claimsUserId !== null) {
+      const placeholder = (members.data ?? []).find((member) => member.userId === invite.claimsUserId);
+      return t("household.claim.title", { name: placeholder?.user.name ?? "" });
+    }
+    return invite.email ?? "";
   }
 
   const pending = (invites.data ?? []).filter((invite) => invite.status === "pending");
@@ -308,10 +327,7 @@ export function InvitePanel({ householdId, householdName, enabled }: InvitePanel
             {pending.map((invite) => (
               <li key={invite.id} className="flex flex-wrap items-center gap-3 py-3">
                 <div className="min-w-0 flex-1">
-                  {/* A claim invite may carry no address (ADR 0006): nothing is shown then. */}
-                  {invite.email !== null ? (
-                    <p className="truncate font-medium text-fg">{invite.email}</p>
-                  ) : null}
+                  <p className="truncate font-medium text-fg">{inviteTitle(invite)}</p>
                   <p className="text-sm text-fg-muted">
                     {t("household.invite.pendingMeta", {
                       role: t(ROLE_LABEL_KEYS[invite.role]),
@@ -364,7 +380,7 @@ export function InvitePanel({ householdId, householdName, enabled }: InvitePanel
             {past.map((invite) => (
               <li key={invite.id} className="flex items-center gap-3 py-2">
                 <span className="min-w-0 flex-1 truncate text-sm text-fg-muted">
-                  {invite.email}
+                  {inviteTitle(invite)}
                 </span>
                 <Badge variant={invite.status === "accepted" ? "success" : "neutral"} size="sm">
                   {(() => {

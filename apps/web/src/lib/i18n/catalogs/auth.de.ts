@@ -236,6 +236,15 @@ export const authDe = {
   "auth.settings.sessions.revokeConfirm.description": "Die Sitzung wird sofort beendet.",
 
   "auth.settings.logout.description": "Beendet die Sitzung auf diesem Gerät.",
+
+  /* ---------- claim invites: registering as an already listed person -------- */
+  "auth.register.claimHint": 'Du erstellst das Konto für „{display}" in der Gruppe „{household}".',
+  "auth.invite.claimSubtitle":
+    '{name} hat dich als „{display}" in der Gruppe „{household}" eingetragen. Erstelle dein Konto, um dich anzumelden.',
+  "auth.invite.claimCreateAccount": "Konto erstellen",
+  "auth.invite.claimLoggedIn":
+    "Dieser Link legt das Konto für eine bereits eingetragene Person an. Melde dich ab, um ihn zu nutzen.",
+  "auth.invite.claimLogout": "Abmelden",
 } as const satisfies NamespaceCatalog<"auth">;
 
 export type AuthCatalog = typeof authDe;

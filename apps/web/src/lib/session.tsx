@@ -165,10 +165,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [rememberHousehold],
   );
 
-  // A 401 from any endpoint sends the user to the login screen (client-side).
+  // A 401 from any endpoint sends the user to the login screen (client-side). The server just
+  // said this session is gone (expired, revoked elsewhere, password reset), so the persisted
+  // cache goes the way `useLogout` sends it (toon-finance 1715207): otherwise the previous
+  // user's data stays in IndexedDB on a shared device, restorable on the next cold offline start.
   useEffect(() => {
     setUnauthorizedHandler((next) => {
       queryClient.setQueryData(queryKeys.me(), null);
+      setActiveCacheUser(null);
+      void purgePersistedCache();
       void navigate({ to: "/login", search: { next }, replace: true });
     });
     return () => setUnauthorizedHandler(null);
@@ -358,7 +363,7 @@ export function useRegister() {
   });
 }
 
-export function useLogout() {
+export function useLogout(options: { stayOnPage?: boolean } = {}) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   return useMutation<void, unknown, void>({
@@ -375,7 +380,8 @@ export function useLogout() {
       // nothing to restore and no id to restore it under.
       setActiveCacheUser(null);
       await purgePersistedCache();
-      await navigate({ to: "/login", replace: true });
+      // The claim invite page logs out and stays where it is (its logged-out variant follows).
+      if (!options.stayOnPage) await navigate({ to: "/login", replace: true });
     },
   });
 }

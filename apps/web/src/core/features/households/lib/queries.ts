@@ -17,6 +17,7 @@ import {
   createHouseholdInvite,
   deleteHousehold,
   removeHouseholdMember,
+  renamePlaceholderMember,
   revokeHouseholdInvite,
   updateHousehold,
   updateMemberRole,
@@ -139,6 +140,29 @@ export function useChangeMemberRole() {
   });
 }
 
+export interface RenamePlaceholderInput {
+  householdId: string;
+  userId: string;
+  name: string;
+}
+
+/**
+ * Renames a placeholder member (a person without an account). The name is copied into module
+ * data too (the finance seat shows it), so the whole household subtree is refreshed.
+ */
+export function useRenamePlaceholder() {
+  const client = useQueryClient();
+  return useMutation<HouseholdMember, Error, RenamePlaceholderInput>({
+    mutationFn: async ({ householdId, userId, name }) => {
+      const response = await renamePlaceholderMember(householdId, userId, { name });
+      return response.member;
+    },
+    onSuccess: async (member) => {
+      await client.invalidateQueries({ queryKey: queryKeys.household(member.householdId) });
+    },
+  });
+}
+
 export interface RemoveMemberInput {
   householdId: string;
   userId: string;
@@ -151,6 +175,8 @@ export function useRemoveMember() {
     mutationFn: ({ householdId, userId }) => removeHouseholdMember(householdId, userId),
     onSuccess: async (_result, { householdId }) => {
       await Promise.all([
+        // Removing a placeholder cascades its claim invites away.
+        invalidate.invites(client, householdId),
         client.invalidateQueries({ queryKey: queryKeys.householdDetail(householdId) }),
         invalidate.members(client, householdId),
         invalidate.households(client),
