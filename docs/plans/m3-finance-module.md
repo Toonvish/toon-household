@@ -1,6 +1,6 @@
 # M3 — finance module: plan
 
-**Status: DONE (2026-10-14), with two open server-side defects recorded in section 10 ("Open findings").**
+**Status: DONE (2026-10-14), with two open server-side defects recorded in section 10 ("Open findings").** Both were fixed in M4-T01 (m4 plan §4, ADR 0004).
 Planned as rev. 2. Section 9 is the integration record (M3-T12, plus the review fix 9.11); section 10
 is "what changed vs plan". Rev. 2 (plan review): decision 18 (the finance
 harness makes F's one-member `createHousehold` finance-ready; the one "Solo" test gets a seeded

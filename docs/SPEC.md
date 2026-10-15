@@ -111,7 +111,7 @@ code is the smallest possible one and is recorded in the plan and in `docs/adr/`
   `LocaleCatalog<typeof de>`; namespaces prefixed per module (`recipe.*`, `finance.*`, core
   `common.*`, `auth.*`, `household.*`, `home.*`). **Every German UI string of both apps stays
   byte-identical** (toon-recipe's refactor rule); new copy (Home, switcher, participant settings,
-  module-disabled states) is the only new German. One recorded exception (ADR 0001): the core
+  module-disabled states, and the placeholder and claim-invite copy of ADR 0006) is the only new German. One recorded exception (ADR 0001): the core
   cannot count recipes, so `household.detail.meta` and `household.danger.warning` drop the recipe
   count and `household.count.recipes` is not ported. A second recorded exception (ADR 0002): finance's generic Zod validation messages render the core's wording; finance's field-specific validation messages keep their text. toon-recipe's `scripts/i18n-check.ts` carries
   over and gains the finance tree; finance's "typecheck is the gate" rule is subsumed. Content
@@ -315,7 +315,8 @@ apps/api/scripts/        migrate, seed, reset-password, uploads-gc, plan-run, fi
                          households,recipe,uploads,finance,claims,balance,run}.ts (the library; not a module hook, §6;
                          claims.ts creates or reuses the claim invite of each migrated placeholder, ADR 0006)
                          (seed and uploads-gc only call the manifests' seedDemo / uploadReferences hooks)
-apps/api/test/           all api tests (test/, never tests/)
+apps/api/test/           all api tests (test/, never tests/); api-doc.test.ts keeps docs/API.md equal to the served routes,
+                         docs-paths.test.ts keeps the paths CLAUDE.md names real
 apps/api/drizzle/        one journal
 apps/web/src/
   route-roots.tsx        rootRoute, appRoute (no component), householdScopedRoute: the shell-free roots a module's
@@ -343,7 +344,7 @@ apps/web/src/
 docker/                  Caddyfile, entrypoint.sh, env.example, toon-deploy.sh
 docker-compose.yml  Dockerfile  .github/workflows/{ci,release,deploy}.yml
 docs/                    SPEC.md (this), API.md, deployment.md, i18n.md, migration.md, modules/{recipe,finance}.md,
-                         design/recipe-redesign/ (copied record), plans/, adr/
+                         open-work.md, design/recipe-redesign/ (copied record), plans/, adr/
 ```
 
 ## 4. Schema mapping
