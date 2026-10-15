@@ -26,3 +26,26 @@ describe("print.css [hidden] override", () => {
     expect(css).not.toMatch(/^\s{2}\.recipe-print \[hidden\]/m);
   });
 });
+
+describe("phone detail hides its action row in print", () => {
+  const page = readFileSync(join(import.meta.dir, "RecipeDetailPage.tsx"), "utf8");
+
+  // The servings scaler and "Zur Einkaufsliste" are interactive controls (m4 plan §9.8, m7 O1): in every
+  // branch the nearest `data-print="hide"` above them must be their own wrapper. On the phone the wrapper
+  // sits inside the `hidden={activeTab ...}` panel, so it has to come AFTER that panel's opening tag.
+  const targets = ["<ServingsScaler", 't("recipe.recipes.detail.addToShoppingList")'];
+
+  for (const needle of targets) {
+    test(`every ${needle} sits under a data-print="hide" wrapper opened after its panel`, () => {
+      const positions: number[] = [];
+      for (let at = page.indexOf(needle); at !== -1; at = page.indexOf(needle, at + 1)) positions.push(at);
+      expect(positions.length).toBeGreaterThanOrEqual(2);
+      for (const pos of positions) {
+        const before = page.slice(0, pos);
+        const hide = before.lastIndexOf('data-print="hide"');
+        const panel = before.lastIndexOf("hidden={activeTab");
+        expect(hide).toBeGreaterThan(panel);
+      }
+    });
+  }
+});

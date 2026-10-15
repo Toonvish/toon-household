@@ -637,7 +637,7 @@ export default function RecipeDetailPage() {
           </div>
 
           <div hidden={activeTab !== "ingredients"} className="flex flex-col gap-3.5">
-            <div className="flex items-center gap-2.5">
+            <div data-print="hide" className="flex items-center gap-2.5">
               {baseServings ? (
                 <ServingsScaler
                   value={servings}
