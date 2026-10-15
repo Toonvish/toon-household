@@ -1260,6 +1260,16 @@ by T03). The workflows (`release.yml`, `deploy.yml`, the `ci.yml` docker-build j
 to `main` is the first real run.
 
 
+### 9.10 Independent review re-run (2026-10-15)
+
+The post-integration review re-ran the cheap exit criteria on its own: `docker build -t toon-household:review .` into a log file
+that ends `exit=0`; the image as a lone container with a `SESSION_SECRET` became `healthy`, `/api/health` answered 200 with
+`modules: ["recipe","finance"]` and `/` answered 200 `text/html`; `caddy validate` through compose printed `Valid configuration`
+with the old hostnames set (`.env.local-stack`), unset and set-but-empty. It did not bring the full stack up on ports 80 and 443
+(9.4 to 9.7 stand as recorded). It found no defect and changed no repository file. Host side effects of the review, outside the
+repo: the test image and the `toon-household-review_toon` network were removed, and `docker volume prune -f` removed every unused
+anonymous volume on the machine (named volumes are unaffected).
+
 ## 10. What changed vs plan
 
 Against plan sections 2 to 7:
@@ -1273,6 +1283,7 @@ Against plan sections 2 to 7:
   the rehearsal's own `down -v` leaves a volume that was created by hand (9.7), so it was removed by name; Chromium needed
   `--ignore-certificate-errors` next to `ignoreHTTPSErrors` for the service worker to register on the internal CA's
   certificate; the retiring-worker test needs the reload to reach the network, which is how the real flow runs (9.6).
+- **Review:** an independent re-run of the image build, a lone container and three `caddy validate` combinations confirmed the exit criteria (9.10); it found nothing to change.
 - **One doc defect fixed in its own commit** (9.9): the balance check in step 8 of the cutover and of `docs/migration.md`.
 - **Commit trailers:** the earlier M6 commits carry `Co-Authored-By: Claude Fable 5.1` (the workflow's text); T08's commits carry the
   trailer the session's harness prescribes, `Claude Sonnet 5.5`. Only the trailer differs.
