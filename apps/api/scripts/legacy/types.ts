@@ -82,11 +82,13 @@ export type DecisionReason =
   | "no-group"
   | "mapping"
   | "no-members"
+  /** Every member is a placeholder and no `--mapping` names a group: an error (plan m3b decision 13). */
+  | "no-account-members"
   | "already-migrated";
 export interface HouseholdDecision {
   financeHouseholdId: string;
   financeName: string;
-  memberEmails: string[];
+  memberEmails: string[]; // a placeholder reads `placeholder <F user id>` (it has no address)
   decision: "merge" | "new" | "skip";
   targetHouseholdId?: string;
   targetName?: string;
@@ -122,7 +124,14 @@ export interface Report {
   target: string;
   inputs: { source: LegacySource; path: string; schema: string; tables: Record<string, number> }[];
   decisions: HouseholdDecision[];
-  users: { recipe: number; finance: number; target: number; collisions: UserCollision[] };
+  users: {
+    recipe: number;
+    finance: number;
+    /** Finance users without an account (`password_hash IS NULL`), migrated as placeholders (ADR 0006). */
+    placeholders: number;
+    target: number;
+    collisions: UserCollision[];
+  };
   counts: TableCount[];
   skipped: SkippedRow[];
   notMigrated: NotMigrated[];

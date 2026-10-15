@@ -26,6 +26,7 @@ import { DEFAULT_CATEGORY_SLUGS, SAMMELBUCHUNG_TAG, SYSTEM_CATEGORY_SLUG, foldTe
 import {
   EXTERNAL_IMAGE_URL,
   FH4_INCOMES,
+  FH6_CLAIM_INVITE,
   FINANCE_HOUSEHOLDS,
   FINANCE_PLANS,
   FINANCE_USERS,
@@ -619,7 +620,7 @@ function recipeStatements(): InStatement[] {
 const F = FINANCE_USERS;
 type HouseholdKey = keyof typeof FINANCE_HOUSEHOLDS;
 type FinanceUserKey = keyof typeof F;
-const HOUSEHOLD_KEYS = ["FH1", "FH2", "FH3", "FH4", "FH5"] as const satisfies readonly HouseholdKey[];
+const HOUSEHOLD_KEYS = ["FH1", "FH2", "FH3", "FH4", "FH5", "FH6"] as const satisfies readonly HouseholdKey[];
 
 /** Category id by household and slug (positions are the default order). */
 function categoryId(household: HouseholdKey, slug: string): string {
@@ -633,7 +634,7 @@ function financeStatements(): InStatement[] {
   const mid = sequence(NS.financeMisc);
   const created = ms(2026, 6, 1);
 
-  // users
+  // users (pia is a placeholder: e-mail, normalised e-mail and hash are all NULL, F 0002)
   for (const key of Object.keys(F) as FinanceUserKey[]) {
     const u = F[key];
     s.push(
@@ -650,7 +651,7 @@ function financeStatements(): InStatement[] {
     );
   }
 
-  // households and their members (FH5 has none)
+  // households and their members (FH5 has none; FH6's slot 2 is the placeholder pia)
   HOUSEHOLD_KEYS.forEach((key, index) => {
     const h = FINANCE_HOUSEHOLDS[key];
     s.push(
@@ -679,7 +680,7 @@ function financeStatements(): InStatement[] {
   });
 
   // categories: the 21 defaults per household; FH1 renames one, hides one and adds a custom one
-  for (const key of ["FH1", "FH2", "FH3", "FH4"] as const) {
+  for (const key of ["FH1", "FH2", "FH3", "FH4", "FH6"] as const) {
     DEFAULT_CATEGORY_SLUGS.forEach((slug, position) => {
       s.push(
         insert("categories", {
@@ -930,6 +931,31 @@ function financeStatements(): InStatement[] {
       expires_at: ms(2026, 12, 31),
       used_at: null,
       created_at: ms(2026, 8, 3),
+    }),
+  );
+
+  // FH6: anna and the placeholder pia (appended last so the ids above keep their sequence).
+  // A placeholder never signs in, so anna books pia's payment (`created_by` anna).
+  tx({ household: "FH6", payer: "anna", mode: "SPLIT_EQUAL", cents: 4200, description: "Wocheneinkauf", category: "lebensmittel", at: ms(2026, 8, 10) });
+  tx({ household: "FH6", payer: "pia", mode: "SPLIT_EQUAL", cents: 1800, description: "Drogerie", category: "drogerie", at: ms(2026, 8, 12), createdBy: "anna" });
+  tx({ household: "FH6", payer: "anna", mode: "OTHER_ONLY", cents: 900, description: "Kino für Pia", category: "freizeit", at: ms(2026, 8, 18) });
+
+  // FH6's pending claim invite for pia (F `invites.claims_user_id`): no e-mail, never mailed.
+  const claim = FH6_CLAIM_INVITE;
+  s.push(
+    insert("invites", {
+      id: claim.id,
+      household_id: FINANCE_HOUSEHOLDS[claim.household].id,
+      token: claim.token,
+      email: claim.email,
+      invited_by: F[claim.invitedBy].id,
+      status: claim.status,
+      expires_at: claim.expiresAt,
+      created_at: claim.createdAt,
+      accepted_at: null,
+      accepted_by: null,
+      mail_delivery: "not_configured",
+      claims_user_id: F[claim.claims].id,
     }),
   );
   return s;

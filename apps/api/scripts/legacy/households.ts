@@ -11,6 +11,11 @@
  * d. one decision per finance household: `new` writes a household (creator as owner, or the member
  *    with the lowest slot when the creator left: FH4's gina) and its members, `merge` writes only
  *    the ledger row plus the `addMembers` of a `--mapping`, `skip` writes nothing;
+ *    toon-finance PLACEHOLDERS (plan m3b decision 13, ADR 0006; F's `password_hash IS NULL`) do not
+ *    count when looking for a group: the proposal sees the account members only, a placeholder
+ *    joins the target as `member` (a merge lists it in `addMembers`) and never owns a household;
+ *    a household whose members are all placeholders is the error `no-account-members` (exit 1)
+ *    unless `--mapping` names its recipe group;
  * e. `finance_participants` (a lone slot-2 participant is re-seated in slot 1, ADR 0005),
  *    `finance_settings`, the `finance` module row; a one-seat ledger is a warning;
  * f. finance-only users without an active household get the one their earliest-joined finance
@@ -36,6 +41,7 @@ import {
 } from "./mapping.ts";
 import { addCount } from "./report.ts";
 import { readAll } from "./sources.ts";
+import { isLegacyPlaceholder } from "./users.ts";
 import {
   financeParticipants,
   financeSettings,
@@ -49,6 +55,10 @@ import type { HouseholdDecision, LegacySource, MigrationContext, Row, TableCount
 
 /** Prefix of a member id whose user the users step did not migrate: matches no group. */
 const UNMAPPED = "unmapped:";
+
+/** The `no-account-members` error text (plan m3b decision 13, ADR 0006). */
+export const NO_ACCOUNT_MEMBERS_NOTE =
+  "no account members (every member is a placeholder); name its recipe group with --mapping";
 
 /** The solo-seat warning text (decision 11, ADR 0005). */
 export const SOLO_SEAT_NOTE = "one participant; seat the second with PUT …/finance/participants";
@@ -71,6 +81,8 @@ interface FinanceMember {
   slot: 1 | 2;
   displayName: string;
   joinedAt: number;
+  /** A toon-finance placeholder (no account): never counts when looking for a group. */
+  placeholder: boolean;
 }
 
 interface FinanceHousehold {
@@ -123,15 +135,23 @@ export async function migrateHouseholds(ctx: MigrationContext): Promise<void> {
   });
 
   const financeEmails = new Map<string, string>(); // F user id -> normalised e-mail
+  const financePlaceholders = new Set<string>(); // F user ids without an account (ADR 0006)
   const financeRows = ctx.finance ? await readAll(ctx.finance, "SELECT * FROM households ORDER BY rowid") : [];
   const financeMemberRows = ctx.finance
     ? await readAll(ctx.finance, "SELECT * FROM household_members ORDER BY member_slot, rowid")
     : [];
   if (ctx.finance) {
-    for (const row of await readAll(ctx.finance, "SELECT id, email, email_normalized FROM users")) {
+    for (const row of await readAll(ctx.finance, "SELECT id, email, email_normalized, password_hash FROM users")) {
+      if (isLegacyPlaceholder(row)) {
+        financePlaceholders.add(str(row.id));
+        continue;
+      }
       financeEmails.set(str(row.id), str(row.email_normalized ?? row.email).trim().toLowerCase());
     }
   }
+  /** The address column of the report; a placeholder has none, so its F id stands there. */
+  const labelOf = (legacyUserId: string): string =>
+    financePlaceholders.has(legacyUserId) ? `placeholder ${legacyUserId}` : (financeEmails.get(legacyUserId) ?? legacyUserId);
   const financeHouseholds: FinanceHousehold[] = financeRows.map((row) => {
     const id = str(row.id);
     const members: FinanceMember[] = financeMemberRows
@@ -142,6 +162,7 @@ export async function migrateHouseholds(ctx: MigrationContext): Promise<void> {
         slot: num(member.member_slot) === 1 ? 1 : 2,
         displayName: str(member.display_name),
         joinedAt: num(member.joined_at),
+        placeholder: financePlaceholders.has(str(member.user_id)),
       }));
     return {
       row,
@@ -153,18 +174,32 @@ export async function migrateHouseholds(ctx: MigrationContext): Promise<void> {
       members,
     };
   });
-  const financeInfos: FinanceHouseholdInfo[] = financeHouseholds.map((household) => ({
-    id: household.id,
-    name: household.name,
-    createdAt: household.createdAt,
-    createdBy: household.createdBy ?? `${UNMAPPED}${household.legacyCreatedBy}`,
-    members: household.members.map((member) => ({
-      userId: member.userId ?? `${UNMAPPED}${member.legacyUserId}`,
-      slot: member.slot,
-      displayName: member.displayName,
-      joinedAt: member.joinedAt,
-    })),
-  }));
+  // The proposal sees the ACCOUNT members only (plan m3b decision 13): a placeholder is in no
+  // recipe group, so counting it would leave every household with one `no-group`. A household
+  // whose members are all placeholders is handed to the proposal without members (it comes back
+  // as `skip`, turned into the `no-account-members` error below), unless `--mapping` names a
+  // recipe group for it: then its full member list goes in and the placeholders become the
+  // mapped group's `addMembers`.
+  const mappedToGroup = (financeId: string): boolean => {
+    const value = ctx.mapping?.[financeId];
+    return value !== undefined && value !== "new";
+  };
+  const financeInfos: FinanceHouseholdInfo[] = financeHouseholds.map((household) => {
+    const accountMembers = household.members.filter((member) => !member.placeholder);
+    const proposed = accountMembers.length > 0 || !mappedToGroup(household.id) ? accountMembers : household.members;
+    return {
+      id: household.id,
+      name: household.name,
+      createdAt: household.createdAt,
+      createdBy: household.createdBy ?? `${UNMAPPED}${household.legacyCreatedBy}`,
+      members: proposed.map((member) => ({
+        userId: member.userId ?? `${UNMAPPED}${member.legacyUserId}`,
+        slot: member.slot,
+        displayName: member.displayName,
+        joinedAt: member.joinedAt,
+      })),
+    };
+  });
 
   const groupLedger = await loadAll(target.client, "households", "recipe"); // legacy group -> target
   const groupOfTarget = new Map<string, string>();
@@ -307,28 +342,46 @@ export async function migrateHouseholds(ctx: MigrationContext): Promise<void> {
   /**
    * The members of a household of its own: the creator is the owner; when the creator is no
    * longer a member, the member with the lowest remaining slot is (members are read in slot
-   * order: FH4's gina); everyone else is `member`.
+   * order: FH4's gina); everyone else is `member`. A placeholder never owns a household (it
+   * cannot sign in), so the owner is always an account member.
    */
   const planNewMembers = (household: FinanceHousehold): void => {
+    const accounts = household.members.filter((member) => !member.placeholder);
     const owner =
-      household.members.find((member) => member.userId !== undefined && member.userId === household.createdBy) ??
+      accounts.find((member) => member.userId !== undefined && member.userId === household.createdBy) ??
+      accounts[0] ??
       household.members[0];
     for (const member of household.members) {
       plannedMembers.push({ household, member, role: member === owner ? "owner" : "member" });
     }
   };
 
-  for (const [index, entry] of proposal.entries()) {
+  for (const [index, proposed] of proposal.entries()) {
     const household = financeHouseholds[index] as FinanceHousehold;
-    const emailOf = (legacyUserId: string) => financeEmails.get(legacyUserId) ?? legacyUserId;
+    // A merge (not a resumed one) brings the placeholders in as `member`, like a mapping's
+    // addMembers: they are in no recipe group (plan m3b decision 13).
+    const addMembers = [...proposed.addMembers];
+    if (proposed.decision === "merge" && proposed.reason !== "already-migrated") {
+      for (const member of household.members) {
+        if (member.placeholder && member.userId !== undefined && !addMembers.includes(member.userId)) {
+          addMembers.push(member.userId);
+        }
+      }
+    }
+    const allPlaceholders = household.members.length > 0 && household.members.every((member) => member.placeholder);
+    const entry: ProposalEntry = {
+      ...proposed,
+      addMembers,
+      ...(proposed.decision === "skip" && allPlaceholders ? { reason: "no-account-members" as const } : {}),
+    };
     const decision: HouseholdDecision = {
       financeHouseholdId: household.id,
       financeName: household.name,
-      memberEmails: household.members.map((member) => emailOf(member.legacyUserId)),
+      memberEmails: household.members.map((member) => labelOf(member.legacyUserId)),
       decision: entry.decision,
       reason: entry.reason,
       addMembers: entry.addMembers.map(
-        (userId) => emailOf(household.members.find((member) => member.userId === userId)?.legacyUserId ?? userId),
+        (userId) => labelOf(household.members.find((member) => member.userId === userId)?.legacyUserId ?? userId),
       ),
     };
     decisions.push(decision);
@@ -365,6 +418,10 @@ export async function migrateHouseholds(ctx: MigrationContext): Promise<void> {
       continue;
     }
 
+    if (entry.decision === "skip" && entry.reason === "no-account-members") {
+      recordSkip(ctx, householdsFinance, household.id, `finance household ${household.id} (${household.name}): ${NO_ACCOUNT_MEMBERS_NOTE}`, true);
+      continue;
+    }
     if (entry.decision === "skip") {
       recordSkip(ctx, householdsFinance, household.id, `finance household ${household.id} skipped: no members`, false);
       continue;
@@ -486,7 +543,7 @@ export async function migrateHouseholds(ctx: MigrationContext): Promise<void> {
     const householdId = (landed.get(household.id) as { targetId: string }).targetId;
     const solo = household.members.length === 1;
     if (solo) {
-      const email = financeEmails.get(household.members[0]?.legacyUserId ?? "") ?? "?";
+      const email = household.members[0] ? labelOf(household.members[0].legacyUserId) : "?";
       report.warnings.push(`finance household ${household.id} (${household.name}): ${SOLO_SEAT_NOTE} (${email} is the only participant)`);
     }
     for (const member of household.members) {
@@ -504,7 +561,7 @@ export async function migrateHouseholds(ctx: MigrationContext): Promise<void> {
       const slot = solo ? 1 : member.slot;
       if (solo && member.slot === 2) {
         report.warnings.push(
-          `finance household ${household.id} (${household.name}): the only participant ${financeEmails.get(member.legacyUserId) ?? member.legacyUserId} sat in slot 2 and is re-seated in slot 1 (ADR 0005)`,
+          `finance household ${household.id} (${household.name}): the only participant ${labelOf(member.legacyUserId)} sat in slot 2 and is re-seated in slot 1 (ADR 0005)`,
         );
       }
       seatEntries.push({
@@ -557,7 +614,8 @@ export async function migrateHouseholds(ctx: MigrationContext): Promise<void> {
     addCount(report, modulesFinance);
   }
 
-  // f. Finance-only users without an active household (decision 11).
+  // f. Finance-only users without an active household (decision 11); a placeholder gets the
+  //    household its seat landed in (plan m3b decision 13).
   if (ctx.finance) {
     const activeCount = newCount("users (active_household_id)", "finance");
     const recipeTargets = new Set(ctx.ids.users.recipe.values());

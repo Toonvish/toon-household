@@ -499,7 +499,7 @@ function handBuiltReport(mode: "dry-run" | "apply"): Report {
     reason: "only-group",
     addMembers: [],
   });
-  report.users = { recipe: 3, finance: 2, target: 4, collisions: [] };
+  report.users = { recipe: 3, finance: 2, placeholders: 1, target: 4, collisions: [] };
   addCount(report, { table: "users", source: "recipe", read: 3, written: 3, alreadyMigrated: 0, skipped: 0 });
   report.notMigrated.push({ table: "sessions", source: "recipe", rows: 1, reason: "everyone logs in again" });
   report.uploads = {

@@ -19,11 +19,13 @@ import {
   COLLISION_USERS,
   EXPECTED,
   FH4_INCOMES,
+  FH6_CLAIM_INVITE,
   FINANCE_HOUSEHOLDS,
   FINANCE_ONLY_USERS,
   FINANCE_USERS,
   GROUPS,
   MISSING_UPLOAD,
+  PLACEHOLDER_USERS,
   RECIPE_USERS,
   UPLOADS,
 } from "./fixtures/legacy/facts.ts";
@@ -239,9 +241,10 @@ describe("the cases of Table F", () => {
     expect(EXPECTED.financeLedgers.FH3!.transactions).toBeGreaterThanOrEqual(4);
   });
 
-  test("the not-migrated rows exist: one session, one invite, one reset token", async () => {
+  test("the not-migrated rows exist: one session, two invites (one plain, one claim), one reset token", async () => {
     expect(Number(await scalar(finance, "SELECT count(*) FROM sessions"))).toBe(1);
-    expect(Number(await scalar(finance, "SELECT count(*) FROM invites"))).toBe(1);
+    expect(Number(await scalar(finance, "SELECT count(*) FROM invites"))).toBe(2);
+    expect(Number(await scalar(finance, "SELECT count(*) FROM invites WHERE claims_user_id IS NULL"))).toBe(1);
     expect(Number(await scalar(finance, "SELECT count(*) FROM password_reset_tokens"))).toBe(1);
   });
 });
@@ -311,6 +314,48 @@ describe("(d) the traps", () => {
     expect(FINANCE_HOUSEHOLDS.FH1.decision).toEqual({ action: "merge", reason: "most-recipes", group: "G1" });
     expect(FINANCE_HOUSEHOLDS.FH2.decision).toEqual({ action: "merge", reason: "only-group", group: "G3" });
     expect(FINANCE_HOUSEHOLDS.FH5.decision).toEqual({ action: "skip", reason: "no-members" });
+    // FH6: the account member anna alone counts (pia is a placeholder); G1 goes to the older FH1.
+    expect(await groupsOf([FINANCE_USERS.anna.id])).toEqual([GROUPS.G1.name, GROUPS.G2.name]);
+    expect(FINANCE_HOUSEHOLDS.FH6.decision).toEqual({ action: "merge", reason: "only-group", group: "G2" });
+    const created = async (key: "FH1" | "FH6") =>
+      Number(await scalar(finance, "SELECT created_at FROM households WHERE id = ?", [FINANCE_HOUSEHOLDS[key].id]));
+    expect(await created("FH1")).toBeLessThan(await created("FH6"));
+  });
+
+  test("pia is a placeholder: e-mail, normalised e-mail and hash are NULL", async () => {
+    expect(PLACEHOLDER_USERS).toEqual(["pia"]);
+    const [pia] = await rows(finance, "SELECT email, email_normalized, password_hash, name FROM users WHERE id = ?", [FINANCE_USERS.pia.id]);
+    expect(pia).toEqual({ email: null, email_normalized: null, password_hash: null, name: "Pia Platzhalter" });
+    expect(Number(await scalar(finance, "SELECT count(*) FROM users WHERE password_hash IS NULL"))).toBe(EXPECTED.placeholders);
+  });
+
+  test("FH6: anna slot 1, the placeholder pia slot 2 'Pia'; one booking paid by pia", async () => {
+    const id = FINANCE_HOUSEHOLDS.FH6.id;
+    const members = await rows(finance, "SELECT user_id, member_slot, display_name FROM household_members WHERE household_id = ? ORDER BY member_slot", [id]);
+    expect(members).toEqual([
+      { user_id: FINANCE_USERS.anna.id, member_slot: 1, display_name: "Anna" },
+      { user_id: FINANCE_USERS.pia.id, member_slot: 2, display_name: "Pia" },
+    ]);
+    expect(Number(await scalar(finance, "SELECT count(*) FROM transactions WHERE household_id = ? AND payer_id = ?", [id, FINANCE_USERS.pia.id]))).toBe(1);
+  });
+
+  test("FH6 holds a pending claim invite for pia: no e-mail, a 43-character token, far in the future", async () => {
+    const [invite] = await rows(finance, "SELECT * FROM invites WHERE claims_user_id IS NOT NULL");
+    expect(invite).toMatchObject({
+      id: FH6_CLAIM_INVITE.id,
+      household_id: FINANCE_HOUSEHOLDS.FH6.id,
+      claims_user_id: FINANCE_USERS.pia.id,
+      invited_by: FINANCE_USERS.anna.id,
+      email: null,
+      status: "pending",
+      token: FH6_CLAIM_INVITE.token,
+      expires_at: FH6_CLAIM_INVITE.expiresAt,
+      created_at: FH6_CLAIM_INVITE.createdAt,
+      accepted_at: null,
+      accepted_by: null,
+    });
+    expect(FH6_CLAIM_INVITE.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(FH6_CLAIM_INVITE.expiresAt).toBeGreaterThan(Date.UTC(2090, 0, 1));
   });
 });
 

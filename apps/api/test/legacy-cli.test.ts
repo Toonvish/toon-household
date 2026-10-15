@@ -5,13 +5,14 @@
  *
  * Three layers: the orchestrator in-process on temp file databases (a full apply, a second run
  * that writes nothing, a chunked run resumed after an interruption), the real CLI in a
- * subprocess (at most seven spawns: dry run on an absent target, apply, re-apply, dry run on the
- * migrated target, a bad mapping, the JSON report, a remote target), and the CLI's source order
+ * subprocess (at most eight spawns: dry run on an absent target, apply, re-apply, dry run on the
+ * migrated target, a bad mapping, the JSON report, a remote target, an all-placeholder finance
+ * household (plan m3b decision 13: `no-account-members`, exit 1)), and the CLI's source order
  * (a textual guard; the subprocess cases are the behavioural proof that a dry run never touches
  * the real target).
  */
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createClient } from "@libsql/client";
@@ -21,7 +22,8 @@ import { exitCodeFor, totalWritten } from "../scripts/legacy/report.ts";
 import { runLegacyMigration } from "../scripts/legacy/run.ts";
 import { migrateUsers } from "../scripts/legacy/users.ts";
 import { CliUsageError, resolveCliEnv } from "../scripts/migrate-legacy.ts";
-import { EXPECTED, FINANCE_HOUSEHOLDS, GROUPS } from "./fixtures/legacy/facts.ts";
+import { EXPECTED, FINANCE_HOUSEHOLDS, FINANCE_USERS, GROUPS } from "./fixtures/legacy/facts.ts";
+import { openLegacy } from "../scripts/legacy/sources.ts";
 import { countRows, createLegacyRun, FIXTURE_DIR, type LegacyRun, sha256File } from "./support/legacy-harness.ts";
 
 const REPO_ROOT = resolve(import.meta.dir, "../../..");
@@ -91,6 +93,36 @@ describe("runLegacyMigration (in-process)", () => {
     expect(report.uploads?.missingReferenced).toHaveLength(EXPECTED.uploads.missingReferenced);
     expect(readdirSync(run.uploadsTarget)).toHaveLength(EXPECTED.uploads.sourceFiles);
     expect(report.users.collisions).toHaveLength(EXPECTED.collisions);
+    expect(report.users.placeholders).toBe(EXPECTED.placeholders);
+    const pia = await run.target.client.execute({
+      sql: "SELECT email, password_hash FROM users WHERE id = ?",
+      args: [FINANCE_USERS.pia.id],
+    });
+    expect(pia.rows.map((row) => [row.email, row.password_hash])).toEqual([[null, null]]);
+  });
+
+  test("an all-placeholder finance household fails the run: no-account-members, exit code 1", async () => {
+    const run = await createLegacyRun({ mode: "apply" });
+    runs.push(run);
+    const client = createClient({ url: `file:${run.financePath}` });
+    await client.execute({
+      sql: "DELETE FROM household_members WHERE household_id = ? AND user_id = ?",
+      args: [FINANCE_HOUSEHOLDS.FH6.id, FINANCE_USERS.anna.id],
+    });
+    client.close();
+    const scratch = join(run.dir, "scratch-mutated");
+    mkdirSync(scratch);
+    const finance = await openLegacy("finance", run.financePath, scratch);
+    try {
+      const report = await runLegacyMigration({ ...options(run), finance });
+      expect(report.decisions.find((d) => d.financeHouseholdId === FINANCE_HOUSEHOLDS.FH6.id)?.reason).toBe(
+        "no-account-members",
+      );
+      expect(report.errors.some((line) => line.includes(FINANCE_HOUSEHOLDS.FH6.id) && line.includes("no account members"))).toBe(true);
+      expect(exitCodeFor(report)).toBe(1);
+    } finally {
+      finance.client.close();
+    }
   });
 
   test("a second full run writes 0 rows and copies 0 files", async () => {
@@ -193,9 +225,11 @@ describe("migrate:legacy (subprocess)", () => {
     expect(dry.stderr).toBe("");
     expect(dry.code).toBe(0);
     expect(dry.stdout).toContain("== Household mapping proposal ==");
-    for (const key of ["FH1", "FH2", "FH3", "FH4", "FH5"] as const) {
+    for (const key of ["FH1", "FH2", "FH3", "FH4", "FH5", "FH6"] as const) {
       expect(dry.stdout).toContain(FINANCE_HOUSEHOLDS[key].name);
     }
+    expect(dry.stdout).toContain(`placeholder ${FINANCE_USERS.pia.id}`);
+    expect(dry.stdout).toContain(`Finance placeholders (no account): ${EXPECTED.placeholders}`);
     expect(dry.stdout).toContain("== Finance balance per household ==");
     expect(dry.stdout.match(/ OK$/gm)).toHaveLength(EXPECTED.balances.ok);
     expect(dry.stdout).toMatch(/\[migrate:legacy\] dry run complete: \d+ rows would be written, \d+ files would be copied\. Nothing was written\.\n$/);
@@ -255,6 +289,25 @@ describe("migrate:legacy (subprocess)", () => {
     const remote = cli(INPUT_ARGS, { ...env, DATABASE_URL: "libsql://example.invalid" });
     expect(remote.code).toBe(2);
     expect(remote.stderr).toContain("DATABASE_URL must be a local file: URL");
+
+    // (h) an all-placeholder finance household (a copy where anna left FH6): exit 1, nothing written
+    const mutated = join(dir, "finance-placeholder-only.db");
+    copyFileSync(FINANCE_DB, mutated);
+    const edit = createClient({ url: `file:${mutated}` });
+    await edit.execute({
+      sql: "DELETE FROM household_members WHERE household_id = ? AND user_id = ?",
+      args: [FINANCE_HOUSEHOLDS.FH6.id, FINANCE_USERS.anna.id],
+    });
+    edit.close();
+    const fresh = join(dir, "fresh.db");
+    const placeholderOnly = cli(
+      ["--recipe-db", RECIPE_DB, "--recipe-uploads", FIXTURE_UPLOADS, "--finance-db", mutated, "--apply"],
+      { DATABASE_URL: `file:${fresh}`, UPLOAD_DIR: join(dir, "fresh-uploads") },
+    );
+    expect(placeholderOnly.code).toBe(1);
+    expect(placeholderOnly.stdout).toContain("no-account-members");
+    expect(placeholderOnly.stdout).toMatch(/\[migrate:legacy\] FAILED: \d+ error\(s\), see Errors above\. Nothing was written\.\n$/);
+    expect(existsSync(fresh)).toBe(false);
   }, 120_000);
 });
 
