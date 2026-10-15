@@ -7,7 +7,7 @@ invented.
 | Path | What it is |
 | --- | --- |
 | `migrations/recipe/` | Verbatim copy of toon-recipe's `apps/api/drizzle/` (9 migrations plus `meta/_journal.json`, no snapshots), source commit `928582f`. |
-| `migrations/finance/` | Verbatim copy of toon-finance's `apps/api/drizzle/` (2 migrations plus `meta/_journal.json`, no snapshots), source commit `cbdec67`. |
+| `migrations/finance/` | Verbatim copy of toon-finance's `apps/api/drizzle/` (3 migrations plus `meta/_journal.json`, no snapshots), source commit `1715207`. |
 | `facts.ts` | The single facts file: ids, e-mails, plain passwords with their precomputed argon2id hashes, the traps, and the expected counts. The tests read it. |
 | `build.ts` | The deterministic builder (`buildLegacyFixtures`, `dumpDatabase`) and the `--check` mode. |
 | `recipe.db`, `finance.db` | The built databases (rollback-journal mode, 1 KiB pages, tracked by git; `.gitignore` has an exception for them). |

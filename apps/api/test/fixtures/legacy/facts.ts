@@ -342,6 +342,6 @@ export const EXPECTED = {
   /** Journal entries of each source's `__drizzle_migrations` (plan §1.2). */
   migrations: {
     recipe: { count: 9, lastWhen: 1788859780811 },
-    finance: { count: 2, lastWhen: 1787307431957 },
+    finance: { count: 3, lastWhen: 1789194481486 },
   },
 };
