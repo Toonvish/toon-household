@@ -49,7 +49,7 @@ import {
   type UpdateIncomeRequest,
   type UpdateTransactionRequest,
 } from "@toon/shared";
-import { queryString, request, type RequestOptions } from "@/lib/api";
+import { queryString, request, seg, type RequestOptions } from "@/lib/api";
 
 export * from "@/lib/api";
 
@@ -58,7 +58,7 @@ export * from "@/lib/api";
 /* -------------------------------------------------------------------------- */
 
 function transactionsBase(householdId: string): string {
-  return `/api/households/${householdId}/finance/transactions`;
+  return `/api/households/${seg(householdId)}/finance/transactions`;
 }
 
 export function fetchTransactions(
@@ -114,7 +114,7 @@ export function fetchTransaction(
   transactionId: string,
   options?: RequestOptions,
 ): Promise<TransactionResponse> {
-  return request<TransactionResponse>(`${transactionsBase(householdId)}/${transactionId}`, options);
+  return request<TransactionResponse>(`${transactionsBase(householdId)}/${seg(transactionId)}`, options);
 }
 
 export function updateTransaction(
@@ -123,7 +123,7 @@ export function updateTransaction(
   body: UpdateTransactionRequest,
   options?: RequestOptions,
 ): Promise<TransactionResponse> {
-  return request<TransactionResponse>(`${transactionsBase(householdId)}/${transactionId}`, {
+  return request<TransactionResponse>(`${transactionsBase(householdId)}/${seg(transactionId)}`, {
     ...options,
     method: "PATCH",
     body,
@@ -136,7 +136,7 @@ export function deleteTransaction(
   mutationId?: string,
   options?: RequestOptions,
 ): Promise<void> {
-  return request<void>(`${transactionsBase(householdId)}/${transactionId}${queryString({ mutationId })}`, {
+  return request<void>(`${transactionsBase(householdId)}/${seg(transactionId)}${queryString({ mutationId })}`, {
     ...options,
     method: "DELETE",
   });
@@ -152,7 +152,7 @@ export function fetchCategories(
   options?: RequestOptions,
 ): Promise<CategoryListResponse> {
   return request<CategoryListResponse>(
-    `/api/households/${householdId}/finance/categories${queryString({ includeHidden })}`,
+    `/api/households/${seg(householdId)}/finance/categories${queryString({ includeHidden })}`,
     options,
   );
 }
@@ -162,7 +162,7 @@ export function createCategory(
   body: CreateCategoryRequest,
   options?: RequestOptions,
 ): Promise<CategoryResponse> {
-  return request<CategoryResponse>(`/api/households/${householdId}/finance/categories`, {
+  return request<CategoryResponse>(`/api/households/${seg(householdId)}/finance/categories`, {
     ...options,
     method: "POST",
     body,
@@ -175,7 +175,7 @@ export function updateCategory(
   body: UpdateCategoryRequest,
   options?: RequestOptions,
 ): Promise<CategoryResponse> {
-  return request<CategoryResponse>(`/api/households/${householdId}/finance/categories/${categoryId}`, {
+  return request<CategoryResponse>(`/api/households/${seg(householdId)}/finance/categories/${seg(categoryId)}`, {
     ...options,
     method: "PATCH",
     body,
@@ -189,7 +189,7 @@ export function deleteCategory(
   options?: RequestOptions,
 ): Promise<void> {
   return request<void>(
-    `/api/households/${householdId}/finance/categories/${categoryId}${queryString({ reassignTo })}`,
+    `/api/households/${seg(householdId)}/finance/categories/${seg(categoryId)}${queryString({ reassignTo })}`,
     { ...options, method: "DELETE" },
   );
 }
@@ -200,7 +200,7 @@ export function fetchTags(
   options?: RequestOptions,
 ): Promise<TagListResponse> {
   return request<TagListResponse>(
-    `/api/households/${householdId}/finance/tags${queryString({ q: query.q, limit: query.limit })}`,
+    `/api/households/${seg(householdId)}/finance/tags${queryString({ q: query.q, limit: query.limit })}`,
     options,
   );
 }
@@ -211,7 +211,7 @@ export function updateTag(
   body: UpdateTagRequest,
   options?: RequestOptions,
 ): Promise<TagResponse> {
-  return request<TagResponse>(`/api/households/${householdId}/finance/tags/${tagId}`, {
+  return request<TagResponse>(`/api/households/${seg(householdId)}/finance/tags/${seg(tagId)}`, {
     ...options,
     method: "PATCH",
     body,
@@ -219,7 +219,10 @@ export function updateTag(
 }
 
 export function deleteTag(householdId: string, tagId: string, options?: RequestOptions): Promise<void> {
-  return request<void>(`/api/households/${householdId}/finance/tags/${tagId}`, { ...options, method: "DELETE" });
+  return request<void>(`/api/households/${seg(householdId)}/finance/tags/${seg(tagId)}`, {
+    ...options,
+    method: "DELETE",
+  });
 }
 
 /* -------------------------------------------------------------------------- */
@@ -227,7 +230,7 @@ export function deleteTag(householdId: string, tagId: string, options?: RequestO
 /* -------------------------------------------------------------------------- */
 
 function planBase(householdId: string): string {
-  return `/api/households/${householdId}/finance/plan`;
+  return `/api/households/${seg(householdId)}/finance/plan`;
 }
 
 export function fetchPlan(householdId: string, options?: RequestOptions): Promise<PlanResponse> {
@@ -247,10 +250,7 @@ export function fetchPlanPreview(
   period: string,
   options?: RequestOptions,
 ): Promise<PlanComputationResponse> {
-  return request<PlanComputationResponse>(
-    `${planBase(householdId)}/preview${queryString({ period })}`,
-    options,
-  );
+  return request<PlanComputationResponse>(`${planBase(householdId)}/preview${queryString({ period })}`, options);
 }
 
 export function runPlan(
@@ -302,19 +302,15 @@ export function updateFixedCostItem(
   body: UpdateFixedCostItemRequest,
   options?: RequestOptions,
 ): Promise<FixedCostItemResponse> {
-  return request<FixedCostItemResponse>(`${planBase(householdId)}/items/${itemId}`, {
+  return request<FixedCostItemResponse>(`${planBase(householdId)}/items/${seg(itemId)}`, {
     ...options,
     method: "PATCH",
     body,
   });
 }
 
-export function deleteFixedCostItem(
-  householdId: string,
-  itemId: string,
-  options?: RequestOptions,
-): Promise<void> {
-  return request<void>(`${planBase(householdId)}/items/${itemId}`, { ...options, method: "DELETE" });
+export function deleteFixedCostItem(householdId: string, itemId: string, options?: RequestOptions): Promise<void> {
+  return request<void>(`${planBase(householdId)}/items/${seg(itemId)}`, { ...options, method: "DELETE" });
 }
 
 export function createIncome(
@@ -331,7 +327,7 @@ export function updateIncome(
   body: UpdateIncomeRequest,
   options?: RequestOptions,
 ): Promise<IncomeResponse> {
-  return request<IncomeResponse>(`${planBase(householdId)}/incomes/${incomeId}`, {
+  return request<IncomeResponse>(`${planBase(householdId)}/incomes/${seg(incomeId)}`, {
     ...options,
     method: "PATCH",
     body,
@@ -339,7 +335,7 @@ export function updateIncome(
 }
 
 export function deleteIncome(householdId: string, incomeId: string, options?: RequestOptions): Promise<void> {
-  return request<void>(`${planBase(householdId)}/incomes/${incomeId}`, { ...options, method: "DELETE" });
+  return request<void>(`${planBase(householdId)}/incomes/${seg(incomeId)}`, { ...options, method: "DELETE" });
 }
 
 /* -------------------------------------------------------------------------- */
@@ -352,7 +348,7 @@ export function fetchBalance(
   options?: RequestOptions,
 ): Promise<BalanceResponse> {
   return request<BalanceResponse>(
-    `/api/households/${householdId}/finance/balance${queryString({ includeAggregates: query.includeAggregates })}`,
+    `/api/households/${seg(householdId)}/finance/balance${queryString({ includeAggregates: query.includeAggregates })}`,
     options,
   );
 }
@@ -363,7 +359,7 @@ export function fetchBalanceHistory(
   options?: RequestOptions,
 ): Promise<BalanceHistoryResponse> {
   return request<BalanceHistoryResponse>(
-    `/api/households/${householdId}/finance/balance/history${queryString({
+    `/api/households/${seg(householdId)}/finance/balance/history${queryString({
       from: query.from,
       to: query.to,
       includeAggregates: query.includeAggregates,
@@ -382,7 +378,7 @@ export function fetchSettlements(
   options?: RequestOptions,
 ): Promise<TransactionListResponse> {
   return request<TransactionListResponse>(
-    `/api/households/${householdId}/finance/settlements${queryString({
+    `/api/households/${seg(householdId)}/finance/settlements${queryString({
       limit: query.limit,
       offset: query.offset,
     })}`,
@@ -395,20 +391,19 @@ export function createSettlement(
   body: CreateSettlementRequest,
   options?: RequestOptions,
 ): Promise<SettlementResponse> {
-  return request<SettlementResponse>(`/api/households/${householdId}/finance/settlements`, {
+  return request<SettlementResponse>(`/api/households/${seg(householdId)}/finance/settlements`, {
     ...options,
     method: "POST",
     body,
   });
 }
 
-
 /* -------------------------------------------------------------------------- */
 /* participants (M3 decision 4)                                               */
 /* -------------------------------------------------------------------------- */
 
 function participantsBase(householdId: string): string {
-  return `/api/households/${householdId}/finance/participants`;
+  return `/api/households/${seg(householdId)}/finance/participants`;
 }
 
 export function fetchFinanceParticipants(
@@ -436,6 +431,24 @@ export function updateMyFinanceDisplayName(
   options?: RequestOptions,
 ): Promise<FinanceParticipantResponse> {
   return request<FinanceParticipantResponse>(`${participantsBase(householdId)}/me`, {
+    ...options,
+    method: "PATCH",
+    body,
+  });
+}
+
+/**
+ * PATCH …/finance/participants/:userId — any participant renames the OTHER seat when it is a
+ * placeholder (ADR 0006, plan m3b decision 6; F's "yourself or the placeholder" rename). A seat
+ * with an account answers 403, a non-participant 404. The own seat stays `…/me`.
+ */
+export function renameParticipant(
+  householdId: string,
+  userId: string,
+  body: UpdateFinanceDisplayNameRequest,
+  options?: RequestOptions,
+): Promise<FinanceParticipantResponse> {
+  return request<FinanceParticipantResponse>(`${participantsBase(householdId)}/${seg(userId)}`, {
     ...options,
     method: "PATCH",
     body,
