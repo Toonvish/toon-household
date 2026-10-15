@@ -76,3 +76,12 @@ describe("fetchers keep an id inside one path segment", () => {
     expect(pathOf()).toBe("/api/households/invites/tok%2Fen");
   });
 });
+
+describe("API_BASE_URL fallback", () => {
+  test("a production build without PUBLIC_API_URL is relative (toon-finance gotcha 50)", async () => {
+    // Vite inlines `import.meta.env.PROD`, which drops the `http://localhost:3001` literal from the
+    // bundle; the CSP's `connect-src 'self'` blocks an absolute base on any other origin.
+    const source = await Bun.file(new URL("./api.ts", import.meta.url)).text();
+    expect(source).toContain('import.meta.env.PROD ? "" : "http://localhost:3001"');
+  });
+});

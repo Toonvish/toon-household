@@ -67,7 +67,11 @@ const buildEnv = import.meta.env as unknown as Record<string, string | undefined
 export const API_BASE_URL: string = (
   buildEnv.PUBLIC_API_URL ??
   buildEnv.VITE_API_URL ??
-  "http://localhost:3001"
+  // Only a dev server falls back to the cross-origin API port. A production build that sets
+  // neither variable is served by the API itself and must use relative URLs: the API's CSP says
+  // `connect-src 'self'` (toon-finance gotcha 50), and the literal must not survive in the bundle.
+  // `import.meta.env.PROD` is replaced statically by Vite, so this branch is dropped from it.
+  (import.meta.env.PROD ? "" : "http://localhost:3001")
 ).replace(/\/+$/, "");
 
 /** Absolute URL for an API path (`/api/health` -> `http://localhost:3001/api/health`). */
