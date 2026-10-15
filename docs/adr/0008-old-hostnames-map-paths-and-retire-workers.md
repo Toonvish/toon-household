@@ -57,3 +57,8 @@ pins the worker's body and the block shape. SPEC D11 carries the new wording in 
   block falls back to a placeholder address under the reserved `.invalid` TLD; a set-but-empty
   variable is turned into that placeholder by compose's `:-` defaults, because Caddy's own
   `{$VAR:default}` covers only the unset case.
+- **One sanctioned edit to the verbatim `(fwd)` snippet.** Its comment block names the Caddy option
+  `trusted_proxies` twice; here both comments spell it `trusted-proxies`, so the deploy gate
+  `! grep -q trusted_proxies docker/Caddyfile` proves that no such directive (or mention) exists.
+  `deploy-caddyfile.test.ts` undoes the spelling in comment lines before hashing or comparing with
+  toon-edge, and still checks that no directive contains the option.

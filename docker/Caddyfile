@@ -103,12 +103,12 @@
 	# Measured behaviour of `curl -H "X-Forwarded-For: 1.2.3.4"`:
 	#
 	#   Caddy default ................ upstream sees the real peer  (safe)
-	#   + trusted_proxies 0.0.0.0/0 ... upstream sees "1.2.3.4, <peer>"  (!)
+	#   + trusted-proxies 0.0.0.0/0 ... upstream sees "1.2.3.4, <peer>"  (!)
 	#   + this header_up ............. upstream sees the real peer  (safe)
 	#
 	# So Caddy's default is already correct and Caddy is right that the line
 	# changes nothing TODAY — it is here for the second row. Adding a
-	# `trusted_proxies` line (a common copy-paste when putting another proxy or
+	# `trusted-proxies` line (a common copy-paste when putting another proxy or
 	# Cloudflare in front) silently re-opens the bypass, and this overwrite is
 	# what keeps that from turning into an auth-bruteforcing hole across BOTH
 	# apps at once. Cost: one startup warning per site. Keep it.

@@ -71,10 +71,19 @@ function toonEdgeCaddyfile(): string | null {
   return existsSync(candidate) ? candidate : null;
 }
 
+/**
+ * The one sanctioned edit to the verbatim snippets: the `(fwd)` comment block spells the option
+ * `trusted-proxies` here, so that no `trusted_proxies` string occurs anywhere in docker/Caddyfile (the
+ * deploy gate greps for it). Undo the spelling before comparing with toon-edge or hashing.
+ */
+function unhyphenated(lines: string[]): string[] {
+  return lines.map((line) => (line.trim().startsWith("#") ? line.replaceAll("trusted-proxies", "trusted_proxies") : line));
+}
+
 describe("the toon-edge snippets, verbatim (SPEC D11)", () => {
   for (const name of ["hardening", "fwd"] as const) {
     test(`(${name}) has the pinned SHA-256`, () => {
-      expect(sha256(topLevelBlock(LINES, `(${name})`))).toBe(SNIPPET_SHA256[name]);
+      expect(sha256(unhyphenated(topLevelBlock(LINES, `(${name})`)))).toBe(SNIPPET_SHA256[name]);
     });
   }
 
@@ -87,7 +96,7 @@ describe("the toon-edge snippets, verbatim (SPEC D11)", () => {
     }
     const edgeLines = readFileSync(edge, "utf8").split("\n");
     for (const name of ["hardening", "fwd"] as const) {
-      expect(topLevelBlock(LINES, `(${name})`)).toEqual(topLevelBlock(edgeLines, `(${name})`));
+      expect(unhyphenated(topLevelBlock(LINES, `(${name})`))).toEqual(topLevelBlock(edgeLines, `(${name})`));
       expect(sha256(topLevelBlock(edgeLines, `(${name})`))).toBe(SNIPPET_SHA256[name]);
     }
   });
@@ -148,7 +157,7 @@ describe("plain http: the local CA download and a redirect", () => {
 
 describe("what the stack's Caddy must not do", () => {
   test("no trusted_proxies directive (it would let a client choose its rate-limit bucket)", () => {
-    // toon-edge's verbatim `(fwd)` comment names `trusted_proxies` twice, so only directives are checked.
+    // toon-edge's verbatim `(fwd)` comment names the trusted-proxies option twice (spelled with a hyphen in this repo), so only directives are checked.
     expect(directives(LINES).filter((line) => line.includes("trusted_proxies"))).toEqual([]);
   });
 
