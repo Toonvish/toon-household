@@ -521,11 +521,13 @@ Notes on reading it:
 
 ## Cutover order
 
-The order of SPEC §6, with commands. The new stack's own volume and image names come from the
-deployment document written in milestone M6 (`docs/deployment.md`, "Cutover from toon-edge", which
-links back here). The commands below use `<new-volume>` for the new stack's `toon-data` volume
-(`<compose project>_toon-data`) and assume its database is `/app/data/local.db` and its uploads are
-`/app/data/uploads` inside the container, as in both old stacks; check them against that document.
+The order of SPEC §6, with commands. The new stack's names are fixed: its `toon-data` volume is
+`toon-household_toon-data`, the database in it is `/app/data/local.db` and the uploads are
+`/app/data/uploads` inside the container (as in both old stacks), the image is
+`ghcr.io/toonvish/toon-household` and its `bun` user is uid 1000. The server side of the same order
+(DNS, the new stack's files, the redirect checks, retiring toon-edge, deleting the old volumes) is in
+[Cutover from toon-edge](deployment.md#cutover-from-toon-edge) in `docs/deployment.md`, which links back
+here.
 The old volumes stay untouched until you delete them yourself, so every step before the last is
 reversible by starting the old stacks again.
 
@@ -586,8 +588,8 @@ reversible by starting the old stacks again.
    `DATABASE_URL` uses, and copy the `-wal` with it if one exists.
 
    ```bash
-   docker volume create <new-volume>
-   docker run --rm -v <new-volume>:/data -v "$PWD/migration-out:/in:ro" alpine sh -c \
+   docker volume create toon-household_toon-data
+   docker run --rm -v toon-household_toon-data:/data -v "$PWD/migration-out:/in:ro" alpine sh -c \
      'cp /in/toon.db /data/local.db && { [ ! -f /in/toon.db-wal ] || cp /in/toon.db-wal /data/local.db-wal; } && cp -a /in/uploads /data/uploads && chown -R 1000:1000 /data'
    ```
 
@@ -599,19 +601,22 @@ reversible by starting the old stacks again.
    Check the uid against the new image (`docker run --rm --entrypoint id <image>`) and use that uid
    if it is not 1000.
 
-7. **Start the new stack** (`docker compose pull && docker compose up -d` in the new stack's
-   directory), with `RECIPE_HOSTNAME` and `FINANCE_HOSTNAME` set so the old hostnames redirect to
-   `TOON_HOSTNAME` (SPEC D11). Point the DNS of the old hostnames at the new host if they do not
-   already resolve there.
+7. **Start the new stack** (`docker compose pull && docker compose up -d` in `/opt/toon-household`),
+   with `RECIPE_HOSTNAME` and `FINANCE_HOSTNAME` set so the old hostnames redirect to `TOON_HOSTNAME`
+   (SPEC D11). Point the DNS of the old hostnames at the new host if they do not already resolve there.
 
-8. **Verify.** Both old hostnames answer with a permanent redirect to the new one, the new site
-   serves, and the data is there:
+8. **Verify.** Both old hostnames answer with a permanent redirect to the new one, path by path
+   (ADR 0008), the new site serves, and the data is there:
 
    ```bash
-   curl -sI https://<old-recipe-hostname>/  | head -n 3     # 301, Location: https://<new-hostname>/
-   curl -sI https://<old-finance-hostname>/ | head -n 3     # 301, Location: https://<new-hostname>/
+   curl -sI https://<old-recipe-hostname>/  | head -n 3     # 301, Location: https://<new-hostname>/recipe
+   curl -sI https://<old-finance-hostname>/ | head -n 3     # 301, Location: https://<new-hostname>/finance
+   curl -s https://<old-recipe-hostname>/sw.js | head -n 1     # the retiring worker (ADR 0008)
    curl -s https://<new-hostname>/api/health                # {"modules":["recipe","finance"], ...}
    ```
+
+   The full row-by-row check of the redirects is step 8 of
+   [Cutover from toon-edge](deployment.md#cutover-from-toon-edge).
 
    Sign in (each person uses the e-mail and password they had; OAuth-only recipe accounts use their
    provider; finance-only accounts need the address confirmation or a password-reset link from

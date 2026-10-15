@@ -20,7 +20,7 @@ class of machine.
 [step 6](#fresh-install), "Get the image".
 
 Moving from the two old apps (toon-recipe, toon-finance)? The data migration is
-[`docs/migration.md`](migration.md); the hostname and server side of that move is the cutover section
+[`docs/migration.md`](migration.md); the hostname and server side of that move is the [cutover section](#cutover-from-toon-edge)
 of this guide. Everything else here applies to a fresh install and to a migrated one alike.
 
 ---
@@ -692,7 +692,292 @@ stack's `.env` supplies the variables, and a raw `docker run` of the Caddy image
 for reasons that have nothing to do with the file. The Bun version has one place: `ARG BUN_VERSION`
 in the `Dockerfile`, plus `.bun-version` for CI; the two must match.
 
-<!-- T07: Cutover from toon-edge -->
+## Cutover from toon-edge
+
+This is the move from the old arrangement (toon-recipe and toon-finance as two stacks behind the shared
+toon-edge proxy) to this one stack. Three stacks become one; two hostnames become one
+(`TOON_HOSTNAME`) plus, for a while, two optional redirect hostnames (`RECIPE_HOSTNAME` and
+`FINANCE_HOSTNAME`, [ADR 0008](adr/0008-old-hostnames-map-paths-and-retire-workers.md)); the old volumes stay as the backup
+until the very last step. The data side (what is copied, what the report means, what can go wrong) is
+[`docs/migration.md`](migration.md); this section is the server side and the order, from DNS to the
+deletion of the old volumes. Its numbering is the one of [the cutover order](migration.md#cutover-order),
+widened by the steps before and after it.
+
+Plan a window of an hour or two in which nobody books or cooks. Every step up to and including step 9
+is reversible: stop the new stack, start toon-edge, then the two old stacks (see "Rolling back" below).
+The old volumes are never touched before step 12.
+
+Names used below, all facts of this repository: the new stack lives in `/opt/toon-household`, its volume
+is `toon-household_toon-data`, its image is `ghcr.io/toonvish/toon-household`. The old volumes are
+`toon-recipe_toon-data` and `toon-finance_toon-data` (database `local.db` and `uploads/` in the first,
+database `local.db` in the second); toon-edge kept its certificates in `toon-edge_caddy-data` and
+`toon-edge_caddy-config`.
+
+0. **Before the day.**
+
+   - **DNS first.** The new hostname must resolve to this server before anything starts (see
+     [Fresh install](#fresh-install), step 5, for the Let's Encrypt rate limit). The two old hostnames
+     already point here; check all three:
+
+     ```bash
+     dig +short <hostname>                  # the new TOON_HOSTNAME: the server IP
+     dig +short <old-recipe-hostname>       # the server IP
+     dig +short <old-finance-hostname>      # the server IP
+     ```
+
+   - **OAuth apps.** For every provider in use (Google, GitHub) add the new callback URL
+     `https://<hostname>/api/auth/oauth/<provider>/callback` next to the old ones at the provider. Remove
+     the old ones with step 12.
+   - **Everybody opens both old apps online once.** An unsent shopping-list change or finance booking
+     lives only in that device's browser; it drains when the old app is online. After the cutover it is
+     lost, because the old API is gone (the retiring worker of ADR 0008 deliberately leaves IndexedDB
+     alone, but nothing can accept its content any more).
+   - **The image is pullable** from the server: `docker pull ghcr.io/toonvish/toon-household:latest`
+     (a `denied` is the package visibility or a missing `docker login`, see [Fresh install](#fresh-install),
+     step 6).
+   - **Read [`docs/migration.md`](migration.md)**, at least "What is migrated, and what is not" and "The
+     report". Decide who gets which claim link.
+
+1. **Prepare the new stack without starting it.** The old stacks keep running while you do this; only the
+   `up` has to wait, because the toon-edge proxy still holds ports 80 and 443.
+
+   ```bash
+   sudo mkdir -p /opt/toon-household/docker
+   sudo chown -R "$USER" /opt/toon-household
+   cd /opt/toon-household
+
+   BASE=https://raw.githubusercontent.com/Toonvish/toon-household/main
+   curl -fsSL "$BASE/docker-compose.yml" -o docker-compose.yml
+   curl -fsSL "$BASE/docker/Caddyfile"   -o docker/Caddyfile
+   curl -fsSL "$BASE/docker/env.example" -o .env
+   chmod 600 .env
+   sed -i "s|^SESSION_SECRET=.*|SESSION_SECRET=$(openssl rand -hex 32)|" .env
+   nano .env
+   ```
+
+   In `.env` set `TOON_HOSTNAME` to the new name and `MAIL_FROM`, set `RECIPE_HOSTNAME` and
+   `FINANCE_HOSTNAME` to the two old hostnames (that is what makes them redirect), and copy the mail
+   values and, if used, the OAuth client IDs and secrets from the old `.env` files. The
+   `SESSION_SECRET` is a NEW value (the sed line above): never reuse an old one, and never change it
+   afterwards. If the old stacks used `TOON_TLS_ISSUER=internal`, set it here too, and expect to install
+   the new root certificate on every device: the new Caddy makes its own CA (see
+   [Variants](#variants)).
+
+   ```bash
+   docker compose pull
+   docker compose config -q
+   docker compose run --rm --no-deps --entrypoint caddy caddy \
+     validate --config /etc/caddy/Caddyfile --adapter caddyfile   # MUST say "Valid configuration"
+   ```
+
+   Do NOT run `docker compose up` yet. A started stack creates its own empty database, and step 6 needs
+   an empty volume.
+
+2. **Stop the old stacks, without `-v`.** The recipe and the finance stack first, then toon-edge, which
+   holds ports 80 and 443. A `-v` on `down` would delete the volumes you are about to copy: the three
+   commands carry no such flag, and neither must you add one.
+
+   ```bash
+   (cd /opt/toon-recipe  && docker compose down)
+   (cd /opt/toon-finance && docker compose down)
+   (cd /opt/toon-edge    && docker compose down)
+   docker ps                                  # none of the old containers is left
+   docker volume ls | grep -E 'toon-(recipe|finance|edge)'   # every old volume is still there
+   ```
+
+3. **Copy the old volumes out.** Into `migration-in/`, WAL included; the commands and the reason for
+   copying the whole volume are in [Preparing the inputs](migration.md#preparing-the-inputs) and
+   [Cutover order](migration.md#cutover-order) step 2. Work in a directory outside `/opt/toon-household`
+   (for example `~/cutover`):
+
+   ```bash
+   mkdir -p ~/cutover/migration-in/recipe ~/cutover/migration-in/finance ~/cutover/migration-out
+   cd ~/cutover
+   docker run --rm -v toon-recipe_toon-data:/data:ro  -v "$PWD/migration-in/recipe:/out"  alpine cp -a /data/. /out/
+   docker run --rm -v toon-finance_toon-data:/data:ro -v "$PWD/migration-in/finance:/out" alpine cp -a /data/. /out/
+   ls -la migration-in/recipe migration-in/finance      # local.db, local.db-wal, uploads/
+   ```
+
+   A schema-version error in the next step means an old app was not at its last migration: start that
+   one old stack once, stop it again and repeat this step.
+
+4. **Dry run and read the report.** Two ways to run `migrate:legacy`; use the first when the server has
+   no Bun. It runs from the new image (it carries `apps/api/scripts/`) as uid 1000 in the directory of
+   step 3, so `migration-out/` must be writable by that uid (`chmod -R go+rwX migration-out`, or use
+   `--user "$(id -u):$(id -g)"` instead):
+
+   ```bash
+   cd ~/cutover
+   docker run --rm --user 1000:1000 \
+     -e DATABASE_URL=file:/work/migration-out/toon.db -e UPLOAD_DIR=/work/migration-out/uploads \
+     -e WEB_ORIGIN=https://<new-hostname> \
+     -v "$PWD:/work" --entrypoint bun ghcr.io/toonvish/toon-household:latest \
+     apps/api/scripts/migrate-legacy.ts \
+     --recipe-db /work/migration-in/recipe/local.db --recipe-uploads /work/migration-in/recipe/uploads \
+     --finance-db /work/migration-in/finance/local.db --report /work/migration-out/dry-run.json
+   ```
+
+   The other way is a checkout of this repository with Bun, exactly as
+   [Commands](migration.md#commands) shows (`bun run migrate:legacy -- …`). Either way, read the whole
+   report before going on: [The report](migration.md#the-report). The household proposal, the collisions,
+   every warning and the balance table decide whether to continue. Fix and repeat until the dry run exits
+   0, `== Errors ==` says `(none)` and every balance row says `OK`.
+
+5. **Apply, then apply again.** The apply writes `migration-out/toon.db` and its uploads and prints the
+   claim links of the finance placeholders. Those links are credentials, and so is the apply report:
+   write it to a private directory outside any repository, never paste the output anywhere.
+
+   ```bash
+   cd ~/cutover
+   export PRIVATE_DIR="$HOME/toon-cutover-private"
+   mkdir -p -m 700 "$PRIVATE_DIR"
+   docker run --rm --user 1000:1000 \
+     -e DATABASE_URL=file:/work/migration-out/toon.db -e UPLOAD_DIR=/work/migration-out/uploads \
+     -e WEB_ORIGIN=https://<new-hostname> \
+     -v "$PWD:/work" -v "$PRIVATE_DIR:/private" --entrypoint bun ghcr.io/toonvish/toon-household:latest \
+     apps/api/scripts/migrate-legacy.ts \
+     --recipe-db /work/migration-in/recipe/local.db --recipe-uploads /work/migration-in/recipe/uploads \
+     --finance-db /work/migration-in/finance/local.db --apply --report /private/apply.json
+   ```
+
+   Run the same command a second time without `--report`: it must write nothing and end with
+   `[migrate:legacy] already migrated: nothing written.` See
+   [Cutover order](migration.md#cutover-order) step 5 for the Bun form of both runs. The container runs as
+   uid 1000, so `$PRIVATE_DIR` must belong to that uid (true for the first user of a fresh server; else
+   `sudo chown 1000:1000 "$PRIVATE_DIR"`).
+
+6. **Copy the result into `toon-household_toon-data`**, before the new stack has ever started. The
+   rename to `local.db` is the name the stack's `DATABASE_URL` uses, and the `-wal` goes along if one
+   exists. This is the exact command of [Cutover order](migration.md#cutover-order) step 6, with the real
+   volume name:
+
+   ```bash
+   cd ~/cutover
+   docker volume create toon-household_toon-data
+   docker run --rm -v toon-household_toon-data:/data -v "$PWD/migration-out:/in:ro" alpine sh -c \
+     'cp /in/toon.db /data/local.db && { [ ! -f /in/toon.db-wal ] || cp /in/toon.db-wal /data/local.db-wal; } && cp -a /in/uploads /data/uploads && chown -R 1000:1000 /data'
+   ```
+
+   The `chown` to 1000:1000 is required: the image runs as `USER bun`, which is uid 1000 (see the
+   comment in the `Dockerfile`), and a volume pre-filled by a root container is not re-owned by Docker.
+   Without it the database, its `-wal` and the uploads cannot be written (`EACCES`, see
+   [Troubleshooting](#troubleshooting)). Docker Compose will warn on the first `up` that the volume
+   "already exists but was not created by Docker Compose". That is expected and harmless: the name
+   matches, so the stack uses it.
+
+7. **Start the new stack.** Now, and only now, the ports are free.
+
+   ```bash
+   cd /opt/toon-household
+   docker compose up -d
+   docker compose ps                         # app must become "healthy", caddy "running"
+   docker compose logs -f caddy              # three certificates: the new hostname and the two old ones
+   ```
+
+   If a certificate does not arrive, the cause is DNS or a firewall in front of the box, as in
+   [Fresh install](#fresh-install), step 5. The stack runs the schema migrations at boot, which is a no-op
+   on the migrated database.
+
+8. **Verify.** In this order:
+
+   - **Health:** `curl -s https://<new-hostname>/api/health` answers with `"modules":["recipe","finance"]`.
+   - **The old hostnames redirect path by path (ADR 0008).** Three rows of each table in the Caddyfile
+     are enough here; every row is checked in the milestone record:
+
+     ```bash
+     for p in / /plan /shopping; do
+       curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" "https://<old-recipe-hostname>$p"
+     done
+     # 301 https://<new-hostname>/recipe
+     # 301 https://<new-hostname>/recipe/plan
+     # 301 https://<new-hostname>/recipe/shopping
+
+     for p in / /plan /new; do
+       curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" "https://<old-finance-hostname>$p"
+     done
+     # 301 https://<new-hostname>/finance
+     # 301 https://<new-hostname>/finance/plan
+     # 301 https://<new-hostname>/finance/new
+     ```
+
+   - **The retiring worker:** an installed old PWA asks its hostname for `/sw.js`; that must be a 200 with
+     a self-unregistering worker, not a redirect:
+
+     ```bash
+     curl -sI https://<old-recipe-hostname>/sw.js | head -n 1      # HTTP/2 200
+     curl -s  https://<old-recipe-hostname>/sw.js | head -n 1      # // Retires the service worker ...
+     curl -s  https://<old-finance-hostname>/sw.js | head -n 1
+     ```
+
+   - **The data:** sign in (see [Cutover order](migration.md#cutover-order) step 8 for the account cases),
+     open a recipe, the meal plan, a shopping list and the finance overview. The balance must equal the
+     migrated balance in the report.
+   - **People:** hand each claim link over privately (the placeholder's person registers through it),
+     then act on the ADR 0005 warnings of the report: seat the second participant of a solo ledger,
+     check the plan payer, remove an income that names someone who is not a participant.
+   - **Mail:** a password reset to an external address arrives, or the link is in the app log
+     ([Fresh install](#fresh-install), step 9; with a transport, unconfirmed accounts are read-only until
+     they confirm their address).
+
+9. **Switch deploys over.** Install `toon-household-deploy`, its key and this repository's secrets and the
+   `DEPLOY_ENABLED` variable as in [Fresh install](#fresh-install), step 11. Then stop the old
+   repositories from deploying: set their `DEPLOY_ENABLED` variable to `false` (or delete it), so a push
+   there can no longer try to roll out to a stack that is gone. The old forced-command keys are removed
+   in step 10, the new one is already in place.
+
+10. **Retire the old stacks and toon-edge.** Once step 8 is satisfied. Keep the old `.env` files
+    somewhere private for now (mail and OAuth values), and keep every old volume:
+
+    ```bash
+    sudo rm -rf /opt/toon-recipe /opt/toon-finance /opt/toon-edge
+    docker network rm toon-edge
+    sudo rm -f /usr/local/bin/toon-deploy /usr/local/bin/toon-finance-deploy
+    grep -n -e toon-deploy -e toon-finance-deploy ~/.ssh/authorized_keys   # delete those lines (nano)
+    docker image ls | grep -E 'toon-(recipe|finance)'                      # then docker image rm <id> for the old images
+    ```
+
+    Also remove the old deploy secrets in the two old repositories. `docker volume ls` must still list
+    `toon-recipe_toon-data` and `toon-finance_toon-data`, and `migration-in/` stays too: they are the backup.
+
+11. **Later: drop the redirects.** After the bookmarks and installed apps have had time to move (weeks:
+    browsers cache a 301, and an installed old PWA retires its worker only on its next update check
+    while the old hostname still answers `/sw.js`), unset `RECIPE_HOSTNAME` and `FINANCE_HOSTNAME` in
+    `/opt/toon-household/.env` (delete the two lines) and apply it:
+
+    ```bash
+    cd /opt/toon-household
+    nano .env
+    docker compose up -d
+    ```
+
+    The old hostnames then stop answering; remove their DNS records afterwards.
+
+12. **Last: delete the old volumes.** This is the owner's decision and the only step that cannot be
+    undone: afterwards the old apps are gone for good. First take a backup of the new volume (see
+    [Operations](#operations)) and keep it somewhere off the server. Then list what exists and remove it
+    by name:
+
+    ```bash
+    docker volume ls | grep -E 'toon-(recipe|finance|edge)'
+    docker volume rm toon-recipe_toon-data toon-finance_toon-data \
+      toon-edge_caddy-data toon-edge_caddy-config
+    docker volume rm toon-recipe_caddy-data toon-recipe_caddy-config    # only if the listing shows them (left from before toon-edge)
+    rm -rf ~/cutover/migration-in ~/cutover/migration-out
+    rm -rf "$PRIVATE_DIR"                   # the private apply report holds claim links
+    ```
+
+    With an internal CA (`TOON_TLS_ISSUER=internal`) the old caddy-data volume holds the private key of
+    that CA. Deleting it means every device needs the new root certificate (see [Variants](#variants));
+    with `acme` it makes no difference. Also remove the old OAuth callback URLs at the providers and the
+    kept `.env` copies of step 10.
+
+**Rolling back.** Until step 10 nothing old has been removed. If the new stack misbehaves, stop it
+with `docker compose down` in `/opt/toon-household` (no flag: `toon-household_toon-data` stays), start
+toon-edge first (`cd /opt/toon-edge && docker compose up -d`: it holds the ports and creates the
+network), then the two old stacks. Their volumes are as they were at step 2. Anything entered in the new
+stack after step 7 is not in the old ones; if that matters, export it first or accept the loss. A rollback
+after step 10 means restoring the directories from your own copies, which is why step 10 waits for
+step 8, and after step 12 there is no rollback.
 
 ---
 
