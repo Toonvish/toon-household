@@ -18,6 +18,7 @@ import { useT } from "@/lib/i18n";
 import { formatCurrency } from "@/modules/finance/lib/format";
 import { useCurrentUser, useRequiredHouseholdId } from "@/lib/session";
 import { useOtherParticipant } from "@/modules/finance/lib/participants";
+import { useQuickAdd } from "@/modules/finance/lib/quick-add";
 import { ActiveFilterChips, TransactionFilterPanel, useUrlTransactionFilters } from "./components/TransactionFilters";
 import { TransactionList } from "./components/TransactionList";
 import { useCategoriesForPicker, useDeleteTransactionMutation } from "./lib/queries";
@@ -29,6 +30,7 @@ export function TransactionsPage() {
   const householdId = useRequiredHouseholdId();
   const viewer = useCurrentUser();
   const { member: other } = useOtherParticipant();
+  const quickAdd = useQuickAdd();
   const otherName = other?.displayName ?? "";
 
   const urlFilters = useUrlTransactionFilters();
@@ -140,7 +142,7 @@ export function TransactionsPage() {
           setHideAggregates(false);
           setOnlyMine(false);
         }}
-        onCreateFirst={() => navigate({ to: "/finance/new" })}
+        onCreateFirst={quickAdd.open}
       />
 
       <TransactionFilterPanel

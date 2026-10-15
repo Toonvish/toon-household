@@ -48,27 +48,61 @@ export function Dialog({
     if (dismissable) onClose();
   }, [dismissable, onClose]);
 
-  // Body scroll lock + focus handling.
+  // Body scroll lock + restoring focus to whatever opened the dialog.
   useEffect(() => {
     if (!open) return;
     previouslyFocused.current = document.activeElement as HTMLElement | null;
     openDialogs += 1;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-
-    const panel = panelRef.current;
-    const focusTarget =
-      panel?.querySelector<HTMLElement>(
-        "[data-autofocus], input:not([type=hidden]), textarea, select, button, [href], [tabindex]:not([tabindex='-1'])",
-      ) ?? panel;
-    focusTarget?.focus({ preventScroll: true });
-
     return () => {
       openDialogs = Math.max(0, openDialogs - 1);
       if (openDialogs === 0) document.body.style.overflow = previousOverflow;
       previouslyFocused.current?.focus({ preventScroll: true });
     };
   }, [open]);
+
+  /*
+   * Initial focus (toon-finance gotchas 58 and 63 at 1715207). Deliberately runs after EVERY
+   * render while open, not just on `open`, because the panel's content can arrive later than the
+   * panel: the finance quick-add sheet renders a `LoadingBlock` until the other participant is
+   * loaded, so a one-shot pass found no `[data-autofocus]`, settled for the panel and never moved
+   * to the amount field when the form finally mounted. The two refs make it act at most twice,
+   * once on the fallback and once when the requested target appears, so it can never steal focus
+   * back from a user who has already started typing.
+   *
+   * `[data-autofocus]` is asked for FIRST, in its own query. Folded into one comma-separated
+   * selector it never won: `querySelector` returns the first element in DOCUMENT order matching
+   * ANY branch, and the close button in the header precedes everything in the body, so the sheet
+   * opened with the "X" focused instead of the amount.
+   */
+  const autofocusDone = useRef(false);
+  const fallbackDone = useRef(false);
+  useEffect(() => {
+    if (!open) {
+      autofocusDone.current = false;
+      fallbackDone.current = false;
+      return;
+    }
+    if (autofocusDone.current) return;
+    const panel = panelRef.current;
+    if (!panel) return;
+
+    const requested = panel.querySelector<HTMLElement>("[data-autofocus]");
+    if (requested) {
+      autofocusDone.current = true;
+      fallbackDone.current = true;
+      requested.focus({ preventScroll: true });
+      return;
+    }
+    if (fallbackDone.current) return;
+    fallbackDone.current = true;
+    const fallback =
+      panel.querySelector<HTMLElement>(
+        "input:not([type=hidden]), textarea, select, button, [href], [tabindex]:not([tabindex='-1'])",
+      ) ?? panel;
+    fallback.focus({ preventScroll: true });
+  });
 
   // Escape + a minimal focus trap (Tab cycles inside the panel).
   useEffect(() => {

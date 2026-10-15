@@ -40,9 +40,12 @@ describe("finance phone header row", () => {
     expect(read("features/participants/FinanceGate.tsx").match(/<PhoneHeaderRow \/>/g)?.length).toBe(2);
   });
 
-  test("the participant gate renders PendingSyncNote inside a Fragment, never a wrapper element", () => {
+  test("the participant gate renders PendingSyncNote as a sibling of the outlet, never inside a wrapper element", () => {
+    // The only wrapper is the context provider (`QuickAddProvider`, no DOM box; the sheet host is a
+    // portal), so the Buchen bar's flex chain from the layout to the page root stays unbroken.
     const gate = read("features/participants/FinanceGate.tsx");
-    expect(gate).toMatch(/<>\s*<PendingSyncNote \/>\s*<Outlet \/>\s*<\/>/);
+    expect(gate).toMatch(/<QuickAddProvider>\s*<PendingSyncNote \/>\s*<Outlet \/>\s*<QuickAddHost \/>\s*<\/QuickAddProvider>/);
+    expect(read("lib/quick-add.tsx")).toContain("<QuickAddContext.Provider value={value}>{children}</QuickAddContext.Provider>");
   });
 
   test("PageHeader renders the row", () => {

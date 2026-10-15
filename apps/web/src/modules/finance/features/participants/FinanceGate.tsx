@@ -4,6 +4,8 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { LoadingBlock } from "@/components/ui/Spinner";
 import { useActiveHousehold } from "@/lib/session";
 import { PendingSyncNote } from "@/modules/finance/components/PendingSyncNote";
+import { QuickAddProvider } from "@/modules/finance/lib/quick-add";
+import { QuickAddHost } from "@/modules/finance/features/transactions/QuickAddDialog";
 import { NonParticipantState } from "./NonParticipantState";
 import { useFinanceParticipants } from "./lib/queries";
 
@@ -37,12 +39,16 @@ export default function FinanceGate() {
   if (participants.data.viewerSlot === null) {
     return <NonParticipantState participants={participants.data.items} />;
   }
-  // A Fragment, never a wrapper element: the Buchen bar is `sticky bottom-tabbar` and needs the
-  // unbroken flex chain from the layout down to the page root (M4 decision 7).
+  // No wrapper ELEMENT, ever: the Buchen bar is `sticky bottom-tabbar` and needs the unbroken flex
+  // chain from the layout down to the page root (M4 decision 7). `QuickAddProvider` renders a context
+  // provider only and `QuickAddHost` a portal (or nothing), so neither adds a box. The host is a
+  // static import on purpose (the capture flow must work on a cold, offline start) and sits beside
+  // the outlet, for participants only: this is already the participant-only branch.
   return (
-    <>
+    <QuickAddProvider>
       <PendingSyncNote />
       <Outlet />
-    </>
+      <QuickAddHost />
+    </QuickAddProvider>
   );
 }
