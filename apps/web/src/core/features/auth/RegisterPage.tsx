@@ -12,12 +12,15 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { Input, PasswordInput } from "@/components/ui/Input";
 import { useT } from "@/lib/i18n";
 import { AuthLayout } from "./AuthLayout";
+import { isClaimInvite } from "./lib/invite-mode";
 import { AuthDivider, OAuthButtons, useHasOAuthProviders } from "./OAuthButtons";
 
 /**
  * `/register` — creates the account. Without an invite the API also creates the
  * first household ("Meine Rezepte" or the name entered here); with `?invite=<token>`
- * the new user joins that group instead.
+ * the new user joins that group instead. A CLAIM invite (ADR 0006) turns the account into the
+ * already listed person: their name is prefilled, no household name is asked for and OAuth is
+ * not offered (a claim is redeemed by e-mail and password only).
  */
 export function RegisterPage() {
   const t = useT();
@@ -30,6 +33,9 @@ export function RegisterPage() {
   const hasOAuth = useHasOAuthProviders();
 
   const invite = useQuery({ ...invitePreviewQuery(inviteToken ?? ""), enabled: Boolean(inviteToken) });
+
+  const claimName = invite.data?.claimsDisplayName ?? null;
+  const isClaim = isClaimInvite(invite.data);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -46,6 +52,11 @@ export function RegisterPage() {
   useEffect(() => {
     if (invitedEmail) setEmail((current) => (current.length === 0 ? invitedEmail : current));
   }, [invitedEmail]);
+
+  // Pre-fill the listed person's name (only while untouched; it stays editable).
+  useEffect(() => {
+    if (claimName) setName((current) => (current.length === 0 ? claimName : current));
+  }, [claimName]);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -91,10 +102,15 @@ export function RegisterPage() {
         <div className="mb-4 flex items-start gap-3 rounded-xl border border-brand/30 bg-brand-soft p-3 text-sm text-brand-soft-fg">
           <Users className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
           <p>
-            {t("auth.register.invitedBy", {
-              name: invite.data.invitedByName,
-              groupName: invite.data.householdName,
-            })}
+            {claimName !== null
+              ? t("auth.register.claimHint", {
+                  display: claimName,
+                  household: invite.data.householdName,
+                })
+              : t("auth.register.invitedBy", {
+                  name: invite.data.invitedByName,
+                  groupName: invite.data.householdName,
+                })}
           </p>
         </div>
       ) : null}
@@ -107,8 +123,12 @@ export function RegisterPage() {
         />
       ) : null}
 
-      <OAuthButtons next={next} mode="register" disabled={register.isPending} />
-      {hasOAuth ? <AuthDivider label={t("auth.oauth.orWithEmail")} /> : null}
+      {isClaim || (inviteToken && invite.isPending) ? null : (
+        <>
+          <OAuthButtons next={next} mode="register" disabled={register.isPending} />
+          {hasOAuth ? <AuthDivider label={t("auth.oauth.orWithEmail")} /> : null}
+        </>
+      )}
 
       <form onSubmit={submit} noValidate className="flex flex-col gap-4">
         {errors._form ? <ErrorState inline description={errors._form} /> : null}

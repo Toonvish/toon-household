@@ -134,6 +134,21 @@ export const householdDe = {
   "household.switcher.description": "Rezepte, Sammlungen und Tags gehören immer zu einer Gruppe.",
   "household.switcher.empty": "Du bist noch in keiner Gruppe.",
   "household.switcher.manageButton": "Gruppen verwalten",
+
+  /* ------------- placeholder members and claim links (ADR 0006, plan m3b) ---- */
+  "household.placeholder.badge": "ohne Konto",
+  "household.placeholder.hint": "Kann sich noch nicht anmelden.",
+  "household.placeholder.rename": "Umbenennen",
+  "household.placeholder.remove": "Person entfernen",
+  "household.placeholder.nameLabel": "Anzeigename",
+  "household.placeholder.removeConfirm":
+    '„{name}" wirklich entfernen? Die Person hat kein Konto und wird ganz gelöscht.',
+  "household.claim.title": "Konto für {name} verknüpfen",
+  "household.claim.create": "Link zum Verknüpfen erstellen",
+  "household.claim.hint":
+    "Der Link legt das Konto für diese Person an. Alles, was ihr in der Gruppe zugeordnet ist, bleibt ihr zugeordnet.",
+  "household.claim.linkHint":
+    "Der Link gilt 14 Tage. Wer ihn öffnet, erstellt damit das Konto für diese Person.",
 } as const satisfies NamespaceCatalog<"household">;
 
 export type HouseholdCatalog = typeof householdDe;

@@ -123,6 +123,7 @@ export default function HouseholdDetailPage() {
         <Card padding="md">
           <MemberList
             householdId={household.id}
+            householdName={household.name}
             members={members}
             myRole={household.role}
             myUserId={user.id}

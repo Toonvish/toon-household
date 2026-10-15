@@ -218,4 +218,12 @@ export const authEn: LocaleCatalog<AuthCatalog> = {
   "auth.settings.sessions.revokeConfirm.description": "The session will end immediately.",
 
   "auth.settings.logout.description": "Ends the session on this device.",
+
+  /* ---------- claim invites: registering as an already listed person -------- */
+  "auth.register.claimHint": 'You are creating the account for "{display}" in the group "{household}".',
+  "auth.invite.claimSubtitle":
+    '{name} added you as "{display}" to the group "{household}". Create your account to sign in.',
+  "auth.invite.claimCreateAccount": "Create account",
+  "auth.invite.claimLoggedIn": "This link creates the account for a person who is already listed. Sign out to use it.",
+  "auth.invite.claimLogout": "Sign out",
 };

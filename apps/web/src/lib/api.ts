@@ -22,6 +22,7 @@ import {
   type ChangePasswordRequest,
   type CreateHouseholdRequest,
   type CreateInviteRequest,
+  type CreatePlaceholderMemberRequest,
   type EmailVerificationRequestResponse,
   type ForgotPasswordRequest,
   type HealthResponse,
@@ -45,6 +46,7 @@ import {
   type SessionListResponse,
   type UpdateHouseholdRequest,
   type UpdateMemberRoleRequest,
+  type UpdatePlaceholderMemberRequest,
   type UpdateProfileRequest,
   type UserResponse,
   type VerifyEmailRequest,
@@ -201,6 +203,15 @@ export function queryString(params: Record<string, QueryValue> = {}): string {
   }
   const encoded = search.toString();
   return encoded ? `?${encoded}` : "";
+}
+
+/**
+ * Every value interpolated into a URL PATH goes through here (toon-finance 1715207). Ids are
+ * UUIDs from our own responses, but some arrive via route params the address bar controls: an
+ * unencoded `..%2F`, `?` or `/` would re-target the request to another endpoint.
+ */
+export function seg(value: string): string {
+  return encodeURIComponent(value);
 }
 
 export interface RequestOptions {
@@ -474,7 +485,7 @@ export function fetchSessions(options?: RequestOptions): Promise<SessionListResp
 }
 
 export function revokeSession(sessionId: string, options?: RequestOptions): Promise<void> {
-  return request<void>(`/api/auth/sessions/${encodeURIComponent(sessionId)}`, {
+  return request<void>(`/api/auth/sessions/${seg(sessionId)}`, {
     ...options,
     method: "DELETE",
   });
@@ -485,7 +496,7 @@ export function revokeSession(sessionId: string, options?: RequestOptions): Prom
  * (`window.location.assign`) — not fetch — because the API answers with a 302.
  */
 export function oauthStartUrl(provider: OAuthProvider, next?: string): string {
-  return apiUrl(`/api/auth/oauth/${provider}${queryString({ next })}`);
+  return apiUrl(`/api/auth/oauth/${seg(provider)}${queryString({ next })}`);
 }
 
 /** Same as {@link oauthStartUrl} but returns the provider URL as JSON (`?json=1`). */
@@ -493,7 +504,7 @@ export function fetchOAuthStartUrl(
   provider: OAuthProvider,
   options?: RequestOptions,
 ): Promise<OAuthStartResponse> {
-  return request<OAuthStartResponse>(`/api/auth/oauth/${provider}?json=1`, {
+  return request<OAuthStartResponse>(`/api/auth/oauth/${seg(provider)}?json=1`, {
     ...options,
     allowUnauthorized: true,
   });
@@ -521,7 +532,7 @@ export function fetchOAuthProviders(options?: RequestOptions): Promise<OAuthProv
  * to `next` with `?linked=<provider>` (or `?error=…`).
  */
 export function startOAuthLink(provider: OAuthProvider, next = "/settings"): void {
-  window.location.assign(apiUrl(`/api/auth/oauth/${provider}/link${queryString({ next })}`));
+  window.location.assign(apiUrl(`/api/auth/oauth/${seg(provider)}/link${queryString({ next })}`));
 }
 
 /** Detaches a provider. 409 `last_login_method` when it is the only way in. */
@@ -529,7 +540,7 @@ export function unlinkOAuthProvider(
   provider: OAuthProvider,
   options?: RequestOptions,
 ): Promise<void> {
-  return request<void>(`/api/auth/oauth/${provider}`, { ...options, method: "DELETE" });
+  return request<void>(`/api/auth/oauth/${seg(provider)}`, { ...options, method: "DELETE" });
 }
 
 /* -------------------------------------------------------------------------- */
@@ -552,7 +563,7 @@ export function fetchInvitePreview(
   token: string,
   options?: RequestOptions,
 ): Promise<InvitePreviewResponse> {
-  return request<InvitePreviewResponse>(`/api/households/invites/${encodeURIComponent(token)}`, {
+  return request<InvitePreviewResponse>(`/api/households/invites/${seg(token)}`, {
     ...options,
     allowUnauthorized: true,
   });
@@ -570,7 +581,7 @@ export function acceptInvite(
 }
 
 export function fetchHousehold(householdId: string, options?: RequestOptions): Promise<HouseholdDetailResponse> {
-  return request<HouseholdDetailResponse>(`/api/households/${householdId}`, options);
+  return request<HouseholdDetailResponse>(`/api/households/${seg(householdId)}`, options);
 }
 
 export function updateHousehold(
@@ -578,18 +589,18 @@ export function updateHousehold(
   body: UpdateHouseholdRequest,
   options?: RequestOptions,
 ): Promise<HouseholdResponse> {
-  return request<HouseholdResponse>(`/api/households/${householdId}`, { ...options, method: "PATCH", body });
+  return request<HouseholdResponse>(`/api/households/${seg(householdId)}`, { ...options, method: "PATCH", body });
 }
 
 export function deleteHousehold(householdId: string, options?: RequestOptions): Promise<void> {
-  return request<void>(`/api/households/${householdId}`, { ...options, method: "DELETE" });
+  return request<void>(`/api/households/${seg(householdId)}`, { ...options, method: "DELETE" });
 }
 
 export function fetchHouseholdMembers(
   householdId: string,
   options?: RequestOptions,
 ): Promise<HouseholdMemberListResponse> {
-  return request<HouseholdMemberListResponse>(`/api/households/${householdId}/members`, options);
+  return request<HouseholdMemberListResponse>(`/api/households/${seg(householdId)}/members`, options);
 }
 
 export function updateMemberRole(
@@ -598,11 +609,37 @@ export function updateMemberRole(
   body: UpdateMemberRoleRequest,
   options?: RequestOptions,
 ): Promise<HouseholdMemberResponse> {
-  return request<HouseholdMemberResponse>(`/api/households/${householdId}/members/${userId}`, {
+  return request<HouseholdMemberResponse>(`/api/households/${seg(householdId)}/members/${seg(userId)}`, {
     ...options,
     method: "PATCH",
     body,
   });
+}
+
+/** Adds a PLACEHOLDER member: a person by name, without an account (admin+, ADR 0006). */
+export function createPlaceholderMember(
+  householdId: string,
+  body: CreatePlaceholderMemberRequest,
+  options?: RequestOptions,
+): Promise<HouseholdMemberResponse> {
+  return request<HouseholdMemberResponse>(`/api/households/${seg(householdId)}/members`, {
+    ...options,
+    method: "POST",
+    body,
+  });
+}
+
+/** Renames a placeholder member (admin+). 409 `member_has_account` for a member with an account. */
+export function renamePlaceholderMember(
+  householdId: string,
+  userId: string,
+  body: UpdatePlaceholderMemberRequest,
+  options?: RequestOptions,
+): Promise<HouseholdMemberResponse> {
+  return request<HouseholdMemberResponse>(
+    `/api/households/${seg(householdId)}/members/${seg(userId)}/placeholder`,
+    { ...options, method: "PATCH", body },
+  );
 }
 
 /** Also used to leave a household (pass your own user id). */
@@ -611,7 +648,7 @@ export function removeHouseholdMember(
   userId: string,
   options?: RequestOptions,
 ): Promise<void> {
-  return request<void>(`/api/households/${householdId}/members/${userId}`, {
+  return request<void>(`/api/households/${seg(householdId)}/members/${seg(userId)}`, {
     ...options,
     method: "DELETE",
   });
@@ -623,7 +660,7 @@ export function fetchHouseholdInvites(
   options?: RequestOptions,
 ): Promise<HouseholdInviteListResponse> {
   return request<HouseholdInviteListResponse>(
-    `/api/households/${householdId}/invites${queryString({ limit: query.limit, offset: query.offset })}`,
+    `/api/households/${seg(householdId)}/invites${queryString({ limit: query.limit, offset: query.offset })}`,
     options,
   );
 }
@@ -633,7 +670,7 @@ export function createHouseholdInvite(
   body: CreateInviteRequest,
   options?: RequestOptions,
 ): Promise<HouseholdInviteResponse> {
-  return request<HouseholdInviteResponse>(`/api/households/${householdId}/invites`, {
+  return request<HouseholdInviteResponse>(`/api/households/${seg(householdId)}/invites`, {
     ...options,
     method: "POST",
     body,
@@ -645,7 +682,7 @@ export function revokeHouseholdInvite(
   inviteId: string,
   options?: RequestOptions,
 ): Promise<void> {
-  return request<void>(`/api/households/${householdId}/invites/${inviteId}`, {
+  return request<void>(`/api/households/${seg(householdId)}/invites/${seg(inviteId)}`, {
     ...options,
     method: "DELETE",
   });
@@ -661,7 +698,7 @@ export function enableModule(
   settings?: Record<string, unknown>,
   options?: RequestOptions,
 ): Promise<HouseholdResponse> {
-  return request<HouseholdResponse>(`/api/households/${householdId}/modules/${moduleId}`, {
+  return request<HouseholdResponse>(`/api/households/${seg(householdId)}/modules/${seg(moduleId)}`, {
     ...options,
     method: "POST",
     body: settings === undefined ? {} : { settings },
@@ -674,7 +711,7 @@ export function disableModule(
   moduleId: ModuleId,
   options?: RequestOptions,
 ): Promise<void> {
-  return request<void>(`/api/households/${householdId}/modules/${moduleId}`, {
+  return request<void>(`/api/households/${seg(householdId)}/modules/${seg(moduleId)}`, {
     ...options,
     method: "DELETE",
   });
@@ -714,6 +751,8 @@ export const api = {
     remove: deleteHousehold,
     members: fetchHouseholdMembers,
     updateMemberRole,
+    createPlaceholderMember,
+    renamePlaceholderMember,
     removeMember: removeHouseholdMember,
     invites: fetchHouseholdInvites,
     createInvite: createHouseholdInvite,

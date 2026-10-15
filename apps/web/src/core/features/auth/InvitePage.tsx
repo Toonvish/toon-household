@@ -6,7 +6,7 @@ import { acceptInvite } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { ROLE_LABEL_KEYS } from "@/core/features/households/lib/roleLabels";
 import { invalidate, invitePreviewQuery } from "@/lib/queries";
-import { useSession } from "@/lib/session";
+import { useLogout, useSession } from "@/lib/session";
 import { useGoTo } from "@/lib/navigation";
 import { Button, buttonClasses } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -14,11 +14,15 @@ import { LoadingBlock } from "@/components/ui/Spinner";
 import { useToast } from "@/components/ui/Toast";
 import { useT } from "@/lib/i18n";
 import { AuthLayout } from "./AuthLayout";
+import { inviteMode } from "./lib/invite-mode";
 
 /**
  * `/invite/$token` — public landing page for an invite link.
  * Logged in: one tap to join, then the group becomes the active one.
  * Logged out: register (e-mail is pre-filled) or sign in first.
+ * A CLAIM invite (`claimsDisplayName` set, ADR 0006) hands an already listed person their
+ * account: signed out it offers registration only; signed in it asks to sign out first and
+ * never joins the current user.
  */
 export function InvitePage() {
   const t = useT();
@@ -28,6 +32,7 @@ export function InvitePage() {
   const toast = useToast();
   const goTo = useGoTo();
   const { isAuthenticated, isLoading, setActiveHousehold } = useSession();
+  const logout = useLogout({ stayOnPage: true });
 
   const preview = useQuery({ ...invitePreviewQuery(token), enabled: token.length > 0 });
 
@@ -83,14 +88,24 @@ export function InvitePage() {
 
   const invite = preview.data;
   const usable = invite.status === "pending";
+  const mode = inviteMode(invite, isAuthenticated);
+  const isClaim = mode === "claim-register" || mode === "claim-logged-in";
 
   return (
     <AuthLayout
       title={t("auth.invite.readyTitle")}
-      description={t("auth.invite.invitedBy", {
-        name: invite.invitedByName,
-        groupName: invite.householdName,
-      })}
+      description={
+        invite.claimsDisplayName !== null
+          ? t("auth.invite.claimSubtitle", {
+              name: invite.invitedByName,
+              display: invite.claimsDisplayName,
+              household: invite.householdName,
+            })
+          : t("auth.invite.invitedBy", {
+              name: invite.invitedByName,
+              groupName: invite.householdName,
+            })
+      }
     >
       <div className="flex flex-col gap-4">
         <div className="flex items-start gap-3 rounded-xl border border-line bg-surface-2 p-3">
@@ -102,8 +117,9 @@ export function InvitePage() {
           </span>
           <div className="min-w-0 text-sm">
             <p className="font-display text-display-xs font-medium text-fg">{invite.householdName}</p>
-            {/* A claim invite may carry no address (ADR 0006): the line is left out then. */}
-            {invite.email !== null ? (
+            {/* A claim invite may carry no address (ADR 0006): the line is left out then, and a
+                role line would say nothing for it (the claimed person is always a member). */}
+            {invite.email !== null && !isClaim ? (
               <p className="text-fg-muted">
                 {t("auth.invite.roleAndEmail", {
                   role: t(ROLE_LABEL_KEYS[invite.role]),
@@ -133,7 +149,30 @@ export function InvitePage() {
           </div>
         ) : null}
 
-        {isAuthenticated ? (
+        {mode === "claim-logged-in" ? (
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-fg-muted">{t("auth.invite.claimLoggedIn")}</p>
+            <Button
+              size="lg"
+              fullWidth
+              variant="secondary"
+              loading={logout.isPending}
+              onClick={() => logout.mutate()}
+            >
+              {t("auth.invite.claimLogout")}
+            </Button>
+          </div>
+        ) : mode === "claim-register" ? (
+          usable ? (
+            <Link
+              to="/register"
+              search={{ invite: token }}
+              className={buttonClasses({ size: "lg", fullWidth: true })}
+            >
+              {t("auth.invite.claimCreateAccount")}
+            </Link>
+          ) : null
+        ) : mode === "join" ? (
           <Button
             size="lg"
             fullWidth

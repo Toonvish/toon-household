@@ -133,4 +133,19 @@ export const householdEn: LocaleCatalog<HouseholdCatalog> = {
   "household.switcher.description": "Recipes, collections and tags always belong to a group.",
   "household.switcher.empty": "You're not in any group yet.",
   "household.switcher.manageButton": "Manage groups",
+
+  /* ------------- placeholder members and claim links (ADR 0006, plan m3b) ---- */
+  "household.placeholder.badge": "no account",
+  "household.placeholder.hint": "Cannot sign in yet.",
+  "household.placeholder.rename": "Rename",
+  "household.placeholder.remove": "Remove person",
+  "household.placeholder.nameLabel": "Display name",
+  "household.placeholder.removeConfirm":
+    'Really remove "{name}"? This person has no account and is deleted entirely.',
+  "household.claim.title": "Link an account for {name}",
+  "household.claim.create": "Create link",
+  "household.claim.hint":
+    "The link creates the account for this person. Everything assigned to them in the group stays with them.",
+  "household.claim.linkHint":
+    "The link is valid for 14 days. Whoever opens it creates the account for this person.",
 };
