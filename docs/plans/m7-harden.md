@@ -1,7 +1,7 @@
 # M7 — harden: plan
 
-**Status: PLANNED (2026-10-15).** Base commit `46e830b` (M6 closed). Section 9 (integration record) and
-section 10 (what changed vs plan) are written by M7-T10.
+**Status: DONE (2026-10-15).** Base commit `46e830b` (M6 closed). Section 9 is the integration record and
+section 10 is what changed vs plan (both written by M7-T10).
 
 M7 closes what M0 to M6 left open, documents the app as built, and proves the final tree. SPEC §8:
 "Review findings, CLAUDE.md as built, `docs/API.md`, `docs/modules/*.md`, ADRs for every deviation,
@@ -679,8 +679,157 @@ After M7 nothing is handed to a later milestone: what remains is the owner's and
 
 ## 9. Integration record
 
-(M7-T10)
+M7-T10, run on merged `main` at `9653b0e` (M7-T09) on 2026-10-15; Bun 1.4.3, Chromium from Playwright 1.64.1
+installed in a scratch directory outside the repo. The tree was clean before and after (the walkthrough DB
+`data/m7.db` is git-ignored and was deleted). No defect was found, so T10 commits only this record and the
+CLAUDE.md status paragraph.
+
+### 9.1 Gates
+
+| # | Command | Result |
+| --- | --- | --- |
+| 1 | `bun install --frozen-lockfile` | "Checked 436 installs across 625 packages (no changes)", exit 0 |
+| 2 | `bun run typecheck` | five projects (`packages/shared`, `apps/api`, `apps/web` x3), `[typecheck] OK` |
+| 3 | `bun test` (run 1) | **2434 pass, 0 fail**, 12962 `expect()` calls, 138 files, 24.35 s |
+| 4 | `bun test` (run 2) | 2434 pass, 0 fail, 138 files, 24.70 s |
+| 5 | `PUBLIC_API_URL= bun run build` | exit 0 (precache 104 entries, 1461.50 KiB, `dist/sw.js` generated); `! grep -rl 'localhost:3001' apps/web/dist/assets` finds nothing (exit 0 of the negation) |
+| 6 | `bun run i18n:check` | parity half `OK`; leftover-German half `FAILED - 146 possible German literal(s)`, exit 1 by design (9.2) |
+| 7 | `bun run db:generate` | "No schema changes, nothing to migrate", exit 0, `git status` clean |
+| 8 | `bun apps/api/test/fixtures/legacy/build.ts --check` | "committed fixtures match a fresh build." |
+| 9 | recipe `LINKS`, `LINKS_FIN`, `NOROUTER`, `NOCORE`, `NOSHADOW` (bash, the commands of `docs/modules/recipe.md` and `docs/modules/finance.md`) | no hit in any of the five (each `! grep` exits 0) |
+
+Comparison with T02 (ADR 0009: temp-file DB): T02 measured 2420 pass in 26.56 / 26.72 / 27.75 s wall on
+the temp file DB (median 26.72 s) against the 73.5 s cap, and the planning baseline of 24.5 s on
+`file::memory:`. The final tree has 2434 tests (T03 and T09 added the `api-doc` and `docs-paths` tests, T02
+its two) and runs in 24.35 s and 24.70 s: no slowdown from the file DB, both runs green.
+
+### 9.2 `i18n:check` classification (146 hits, the same 146 as plan 1.1)
+
+`grep -E '^  - '` over the output gives 146 lines. Classified one by one:
+
+- **136 comment lines**: German UI labels, umlaut examples or content words quoted in a doc comment (`*`, `/**`,
+  `//`, or the continuation of a `{/* ... */}` block). 18 of them sit in finance code; the others are the
+  recipe and core services and the shared recipe code (`shopping.ts`, `schemas/shopping.ts`, `schemas/recipe.ts`,
+  `schemas/import.ts`, the mail, password-reset and household-support comments, `core.ts`, `ModuleCards.tsx`,
+  `AddRecipeToListDialog.tsx`, `TransactionRow.tsx`). Quotes of labels such as "Häufig gekauft" and "Für den Teig" and
+  umlaut folding examples such as "Äpfel" and "Grieß"; none is a string a user sees.
+- **10 lines of recipe content vocabulary** (German is the content language, never `t()`): the
+  ingredient-paste placeholder in `IngredientsEditor.tsx:290`, `UNIT_SUGGESTIONS` in
+  `ParsedRecipeEditor.tsx:84`, `STEP_HEADING_RE` in `draftEdit.ts:459`, and the seven umlaut entries of
+  `apps/api/src/modules/recipe/services/import/html/entities.ts:23-29`.
+- **0 real leftovers.** No hit is suppressed or added to an allow-list.
+
+### 9.3 Fresh-database walkthrough on the built app
+
+Commands (the server in the background, log ending `exit=$?`):
+
+```bash
+export DATABASE_URL=file:./data/m7.db SESSION_SECRET=<32 hex chars>
+bun run db:migrate && bun run seed
+WEB_DIST_DIR=./apps/web/dist bun run start   # :3001, killed by its pid afterwards (SIGTERM, "stopping modules", exit 0)
+```
+
+Every response was compared with the status list of the matching `docs/API.md` row. All matched; no doc or
+code fix was needed.
+
+| Section of `docs/API.md` | Request | Result | Documented |
+| --- | --- | --- | --- |
+| Health | `GET /api/health` | 200 | 200 |
+| Security | CSP on `/api/health` and on `/` | header present, `script-src` carries the `'sha256-...'` of the theme script | yes |
+| Security | `POST .../finance/transactions` with `Origin: https://evil.example` | 403 `forbidden` | 403 |
+| Security | same with `Sec-Fetch-Site: cross-site` | 403 `forbidden` | 403 |
+| Security | same with `Origin: http://localhost:5173` (in `WEB_ORIGIN`) | 201 | passes rule 1 |
+| Auth | `POST /api/auth/login` as demo, robin, kim | 200 x3 | 200 |
+| Auth | login with a wrong password / body not declared JSON | 401 / 400 | 401 / 400 |
+| Auth | `GET /api/auth/me`, `GET /api/auth/sessions`, `GET /api/auth/me` without cookie | 200, 200, 401 | 200, 200, 401 |
+| Auth | `POST /api/auth/register` (new user) | 201 | 201 |
+| Households | `GET /api/households`, `GET /api/households/:id` | 200, 200 (`modules` list, `memberCount` 3) | 200 |
+| Households | recipes of an unknown household id / of another user's household (non-member) | 404 / 403 | 404 / 403 |
+| Members and invites | `GET .../members`; `GET .../invites` as admin and as kim; `GET /api/households/invites/nope` | 200; 200 and 403; 404 | 200; 200 and 403; 404 |
+| Modules | `DELETE .../modules/finance` (twice), `POST .../modules/finance` with no body, `POST` as kim | 204, 204 (idempotent), 200, 403 | 204 (idempotent), 200, 403 |
+| Modules | `GET .../finance/balance` after the disable | 404 `module_disabled`; after the re-enable 200 with the ledger intact (balance 129053 before and after) | 404 `module_disabled` |
+| Uploads | `GET /uploads/nope.jpg` (unsigned) | 404 | 404 |
+| Recipe | `GET .../recipe/recipes?limit=1`, `GET .../recipe/shopping-lists`, `GET /api/recipe/cards` with and without cookie | 200, 200, 200 / 401 | 200 / 401 |
+| Finance | `GET .../finance/balance` as demo and robin | 200 (demo `viewerBalanceCents` 128436 at seed) | 200 |
+| Finance | `GET .../finance/balance`, `.../transactions` as kim | 403 `finance_not_participant` (German message) | 403 `finance_not_participant` |
+| Finance | `GET .../finance/participants` as kim | 200 (`viewerSlot: null`) | 200 |
+| Finance | `POST .../finance/transactions` with a `mutationId`, then the same body again | 201, then 200 with the same row id | 201 (200 on a replay) |
+| Finance | `POST .../finance/transactions` with `amountCents: 0` | 422 `transaction_amount_zero` | 422 `transaction_amount_zero` |
+| Finance | `POST .../finance/settlements` with `expectedBalanceCents: 1` | 409 `balance_stale`, `details.currentBalanceCents` 129053 | 409 `balance_stale` |
+| Unconfirmed accounts | register, then `POST /api/households` and `POST .../recipe/recipes` as the new user | 201, 201 | gated only "on a deployment that gates on it"; the default deployment does not |
+
+### 9.4 `migrate:legacy` on the fixtures
+
+CLAUDE.md's fixture command (`NODE_ENV=development DATABASE_URL=file:$D/target.db UPLOAD_DIR=$D/uploads bun run
+migrate:legacy -- --recipe-db ... --recipe-uploads ... --finance-db ...` against `apps/api/test/fixtures/legacy/`):
+
+- **Dry run**: exit 0, "dry run complete: 274 rows would be written, 7 files would be copied. Nothing was
+  written."; `ls $D` empty (no target file). Errors: (none). Balance table: five finance households, every row
+  `OK` (legacy and migrated balance, count and sum equal: 119486, 1675, 1900, 2500, 2100 ct). One placeholder
+  claim invite (`would-reuse`). Warnings: the expected fixture cases (two id collisions re-keyed, the solo
+  household re-seated in slot 1 per ADR 0005, the one deliberately missing upload, the income and plan payer
+  naming a non-participant).
+- **`--apply`**: exit 0, "applied: 274 rows written, 7 files copied."; `target.db` and 7 uploads exist.
+- **Second `--apply`**: exit 0, `[migrate:legacy] already migrated: nothing written.`
+
+### 9.5 Headless run (Chromium, `de-DE`, one `storageState`, scratch directory outside the repo)
+
+Script and log in the session scratchpad (`pw/run.ts`, `pw/run.log`, ending `exit=0` with "ALL PASS"). Login once
+through `fetch("/api/auth/login")` from `/api/health`, then a mobile context (390x844, `isMobile`, `hasTouch`)
+and a desktop context (1440x900).
+
+- **Smoke** over `/`, `/recipe`, `/finance`, `/settings` at 390 and 1440: each lands on its path, no console
+  error, no `pageerror`, no 4xx response; `scrollWidth <= clientWidth` (390 against 390; 1425 against 1440 at
+  desktop because of `scrollbar-gutter: stable`, see CLAUDE.md). At 390 `/recipe` has 18 elements whose right edge
+  passes the viewport, every one inside the intentional horizontal scrollers (the week strip `OL.snap-x` and the
+  `UL.scroll-x` lists), which clip them.
+- **Print to PDF (O1)** of the seeded "Zwiebelkuchen vom Blech" (13 ingredients, 7 steps, servings "12 Stück"),
+  `page.emulateMedia({media:"print"})` + `page.pdf()` + `pdftotext`:
+
+| Check | 390 (mobile context) | 1440 |
+| --- | --- | --- |
+| all 13 ingredient names in the PDF text | yes | yes |
+| all 7 steps (first 30 characters of each, whitespace-normalised) | yes | yes |
+| title | yes | yes |
+| "Zur Einkaufsliste" in the PDF text | 0 (on screen: 1, the control) | 0 |
+| "12 Stück" in the PDF text | 1, the meta row; on screen 2 (meta row plus the scaler's stepper), so the scaler is gone | 1 (the meta row) |
+| "Weniger" / "Mehr Stück" (stepper labels) | 0 | 0 |
+| PDF pages | 2 | 3 |
+
+  The first pass of the script ran in the browser's English locale and compared the wrong labels; it was
+  re-run with `locale: "de-DE"` and a control (the label present on screen, absent in print), and the 1440
+  step-1 miss of that pass was `pdftotext -layout` interleaving the two print columns, fixed by reading the
+  default reading order. Neither is a product defect.
+
+### 9.6 Docker
+
+`git diff --quiet 46e830b HEAD -- Dockerfile .dockerignore docker package.json bun.lock apps/api/package.json
+apps/web/package.json packages/shared/package.json bunfig.toml` exits 0: none of the Docker-relevant files
+changed in M7. **Image build and lone-container run: not needed** (M6's local stack test stands).
+
+### 9.7 Docs guards
+
+`bun test apps/api/test/docs-paths.test.ts apps/api/test/api-doc.test.ts` green on the final tree (also part of
+the 2434).
+
+### 9.8 Defects found and their commits
+
+None. Every gate and every walkthrough row matched; no code or doc fix was needed in T10.
 
 ## 10. What changed vs plan
 
-(M7-T10)
+- **T02: GO** (`321ee1a`, `M7-T02 GO:`). The whole suite runs on a temp file DB; ADR 0009 supersedes ADR 0003
+  and SPEC D13's ADR 0003 sentence was replaced. The switch exposed and fixed two defects (the pooled libSQL
+  connections' `busy_timeout`, a production fix, and EXPLAIN pinning a read snapshot), each with a regression
+  test. Final suite time 24.35 and 24.70 s (9.1).
+- **T01** (`a23f5ca`): O1 closed and proven by print-to-PDF at both widths (9.5).
+- **ADRs T08 wrote**: 0010 (`e22fc3c`, D1 and D6: a header row instead of a global top bar) and 0011
+  (`8b2f0bb`, D9: the service-worker runtime caching wording). The third audit finding (A3) needed no ADR: SPEC
+  D10 now names ADR 0006's copy (`dfc718f`). ADR 0009 is T02's. In all, M7 added ADRs 0009, 0010 and 0011.
+- **Docs written**: `docs/API.md` (T03, T04, T05, with `api-doc.test.ts` comparing it to `app.routes`),
+  `docs/modules/recipe.md` (T06), `docs/modules/finance.md` (T07), `docs/open-work.md` (T08), CLAUDE.md as
+  built with `docs-paths.test.ts` (T09).
+- **Deviations from SPEC section 1 beyond the three ADRs**: none. The plan expected none.
+- **Differences from the plan text**: the Docker step was "not needed" (9.6); T10 found no defect and made no
+  code change; the first headless print pass needed a German locale and a control (9.5).
+- **Obligations handed on**: none; what remains is the owner's, in `docs/open-work.md`.

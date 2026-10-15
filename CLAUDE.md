@@ -55,8 +55,10 @@ module (`docs/plans/m2-recipe-module.md`), M3 finance module (`docs/plans/m3-fin
 and M7 harden (`docs/plans/m7-harden.md`), 2026-10-13 to 2026-10-15; each plan's last sections are its
 integration record and "what changed vs plan". Two modules are built (`API_MODULES` and `WEB_MODULES` are
 `[recipe, finance]`, `/api/health` reports `modules: ["recipe","finance"]`). The tree typechecks, builds and tests
-green (`bun test`: 2434 pass in 138 files at M7-T09; M7's integration record has the final numbers). What is left
-is the owner's (see "Open work").
+green (`bun test`: 2434 pass in 138 files, 24.35 s and 24.70 s on the temp file DB; `i18n:check` exits 1 with the
+146 classified false positives; M7's integration record, `docs/plans/m7-harden.md` section 9, has the gate logs, the
+walkthrough, the `migrate:legacy` fixture run and the print-to-PDF proof). What is left is the owner's (see "Open
+work").
 
 ## Layout (as built)
 
