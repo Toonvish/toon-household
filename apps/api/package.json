@@ -15,6 +15,7 @@
     "uploads:gc": "bun scripts/uploads-gc.ts",
     "plan:run": "bun scripts/plan-run.ts",
     "finance:import-xlsx": "bun scripts/finance-import-xlsx.ts",
+    "migrate:legacy": "bun scripts/migrate-legacy.ts",
     "db:studio": "bunx drizzle-kit studio"
   },
   "dependencies": {

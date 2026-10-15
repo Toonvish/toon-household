@@ -32,6 +32,11 @@ describe("import order does not matter", () => {
     "./src/core/services/households/modules.ts",
     "./src/core/services/media/references.ts",
     "./src/core/services/auth/users.ts",
+    // M5: the migrate:legacy library; the CLI loads the client and the migrator first, then these
+    "./scripts/legacy/run.ts",
+    "./scripts/legacy/households.ts",
+    "./scripts/legacy/finance.ts",
+    "./scripts/legacy/balance.ts",
   ]) {
     test(`${entry} loads first in a fresh process`, async () => {
       const { code, stderr } = await importInFreshProcess(entry);
