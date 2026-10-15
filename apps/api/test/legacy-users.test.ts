@@ -4,18 +4,45 @@
  *
  * THE TRAPS: gina's finance id equals cleo's recipe id (a fresh id via the in-run claimed set,
  * never via a caught PRIMARY KEY error); ben is OAuth-only (finance's hash is not carried); an
- * unconfirmed target account is never matched ("the boolean alone is NOT evidence").
+ * unconfirmed target account is never matched ("the boolean alone is NOT evidence"); pia is a
+ * toon-finance placeholder (no e-mail, no password): her own row with a NULL e-mail and hash, never
+ * grouped or matched by e-mail (plan m3b decision 13, ADR 0006).
  */
 import { afterEach, describe, expect, test } from "bun:test";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
+import { createClient, type InStatement } from "@libsql/client";
+import { openLegacy } from "../scripts/legacy/sources.ts";
 import { EXPECTED, FINANCE_USERS, RECIPE_USERS, UPLOADS } from "./fixtures/legacy/facts.ts";
+import { renderReport } from "../scripts/legacy/report.ts";
 import { exitCodeFor, createReport } from "../scripts/legacy/report.ts";
 import { migrateUsers, OAUTH_ONLY_NOTE } from "../scripts/legacy/users.ts";
 import { countRows, createLegacyRun, type LegacyRun } from "./support/legacy-harness.ts";
 
 const runs: LegacyRun[] = [];
+const extraClients: { close(): void }[] = [];
 afterEach(() => {
+  for (const client of extraClients.splice(0)) client.close();
   for (const run of runs.splice(0)) run.cleanup();
 });
+
+/**
+ * A mutated copy: edits the operator-side copy of finance.db (the snapshot is read-only) and
+ * re-opens it through `openLegacy`, so the run reads the edited rows.
+ */
+async function mutateFinance(r: LegacyRun, statements: InStatement[]): Promise<void> {
+  const client = createClient({ url: `file:${r.financePath}` });
+  try {
+    await client.batch(statements, "write");
+  } finally {
+    client.close();
+  }
+  const scratch = join(r.dir, `scratch-mutated-${extraClients.length}`);
+  mkdirSync(scratch, { recursive: true });
+  const reopened = await openLegacy("finance", r.financePath, scratch);
+  extraClients.push(reopened.client);
+  r.ctx.finance = reopened;
+}
 
 async function run(options: Parameters<typeof createLegacyRun>[0] = {}): Promise<LegacyRun> {
   const created = await createLegacyRun(options);
@@ -43,7 +70,7 @@ async function ledgerRows(run: LegacyRun, source: string): Promise<number> {
 }
 
 describe("migrateUsers on the fixtures", () => {
-  test("writes 7 users with the counts and collisions of facts.ts", async () => {
+  test("writes 8 users with the counts and collisions of facts.ts", async () => {
     const r = await run();
     await migrateUsers(r.ctx);
     expect(await countRows(r.target.client, "users")).toBe(EXPECTED.users);
@@ -54,9 +81,10 @@ describe("migrateUsers on the fixtures", () => {
     expect(r.ctx.report.users.collisions.filter((c) => c.passwordFrom === "none").map((c) => c.email)).toEqual([
       RECIPE_USERS.ben.emailNormalized,
     ]);
-    // 4 recipe users + 7 finance users = 11 legacy users mapped by 11 ledger rows.
+    expect(r.ctx.report.users.placeholders).toBe(EXPECTED.placeholders);
+    // 4 recipe users + 8 finance users (pia included) = 12 legacy users mapped by 12 ledger rows.
     expect(await ledgerRows(r, "recipe")).toBe(4);
-    expect(await ledgerRows(r, "finance")).toBe(7);
+    expect(await ledgerRows(r, "finance")).toBe(8);
     expect(r.ctx.report.errors).toEqual([]);
     expect(r.ctx.report.skipped.filter((s) => s.table === "users")).toEqual([]);
     expect(exitCodeFor(r.ctx.report)).toBe(0);
@@ -376,5 +404,127 @@ describe("migrateUsers on a resumed run that adds the other source", () => {
     expect(second.ids.users.finance.get(FINANCE_USERS.ben.id)).toBe(RECIPE_USERS.ben.id);
     expect(await userByEmail(r, "anna@example.test")).toEqual(annaBefore);
     expect(Number(annaBefore?.email_verified)).toBe(1);
+  });
+});
+
+async function userById(run: LegacyRun, id: string): Promise<Record<string, unknown> | undefined> {
+  const result = await run.target.client.execute({ sql: "SELECT * FROM users WHERE id = ?", args: [id] });
+  const row = result.rows[0];
+  if (!row) return undefined;
+  const out: Record<string, unknown> = {};
+  result.columns.forEach((column, index) => {
+    out[column] = row[index];
+  });
+  return out;
+}
+
+describe("migrateUsers: the placeholder pia (plan m3b decision 13, ADR 0006)", () => {
+  test("pia is written with her F id, a NULL e-mail and hash, unconfirmed, and her own ledger row", async () => {
+    const r = await run();
+    await migrateUsers(r.ctx);
+    const pia = await userById(r, FINANCE_USERS.pia.id);
+    expect(pia).toEqual({
+      id: FINANCE_USERS.pia.id,
+      email: null,
+      name: "Pia Platzhalter",
+      avatar_url: null,
+      email_verified: 0,
+      email_verified_at: null,
+      password_hash: null,
+      active_household_id: null,
+      locale: "de",
+      created_at: pia?.created_at,
+      updated_at: pia?.updated_at,
+    });
+    expect(Number(pia?.created_at)).toBeGreaterThan(0);
+    expect(r.ctx.ids.users.finance.get(FINANCE_USERS.pia.id)).toBe(FINANCE_USERS.pia.id);
+    const ledger = await r.target.client.execute({
+      sql: `SELECT legacy_source, new_id FROM legacy_ids WHERE "table" = 'users' AND legacy_id = ?`,
+      args: [FINANCE_USERS.pia.id],
+    });
+    expect(ledger.rows.map((row) => [row.legacy_source, row.new_id])).toEqual([["finance", FINANCE_USERS.pia.id]]);
+    // never a collision, never an e-mail lookup result
+    expect(r.ctx.report.users.collisions.some((c) => c.financeUserId === FINANCE_USERS.pia.id)).toBe(false);
+    expect(await countRows(r.target.client, "users")).toBe(EXPECTED.users);
+    const text = renderReport(r.ctx.report);
+    expect(text).toContain(`Finance placeholders (no account): ${EXPECTED.placeholders}`);
+  });
+
+  test("a target account with an empty e-mail is never matched onto pia", async () => {
+    const r = await run();
+    await r.target.client.execute(
+      `INSERT INTO users (id, email, name, email_verified, email_verified_at, password_hash, created_at, updated_at)
+       VALUES ('target-blank', '', 'Blank', 1, 1, 'pre-hash', 1, 1)`,
+    );
+    await migrateUsers(r.ctx);
+    expect(r.ctx.ids.users.finance.get(FINANCE_USERS.pia.id)).toBe(FINANCE_USERS.pia.id);
+    expect((await userById(r, "target-blank"))?.password_hash).toBe("pre-hash");
+    expect(r.ctx.report.errors).toEqual([]);
+  });
+
+  test("two placeholders coexist under the unique e-mail index (NULLs are distinct)", async () => {
+    const r = await run();
+    await r.target.client.execute(
+      `INSERT INTO users (id, email, name, email_verified, password_hash, created_at, updated_at)
+       VALUES ('other-placeholder', NULL, 'Andere', 0, NULL, 1, 1)`,
+    );
+    await migrateUsers(r.ctx);
+    expect(r.ctx.report.errors).toEqual([]);
+    const result = await r.target.client.execute("SELECT count(*) AS n FROM users WHERE email IS NULL AND password_hash IS NULL");
+    expect(Number(result.rows[0]?.n)).toBe(2);
+  });
+
+  test("pia's id taken in the target: a fresh UUID, a warning, the ledger follows", async () => {
+    const r = await run();
+    await preInsert(r, FINANCE_USERS.pia.id, "someone@example.test", 1, 1);
+    await migrateUsers(r.ctx);
+    const mapped = r.ctx.ids.users.finance.get(FINANCE_USERS.pia.id);
+    expect(mapped).toBeDefined();
+    expect(mapped).not.toBe(FINANCE_USERS.pia.id);
+    expect(String(mapped)).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    const pia = await userById(r, String(mapped));
+    expect(pia?.email).toBeNull();
+    expect(pia?.password_hash).toBeNull();
+    expect(pia?.name).toBe("Pia Platzhalter");
+    expect(
+      r.ctx.report.warnings.some((w) => w.includes(`placeholder ${FINANCE_USERS.pia.id}`) && w.includes(`new id ${String(mapped)}`)),
+    ).toBe(true);
+    // the pre-inserted account is untouched
+    expect((await userById(r, FINANCE_USERS.pia.id))?.email).toBe("someone@example.test");
+    expect(r.ctx.report.errors).toEqual([]);
+  });
+
+  test("a second run maps pia from the ledger and writes nothing", async () => {
+    const r = await run();
+    await migrateUsers(r.ctx);
+    const before = await countRows(r.target.client, "users");
+    r.ctx.ids.users.recipe.clear();
+    r.ctx.ids.users.finance.clear();
+    r.ctx.report = createReport("dry-run", r.target.url);
+    await migrateUsers(r.ctx);
+    expect(await countRows(r.target.client, "users")).toBe(before);
+    expect(r.ctx.ids.users.finance.get(FINANCE_USERS.pia.id)).toBe(FINANCE_USERS.pia.id);
+    const finance = r.ctx.report.counts.find((c) => c.table === "users" && c.source === "finance");
+    expect(finance).toMatchObject({ written: 0, alreadyMigrated: EXPECTED.legacyRows.finance.users });
+  });
+
+  test("a finance user with a NULL hash but an e-mail is not a placeholder: an error, no row, exit 1", async () => {
+    const r = await run();
+    await mutateFinance(r, [
+      {
+        sql: "UPDATE users SET email = 'pia@example.test', email_normalized = 'pia@example.test' WHERE id = ?",
+        args: [FINANCE_USERS.pia.id],
+      },
+    ]);
+    await migrateUsers(r.ctx);
+    const reason = `finance user ${FINANCE_USERS.pia.id} has no password but an e-mail: not a placeholder (ADR 0006)`;
+    expect(r.ctx.report.errors).toContain(reason);
+    expect(r.ctx.report.skipped.filter((s) => s.table === "users")).toEqual([
+      { table: "users", source: "finance", legacyId: FINANCE_USERS.pia.id, reason, error: true },
+    ]);
+    expect(r.ctx.ids.users.finance.has(FINANCE_USERS.pia.id)).toBe(false);
+    expect(await userByEmail(r, "pia@example.test")).toBeUndefined();
+    expect(await countRows(r.target.client, "users")).toBe(EXPECTED.users - 1);
+    expect(exitCodeFor(r.ctx.report)).toBe(1);
   });
 });

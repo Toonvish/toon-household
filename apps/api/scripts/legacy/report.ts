@@ -32,7 +32,7 @@ export function createReport(mode: Mode, target: string): Report {
     target,
     inputs: [],
     decisions: [],
-    users: { recipe: 0, finance: 0, target: 0, collisions: [] },
+    users: { recipe: 0, finance: 0, placeholders: 0, target: 0, collisions: [] },
     counts: [],
     skipped: [],
     notMigrated: [],
@@ -135,6 +135,7 @@ function renderUsers(report: Report): string[] {
   const lines = [
     `Recipe users: ${users.recipe}`,
     `Finance users: ${users.finance}`,
+    `Finance placeholders (no account): ${users.placeholders}`,
     `Target users: ${users.target}`,
     "Collisions (same e-mail in both apps):",
   ];

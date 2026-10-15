@@ -13,7 +13,11 @@
  * - FH4's only member sits in slot 2, its creator and plan payer is fritz, who is NOT a member
  *   (toon-finance's `removeMember` lets a member who never paid leave), and one of its incomes
  *   names fritz too;
- * - FH5 has no members.
+ * - FH5 has no members;
+ * - FH6's slot 2 is a placeholder (pia: no e-mail, no password; toon-finance `b1b517d`) with a
+ *   pending claim invite; one FH6 booking is paid by her. Household matching ignores her (account
+ *   members only: anna), so FH6 merges into G2 once FH1 holds G1, and pia joins G2 as `member`
+ *   (plan m3b decision 13, ADR 0006).
  */
 
 /** Namespaces of the fixed UUID-shaped ids. */
@@ -36,12 +40,12 @@ export function fixtureId(ns: number, n: number): string {
 
 export type FixtureUser = {
   id: string;
-  /** As stored (toon-finance keeps the typed spelling in `email`). */
-  email: string;
-  /** `email.trim().toLowerCase()`: the union key. */
-  emailNormalized: string;
+  /** As stored (toon-finance keeps the typed spelling in `email`); null only for a placeholder. */
+  email: string | null;
+  /** `email.trim().toLowerCase()`: the union key; null only for a placeholder. */
+  emailNormalized: string | null;
   name: string;
-  /** null = no password (OAuth-only in toon-recipe). */
+  /** null = no password (OAuth-only in toon-recipe; a placeholder in toon-finance). */
   password: string | null;
   /** Precomputed argon2id of `password` (null when there is none). */
   hash: string | null;
@@ -144,12 +148,24 @@ export const FINANCE_USERS = {
     password: "finance-pass-gina",
     hash: "$argon2id$v=19$m=65536,t=2,p=1$7XnqE9FeqhSJlnaL9ep5JB4MUDSjKs3cAaJs6ob+KJA$qTIlinldPer8R4QmyxupaI2Fu0s5sUdZYSgwInkDcdE",
   },
+  pia: {
+    // A PLACEHOLDER (toon-finance `b1b517d`, F `0002_placeholder_members`): seated in FH6's slot 2
+    // by anna, no e-mail, no password; F's predicate is `password_hash IS NULL`.
+    id: fixtureId(NS.financeUser, 8),
+    email: null,
+    emailNormalized: null,
+    name: "Pia Platzhalter",
+    password: null,
+    hash: null,
+  },
 } as const satisfies Record<string, FixtureUser>;
 
 /** The four people who exist in both apps (the e-mail union): the collisions. */
 export const COLLISION_USERS = ["anna", "ben", "cleo", "dana"] as const;
-/** People who exist only in toon-finance. */
-export const FINANCE_ONLY_USERS = ["emil", "fritz", "gina"] as const;
+/** People who exist only in toon-finance (pia, the placeholder, included). */
+export const FINANCE_ONLY_USERS = ["emil", "fritz", "gina", "pia"] as const;
+/** toon-finance placeholders: migrated with a NULL e-mail and hash, never matched by e-mail. */
+export const PLACEHOLDER_USERS = ["pia"] as const;
 
 /* ------------------------------- recipe groups -------------------------------- */
 
@@ -267,6 +283,19 @@ export const FINANCE_HOUSEHOLDS = {
     planPayer: "gina",
     decision: { action: "skip", reason: "no-members" },
   },
+  FH6: {
+    id: fixtureId(NS.financeHousehold, 6),
+    name: "Kasse Anna & Pia",
+    creator: "anna",
+    // pia is a placeholder: the candidate groups are those holding anna (G1, G2); FH1 (older)
+    // takes G1, so G2 is the only group left.
+    members: [
+      { user: "anna", slot: 1, displayName: "Anna" },
+      { user: "pia", slot: 2, displayName: "Pia" },
+    ],
+    planPayer: "anna",
+    decision: { action: "merge", reason: "only-group", group: "G2" },
+  },
 } as const satisfies Record<string, unknown>;
 
 /** `fixed_cost_plans` per finance household (F schema): enabled flag, start and last booked. */
@@ -276,6 +305,7 @@ export const FINANCE_PLANS = {
   FH3: { enabled: false, startPeriod: "2026-08", lastBookedPeriod: null },
   FH4: { enabled: false, startPeriod: "2026-08", lastBookedPeriod: null },
   FH5: { enabled: false, startPeriod: "2026-08", lastBookedPeriod: null },
+  FH6: { enabled: false, startPeriod: "2026-08", lastBookedPeriod: null },
 } as const;
 
 /** The incomes of FH4: one gina's, ONE NAMING FRITZ (a non-participant). */
@@ -283,6 +313,23 @@ export const FH4_INCOMES = [
   { user: "gina", amountCents: 250000 },
   { user: "fritz", amountCents: 180000 },
 ] as const;
+
+/**
+ * FH6's pending CLAIM invite for pia (F `invites.claims_user_id`, `b1b517d`): no e-mail, invited by
+ * anna, far in the future, a fixed 43-character token (F mints 32 random bytes as base64url).
+ * M3b-T08 still counts it under "not migrated by design"; M3b-T09 reuses it as pia's claim invite.
+ */
+export const FH6_CLAIM_INVITE = {
+  id: fixtureId(NS.financeMisc, 0x100),
+  household: "FH6",
+  claims: "pia",
+  invitedBy: "anna",
+  token: "PiaClaimFixtureToken0123456789abcdefghijklm",
+  email: null,
+  status: "pending",
+  createdAt: Date.UTC(2026, 8, 1, 12, 0),
+  expiresAt: Date.UTC(2099, 0, 1, 0, 0),
+} as const;
 
 /* --------------------------------- expectations ------------------------------- */
 
@@ -292,21 +339,23 @@ export const FH4_INCOMES = [
  * and `migrations` against the committed databases.
  */
 export const EXPECTED = {
-  users: 7,
+  users: 8,
   usersFromRecipe: 4,
-  usersFinanceOnly: 3,
+  usersFinanceOnly: 4,
+  /** toon-finance placeholders (pia): a target row with a NULL e-mail and hash each. */
+  placeholders: 1,
   collisions: 4,
   /** ben is OAuth-only in toon-recipe: his finance password is NOT carried. */
   collisionsWithoutPassword: ["ben"],
   households: 5,
-  householdModules: 7,
+  householdModules: 8,
   householdModulesRecipe: 3,
-  householdModulesFinance: 4,
-  financeParticipants: 7,
-  financeSettings: 4,
+  householdModulesFinance: 5,
+  financeParticipants: 9,
+  financeSettings: 5,
   financeIncomes: 4,
   uploads: { sourceFiles: 7, copied: 7, missingReferenced: 1 },
-  balances: { rows: 4, ok: 4 },
+  balances: { rows: 5, ok: 5 },
   errors: 0,
   /** Warning kinds the first apply must contain (descriptive: T05 to T08 assert the exact report text). */
   warningKinds: [
@@ -326,9 +375,9 @@ export const EXPECTED = {
       tags: 5, users: 4,
     },
     finance: {
-      accrual_runs: 1, categories: 85, fixed_cost_items: 2, fixed_cost_plans: 5, household_members: 7,
-      households: 5, incomes: 4, invites: 1, mutation_claims: 2, password_reset_tokens: 1, sessions: 1,
-      tags: 2, transaction_tags: 3, transactions: 25, users: 7,
+      accrual_runs: 1, categories: 106, fixed_cost_items: 2, fixed_cost_plans: 6, household_members: 9,
+      households: 6, incomes: 4, invites: 2, mutation_claims: 2, password_reset_tokens: 1, sessions: 1,
+      tags: 2, transaction_tags: 3, transactions: 28, users: 8,
     },
   } as Record<"recipe" | "finance", Record<string, number>>,
   /** Per finance household: transaction count and sum of `amount_cents`, as built. */
@@ -338,6 +387,7 @@ export const EXPECTED = {
     FH3: { transactions: 4, sumCents: 9998, categories: 21 },
     FH4: { transactions: 2, sumCents: 3500, categories: 21 },
     FH5: { transactions: 0, sumCents: 0, categories: 0 },
+    FH6: { transactions: 3, sumCents: 6900, categories: 21 },
   } as Record<string, { transactions: number; sumCents: number; categories: number }>,
   /** Journal entries of each source's `__drizzle_migrations` (plan §1.2). */
   migrations: {

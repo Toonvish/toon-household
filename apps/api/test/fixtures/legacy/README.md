@@ -42,3 +42,9 @@ runs the same comparison and asserts the traps.
 - FH4 has one member, gina, in slot 2; its creator and plan payer is fritz (not a member: he left
   before paying anything), and one of its two incomes names fritz.
 - FH5 has no members.
+- FH6 ("Kasse Anna & Pia") seats anna in slot 1 and the placeholder pia in slot 2 (toon-finance
+  `b1b517d`: a `users` row whose e-mail, normalised e-mail and password hash are all NULL); one of
+  its three bookings is paid by pia, and an F `invites` row is pia's pending claim invite
+  (`claims_user_id`, no e-mail, expiring 2099). Matching counts the account member anna only, so
+  FH6 merges into G2 once FH1 holds G1, and pia joins G2 as `member` (plan m3b decision 13,
+  ADR 0006).

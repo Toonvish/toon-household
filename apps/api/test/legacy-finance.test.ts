@@ -7,7 +7,8 @@
  * (F lets a member who never paid leave and never touches the plan): the payer is re-pointed to
  * gina, the income is kept, both with a warning and never an error; FH5 has no members, so its
  * plan row is skipped without an error; the balance of FH4 is compared from gina's perspective
- * (she was re-seated in slot 1).
+ * (she was re-seated in slot 1). FH6's slot 2 is the placeholder pia (plan m3b decision 13): one
+ * booking names her as payer, and the balance holds with a placeholder payer.
  */
 import { afterEach, describe, expect, test } from "bun:test";
 import { computeBreakdown } from "@toon/shared";
@@ -93,9 +94,9 @@ describe("migrateFinance on the fixtures", () => {
       expect(await countRows(run.target.client, target)).toBe(legacy[source] ?? 0);
     }
     expect(await countRows(run.target.client, "finance_incomes")).toBe(EXPECTED.financeIncomes);
-    // 5 legacy plan rows, FH5's is skipped (no members)
-    expect(await countRows(run.target.client, "finance_fixed_cost_plans")).toBe(4);
-    for (const key of ["FH1", "FH2", "FH3", "FH4"] as const) {
+    // 6 legacy plan rows, FH5's is skipped (no members)
+    expect(await countRows(run.target.client, "finance_fixed_cost_plans")).toBe(5);
+    for (const key of ["FH1", "FH2", "FH3", "FH4", "FH6"] as const) {
       const ledger = EXPECTED.financeLedgers[key];
       const [row] = await targetRows(
         run,
@@ -120,7 +121,7 @@ describe("migrateFinance on the fixtures", () => {
       },
     ]);
     const plans = run.ctx.report.counts.find((count) => count.table === "finance_fixed_cost_plans");
-    expect(plans).toMatchObject({ read: 5, written: 4, skipped: 1 });
+    expect(plans).toMatchObject({ read: 6, written: 5, skipped: 1 });
   });
 
   test("categories keep is_system / is_hidden as 0/1 and the custom label", async () => {
@@ -212,13 +213,13 @@ describe("migrateFinance on the fixtures", () => {
 });
 
 describe("balance invariant", () => {
-  test("verifyBalances: four rows, all ok, equal to the facts", async () => {
+  test("verifyBalances: five rows, all ok, equal to the facts", async () => {
     const run = await migrated();
     const { balances } = run.ctx.report;
     expect(balances).toHaveLength(EXPECTED.balances.rows);
     expect(balances.filter((row) => row.ok)).toHaveLength(EXPECTED.balances.ok);
     expect(balances.map((row) => row.financeHouseholdId).sort()).toEqual(
-      (["FH1", "FH2", "FH3", "FH4"] as const).map((key) => FINANCE_HOUSEHOLDS[key].id).sort(),
+      (["FH1", "FH2", "FH3", "FH4", "FH6"] as const).map((key) => FINANCE_HOUSEHOLDS[key].id).sort(),
     );
     for (const row of balances) {
       expect(row.slot1Matches).toBe(true);
@@ -228,7 +229,7 @@ describe("balance invariant", () => {
     }
   });
 
-  for (const key of ["FH1", "FH2", "FH3", "FH4"] as const) {
+  for (const key of ["FH1", "FH2", "FH3", "FH4", "FH6"] as const) {
     test(`${key}: the legacy balance, computed independently, equals getBalance on the target`, async () => {
       const run = await migrated();
       const facts = FINANCE_HOUSEHOLDS[key];
@@ -296,7 +297,7 @@ describe("balance invariant", () => {
     await verifyBalances(run.ctx);
     const failed = run.ctx.report.balances.filter((row) => !row.ok);
     expect(failed.map((row) => row.financeHouseholdId)).toEqual([FINANCE_HOUSEHOLDS.FH2.id]);
-    expect(run.ctx.report.balances.filter((row) => row.ok)).toHaveLength(3);
+    expect(run.ctx.report.balances.filter((row) => row.ok)).toHaveLength(EXPECTED.balances.ok - 1);
     expect(run.ctx.report.errors).toHaveLength(1);
     expect(run.ctx.report.errors[0]).toContain(FINANCE_HOUSEHOLDS.FH2.id);
     expect(exitCodeFor(run.ctx.report)).toBe(1);
@@ -376,5 +377,25 @@ describe("non-participants (decision 14, ADR 0005)", () => {
     expect(run.ctx.report.errors[0]).toContain("not a participant");
     expect(run.ctx.report.balances.every((row) => row.ok)).toBe(true);
     expect(exitCodeFor(run.ctx.report)).toBe(1);
+  });
+});
+
+describe("FH6: a placeholder payer (plan m3b decision 13, ADR 0006)", () => {
+  test("pia's booking keeps her as payer; the plan payer stays anna; the balance is OK without a warning", async () => {
+    const run = await migrated();
+    const householdId = financeTarget(run, "FH6");
+    const pia = userTarget(run, "pia");
+    const paidByPia = await targetRows(run, "SELECT amount_cents, created_by FROM finance_transactions WHERE household_id = ? AND payer_id = ?", [householdId, pia]);
+    expect(paidByPia).toEqual([{ amount_cents: 1800, created_by: userTarget(run, "anna") }]);
+    const [placeholder] = await targetRows(run, "SELECT email, password_hash FROM users WHERE id = ?", [pia]);
+    expect(placeholder).toEqual({ email: null, password_hash: null });
+    const [plan] = await targetRows(run, "SELECT payer_id, enabled FROM finance_fixed_cost_plans WHERE household_id = ?", [householdId]);
+    expect(plan).toEqual({ payer_id: userTarget(run, "anna"), enabled: 0 });
+    const row = run.ctx.report.balances.find((item) => item.financeHouseholdId === FINANCE_HOUSEHOLDS.FH6.id);
+    expect(row).toMatchObject({ targetHouseholdId: householdId, slot1Email: "anna@example.test", slot1Matches: true, ok: true });
+    expect(row?.legacyTransactionCount).toBe(EXPECTED.financeLedgers.FH6?.transactions ?? -1);
+    expect(row?.legacyAmountSumCents).toBe(EXPECTED.financeLedgers.FH6?.sumCents ?? -1);
+    expect(run.ctx.report.warnings.filter((line) => line.includes(FINANCE_HOUSEHOLDS.FH6.id))).toEqual([]);
+    expect(exitCodeFor(run.ctx.report)).toBe(0);
   });
 });

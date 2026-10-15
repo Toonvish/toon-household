@@ -23,6 +23,12 @@
  *   created by an earlier finance-only apply is refused while that account is unconfirmed (the
  *   `--finance-db`-alone then both-inputs sequence); the recipe row would otherwise lose to F's
  *   hash and the recipe user's OAuth rows would hang off an unconfirmed account (D4).
+ * - A toon-finance PLACEHOLDER (F's predicate `password_hash IS NULL`, `b1b517d`; plan m3b
+ *   decision 13, ADR 0006) is never grouped or matched by e-mail: it becomes its own target row
+ *   with a NULL e-mail and hash (H's `isPlaceholderUser`), unconfirmed, no avatar, F's name and
+ *   locale, ledger key `users/finance/<F id>`. Its id follows the same claimed-set rule, decided
+ *   after every account. A row with a NULL hash but an e-mail is not a placeholder in either app:
+ *   it is skipped as an error (exit 1). Its household is set by the households step.
  *
  * No module-scope code beyond imports and constants (decision 5); the library takes the target
  * from the context and never uses the shared `db`.
@@ -56,6 +62,21 @@ function normalizeEmail(value: unknown): string {
   return str(value).trim().toLowerCase();
 }
 
+/**
+ * toon-finance's placeholder predicate (F `isPlaceholderUser`: `password_hash IS NULL`; F has no
+ * OAuth, so every account has a hash). The households step uses it too: placeholders do not count
+ * when looking for a group (plan m3b decision 13).
+ */
+export function isLegacyPlaceholder(row: Row): boolean {
+  return row.password_hash === null || row.password_hash === undefined;
+}
+
+/** A finance placeholder row must carry no address at all (F `0002_placeholder_members`). */
+function placeholderHasEmail(row: Row): boolean {
+  const present = (value: unknown) => value !== null && value !== undefined && str(value).trim() !== "";
+  return present(row.email) || present(row.email_normalized);
+}
+
 function newCount(source: LegacySource): TableCount {
   return { table: "users", source, read: 0, written: 0, alreadyMigrated: 0, skipped: 0 };
 }
@@ -71,6 +92,26 @@ function recipeUserRow(row: Row, id: string, email: string): Row {
     email_verified_at: row.email_verified_at ?? null,
     password_hash: row.password_hash ?? null,
     active_household_id: row.active_group_id ?? null,
+    locale: row.locale ?? null,
+    created_at: row.created_at ?? null,
+    updated_at: row.updated_at ?? null,
+  };
+}
+
+/**
+ * The target row of a finance placeholder (plan m3b decision 13, ADR 0006): no e-mail, no
+ * password, unconfirmed, no avatar; `active_household_id` is set by the households step.
+ */
+function placeholderUserRow(row: Row, id: string): Row {
+  return {
+    id,
+    email: null,
+    name: row.name ?? null,
+    avatar_url: null,
+    email_verified: 0,
+    email_verified_at: null,
+    password_hash: null,
+    active_household_id: null,
     locale: row.locale ?? null,
     created_at: row.created_at ?? null,
     updated_at: row.updated_at ?? null,
@@ -132,7 +173,12 @@ export async function migrateUsers(ctx: MigrationContext): Promise<void> {
     return group;
   };
   for (const row of recipeRows) groupOf(normalizeEmail(row.email)).recipe.push(row);
-  for (const row of financeRows) groupOf(normalizeEmail(row.email_normalized ?? row.email)).finance = row;
+  // Placeholders never join the e-mail union (they have no address): decided after every account.
+  const placeholderRows = financeRows.filter(isLegacyPlaceholder);
+  for (const row of financeRows) {
+    if (isLegacyPlaceholder(row)) continue;
+    groupOf(normalizeEmail(row.email_normalized ?? row.email)).finance = row;
+  }
 
   const counts: Record<LegacySource, TableCount> = { recipe: newCount("recipe"), finance: newCount("finance") };
   counts.recipe.read = recipeRows.length;
@@ -260,6 +306,38 @@ export async function migrateUsers(ctx: MigrationContext): Promise<void> {
     collisions.push({ group, entry, knownTarget: null });
   }
 
+  // Placeholders (plan m3b decision 13): their own row each, after every account, never matched
+  // by e-mail; the id is the F id unless claimed (in this run or by a target row).
+  for (const row of placeholderRows) {
+    const legacyId = str(row.id);
+    const known = ledger.finance.get(legacyId);
+    if (known !== undefined) {
+      claimed.add(known);
+      ctx.ids.users.finance.set(legacyId, known);
+      counts.finance.alreadyMigrated += 1;
+      continue;
+    }
+    if (placeholderHasEmail(row)) {
+      const reason = `finance user ${legacyId} has no password but an e-mail: not a placeholder (ADR 0006)`;
+      counts.finance.skipped += 1;
+      report.skipped.push({ table: "users", source: "finance", legacyId, reason, error: true });
+      report.errors.push(reason);
+      continue;
+    }
+    let id = legacyId;
+    if (await idTaken(legacyId)) {
+      id = crypto.randomUUID();
+      report.warnings.push(`placeholder ${legacyId} (finance id): the id is already taken in the target, new id ${id}`);
+    }
+    claimed.add(id);
+    entries.push({
+      values: placeholderUserRow(row, id),
+      ledger: [{ source: "finance", legacyId }],
+      newId: id,
+      label: `placeholder ${legacyId}`,
+    });
+  }
+
   // One write call for every recipe-origin entry followed by every finance-only entry, so the
   // chunking is the plain 500-row one (gina and cleo may share a batch: the claimed set, not a
   // caught PRIMARY KEY error, keeps their ids apart).
@@ -308,7 +386,13 @@ export async function migrateUsers(ctx: MigrationContext): Promise<void> {
     });
   }
   const targetIds = new Set([...ctx.ids.users.recipe.values(), ...ctx.ids.users.finance.values()]);
-  report.users = { recipe: recipeRows.length, finance: financeRows.length, target: targetIds.size, collisions: collisionRows };
+  report.users = {
+    recipe: recipeRows.length,
+    finance: financeRows.length,
+    placeholders: placeholderRows.length,
+    target: targetIds.size,
+    collisions: collisionRows,
+  };
   for (const source of ["recipe", "finance"] as const) {
     if (ctx[source]) report.counts = report.counts.filter((c) => !(c.table === "users" && c.source === source));
     if (ctx[source]) report.counts.push(counts[source]);
