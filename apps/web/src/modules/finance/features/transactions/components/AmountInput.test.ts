@@ -43,3 +43,20 @@ describe("AmountInput currency glyph", () => {
     expect(glyph).toContain("inset-y-0");
   });
 });
+
+describe("AmountInput buffer and focus (M3b-T03, toon-finance gotchas 58 and 59)", () => {
+  test("the input carries data-autofocus when autoFocus is set, so the Dialog finds it before the close button", () => {
+    expect(source).toContain('data-autofocus={autoFocus ? "" : undefined}');
+  });
+
+  test("the text buffer follows a change from outside, compared against the last value it emitted itself", () => {
+    expect(source).toContain("const [emitted, setEmitted] = useState<number | null>(valueCents);");
+    expect(source).toMatch(/if \(valueCents !== emitted\) \{\s*setEmitted\(valueCents\);\s*setText\(/);
+  });
+
+  test("typing records what it emitted, so a parse of '12,' is not rewritten to '12,00'", () => {
+    const commit = source.match(/function commit\([\s\S]*?\n  \}\n/)?.[0] ?? "";
+    expect(commit).toContain("setEmitted(cents);");
+    expect(commit.indexOf("setEmitted(cents);")).toBeLessThan(commit.indexOf("onChange(cents);"));
+  });
+});

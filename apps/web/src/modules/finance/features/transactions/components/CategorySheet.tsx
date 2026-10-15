@@ -1,7 +1,7 @@
 /**
  * The category picker (docs/spec.md §4.5): a bottom sheet with a search
- * field and a two-column grid of large targets, opened from the "Mehr
- * Details" section of the transaction form. Leaving nothing selected is a
+ * field and a two-column grid of large targets, opened from the dashed
+ * "Alle N" chip of the transaction form (the shortlist chips cover the common case). Leaving nothing selected is a
  * valid, deliberate choice — the form never defaults to "Sonstiges" so the
  * overview honestly shows what still needs a category (docs/spec.md §4.5).
  */

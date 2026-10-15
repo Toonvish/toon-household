@@ -1,24 +1,30 @@
 /**
- * The fields shared by `/new` and `/transactions/$id/edit` (docs/spec.md
- * §4.5): amount, kind, description, and a collapsed-by-default "Mehr
- * Details" section (category, tags, date). The two screens differ only in
- * what wraps this — the submit label, the sticky bar, and whether the form
- * clears or navigates back afterwards — never in the fields themselves, so
+ * The fields shared by `/finance/new`, the finance quick-add sheet and `/finance/transactions/$id/edit`
+ * (docs/spec.md §4.5, toon-finance 1715207): amount, kind, description, date and category, ALL of
+ * them visible at once.
+ *
+ * There is no "Mehr Details" section any more, and it must not come back. Collapsing category and
+ * date behind a disclosure made the two fields that decide whether a booking is findable later the
+ * two fields nobody filled in; a chip row costs one line of height and gets tapped. Anything that
+ * genuinely does not fit, the full category list, stays behind a dashed chip that opens
+ * `CategorySheet`, which is a shortcut, not a hiding place.
+ *
+ * The screens differ only in what wraps this (the submit label, the sheet footer versus the sticky
+ * bar, whether the form clears or navigates back afterwards), never in the fields themselves, so
  * that behaviour never has to fork through a boolean prop here.
  */
-import { useId, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { useId, useMemo, useState } from "react";
 import { projectKind, type CategoryResponse, type TransactionResponse, type TxKindValue } from "@toon/shared";
-import { cn } from "@/lib/cn";
 import { useT } from "@/lib/i18n";
 import type { FieldErrors } from "@/lib/validation";
 import { AmountInput } from "./AmountInput";
 import { CategorySheet } from "./CategorySheet";
 import { KindPicker } from "./KindPicker";
 import { TagInput } from "./TagInput";
+import { Chip } from "@/components/ui/Chip";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
 import { DEFAULT_TX_KIND } from "../lib/kinds";
+import { useCategoriesForPicker } from "../lib/queries";
 
 /** Everything the form needs, independent of create-vs-edit. */
 export interface TransactionFormState {
@@ -62,7 +68,7 @@ export function createEmptyFormState(defaultKind: TxKindValue = DEFAULT_TX_KIND)
   };
 }
 
-/** `true` while the user has typed something a reload would throw away — feeds `useUnsavedWork` on `/new`. */
+/** `true` while the user has typed something a reload would throw away — feeds `useUnsavedWork` in both capture frames. */
 export function isFormDirty(state: TransactionFormState): boolean {
   return state.amountCents !== null || state.description.trim().length > 0;
 }
@@ -125,13 +131,40 @@ export interface TransactionFormFieldsProps {
   errors: FieldErrors;
 }
 
+/**
+ * How many categories get a chip before the rest move behind "Alle N". Six fills two rows on a
+ * 390px phone without pushing the description field off the sheet, and the API already returns the
+ * household's categories in its own stable order: the shortlist is the head of that list, not a
+ * popularity guess this component is in no position to make.
+ */
+const CATEGORY_CHIP_COUNT = 6;
+
+/**
+ * Group caption, the same weight as `Label` and `FieldShell` give the other groups of this form
+ * (Betrag, Beschreibung), so Art, Datum and Kategorie read as one family.
+ */
+const GROUP_CAPTION = "text-control font-medium text-fg";
+
 export function TransactionFormFields({ householdId, otherName, value, onChange, errors }: TransactionFormFieldsProps) {
   const t = useT();
   const descriptionId = useId();
-  const [detailsOpen, setDetailsOpen] = useState(
-    () => value.category !== null || value.tags.length > 0 || value.dateMode !== "today",
-  );
   const [categorySheetOpen, setCategorySheetOpen] = useState(false);
+  const categories = useCategoriesForPicker(householdId);
+
+  // The shortlist always CONTAINS the current selection, even when it lives far down the list: a
+  // chip row that silently drops the chosen category reads as "nothing selected" and invites a
+  // second, wrong tap.
+  const chipCategories = useMemo(() => {
+    const items = categories.data?.items ?? [];
+    const head = items.slice(0, CATEGORY_CHIP_COUNT);
+    const selected = value.category;
+    if (selected && !head.some((item) => item.id === selected.id)) {
+      return [selected, ...head.slice(0, CATEGORY_CHIP_COUNT - 1)];
+    }
+    return head;
+  }, [categories.data, value.category]);
+
+  const totalCategories = categories.data?.items.length ?? 0;
 
   return (
     <div className="flex flex-col gap-5">
@@ -159,55 +192,77 @@ export function TransactionFormFields({ householdId, otherName, value, onChange,
         required
       />
 
-      <div className="flex flex-col gap-3 border-t border-line pt-4">
-        <button
-          type="button"
-          onClick={() => setDetailsOpen((open) => !open)}
-          aria-expanded={detailsOpen}
-          className="flex min-h-11 items-center justify-between text-left text-sm font-semibold text-fg"
-        >
-          {t("finance.transactions.form.moreDetails")}
-          <ChevronDown aria-hidden="true" className={cn("size-5 transition-transform duration-150", detailsOpen && "rotate-180")} />
-        </button>
-
-        {detailsOpen ? (
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium text-fg">{t("finance.transactions.form.category")}</span>
-              <button
-                type="button"
-                onClick={() => setCategorySheetOpen(true)}
-                className="flex min-h-11 items-center justify-between rounded-xl border border-line bg-surface px-3.5 py-2.5 text-left text-fg shadow-soft transition-colors duration-150 hover:border-line-strong"
-              >
-                <span className="truncate">{value.category?.label ?? t("finance.transactions.form.categoryNone")}</span>
-                <ChevronDown aria-hidden="true" className="size-4 shrink-0 -rotate-90 text-fg-subtle" />
-              </button>
-            </div>
-
-            <TagInput householdId={householdId} value={value.tags} onChange={(tags) => onChange({ tags })} />
-
-            <Select
-              label={t("finance.transactions.form.date")}
-              value={value.dateMode}
-              onChange={(event) => onChange({ dateMode: event.currentTarget.value as TransactionFormState["dateMode"] })}
-              options={[
-                { value: "today", label: t("finance.common.today") },
-                { value: "yesterday", label: t("finance.common.yesterday") },
-                { value: "custom", label: t("finance.common.pickDate") },
-              ]}
-            />
-            {value.dateMode === "custom" ? (
-              <input
-                type="date"
-                value={value.customDate}
-                max={todayDateInputValue()}
-                onChange={(event) => onChange({ customDate: event.currentTarget.value })}
-                className="w-full min-w-0 rounded-xl border border-line bg-surface px-3.5 py-2.5 text-fg shadow-soft focus:border-brand focus:outline-2 focus:outline-offset-0 focus:outline-brand/40"
-              />
-            ) : null}
-          </div>
+      <div role="group" aria-label={t("finance.transactions.form.date")} className="flex flex-col gap-2">
+        <span aria-hidden="true" className={GROUP_CAPTION}>
+          {t("finance.transactions.form.date")}
+        </span>
+        <div className="flex flex-wrap gap-2">
+          <Chip
+            label={t("finance.common.today")}
+            selected={value.dateMode === "today"}
+            onSelect={() => onChange({ dateMode: "today" })}
+            className="pl-3.5"
+          />
+          <Chip
+            label={t("finance.common.yesterday")}
+            selected={value.dateMode === "yesterday"}
+            onSelect={() => onChange({ dateMode: "yesterday" })}
+            className="pl-3.5"
+          />
+          <Chip
+            label={t("finance.common.pickDate")}
+            selected={value.dateMode === "custom"}
+            onSelect={() => onChange({ dateMode: "custom" })}
+            className="pl-3.5"
+          />
+        </div>
+        {value.dateMode === "custom" ? (
+          <input
+            type="date"
+            aria-label={t("finance.transactions.form.date")}
+            value={value.customDate}
+            max={todayDateInputValue()}
+            onChange={(event) => onChange({ customDate: event.currentTarget.value })}
+            className="w-full min-w-0 rounded-xl border border-line bg-surface px-3.5 py-2.5 text-fg shadow-soft focus:border-brand focus:outline-2 focus:outline-offset-0 focus:outline-brand/40"
+          />
         ) : null}
       </div>
+
+      <div role="group" aria-label={t("finance.transactions.form.category")} className="flex flex-col gap-2">
+        <span aria-hidden="true" className={GROUP_CAPTION}>
+          {t("finance.transactions.form.category")}
+        </span>
+        <div className="flex flex-wrap gap-2">
+          <Chip
+            label={t("finance.transactions.form.categoryNone")}
+            selected={value.category === null}
+            onSelect={() => onChange({ category: null })}
+            className="pl-3.5"
+          />
+          {chipCategories.map((category) => (
+            <Chip
+              key={category.id}
+              label={category.label}
+              selected={value.category?.id === category.id}
+              onSelect={() => onChange({ category })}
+              className="pl-3.5"
+            />
+          ))}
+          {totalCategories > chipCategories.length ? (
+            // A plain button, not a `Chip`: it opens the full list and never holds a value, so the
+            // chip's `aria-pressed` would announce a state it does not have.
+            <button
+              type="button"
+              onClick={() => setCategorySheetOpen(true)}
+              className="inline-flex min-h-9 shrink-0 items-center rounded-full border border-dashed border-line-strong px-3.5 text-control font-semibold text-brand transition-colors duration-150 hover:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              {t("finance.transactions.form.categoryAll", { count: totalCategories })}
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      <TagInput householdId={householdId} value={value.tags} onChange={(tags) => onChange({ tags })} />
 
       <CategorySheet
         open={categorySheetOpen}

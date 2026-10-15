@@ -1,5 +1,5 @@
 /**
- * The amount field at the top of `/new` and the edit screen (docs/spec.md
+ * The amount field at the top of the capture form (`/finance/new`, the quick-add sheet) and the edit screen (docs/spec.md
  * §4.5) — right-aligned, huge, `tabular-nums`, always positive on screen. A
  * separate "Erstattung / Gutschrift" toggle flips the sign, so the user never
  * types a `-`: that keeps the numeric keypad purely numeric and matches how
@@ -45,21 +45,33 @@ export function AmountInput({ valueCents, onChange, error, id: idProp, autoFocus
   // toggle is the only thing that ever introduces a minus sign, so retyping
   // never has to fight a sign the user did not enter.
   const [text, setText] = useState(() => (valueCents !== null ? absoluteToEditText(valueCents) : ""));
+
+  /*
+   * The last value THIS field handed upwards (toon-finance gotcha 59 at 1715207). When `valueCents`
+   * differs from it, the change came from somewhere else, the quick-add sheet clearing itself after a
+   * booking or the edit screen prefilling, and the buffer has to follow, or the field shows an amount
+   * the form no longer holds. The gap is not cosmetic: after a booking the sheet stays open, so
+   * "12,50" sat on screen next to a `null` state and "Buchen" answered "Bitte gib einen Betrag ein"
+   * about a number the user could see.
+   *
+   * Comparing against the last EMITTED value (rather than syncing on every `valueCents` change) is
+   * what keeps typing intact: "12," parses to 1200 and a naive sync would rewrite the buffer to
+   * "12,00" under the cursor.
+   */
+  const [emitted, setEmitted] = useState<number | null>(valueCents);
+  if (valueCents !== emitted) {
+    setEmitted(valueCents);
+    setText(valueCents !== null ? absoluteToEditText(valueCents) : "");
+  }
+
   const isCredit = valueCents !== null && valueCents < 0;
 
   function commit(nextText: string, nextIsCredit: boolean) {
     setText(nextText);
-    if (nextText.trim() === "") {
-      onChange(null);
-      return;
-    }
-    const parsed = parseGermanAmount(nextText);
-    if (parsed === null) {
-      onChange(null);
-      return;
-    }
-    const absolute = Math.abs(parsed);
-    onChange(nextIsCredit ? -absolute : absolute);
+    const parsed = nextText.trim() === "" ? null : parseGermanAmount(nextText);
+    const cents = parsed === null ? null : nextIsCredit ? -Math.abs(parsed) : Math.abs(parsed);
+    setEmitted(cents);
+    onChange(cents);
   }
 
   return (
@@ -73,6 +85,7 @@ export function AmountInput({ valueCents, onChange, error, id: idProp, autoFocus
           inputMode="decimal"
           autoComplete="off"
           autoFocus={autoFocus}
+          data-autofocus={autoFocus ? "" : undefined}
           placeholder={t("finance.transactions.form.amountPlaceholder")}
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy}
