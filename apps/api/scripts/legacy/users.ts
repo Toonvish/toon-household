@@ -19,6 +19,10 @@
  *   first) is matched ONLY when its `email_verified_at` is set; an unconfirmed account is never
  *   matched ("the boolean alone is NOT evidence"): the legacy user is skipped with
  *   `error: true`, exit 1, and the operator confirms or deletes that account and runs again.
+ * - The same holds for a RESUMED run: a recipe user not yet in the ledger whose group's account was
+ *   created by an earlier finance-only apply is refused while that account is unconfirmed (the
+ *   `--finance-db`-alone then both-inputs sequence); the recipe row would otherwise lose to F's
+ *   hash and the recipe user's OAuth rows would hang off an unconfirmed account (D4).
  *
  * No module-scope code beyond imports and constants (decision 5); the library takes the target
  * from the context and never uses the shared `db`.
@@ -161,6 +165,29 @@ export async function migrateUsers(ctx: MigrationContext): Promise<void> {
       for (const ref of mapped) {
         ctx.ids.users[ref.source].set(ref.id, ledger[ref.source].get(ref.id) ?? known);
         counts[ref.source].alreadyMigrated += 1;
+      }
+      // A recipe user that is NOT in the ledger yet while the group's account was created from
+      // finance alone (a finance-only apply came first): the target is a finance-only account,
+      // read-only until confirmed. The recipe row always wins and the boolean is no evidence, so the
+      // same rule as for a fresh run applies: only a target with `email_verified_at` is matched.
+      const recipeArrives = unmapped.some((ref) => ref.source === "recipe");
+      const recipeMapped = mapped.some((ref) => ref.source === "recipe");
+      if (recipeArrives && !recipeMapped) {
+        const targetRow = await target.client.execute({
+          sql: "SELECT email_verified_at FROM users WHERE id = ? LIMIT 1",
+          args: [known],
+        });
+        const verifiedAt = targetRow.rows[0]?.email_verified_at;
+        if (targetRow.rows[0] && (verifiedAt === null || verifiedAt === undefined)) {
+          const reason = `unverified target account ${group.email} blocks the merge`;
+          for (const ref of unmapped) {
+            counts[ref.source].skipped += 1;
+            report.skipped.push({ table: "users", source: ref.source, legacyId: ref.id, reason, error: true });
+          }
+          report.errors.push(reason);
+          continue;
+        }
+        report.warnings.push(`user ${group.email}: matched an existing account in the target (${known})`);
       }
       if (unmapped.length > 0) {
         entry = {

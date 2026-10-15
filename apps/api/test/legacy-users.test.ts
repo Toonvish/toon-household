@@ -286,3 +286,95 @@ describe("migrateUsers against a target that already has accounts", () => {
     expect(oauth.rows[0]?.user_id).toBe(String(ben?.id));
   });
 });
+
+/** The context of a run that was given `--finance-db` alone (or `--recipe-db` alone). */
+function onlyOne(r: LegacyRun, keep: "recipe" | "finance"): LegacyRun["ctx"] {
+  const ctx = {
+    ...r.ctx,
+    ids: { users: { recipe: new Map<string, string>(), finance: new Map<string, string>() }, households: r.ctx.ids.households },
+    report: createReport(r.ctx.mode, r.target.url),
+  };
+  if (keep === "finance") delete ctx.recipe;
+  else delete ctx.finance;
+  return ctx;
+}
+
+function both(r: LegacyRun): LegacyRun["ctx"] {
+  return {
+    ...r.ctx,
+    ids: { users: { recipe: new Map(), finance: new Map() }, households: r.ctx.ids.households },
+    report: createReport(r.ctx.mode, r.target.url),
+  };
+}
+
+describe("migrateUsers on a resumed run that adds the other source", () => {
+  test("finance alone, then both: recipe users are NOT attached to the unconfirmed finance accounts", async () => {
+    const r = await run();
+    const first = onlyOne(r, "finance");
+    await migrateUsers(first);
+    expect(first.report.errors).toEqual([]);
+    const annaBefore = await userByEmail(r, "anna@example.test");
+    expect(annaBefore?.id).toBe(FINANCE_USERS.anna.id);
+    expect(annaBefore?.email_verified_at).toBeNull();
+    const usersBefore = await countRows(r.target.client, "users");
+
+    const second = both(r);
+    await migrateUsers(second);
+
+    // anna, ben, dana are in both apps: each is refused with the same reason as a fresh run
+    for (const email of ["anna@example.test", "ben@example.test", "dana@example.test"]) {
+      expect(second.report.errors).toContain(`unverified target account ${email} blocks the merge`);
+    }
+    expect(exitCodeFor(second.report)).toBe(1);
+    const skipped = second.report.skipped.filter((s) => s.table === "users");
+    expect(skipped.every((s) => s.source === "recipe" && s.error === true)).toBe(true);
+    expect(skipped.map((s) => s.legacyId)).toContain(RECIPE_USERS.anna.id);
+    expect(skipped.map((s) => s.legacyId)).toContain(RECIPE_USERS.ben.id);
+    // no recipe ledger entry and no map entry for them; the finance side stays mapped
+    expect(second.ids.users.recipe.has(RECIPE_USERS.anna.id)).toBe(false);
+    expect(second.ids.users.recipe.has(RECIPE_USERS.ben.id)).toBe(false);
+    expect(second.ids.users.finance.get(FINANCE_USERS.anna.id)).toBe(FINANCE_USERS.anna.id);
+    // anna's row is untouched: still the finance account, still unconfirmed
+    const annaAfter = await userByEmail(r, "anna@example.test");
+    expect(annaAfter).toEqual(annaBefore);
+    expect(Number(annaAfter?.email_verified)).toBe(0);
+    expect(annaAfter?.email_verified_at).toBeNull();
+    // ben's Google account is NOT hung off the finance account (its user is unmapped: skipped)
+    expect(await countRows(r.target.client, "oauth_accounts")).toBe(
+      (EXPECTED.legacyRows.recipe.oauth_accounts as number) - 1,
+    );
+    expect(second.report.skipped.some((s) => s.table === "oauth_accounts" && s.error === true)).toBe(true);
+    const ledger = await r.target.client.execute(
+      `SELECT count(*) AS n FROM legacy_ids WHERE "table" = 'users' AND legacy_id IN ('${RECIPE_USERS.anna.id}', '${RECIPE_USERS.ben.id}') AND legacy_source = 'recipe' AND new_id IN ('${FINANCE_USERS.anna.id}', '${FINANCE_USERS.ben.id}')`,
+    );
+    expect(Number(ledger.rows[0]?.n)).toBe(0);
+    // the recipe users with no finance counterpart are still written; nothing else changed
+    expect(await countRows(r.target.client, "users")).toBeGreaterThanOrEqual(usersBefore);
+  });
+
+  test("finance alone, the operator confirms the account, then both: matched with a warning", async () => {
+    const r = await run();
+    await migrateUsers(onlyOne(r, "finance"));
+    await r.target.client.execute(
+      "UPDATE users SET email_verified = 1, email_verified_at = 1790000000000 WHERE email = 'anna@example.test'",
+    );
+    const second = both(r);
+    await migrateUsers(second);
+    expect(second.report.errors).not.toContain("unverified target account anna@example.test blocks the merge");
+    expect(second.ids.users.recipe.get(RECIPE_USERS.anna.id)).toBe(FINANCE_USERS.anna.id);
+    expect(second.report.warnings.some((w) => w.includes("anna@example.test") && w.includes("matched an existing account"))).toBe(true);
+  });
+
+  test("recipe alone, then both: the finance users map onto the recipe accounts (the safe order)", async () => {
+    const r = await run();
+    await migrateUsers(onlyOne(r, "recipe"));
+    const annaBefore = await userByEmail(r, "anna@example.test");
+    const second = both(r);
+    await migrateUsers(second);
+    expect(second.report.errors).toEqual([]);
+    expect(second.ids.users.finance.get(FINANCE_USERS.anna.id)).toBe(RECIPE_USERS.anna.id);
+    expect(second.ids.users.finance.get(FINANCE_USERS.ben.id)).toBe(RECIPE_USERS.ben.id);
+    expect(await userByEmail(r, "anna@example.test")).toEqual(annaBefore);
+    expect(Number(annaBefore?.email_verified)).toBe(1);
+  });
+});
