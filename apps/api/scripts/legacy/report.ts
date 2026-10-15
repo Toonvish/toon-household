@@ -19,6 +19,7 @@ export const REPORT_HEADINGS = [
   "== Not migrated by design ==",
   "== Uploads ==",
   "== Finance balance per household ==",
+  "== Placeholders and claim invites ==",
   "== Warnings ==",
   "== Errors ==",
 ] as const;
@@ -37,6 +38,7 @@ export function createReport(mode: Mode, target: string): Report {
     skipped: [],
     notMigrated: [],
     balances: [],
+    placeholders: [],
     warnings: [],
     errors: [],
   };
@@ -233,6 +235,32 @@ function renderBalances(report: Report): string[] {
   );
 }
 
+/**
+ * The placeholders and their claim invites (plan m3b decision 14). The claim links follow the
+ * table and exist only in an apply pass (`inviteUrl`); a dry run never prints one.
+ */
+function renderPlaceholders(report: Report): string[] {
+  if (report.placeholders.length === 0) return [NONE];
+  const table = renderTable(
+    ["Finance user", "Target user", "Finance household", "Target household", "Slot", "Claim invite"],
+    report.placeholders.map((p) => [
+      p.financeUserId,
+      p.targetUserId,
+      p.financeHouseholdId ?? "-",
+      p.targetHouseholdId ?? "-",
+      p.slot === null ? "-" : String(p.slot),
+      p.claimInvite,
+    ]),
+  );
+  const links = report.placeholders.filter((p) => p.inviteUrl !== undefined);
+  if (links.length === 0) return table;
+  return [
+    ...table,
+    "Claim links (each one is a credential: hand it over privately, never commit or paste this output):",
+    ...links.map((p) => `  ${p.targetUserId}  ${p.inviteUrl}`),
+  ];
+}
+
 function renderLines(items: readonly string[]): string[] {
   return items.length === 0 ? [NONE] : items.map((item) => `- ${item}`);
 }
@@ -260,9 +288,12 @@ export function finalLine(report: Report): string {
   return `${PREFIX} applied: ${rows} rows written, ${files} files copied.`;
 }
 
-/** The whole report as text: the ten sections of decision 15 in order, then the final line. */
+/**
+ * The whole report as text: the sections of decision 15 (plus plan m3b decision 14's placeholder
+ * section) in order, then the final line.
+ */
 export function renderReport(report: Report): string {
-  const [inputs, proposal, users, counts, skipped, notMigrated, uploads, balances, warnings, errors] =
+  const [inputs, proposal, users, counts, skipped, notMigrated, uploads, balances, placeholders, warnings, errors] =
     REPORT_HEADINGS;
   const sections: [string, string[]][] = [
     [inputs, renderInputs(report)],
@@ -273,6 +304,7 @@ export function renderReport(report: Report): string {
     [notMigrated, renderNotMigrated(report)],
     [uploads, renderUploads(report)],
     [balances, renderBalances(report)],
+    [placeholders, renderPlaceholders(report)],
     [warnings, renderLines(report.warnings)],
     [errors, renderLines(report.errors)],
   ];

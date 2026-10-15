@@ -37,6 +37,8 @@ describe("import order does not matter", () => {
     "./scripts/legacy/households.ts",
     "./scripts/legacy/finance.ts",
     "./scripts/legacy/balance.ts",
+    // M3b-T09: the claim invites reach the core's invites service (and through it the module registry)
+    "./scripts/legacy/claims.ts",
   ]) {
     test(`${entry} loads first in a fresh process`, async () => {
       const { code, stderr } = await importInFreshProcess(entry);

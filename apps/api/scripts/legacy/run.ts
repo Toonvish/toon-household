@@ -1,7 +1,8 @@
 /**
  * `runLegacyMigration` (plan m5 M5-T08, decisions 5 to 7): one pass of the whole migration over an
  * already-open target. The order is fixed: users, households, the recipe rows, the uploads, the
- * finance rows, then the balance invariant. The CLI calls it once against its scratch copy of the
+ * finance rows, the placeholders' claim invites (plan m3b decision 13: the seats exist by then),
+ * then the balance invariant. The CLI calls it once against its scratch copy of the
  * target (the dry pass) and, with `--apply`, once more against the real target.
  *
  * Every function of the library takes the target as a parameter and never touches the shared
@@ -9,6 +10,7 @@
  * dynamically, after its `DATABASE_URL` redirect).
  */
 import { verifyBalances } from "./balance.ts";
+import { migrateClaimInvites } from "./claims.ts";
 import { migrateFinance } from "./finance.ts";
 import { migrateHouseholds } from "./households.ts";
 import { type KnownIds, validateMappingOverride } from "./mapping.ts";
@@ -37,6 +39,11 @@ export interface RunOptions {
   mapping?: MappingOverride;
   /** Rows per batch; tests lower it (default {@link CHUNK_SIZE}). */
   chunkSize?: number;
+  /**
+   * The web origin of claim links (plan m3b decision 14). The CLI passes it to the real pass of
+   * `--apply` only; a link appears in the report only in an `apply` pass that has it.
+   */
+  webOrigin?: string;
 }
 
 /** Row counts of every user table of a snapshot (the `== Inputs ==` section). */
@@ -82,6 +89,7 @@ export async function runLegacyMigration(options: RunOptions): Promise<Report> {
     ...(recipe ? { recipe } : {}),
     ...(finance ? { finance } : {}),
     ...(mapping ? { mapping } : {}),
+    ...(options.webOrigin !== undefined ? { webOrigin: options.webOrigin } : {}),
   };
 
   for (const legacy of [recipe, finance]) {
@@ -104,7 +112,10 @@ export async function runLegacyMigration(options: RunOptions): Promise<Report> {
     // without a source directory it only adds the "uploads step is skipped" warning
     await migrateUploads(ctx);
   }
-  if (finance) await migrateFinance(ctx);
+  if (finance) {
+    await migrateFinance(ctx);
+    await migrateClaimInvites(ctx);
+  }
   await verifyBalances(ctx);
   return report;
 }

@@ -43,7 +43,9 @@ Options:
 
 At least one of --recipe-db and --finance-db is required. Relative paths resolve against the
 repository root. The target is DATABASE_URL (a local file: URL, from the process environment or the
-root .env); uploads go to UPLOAD_DIR (default ./data/uploads).
+root .env); uploads go to UPLOAD_DIR (default ./data/uploads). Claim links of finance placeholders
+use the first WEB_ORIGIN entry (default http://localhost:5173) and are printed by --apply only: the
+apply output and its --report file are credentials, keep them out of any repository.
 
 Exit codes: 0 success, 1 the run found errors, 2 usage, mapping or input error (nothing written).`;
 
@@ -82,16 +84,21 @@ function mergeRootDotEnv(processEnv: NodeJS.ProcessEnv, repoRoot: string): Recor
   return merged;
 }
 
+/** The env module's `WEB_ORIGIN` default (`env.ts`). */
+const DEFAULT_WEB_ORIGIN = "http://localhost:5173";
+
 /**
- * The target database URL and the upload directory, both absolute. `DATABASE_URL` is required and
- * must be a local `file:` URL (a remote target is refused: the dry run needs a file to copy);
- * `UPLOAD_DIR` defaults to `./data/uploads`. Reads the root `.env` and `.env.local` like the env
- * module does, never writes `process.env`. Throws {@link CliUsageError}.
+ * The target database URL and the upload directory, both absolute, and the web origin claim links
+ * are built on (plan m3b decision 14: the first entry of `WEB_ORIGIN`, without a trailing slash,
+ * default `http://localhost:5173` like the env module). `DATABASE_URL` is required and must be a
+ * local `file:` URL (a remote target is refused: the dry run needs a file to copy); `UPLOAD_DIR`
+ * defaults to `./data/uploads`. Reads the root `.env` and `.env.local` like the env module does,
+ * never writes `process.env`. Throws {@link CliUsageError}.
  */
 export function resolveCliEnv(
   processEnv: NodeJS.ProcessEnv,
   repoRoot: string,
-): { databaseUrl: string; uploadDir: string } {
+): { databaseUrl: string; uploadDir: string; webOrigin: string } {
   const merged = mergeRootDotEnv(processEnv, repoRoot);
   const raw = merged.DATABASE_URL;
   if (raw === undefined || raw === "") {
@@ -109,7 +116,15 @@ export function resolveCliEnv(
     throw new CliUsageError("DATABASE_URL names an in-memory database; point it at a file (e.g. file:./migration-out/toon.db)");
   }
   const absolute = isAbsolute(path) ? path : resolve(repoRoot, path);
-  return { databaseUrl: `file:${absolute}`, uploadDir: resolve(repoRoot, merged.UPLOAD_DIR || "./data/uploads") };
+  const firstOrigin = (merged.WEB_ORIGIN || DEFAULT_WEB_ORIGIN)
+    .split(",")
+    .map((origin) => origin.trim())
+    .find((origin) => origin.length > 0);
+  return {
+    databaseUrl: `file:${absolute}`,
+    uploadDir: resolve(repoRoot, merged.UPLOAD_DIR || "./data/uploads"),
+    webOrigin: (firstOrigin ?? DEFAULT_WEB_ORIGIN).replace(/\/+$/, ""),
+  };
 }
 
 interface CliOptions {
@@ -196,7 +211,7 @@ export async function main(argv: string[] = process.argv.slice(2), env: NodeJS.P
     }
 
     // b. the environment, resolved without the env module
-    const { databaseUrl, uploadDir } = resolveCliEnv(env, REPO_ROOT);
+    const { databaseUrl, uploadDir, webOrigin } = resolveCliEnv(env, REPO_ROOT);
     const targetPath = databaseUrl.slice("file:".length);
     console.log(
       options.apply
@@ -254,7 +269,9 @@ export async function main(argv: string[] = process.argv.slice(2), env: NodeJS.P
     if (!options.apply || code !== 0) {
       process.stdout.write(renderReport(dryReport));
     } else {
-      // g. --apply: the dry pass was clean, so write the real target
+      // g. --apply: the dry pass was clean, so write the real target. Only this pass gets the web
+      //    origin: claim links (credentials) appear in its report and nowhere else (plan m3b
+      //    decision 14); a later --apply re-prints a still-pending link and writes nothing.
       console.log(`[migrate:legacy] dry pass clean; writing ${targetPath}`);
       const real = createDatabase({ url: databaseUrl });
       closers.push(() => real.client.close());
@@ -263,6 +280,7 @@ export async function main(argv: string[] = process.argv.slice(2), env: NodeJS.P
       const applied: Report = await runLegacyMigration({
         ...common,
         mode: "apply",
+        webOrigin,
         target: { db: real.db, client: real.client as Client, url: databaseUrl },
         uploads: { ...(options.recipeUploads ? { sourceDir: options.recipeUploads } : {}), targetDir: uploadDir, copy: true },
       });
