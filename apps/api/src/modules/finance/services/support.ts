@@ -23,3 +23,12 @@ export async function withTransaction<T>(db: Database, work: (tx: DbLike) => Pro
   if (db === sharedDb && !transactionsSupported) return work(db);
   return db.transaction(async (tx) => work(tx));
 }
+
+/**
+ * Escapes the LIKE metacharacters in a user-typed search term so `%` and `_` match themselves
+ * (toon-finance 1715207). Use together with `ESCAPE '\\'` in the query: a bare
+ * `like ${'%' + q + '%'}` lets `q = "%"` match every row.
+ */
+export function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+}

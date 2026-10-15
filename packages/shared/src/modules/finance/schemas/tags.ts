@@ -18,7 +18,7 @@ export const FinanceUpdateTagRequestSchema = z.object({ name: TagNameSchema });
 export type FinanceUpdateTagRequest = z.infer<typeof FinanceUpdateTagRequestSchema>;
 
 export const TagQuerySchema = z.object({
-  q: z.string().optional(),
+  q: z.string().max(100).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 export type TagQuery = z.infer<typeof TagQuerySchema>;

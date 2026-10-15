@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { refineKey } from "../../../core/i18n/zod.ts";
 import { IdSchema, IsoDateSchema } from "../../../core/schemas/common.ts";
 import { MemberSlotSchema } from "./common.ts";
 
@@ -11,8 +12,17 @@ import { MemberSlotSchema } from "./common.ts";
  * refinements: a Zod `.refine()` cannot carry its own error code.
  */
 
-/** F `DisplayNameSchema`: trimmed, 1–80 characters. */
-export const FinanceDisplayNameSchema = z.string().trim().min(1).max(80);
+/**
+ * F `DisplayNameSchema` at 1715207: trimmed, 1–80 characters, no control
+ * characters (a `\n` in a name would reach a mail Subject).
+ */
+const NO_CONTROL_CHARS = /^[^\p{Cc}]*$/u;
+export const FinanceDisplayNameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(80)
+  .refine((value) => NO_CONTROL_CHARS.test(value), refineKey("server.validation.noControlChars"));
 
 /** GET …/finance/participants: one row per seat, ordered by slot. */
 export const FinanceParticipantResponseSchema = z.object({

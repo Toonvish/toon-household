@@ -7,7 +7,7 @@
  */
 import type { CreateSettlementRequest, SettlementResponse } from "@toon/shared";
 import { computeBreakdown, formatCents } from "@toon/shared";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { Database } from "../../../../db/client.ts";
 import { financeTransactions as transactions } from "../../schema.ts";
 import { ApiError } from "../../../../lib/errors.ts";
@@ -49,9 +49,15 @@ export async function createSettlement(
       const claim = await claimMutation(tx, input.mutationId, householdId, null);
       if (!claim.claimed) {
         if (!claim.transactionId) throw ApiError.internal();
-        const rows = await tx.select().from(transactions).where(eq(transactions.id, claim.transactionId)).limit(1);
+        // The claim was found by its client-minted id alone; the row it points at must belong to THIS
+        // household before it is echoed back (toon-finance 1715207, gotcha 71).
+        const rows = await tx
+          .select()
+          .from(transactions)
+          .where(and(eq(transactions.id, claim.transactionId), eq(transactions.householdId, householdId)))
+          .limit(1);
         const row = rows[0];
-        if (!row) throw ApiError.internal();
+        if (!row) throw ApiError.notFound();
         const [transactionResponse, balance] = await Promise.all([
           toTransactionResponse(tx, row, person1Id),
           getBalance(tx, householdId, viewerId, viewerSlot, true),

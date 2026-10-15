@@ -9,11 +9,11 @@
  */
 import type { FinanceTagResponse as TagResponse } from "@toon/shared";
 import { normalizeTagName } from "@toon/shared";
-import { and, asc, desc, eq, inArray, like, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { type FinanceTagRow as TagRow, financeTags as tags, financeTransactionTags as transactionTags } from "../../schema.ts";
 import { ApiError } from "../../../../lib/errors.ts";
 import { nowMs } from "../../lib/clock.ts";
-import type { DbLike } from "../support.ts";
+import { type DbLike, escapeLikePattern } from "../support.ts";
 
 export function toTagResponse(row: TagRow): TagResponse {
   return { id: row.id, name: row.name, usageCount: row.usageCount };
@@ -154,7 +154,7 @@ export async function tagRefsByTransactionIds(
  */
 export async function listTags(db: DbLike, householdId: string, q: string | undefined, limit: number): Promise<TagResponse[]> {
   const conditions = [eq(tags.householdId, householdId)];
-  if (q && q.trim().length > 0) conditions.push(like(tags.nameKey, `${normalizeTagName(q)}%`));
+  if (q && q.trim().length > 0) conditions.push(sql`${tags.nameKey} like ${`${escapeLikePattern(normalizeTagName(q))}%`} escape '\\'`);
 
   const rows = await db
     .select()

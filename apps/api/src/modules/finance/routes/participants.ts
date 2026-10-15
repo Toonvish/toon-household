@@ -6,6 +6,7 @@
  *                (null for a member without a seat; the only finance route they reach)
  *   PUT    /     owner/admin: seat two members in slots 1 and 2 (rules in the service)
  *   PATCH  /me   a participant: rename their own display name in the budget
+ *   PATCH  /:userId  a participant: rename the OTHER seat when it is a placeholder (no account)
  *
  * Auth: the module chain (modules/mount.ts) already ran the session, household-member and
  * module-enabled checks, in that order. This router adds the per-route
@@ -28,6 +29,7 @@ import { onValidationError } from "../../../core/services/households/validation.
 import { requireFinanceParticipant, requireFinanceParticipantContext } from "../middleware.ts";
 import {
   listParticipants,
+  renamePlaceholderParticipant,
   saveParticipants,
   updateParticipantDisplayName,
 } from "../services/participants/participants.service.ts";
@@ -72,6 +74,24 @@ participantRoutes.patch(
       db,
       participant.householdId,
       participant.userId,
+      c.req.valid("json").displayName,
+    );
+    return json(c, updated);
+  },
+);
+
+/** PATCH /api/households/:householdId/finance/participants/:userId — rename a placeholder seat (404 / 403 in the service). */
+participantRoutes.patch(
+  "/:userId",
+  requireVerifiedEmail(),
+  requireFinanceParticipant(),
+  zValidator("json", UpdateFinanceDisplayNameRequestSchema, onValidationError),
+  async (c) => {
+    const participant = requireFinanceParticipantContext(c);
+    const updated = await renamePlaceholderParticipant(
+      db,
+      participant.householdId,
+      c.req.param("userId"),
       c.req.valid("json").displayName,
     );
     return json(c, updated);

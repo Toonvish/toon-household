@@ -13,6 +13,7 @@
  * pins it with `setClockForTest` sees the pinned `joined_at` (decision 4 "Clock").
  */
 import type { FinanceParticipantResponse } from "@toon/shared";
+import { DEFAULT_LOCALE, serverText } from "@toon/shared";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import type { Database } from "../../../../db/client.ts";
 import { householdMembers, users } from "../../../../db/schema.ts";
@@ -162,6 +163,8 @@ export async function slot1UserId(db: DbLike, householdId: string): Promise<stri
  *   `422 finance_participants_required` (`server.finance.participantsRequired`);
  * - both are core members of the household, else the same code with
  *   `server.finance.participantNotMember`;
+ * - a placeholder (no account, ADR 0006) may hold slot 2 only: slot 1 answers
+ *   `422 validation_failed` (`server.finance.placeholderSlotOne`, detail on the slot-1 entry);
  * - a user who LEAVES the budget (seated before, absent after) while the ledger has rows
  *   → `409 finance_participant_in_use`, nothing written. In the two-person ledger EVERY
  *   `finance_transactions` row involves both slots (SPLIT_EQUAL, OTHER_ONLY and SETTLEMENT
@@ -191,12 +194,30 @@ export async function assignParticipants(
   const incomingIds = [first.userId, second.userId];
 
   const members = await db
-    .select({ userId: householdMembers.userId, name: users.name, email: users.email })
+    .select({ userId: householdMembers.userId, name: users.name, email: users.email, passwordHash: users.passwordHash })
     .from(householdMembers)
     .innerJoin(users, eq(users.id, householdMembers.userId))
     .where(and(eq(householdMembers.householdId, householdId), inArray(householdMembers.userId, incomingIds)));
   if (members.length !== 2) {
     throw new ApiError(422, "finance_participants_required", "server.finance.participantNotMember");
+  }
+
+  // A placeholder (ADR 0006, plan m3b decision 6) may only take slot 2: slot 1 anchors the balance
+  // sign and is the viewer-side default, and a person who cannot log in cannot be that anchor.
+  const slotOneIndex = assignment.findIndex((entry) => entry.memberSlot === 1);
+  const slotOneMember = members.find((candidate) => candidate.userId === assignment[slotOneIndex]?.userId);
+  if (slotOneMember && isPlaceholderUser({ email: slotOneMember.email, passwordHash: slotOneMember.passwordHash })) {
+    throw ApiError.validationFailed(
+      [
+        {
+          path: `participants.${slotOneIndex}.userId`,
+          code: "custom",
+          message: serverText(DEFAULT_LOCALE, "server.finance.placeholderSlotOne"),
+          i18n: { key: "server.finance.placeholderSlotOne" },
+        },
+      ],
+      "server.finance.placeholderSlotOne",
+    );
   }
 
   const current = await db
@@ -352,6 +373,27 @@ export async function updateParticipantDisplayName(
   displayName: string,
 ): Promise<FinanceParticipantResponse> {
   await getParticipant(db, householdId, userId);
+  await db
+    .update(financeParticipants)
+    .set({ displayName })
+    .where(and(eq(financeParticipants.householdId, householdId), eq(financeParticipants.userId, userId)));
+  return getParticipant(db, householdId, userId);
+}
+
+/**
+ * Renames the OTHER seat when it is a placeholder (toon-finance b1b517d: "yourself or the
+ * placeholder"; H plan m3b decision 6): `404` for a user without a seat in THIS household, `403
+ * forbidden` for a seat with an account (their name is theirs to change, through `…/me`). The
+ * household comes from the path only, so another household's user id is a 404.
+ */
+export async function renamePlaceholderParticipant(
+  db: DbLike,
+  householdId: string,
+  userId: string,
+  displayName: string,
+): Promise<FinanceParticipantResponse> {
+  const target = await getParticipant(db, householdId, userId);
+  if (target.hasAccount) throw ApiError.forbidden();
   await db
     .update(financeParticipants)
     .set({ displayName })

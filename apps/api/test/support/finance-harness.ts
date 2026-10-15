@@ -101,6 +101,22 @@ export async function addMember(owner: TestUser, householdId: string, member: Te
   await expectStatus(accept, 200, "addMember accept");
 }
 
+/**
+ * A placeholder member (no account, ADR 0006) through the core route `POST
+ * /api/households/:householdId/members`; returns its user id. Never edit the core: this is the
+ * route a browser calls.
+ */
+export async function addPlaceholder(owner: TestUser, householdId: string, displayName: string): Promise<string> {
+  const response = await call(`/api/households/${householdId}/members`, {
+    method: "POST",
+    cookie: owner.cookie,
+    body: { displayName },
+  });
+  await expectStatus(response, 201, "addPlaceholder");
+  const payload = await body<{ member: { userId: string } }>(response);
+  return payload.member.userId;
+}
+
 /** POST …/modules/finance with the participants body (slot1 → 1, slot2 → 2). Asserts nothing. */
 export async function enableFinance(
   owner: TestUser,
