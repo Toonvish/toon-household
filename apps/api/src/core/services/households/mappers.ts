@@ -15,6 +15,7 @@ import type {
 import type { HouseholdInviteRow, HouseholdMemberRow, HouseholdRow, UserRow } from "../../../db/schema.ts";
 import { toIso, toIsoOrNull } from "../../../lib/http.ts";
 import { signUploadUrl } from "../../../lib/uploadUrls.ts";
+import { isPlaceholderUser } from "../auth/users.ts";
 import { toHouseholdRole } from "./membership.ts";
 
 export function toHousehold(row: HouseholdRow): Household {
@@ -45,7 +46,7 @@ export function toPublicUser(row: Pick<UserRow, "id" | "name" | "email" | "avata
 
 export function toHouseholdMember(
   row: HouseholdMemberRow,
-  user: Pick<UserRow, "id" | "name" | "email" | "avatarUrl">,
+  user: Pick<UserRow, "id" | "name" | "email" | "avatarUrl" | "passwordHash">,
 ): HouseholdMember {
   return {
     id: row.id,
@@ -54,6 +55,8 @@ export function toHouseholdMember(
     role: toHouseholdRole(row.role),
     createdAt: toIso(row.createdAt),
     user: toPublicUser(user),
+    // A placeholder member (ADR 0006): no e-mail, no password; `user.email` is then null.
+    hasAccount: !isPlaceholderUser(user),
   };
 }
 
@@ -81,5 +84,6 @@ export function toHouseholdInvite(row: HouseholdInviteRow, invitedByName: string
     expiresAt: toIso(row.expiresAt),
     createdAt: toIso(row.createdAt),
     acceptedAt: toIsoOrNull(row.acceptedAt),
+    claimsUserId: row.claimsUserId,
   };
 }

@@ -16,11 +16,34 @@ import { initializeHousehold } from "../households/modules.ts";
 /** Default name of the household created for a brand-new account. */
 export const DEFAULT_HOUSEHOLD_NAME = "Meine Rezepte";
 
+/**
+ * A PLACEHOLDER is a household member without an account (ADR 0006, plan m3b decision 1):
+ * `email` AND `password_hash` are both NULL. Both, because in this app an OAuth-only account
+ * also has a NULL hash (toon-finance's predicate, the hash alone, does not fit here), and an
+ * account always has an e-mail. This is the one predicate; nothing else decides it. A
+ * placeholder has no OAuth link, no session and no confirmed address, and cannot sign in:
+ * login, password reset and OAuth all look up by e-mail or provider id.
+ */
+export function isPlaceholderUser(row: Pick<UserRow, "email" | "passwordHash">): boolean {
+  return row.email === null && row.passwordHash === null;
+}
+
+/**
+ * The e-mail of a row that must be an account: a session user, a user found by e-mail, the
+ * recipient of an auth mail. A placeholder has no login path, so a session naming one is a
+ * programming error, not a user-facing state: refused as 401 (toon-finance's
+ * `requireAccountEmail`) rather than inventing an empty address.
+ */
+export function requireAccountEmail(row: Pick<UserRow, "email">): string {
+  if (row.email === null) throw ApiError.unauthorized();
+  return row.email;
+}
+
 /** Row -> the shape every auth endpoint returns. `hasPassword` hides the hash. */
 export function toUserDto(row: UserRow, activeHouseholdId?: string | null): User {
   return {
     id: row.id,
-    email: row.email,
+    email: requireAccountEmail(row),
     name: row.name,
     avatarUrl: signUploadUrl(row.avatarUrl),
     emailVerified: row.emailVerified,

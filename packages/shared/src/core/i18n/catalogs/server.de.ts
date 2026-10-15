@@ -315,6 +315,17 @@ export const serverDe = {
   "server.finance.participantNotMember": "Diese Person ist kein Mitglied des Haushalts.",
   "server.finance.participantInUse": "Diese Person hat bereits Einträge in der Haushaltskasse und kann ihren Platz nicht abgeben.",
   "server.finance.personNotParticipant": "Diese Person nimmt an der Haushaltskasse dieses Haushalts nicht teil.",
+
+  /* ------------- M3b finance-sync: toon-finance 1715207, byte-identical ------------- */
+  "server.household.memberHasAccount": "Diese Person hat bereits ein eigenes Konto.",
+  "server.invite.claimRequiresRegister":
+    "Dieser Link legt das Konto für eine bereits eingetragene Person an. Melde dich ab und erstelle damit ein neues Konto.",
+  "server.error.originMismatch": "Diese Anfrage kam nicht aus der App und wurde abgelehnt.",
+  "server.validation.periodBounds": "Der Monat muss zwischen 2000-01 und 2100-12 liegen.",
+  "server.validation.noControlChars": "Der Name darf keine Steuerzeichen oder Zeilenumbrüche enthalten.",
+  /* M3b: placeholder rules (ADR 0006), new German (NEW_GERMAN in scripts/i18n-check.ts) */
+  "server.household.placeholderRole": "Eine Person ohne Konto kann keine andere Rolle bekommen.",
+  "server.finance.placeholderSlotOne": "Eine Person ohne Konto kann nur Platz 2 belegen.",
 } as const satisfies NamespaceCatalog<"server">;
 
 export type ServerCatalog = typeof serverDe;

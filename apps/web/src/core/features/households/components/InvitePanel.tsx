@@ -296,7 +296,10 @@ export function InvitePanel({ householdId, householdName, enabled }: InvitePanel
             {pending.map((invite) => (
               <li key={invite.id} className="flex flex-wrap items-center gap-3 py-3">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium text-fg">{invite.email}</p>
+                  {/* A claim invite may carry no address (ADR 0006): nothing is shown then. */}
+                  {invite.email !== null ? (
+                    <p className="truncate font-medium text-fg">{invite.email}</p>
+                  ) : null}
                   <p className="text-sm text-fg-muted">
                     {t("household.invite.pendingMeta", {
                       role: t(ROLE_LABEL_KEYS[invite.role]),

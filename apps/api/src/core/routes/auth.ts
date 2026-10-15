@@ -109,6 +109,7 @@ import {
   createUser,
   findUserByEmail,
   findUserById,
+  requireAccountEmail,
   setActiveHousehold,
   updateUser,
 } from "../services/auth/users.ts";
@@ -211,7 +212,9 @@ authRoutes.post("/register", async (c) => {
 async function mailVerificationLink(user: UserRow, token: string): Promise<MailDelivery> {
   const sent = await trySendMail(
     verifyEmailMail({
-      to: user.email,
+      // A session user or a fresh registration always has an e-mail; a placeholder
+      // (ADR 0006) has no login path, so this throws 401 only on a programming error.
+      to: requireAccountEmail(user),
       name: user.name,
       verifyUrl: webUrl(`/verify-email/${token}`),
       expiresInHours: EMAIL_VERIFICATION_TTL_HOURS,
@@ -367,7 +370,9 @@ authRoutes.post("/password/forgot", async (c) => {
   enforceRateLimit(c, "password-forgot-email", body.email, FORGOT_PASSWORD_EMAIL_RULE);
 
   const user = await findUserByEmail(db, body.email);
-  if (user) {
+  // A lookup by e-mail never finds a placeholder (its e-mail is NULL, ADR 0006); the
+  // explicit `email !== null` keeps the narrowing visible and the answer uniform.
+  if (user && user.email !== null) {
     // An OAuth-only account has no password to reset. Sending the link anyway
     // would be a dead end; not sending it keeps the answer uniform.
     const { token } = await createPasswordResetToken(db, user.id, { requestedIp: clientIp(c) });

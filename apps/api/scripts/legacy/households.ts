@@ -264,7 +264,8 @@ export async function migrateHouseholds(ctx: MigrationContext): Promise<void> {
           acceptedBy = mapped;
         }
         const { group_id: _group, ...rest } = row;
-        return { ...rest, household_id: householdId, invited_by: invitedBy, accepted_by: acceptedBy };
+        // R's invites are plain e-mail invites: never a claim invite (ADR 0006, migration 0003).
+        return { ...rest, household_id: householdId, invited_by: invitedBy, accepted_by: acceptedBy, claims_user_id: null };
       },
     });
 

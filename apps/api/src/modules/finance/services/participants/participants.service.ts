@@ -16,7 +16,7 @@ import type { FinanceParticipantResponse } from "@toon/shared";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import type { Database } from "../../../../db/client.ts";
 import { householdMembers, users } from "../../../../db/schema.ts";
-import { isUniqueViolation } from "../../../../core/services/auth/users.ts";
+import { isPlaceholderUser, isUniqueViolation } from "../../../../core/services/auth/users.ts";
 import { ApiError } from "../../../../lib/errors.ts";
 import { toIso } from "../../../../lib/http.ts";
 import { nowMs } from "../../lib/clock.ts";
@@ -51,14 +51,16 @@ function participantInUse(): ApiError {
 
 function toParticipantResponse(
   participant: { memberSlot: number; displayName: string; joinedAt: number },
-  user: { id: string; name: string; email: string },
+  user: { id: string; name: string; email: string | null; passwordHash: string | null },
 ): FinanceParticipantResponse {
   return {
     userId: user.id,
     displayName: participant.displayName,
     memberSlot: asSlot(participant.memberSlot),
     name: user.name,
+    // NULL for a placeholder seat (ADR 0006): there is no account behind it yet.
     email: user.email,
+    hasAccount: !isPlaceholderUser(user),
     joinedAt: toIso(participant.joinedAt),
   };
 }
@@ -225,6 +227,8 @@ export async function assignParticipants(
   const rows = assignment.map((entry) => {
     const kept = currentById.get(entry.userId);
     const member = members.find((candidate) => candidate.userId === entry.userId);
+    // `users.name` first: a placeholder (ADR 0006) has a name and a NULL e-mail, so the e-mail
+    // fallback (an account whose name is blank) can never write a NULL into `display_name`.
     const name = (member?.name ?? "").trim().slice(0, DISPLAY_NAME_MAX);
     return {
       householdId,

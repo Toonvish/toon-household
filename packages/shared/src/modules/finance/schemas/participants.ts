@@ -20,7 +20,10 @@ export const FinanceParticipantResponseSchema = z.object({
   memberSlot: MemberSlotSchema,
   displayName: z.string(),
   name: z.string(),
-  email: z.string(),
+  /** `null` for a placeholder: there is no account behind this seat (yet) (ADR 0006). */
+  email: z.string().nullable(),
+  /** `false` for a placeholder member (core `isPlaceholderUser`, ADR 0006). */
+  hasAccount: z.boolean(),
   joinedAt: IsoDateSchema,
 });
 export type FinanceParticipantResponse = z.infer<typeof FinanceParticipantResponseSchema>;

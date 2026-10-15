@@ -15,7 +15,7 @@ const ben: AssignableMember = { userId: "u-ben", name: "Ben" };
 const cleo: AssignableMember = { userId: "u-cleo", name: "Cleo" };
 
 function participant(userId: string, memberSlot: 1 | 2, displayName = userId): FinanceParticipantResponse {
-  return { userId, memberSlot, displayName, name: displayName, email: `${userId}@x.test`, joinedAt: "2026-01-01T00:00:00.000Z" };
+  return { userId, memberSlot, displayName, name: displayName, email: `${userId}@x.test`, hasAccount: true, joinedAt: "2026-01-01T00:00:00.000Z" };
 }
 
 describe("initialAssignment", () => {

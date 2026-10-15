@@ -44,7 +44,9 @@ const send = args.includes("--send");
 if (email === undefined || email.length === 0) usage();
 
 const user = await findUserByEmail(db, email);
-if (!user) {
+// `user.email === null` cannot happen (a lookup by e-mail never finds a placeholder, ADR 0006);
+// the guard narrows the type and keeps the message honest if it ever did.
+if (!user || user.email === null) {
   // An operator on a terminal is not an enumeration risk — unlike the HTTP
   // endpoint, this MUST say plainly that the address is unknown, otherwise the
   // answer to "why did the link not work?" is unfindable.

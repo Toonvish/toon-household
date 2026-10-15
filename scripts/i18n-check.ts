@@ -148,6 +148,15 @@ const NEW_GERMAN = new Set<string>([
   "server.finance.participantInUse",
   // M4-T01 new server copy — plan payer / income person must be a participant (M3 review finding B)
   "server.finance.personNotParticipant",
+  // M3b: placeholder rules (ADR 0006)
+  "server.household.placeholderRole",
+  "server.finance.placeholderSlotOne",
+  // M3b: core-neutral wording of F's placeholder copy (plan m3b decision 8)
+  "auth.register.claimHint",
+  "auth.invite.claimSubtitle",
+  "household.placeholder.removeConfirm",
+  "household.claim.hint",
+  "household.claim.linkHint",
 ]);
 
 /** Immediate subdirectories of `rel` (relative to ROOT); empty when `rel` does not exist. */

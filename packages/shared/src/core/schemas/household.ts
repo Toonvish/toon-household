@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { refineKey } from "../i18n/zod.ts";
 import { IdSchema, IsoDateSchema, MailDeliverySchema, listResponse } from "./common.ts";
-import { EmailSchema, PublicUserSchema } from "./user.ts";
+import { DisplayNameSchema, EmailSchema, PublicUserSchema } from "./user.ts";
 
 /**
  * Household DTOs: R's GroupSchema family renamed (SPEC D1).
@@ -53,6 +53,11 @@ export const HouseholdMemberSchema = z.object({
   role: HouseholdRoleSchema,
   createdAt: IsoDateSchema,
   user: PublicUserSchema,
+  /**
+   * `false` for a PLACEHOLDER member (ADR 0006): a person added by name, without e-mail or
+   * password, who cannot sign in until a claim invite is redeemed by registration.
+   */
+  hasAccount: z.boolean(),
 });
 export type HouseholdMember = z.infer<typeof HouseholdMemberSchema>;
 
@@ -62,7 +67,8 @@ export type InviteStatus = z.infer<typeof InviteStatusSchema>;
 export const HouseholdInviteSchema = z.object({
   id: IdSchema,
   householdId: IdSchema,
-  email: z.string(),
+  /** `null` for a claim invite created without an address (ADR 0006). */
+  email: z.string().nullable(),
   role: InvitableRoleSchema,
   /** Shareable token; only ever returned to admins/owners of the household. */
   token: z.string(),
@@ -72,6 +78,11 @@ export const HouseholdInviteSchema = z.object({
   expiresAt: IsoDateSchema,
   createdAt: IsoDateSchema,
   acceptedAt: IsoDateSchema.nullish(),
+  /**
+   * Set on a CLAIM invite: the placeholder member this link turns into an account (redeemed
+   * only by registration, ADR 0006). `null` for a plain invite.
+   */
+  claimsUserId: IdSchema.nullable(),
 });
 export type HouseholdInvite = z.infer<typeof HouseholdInviteSchema>;
 
@@ -97,6 +108,17 @@ export const CreateInviteRequestSchema = z.object({
   role: InvitableRoleSchema.default("member"),
 });
 export type CreateInviteRequest = z.infer<typeof CreateInviteRequestSchema>;
+
+/**
+ * `POST /api/households/:householdId/members` (admin+): adds a PLACEHOLDER member, a person
+ * without an account, by display name (ADR 0006; toon-finance's request name).
+ */
+export const CreatePlaceholderMemberRequestSchema = z.object({ displayName: DisplayNameSchema });
+export type CreatePlaceholderMemberRequest = z.infer<typeof CreatePlaceholderMemberRequestSchema>;
+
+/** `PATCH /api/households/:householdId/members/:userId/placeholder` (admin+): renames a placeholder. */
+export const UpdatePlaceholderMemberRequestSchema = z.object({ name: DisplayNameSchema });
+export type UpdatePlaceholderMemberRequest = z.infer<typeof UpdatePlaceholderMemberRequestSchema>;
 
 export const UpdateMemberRoleRequestSchema = z.object({
   role: HouseholdRoleSchema,
@@ -168,10 +190,13 @@ export type HouseholdInviteListResponse = z.infer<typeof HouseholdInviteListResp
 export const InvitePreviewResponseSchema = z.object({
   householdName: z.string(),
   invitedByName: z.string(),
-  email: z.string(),
+  /** `null` for a claim invite created without an address (ADR 0006). */
+  email: z.string().nullable(),
   role: InvitableRoleSchema,
   status: InviteStatusSchema,
   expiresAt: IsoDateSchema,
+  /** Display name of the placeholder this CLAIM invite hands over; `null` for a plain invite. */
+  claimsDisplayName: z.string().nullable(),
 });
 export type InvitePreviewResponse = z.infer<typeof InvitePreviewResponseSchema>;
 

@@ -101,7 +101,7 @@ describe("GET and the participant gate", () => {
       [2, "Bea"],
     ]);
     expect(Object.keys(asC.items[0] ?? {}).sort()).toEqual(
-      ["displayName", "email", "joinedAt", "memberSlot", "name", "userId"],
+      ["displayName", "email", "hasAccount", "joinedAt", "memberSlot", "name", "userId"],
     );
 
     expect((await list(b, householdId)).viewerSlot).toBe(2);
