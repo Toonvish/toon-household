@@ -683,7 +683,409 @@ deletion is not exposed (see "Households").
 
 ## Recipe module
 
-<!-- M7-T04 fills this section -->
+### Health features
+
+| Field | Meaning when false |
+| --- | --- |
+| `features.ocrImport` | `/imports/image` (and `/imports/file` for an image) answer `501 ocr_disabled` (`IMPORT_OCR_ENABLED` unset, or an image built without `WITH_OCR=1`). URL and text import still work. |
+| `features.pdfImport` | `/imports/pdf` (and `/imports/file` for a PDF) answer `501 ocr_disabled` (`IMPORT_PDF_ENABLED=0`, or an image built without `WITH_PDF=1`). Separate from `ocrImport` because a scanned PDF is up to ten tesseract runs where a photo is one — a one-core deployment runs photos and withholds PDFs. Itself optional inside `features`, so a client newer than its server still parses the object; absent reads as unavailable. |
+
+### Unconfirmed accounts in the recipe module
+
+Such an account gets **`403 { code: "email_unverified" }`** on:
+
+- every `POST`/`PATCH`/`PUT`/`DELETE` under `/api/households/:householdId/recipe/recipes`, `/tags`, `/collections`,
+  `/imports` (all six sources, plus draft edit/delete and commit) and `/shopping-lists`,
+
+### Recipes — `apps/api/src/modules/recipe/routes/recipes.ts`
+
+Mounted at `/api/households/:householdId/recipe` by `mountModules` (`apps/api/src/modules/mount.ts`), behind `requireSession()` → `requireHouseholdRole("member")` → `requireModule("recipe")`, so this router also owns tags and collections.
+
+| Method | Path | Auth | Request | Response | Status |
+| --- | --- | --- | --- | --- | --- |
+| GET | `/api/households/:householdId/recipe/recipes` | household:member+module:recipe | `RecipeListQuery` (query) | `RecipeListResponse` | 200, 403 |
+| POST | `/api/households/:householdId/recipe/recipes` | household:member+module:recipe+verified | `CreateRecipeRequest` | `RecipeResponse` | 201, 403, 422 |
+| GET | `/api/households/:householdId/recipe/recipes/:recipeId` | household:member+module:recipe | – | `RecipeResponse` | 200, 403, 404 |
+| PATCH | `/api/households/:householdId/recipe/recipes/:recipeId` | household:member+module:recipe+verified (author or admin) | `UpdateRecipeRequest` | `RecipeResponse` | 200, 403, 404, 422 |
+| DELETE | `/api/households/:householdId/recipe/recipes/:recipeId` | household:member+module:recipe+verified (author or admin) | – | – | 204, 403, 404 |
+| POST | `/api/households/:householdId/recipe/recipes/:recipeId/image` | household:member+module:recipe+verified | multipart `file` | `UploadResponse` | 200, 403, 413, 415 |
+| GET | `/api/households/:householdId/recipe/recipes/:recipeId/scale` | household:member+module:recipe | `ScaleRecipeQuery` (query) | `ScaledRecipeResponse` | 200, 403, 404, 422 |
+| POST | `/api/households/:householdId/recipe/recipes/:recipeId/cooked` | household:member+module:recipe+verified | `MarkCookedRequest` | `RecipeCookedResponse` | 200, 403, 404 |
+| DELETE | `/api/households/:householdId/recipe/recipes/:recipeId/cooked` | household:member+module:recipe+verified | – | – | 204, 403, 404 `server.recipes.nothingToUndo` |
+| GET | `/api/households/:householdId/recipe/tags` | household:member+module:recipe | – | `TagListResponse` | 200, 403 |
+| POST | `/api/households/:householdId/recipe/tags` | household:member+module:recipe+verified | `CreateTagRequest` | `TagResponse` | 201, 403, 409 `tag_name_taken`, 422 |
+| PATCH | `/api/households/:householdId/recipe/tags/:tagId` | household:member+module:recipe+verified | `UpdateTagRequest` | `TagResponse` | 200, 403, 404, 409 |
+| DELETE | `/api/households/:householdId/recipe/tags/:tagId` | household:admin+module:recipe+verified | – | – | 204, 403, 404 |
+| GET | `/api/households/:householdId/recipe/collections` | household:member+module:recipe | – | `CollectionListResponse` | 200, 403 |
+| POST | `/api/households/:householdId/recipe/collections` | household:member+module:recipe+verified | `CreateCollectionRequest` | `CollectionResponse` | 201, 403, 422 |
+| GET | `/api/households/:householdId/recipe/collections/:collectionId` | household:member+module:recipe | – | `CollectionDetailResponse` | 200, 403, 404 |
+| PATCH | `/api/households/:householdId/recipe/collections/:collectionId` | household:member+module:recipe+verified | `UpdateCollectionRequest` | `CollectionResponse` | 200, 403, 404, 422 |
+| DELETE | `/api/households/:householdId/recipe/collections/:collectionId` | household:member+module:recipe+verified (creator or admin) | – | – | 204, 403, 404 |
+| PUT | `/api/households/:householdId/recipe/collections/:collectionId/recipes/:recipeId` | household:member+module:recipe+verified | – | – | 204, 403, 404 |
+| DELETE | `/api/households/:householdId/recipe/collections/:collectionId/recipes/:recipeId` | household:member+module:recipe+verified | – | – | 204, 403, 404 |
+
+Notes
+- `CreateRecipeRequest.tags` are tag **names**; unknown names are created inside the household
+  (`recipe_tags(household_id,name)` is unique, so upsert case-insensitively).
+- `ingredients` / `steps` / `tags` / `collectionIds` are **replace-all** when present in a PATCH and
+  untouched when absent. Positions are re-assigned from array order.
+- `q` searches `recipe_recipes.title`, `recipe_recipes.description` and `recipe_recipe_ingredients.name` with LIKE, via
+  the pre-folded `*_fold` columns (see the search-strategy comment in `src/db/schema.ts`; FTS5 is
+  out of scope). Matching is unchanged: case- and diacritic-insensitive, German folding.
+- `tags` in `RecipeListQuery` is a comma-separated list of tag **ids**; a recipe must carry all.
+- `scale` uses `scaleIngredients` from `@toon/shared` so client and server agree.
+- **`?sort=lastCooked`** puts the most-recently-cooked recipe first and never-cooked recipes
+  **last** — `ORDER BY last_cooked_at DESC` puts SQLite `NULL`s at the end for free, so the sort
+  needs no `IS NULL` leading term and stays index-served (`recipe_recipes_household_last_cooked_idx`).
+  **`?hasCooked=1`** restricts the list to recipes cooked at least once (`last_cooked_at IS NOT
+  NULL`, a plain column predicate — never a subquery, so the envelope's `count(*)` stays
+  index-narrowed). `hasCooked` is intentionally absent from `RecipeListQuery`'s persisted URL
+  filters; it exists only for the "Kürzlich gekocht" carousel's own request.
+- **`recipe.lastCookedAt` is READ-ONLY and derived** from `recipe_recipe_cook_log`, never accepted on a
+  write. It changes only through `POST`/`DELETE /api/households/:householdId/recipe/recipes/:recipeId/cooked` below, and cooking a recipe never bumps
+  `recipe.updatedAt` — a cook is not an edit, and bumping it would reorder `?sort=newest`.
+- **`POST /api/households/:householdId/recipe/recipes/:recipeId/cooked`** ("Gekocht") appends one `recipe_recipe_cook_log` row stamped with
+  the caller's id, sets `recipe.lastCookedAt` to that instant, and — **only if the client says
+  so** — stamps a meal-plan entry's `cookedAt`: `mealPlanEntryId` when the caller already knows it
+  (must actually name this recipe, else 404 `server.plan.entryNotFound`), otherwise the entry for
+  `plannedOn` **if one exists that day**, otherwise nothing. The server never derives a date or an
+  entry itself; `MarkCookedRequest`'s body is all-optional, so a bare `POST {}` marks the recipe
+  cooked with no plan entry touched and `mealPlanEntry: null` in the response.
+- **`DELETE /api/households/:householdId/recipe/recipes/:recipeId/cooked`** undoes the **caller's own** most recent cook of that
+  recipe, but only within `COOK_UNDO_WINDOW_MS` (10 minutes) of it — outside that window, or with
+  nothing to undo, it is 404 `server.recipes.nothingToUndo`. It recomputes `lastCookedAt` from
+  `max(cookedAt)` over the remaining log rows (`null` if none remain, since another member may have
+  cooked the same recipe in between) and clears the stamped plan entry's `cookedAt` **only if the
+  undone row was the one that set it**.
+- **`course` (create/PATCH) is one tag NAME, separate from `tags`.** Sending it gets-or-creates that
+  name inside the household as `kind: 'course'` and replaces the recipe's one course link (a recipe has
+  at most one). **Absent** (the field left out of a PATCH) leaves the course link untouched;
+  **`null`** unlinks it. `course` therefore has no default and is deliberately **not** one of the
+  child arrays `keepOnlySentKeys` restores — that mechanism exists only for `ingredients` / `steps`
+  / `tags` / `collectionIds`, which carry a schema `.default([])` and would otherwise read "field
+  omitted" as "send an empty array".
+- **`tags` (create/PATCH) always creates and links `kind: 'free'` tags, and a PATCH's `tags` array
+  replaces only the recipe's FREE links** — a course link set through `course` is left alone by a
+  `tags`-only PATCH. This is why `course` is its own field instead of one more tag name: routing it
+  through `tags` would create "Dessert" as a `free` tag and lose the eyebrow.
+- **An older client that has never heard of `course`** and instead sends the category's name inside
+  `tags` still works: the name is get-or-created as `kind: 'free'` like any other tag NAME, **except**
+  when a tag by that exact name already exists as `kind: 'course'` — then the existing tag is linked
+  as-is, never flipped to `free`. `getOrCreateTagIds` changes the `kind` only of a tag it CREATES,
+  never one it finds.
+- `Tag.kind` (`'course' | 'free'`) is returned on every tag, in `GET /tags` and everywhere a recipe's
+  `tags` array appears. `CreateTagRequest.kind` defaults to `'free'` server-side.
+- Tag and course **names are CONTENT** (German recipe vocabulary), never routed through the locale
+  catalogs — see CLAUDE.md's interface-vs-content gotcha.
+
+### Imports — `apps/api/src/modules/recipe/routes/imports.ts`
+
+Mounted at `/api/households/:householdId/recipe/imports`. **Every** import produces an `ImportDraft` that the user
+edits in the review screen; nothing is written to `recipe_recipes` until `/commit`.
+
+| Method | Path | Auth | Request | Response | Status |
+| --- | --- | --- | --- | --- | --- |
+| POST | `/api/households/:householdId/recipe/imports/url` | household:member+module:recipe+verified | `ImportUrlRequest` | `ImportDraftResponse` | 201, 403, 422 `parse_failed`, 400 `fetch_failed` |
+| POST | `/api/households/:householdId/recipe/imports/image` | household:member+module:recipe+verified | multipart `file` | `ImportDraftResponse` | 201, 403, 413, 415, 422 `ocr_failed`, 501 `ocr_disabled` |
+| POST | `/api/households/:householdId/recipe/imports/pdf` | household:member+module:recipe+verified | multipart `file` | `ImportDraftResponse` | 201, 403, 413, 415, 422 `pdf_no_text_layer`, 501 `ocr_disabled` |
+| POST | `/api/households/:householdId/recipe/imports/text` | household:member+module:recipe+verified | `ImportTextRequest` | `ImportDraftResponse` | 201, 403, 422 |
+| POST | `/api/households/:householdId/recipe/imports/file` | household:member+module:recipe+verified | multipart `file` | `ImportDraftResponse` | 201, 403, 413, 415, 422, 501 `ocr_disabled` |
+| GET | `/api/households/:householdId/recipe/imports/:draftId/source` | household:member+module:recipe | – | binary | 200, 403, 404 |
+| GET | `/api/households/:householdId/recipe/imports` | household:member+module:recipe | `ImportDraftListQuery` (query) | `ImportDraftListResponse` | 200, 403 |
+| GET | `/api/households/:householdId/recipe/imports/:draftId` | household:member+module:recipe | – | `ImportDraftResponse` | 200, 403, 404 |
+| PATCH | `/api/households/:householdId/recipe/imports/:draftId` | household:member+module:recipe+verified | `UpdateImportDraftRequest` | `ImportDraftResponse` | 200, 403, 404, 422 |
+| POST | `/api/households/:householdId/recipe/imports/:draftId/commit` | household:member+module:recipe+verified | `CommitImportDraftRequest` | `CommitImportDraftResponse` | 201, 403, 404, 422 |
+| DELETE | `/api/households/:householdId/recipe/imports/:draftId` | household:member+module:recipe+verified | – | – | 204, 403, 404 |
+
+Notes
+- **PHOTO AND PDF IMPORT ARE OPT-IN, AND SEPARATELY SO.** `/imports/image` needs
+  `IMPORT_OCR_ENABLED`, `/imports/pdf` needs `IMPORT_PDF_ENABLED` (which follows the first unless
+  set), and `/imports/file` needs whichever kind was actually uploaded — decided by SNIFFED content,
+  so renaming a PDF does not get it past the gate. Otherwise **`501 { code: "ocr_disabled" }`**,
+  because OCR needs the `tesseract`/`pdftoppm` binaries and the memory a job holds, and a scanned PDF
+  costs an order of magnitude more than a photo (see README and `docs/deployment.md`). 501 rather
+  than 503: it is how the server was built, not a temporary outage, so retrying cannot help. Both
+  cases share the `ocr_disabled` code — a wire contract, and the client's handling is identical —
+  but the MESSAGE differs, since a server with photos on should say so rather than send the user to
+  a URL. The check runs BEFORE the rate limiter and before the body is read, so a rejected upload
+  costs neither a bucket slot nor 15 MB of buffering; the one exception is `/imports/file` on a
+  server offering only one kind, where the content must be sniffed first. `/imports/url`,
+  `/imports/text`, the draft endpoints and commit are unaffected, and a draft OCR produced earlier
+  stays reviewable and committable. Clients discover all this from `HealthResponse.features`
+  rather than by probing — but the 501 is the enforcement, since an installed PWA can be running a
+  bundle from before the flag was flipped.
+- `sourceType`: `url` for URL imports, `ocr` for image **and** PDF imports, `manual` for pasted text.
+  `sourceMeta.method` disambiguates: `json-ld` \| `microdata` \| `selector` \| `pdf-text` \| `ocr` \| `manual`.
+- URL pipeline: fetch → JSON-LD `@graph`/array-aware schema.org `Recipe` → microdata → site selectors
+  (chefkoch.de, WP Recipe Maker for biancazapatka.com). Durations via `parseDuration`, yield via
+  `parseServings`, ingredient lines via `parseIngredientLine`.
+- PDF pipeline: text layer first (`unpdf`), rasterize + OCR only as fallback (`pdftoppm` →
+  `sharp` → `tesseract`). If rasterization is unavailable, answer
+  `422 { code: "pdf_no_text_layer" }` with an actionable message in the request's locale
+  "Das PDF enthält keine Textebene. Bitte lade ein Foto der Seite hoch."
+  BOTH OCR STEPS ARE NATIVE SUBPROCESSES, not libraries: `tesseract` and poppler's `pdftoppm` must be
+  installed on the host (the image installs `tesseract-ocr`, `tesseract-ocr-deu`, `tesseract-ocr-eng`
+  and `poppler-utils`). A missing binary is the documented 422, not a crash. `sourceMeta.engine` is
+  therefore `tesseract-native`. Tests stub rasterization via `setPdfRasterizer()` and must reset it;
+  the regression test (`apps/api/test/import/pdf-rasterize.test.ts`) uses the real one and asserts the
+  rendered page size, so a leaked stub cannot make it pass.
+- Every import endpoint is rate limited (`IMPORT_RULE`, 10 per user per minute → 429 `rate_limited`),
+  and the OCR/PDF paths additionally hold one of `IMPORT_OCR_CONCURRENCY` (default **1**)
+  process-wide slots. A request that finds them all taken **waits** up to `OCR_SLOT_WAIT_MS` (30 s)
+  and only then answers 429 — with at most two waiters per slot queued, beyond which the 429 is
+  immediate. Since the engine went native that gate is also the cap on concurrent `tesseract`
+  processes, i.e. the memory ceiling, which is why the default is one and raising it wants a
+  measurement. `OCR_TIMEOUT_MS` (60 s) is a `Promise.race` that starts AFTER the slot is acquired
+  (so queueing never eats the recognition's budget), and an extraction that ignores the abort signal
+  still yields `504 ocr_failed` on time — OCR itself now honours it (aborting kills the child), but
+  `unpdf` does not.
+- `ParsedRecipe.sourceUrl` and `CreateRecipeRequest.sourceUrl` accept **http(s) only**
+  (`HttpUrlSchema`); anything else is 422. They are rendered into `<a href>`, and a `javascript:`
+  value stored by a member would run on the app origin with the reader's session.
+- `POST /imports/file` is a convenience wrapper (added during integration): it sniffs the
+  uploaded bytes and dispatches to the image or the PDF pipeline.
+- `GET /imports/:draftId/source` serves the stored upload behind the membership check, and is the
+  **only** way to read an import source scan — the review screen fetches it with
+  `credentials: "include"` and renders a `URL.createObjectURL()` blob. Nothing mints an
+  `/uploads/…` signature for a source scan, so the public route cannot serve one. A non-member gets
+  403; a removed member loses access immediately.
+- `confidence` mirrors `parsed.confidence.overall`; the review screen warns below 0.5.
+- The URL importer refuses localhost / private / link-local targets (SSRF guard). For local
+  testing only, `IMPORT_ALLOW_PRIVATE_HOSTS=1` disables that check; it is ignored when
+  `NODE_ENV=production`.
+- `/commit` writes the recipe, links tags/collections, sets `recipe_import_drafts.status = "reviewed"` and
+  `recipe_import_drafts.recipe_id`.
+
+### Shopping lists — `apps/api/src/modules/recipe/routes/shopping.ts`
+
+Mounted at `/api/households/:householdId/recipe/shopping-lists`, **before** the catch-all recipes router (same
+reason as `imports`). Several named lists per household ("Rewe", "Drogerie"); a list belongs to the
+household, not to a user. **`GET /api/households/:householdId/recipe/shopping-lists/bought` is registered before `GET /api/households/:householdId/recipe/shopping-lists/:listId`**
+— Hono matches in registration order, so the static path has to come first or a request for it
+would be read as a request for the list literally named `"bought"`.
+
+| Method | Path | Auth | Request | Response | Status |
+| --- | --- | --- | --- | --- | --- |
+| GET | `/api/households/:householdId/recipe/shopping-lists` | household:member+module:recipe | optional `since` (query) | `ShoppingListListResponse` | 200, 403 |
+| GET | `/api/households/:householdId/recipe/shopping-lists/bought` | household:member+module:recipe | `listId?`, `limit?`, `offset?` (query) | `ShoppingBoughtListResponse` | 200, 403 |
+| POST | `/api/households/:householdId/recipe/shopping-lists` | household:member+module:recipe+verified | `CreateShoppingListRequest` | `ShoppingListResponse` | 201, 403, 409 `recipe_shopping_list_name_taken`, 409 `too_many_recipe_shopping_lists`, 422 |
+| GET | `/api/households/:householdId/recipe/shopping-lists/:listId` | household:member+module:recipe | – | `ShoppingListDetailResponse` | 200, 403, 404 |
+| PATCH | `/api/households/:householdId/recipe/shopping-lists/:listId` | household:member+module:recipe+verified | `UpdateShoppingListRequest` | `ShoppingListResponse` | 200, 403, 404, 409, 422 |
+| DELETE | `/api/households/:householdId/recipe/shopping-lists/:listId` | household:member+module:recipe+verified (creator or admin) | – | – | 204, 403, 404 |
+| POST | `/api/households/:householdId/recipe/shopping-lists/:listId/items` | household:member+module:recipe+verified | `AddShoppingItemsRequest` | `ShoppingListDetailResponse` | 200, 403, 404, 409 `recipe_shopping_list_full`, 422 |
+| DELETE | `/api/households/:householdId/recipe/shopping-lists/:listId/items` | household:member+module:recipe+verified | – | `ShoppingListDetailResponse` | 200, 403, 404 |
+| PATCH | `/api/households/:householdId/recipe/shopping-lists/:listId/items/:itemId` | household:member+module:recipe+verified | `UpdateShoppingItemRequest` | `ShoppingListDetailResponse` | 200, 403, 404, 422 |
+| DELETE | `/api/households/:householdId/recipe/shopping-lists/:listId/items/:itemId` | household:member+module:recipe+verified | – | `ShoppingListDetailResponse` | 200, 403, 404 |
+| POST | `/api/households/:householdId/recipe/shopping-lists/:listId/items/:itemId/check` | household:member+module:recipe+verified | `CheckShoppingItemRequest` (optional) | `ShoppingListDetailResponse` | 200, 403, 404 |
+| POST | `/api/households/:householdId/recipe/shopping-lists/:listId/bought/clear` | household:member+module:recipe+verified | – | `ShoppingListDetailResponse` | 200, 403, 404 |
+| POST | `/api/households/:householdId/recipe/shopping-lists/:listId/bought/:boughtId/undo` | household:member+module:recipe+verified | `CheckShoppingItemRequest` (optional) | `ShoppingListDetailResponse` | 200, 403, 404 |
+| POST | `/api/households/:householdId/recipe/shopping-lists/:listId/recipes` | household:member+module:recipe+verified | `AddRecipeToShoppingListRequest` | `ShoppingListDetailResponse` | 200, 403, 404, 422 |
+| DELETE | `/api/households/:householdId/recipe/shopping-lists/:listId/recipes/:recipeId` | household:member+module:recipe+verified | – | `ShoppingListDetailResponse` | 200, 403, 404 |
+| GET | `/api/households/:householdId/recipe/shopping-lists/:listId/from-plan` | household:member+module:recipe | `MealPlanRangeQuery` (query: `from`, `to`, both required) | `PlanShoppingPreviewResponse` | 200, 403, 404, 422 |
+| GET | `/api/households/:householdId/recipe/shopping-lists/:listId/catalog` | household:member+module:recipe | `includeHidden?`, `limit?`, `offset?` (query) | `ShoppingCatalogListResponse` | 200, 403, 404 |
+| PATCH | `/api/households/:householdId/recipe/shopping-lists/:listId/catalog/:entryId` | household:member+module:recipe+verified | `UpdateShoppingCatalogEntryRequest` | `ShoppingListDetailResponse` | 200, 403, 404, 422 |
+| POST | `/api/households/:householdId/recipe/shopping-lists/:listId/catalog/:entryId` | household:member+module:recipe+verified | `CheckShoppingItemRequest` (optional) | `ShoppingListDetailResponse` | 200, 403, 404 |
+| DELETE | `/api/households/:householdId/recipe/shopping-lists/:listId/catalog/:entryId` | household:member+module:recipe+verified | – | – | 204, 403, 404 |
+
+Notes
+- **Every mutation returns the WHOLE list** (`ShoppingListDetailResponse`: list + open items +
+  suggestions), never just the touched item. The web client replaces its cache entry with it rather
+  than patching, which is what keeps an optimistic offline edit from drifting — and merging means one
+  added line can change a different one.
+- **Items merge.** An item is identified by `shoppingItemKey(name, unit)` from `@toon/shared`: a
+  folded name plus the unit's *merge bucket*. Adding "200 g Mehl" to a list that already has 200 g
+  yields one **400 g** line, and `1 kg + 200 g` yields `1.2 kg`. Enforced by the unique index on
+  `recipe_shopping_list_items(list_id, merge_key)`, not by a read-modify-write.
+  Units with no fixed ratio (`EL`, `Dose`) only merge with themselves, and an **amount-less line
+  never merges with a measured one** — folding "Mehl" into "200 g Mehl" would invent or lose a
+  quantity.
+- **Checking off is a DELETE, not a flag.** There is no `checked` field anywhere: the row is removed
+  and its `recipe_shopping_list_catalog` entry is bumped, so the item leaves the list and reappears under
+  "Häufig gekauft". `use_count` counts check-offs, not adds, so the ranking reflects what actually
+  gets bought. Suggestions currently on the list are filtered out of the response.
+- **`POST /api/households/:householdId/recipe/shopping-lists/:listId/recipes` scales** with the same `scaleIngredients` as `GET /recipes/:id/scale`, with
+  `keepNonScalingUnits` (a Prise stays a Prise). `servings` is the TARGET count; omit it for factor 1.
+  A recipe with no `servingsAmount` is added unscaled rather than refused. The recipe id is recorded
+  on every resulting line (`sourceRecipeIds`), and survives the recipe being deleted — the id stays,
+  it just stops resolving into `sources`.
+- **`mutationId` (optional, uuid) makes a replay safe.** The API records applied ids in
+  `recipe_shopping_mutations` and applies each at most once. This is what lets the PWA queue edits made
+  offline: without it, a request that reached the server but lost its response would be applied twice
+  on replay, and because items merge that is a silently **doubled amount**, not a visible duplicate.
+  `DELETE` of an item and `check` are idempotent by construction and safe without one.
+- Free text ("500g Mehl") is parsed **client-side** with `parseIngredientLine`
+  (`apps/web/src/modules/recipe/features/shopping/lib/parse.ts`); the API only accepts structured items.
+- **The bought log and the `Clear bought` watermark are two different things (D4).** Checking an
+  item off still DELETEs the row (see above) and still bumps `recipe_shopping_list_catalog`; it
+  additionally appends one row to `recipe_shopping_bought_items`, a log that is never itself deleted or
+  edited. `recipe_shopping_lists.boughtClearedAt` is a single per-list watermark: `POST
+  /api/households/:householdId/recipe/shopping-lists/:listId/bought/clear` only moves it to "now" (200, idempotent, no `mutationId` — "set the watermark to
+  now" cannot disagree with itself). The list DETAIL payload's `bought` array shows only rows
+  **newer than the watermark** (`bought_at > boughtClearedAt ?? 0`); `GET /api/households/:householdId/recipe/shopping-lists/bought`, the
+  cross-list archive, **ignores the watermark entirely** and returns every row in the household's
+  90-day (`BOUGHT_LOG_TTL_MS`) window, because clearing a list's "Bought today" section must never
+  make something the household actually bought disappear from the history it can still be found in.
+  `POST /api/households/:householdId/recipe/shopping-lists/bought/:boughtId/undo` reverses one row: deletes the log entry and re-adds its amount
+  through the **same merge** every other add goes through (so an undo folds into whatever is on the
+  list now instead of creating a second line), decrements the matching `recipe_shopping_list_catalog`
+  entry's `useCount` (floored at 0), and is idempotent — an unknown or already-undone `boughtId` is
+  a 200 no-op.
+- **`?since` (on `GET /api/households/:householdId/recipe/shopping-lists`) is an INSTANT, and day grouping happens client-side.** It
+  is the caller's own calendar-day boundary (their device's local midnight), sent as an ISO instant
+  because the server only ever COMPARES instants and never derives a calendar day from one — the
+  same reasoning `recipe_meal_plan_entries.planned_on` is documented against below. A value that fails to
+  parse is **ignored, not 422** (a bad query param must not blank the whole overview), and any value
+  is clamped to `[now - 7d, now]` so a wrong device clock cannot invent a nonsense count. It only
+  narrows `ShoppingList.boughtCount`; nothing about `GET /api/households/:householdId/recipe/shopping-lists/bought`'s day-by-day grouping is
+  server-side either — that response is a flat, `boughtAt`-ordered list, and the history panel
+  buckets it into days itself (the same `groupByLocalDay` from `packages/shared/src/core/calendar.ts`
+  the planner uses), because "what day was this bought on" is exactly as timezone-dependent as
+  "what day is this recipe planned for".
+- **The "Häufig gekauft" ranking is two deliberately separate steps, never one `sortBy`.** Both the
+  list detail's `catalog` array and `GET /api/households/:householdId/recipe/shopping-lists/:listId/catalog` are ordered `use_count DESC, last_used_at DESC`
+  — SELECTION by actual purchase frequency. Client-side, `packages/shared/src/modules/recipe/shopping.ts` picks the
+  chip row's top `FREQUENT_CHIP_COUNT` from that same ranking (`selectMostBoughtEntries`) and only
+  THEN re-sorts the picked set alphabetically by folded German name for DISPLAY
+  (`sortEntriesByFoldedName`) — "Äpfel" sits under A, not after Z, and a name never moves the
+  selection just because it folds differently. Collapsing the two into one comparator is the bug
+  this split exists to prevent.
+
+### Meal plan — `apps/api/src/modules/recipe/routes/plan.ts`
+
+Mounted at `/api/households/:householdId/recipe/plan`, alongside `imports` and `shopping-lists`, above the
+catch-all `recipes` router. **Any member may plan, move or unplan any entry** — a shared week is
+shared property, the same rule `PATCH /api/households/:householdId/recipe/shopping-lists/:listId` already applies to renaming a list;
+there is no author-or-admin check anywhere in this router.
+
+| Method | Path | Auth | Request | Response | Status |
+| --- | --- | --- | --- | --- | --- |
+| GET | `/api/households/:householdId/recipe/plan` | household:member+module:recipe | `MealPlanRangeQuery` (query: `from`, `to`) | `MealPlanRangeResponse` | 200, 403, 422 |
+| GET | `/api/households/:householdId/recipe/plan/last-planned` | household:member+module:recipe | `LastPlannedQuery` (query: `before`) | `LastPlannedResponse` | 200, 403, 422 |
+| POST | `/api/households/:householdId/recipe/plan` | household:member+module:recipe | `CreateMealPlanEntryRequest` | `MealPlanEntryResponse` | 200, 201, 403, 404, 409 `meal_plan_day_full`, 422 |
+| PATCH | `/api/households/:householdId/recipe/plan/:entryId` | household:member+module:recipe | `UpdateMealPlanEntryRequest` | `MealPlanEntryResponse` | 200, 403, 404, 409 `conflict` / `meal_plan_day_full`, 422 |
+| DELETE | `/api/households/:householdId/recipe/plan/:entryId` | household:member+module:recipe | – | – | 204, 403, 404 |
+
+Notes
+- **`plannedOn` is a CALENDAR DATE (`YYYY-MM-DD`), not a timestamp, and it is the CLIENT's calendar
+  date, not the server's.** It is computed from the viewing DEVICE's local calendar
+  (`toPlanDate()` in `@toon/shared`'s `calendar.ts`) and sent as-is; nothing in this router or its
+  service ever calls `new Date()` to decide what day it is. That matters concretely: the API runs
+  in UTC (Docker) and its users are in Europe/Berlin, so a date the server derived from an instant
+  would be a day out for two hours every night. The server only stores and compares the string —
+  see the `recipe_meal_plan_entries.planned_on` column comment in `apps/api/src/db/schema.ts`.
+- **`GET` returns `{ from, to, items }`, not the `{ items, total, limit, offset }` list envelope.**
+  That envelope is for PAGINATED lists; a week is bounded by its own `from`/`to`, not a page, so
+  `total`/`limit`/`offset` would be three fields that always say the same thing. `items` is FLAT
+  (not grouped by day) and sorted `(plannedOn, position)`; a day with nothing planned is simply
+  absent, and the seven-slot week — including empty "+ Plan" cards — is built client-side.
+  `PLAN_LIMITS.rangeDays` (62) bounds the request; a longer or inverted range is 422.
+- **`POST` is idempotent, and that is deliberate: planner writes are ONLINE-ONLY, so there is no
+  `mutationId` ledger like the shopping list's.** Planning a recipe that is already on that day
+  returns the EXISTING entry with **200**, not a duplicate, and the second call's `servings` still
+  applies (a new one returns **201**). The `(household_id, planned_on, recipe_id)` unique index is the
+  whole idempotency story, including under a race between two members' simultaneous POSTs.
+- **`GET /last-planned?before=` is the recipe picker's "Zuletzt geplant"**: one `{ recipeId, plannedOn }`
+  per recipe, the latest day it was planned STRICTLY before `before` (the day being planned, a
+  client-computed calendar date like every other). A never-planned recipe is absent. Unpaginated —
+  it is bounded by the household's recipe count.
+- `POST` 404s for a `recipeId` outside the household. A day already holding
+  `PLAN_LIMITS.entriesPerDay` (12) entries answers 409 `meal_plan_day_full`.
+- **`PATCH` moves an entry between days by setting `plannedOn`.** Moving re-tails `position` on the
+  TARGET day unless `position` is sent explicitly. Moving onto a day that already holds the SAME
+  recipe never silently merges the two entries — it is 409 `conflict` (`server.plan.alreadyPlanned`)
+  — which is the opposite answer from `POST`'s idempotent 200, because a drag-and-drop move losing
+  data silently would be far worse than a duplicate add.
+- A cross-household `:entryId` answers 404 rather than leaking the entry's existence — `entryId` is
+  deliberately not one of `middleware/household.ts`'s `RESOURCE_PARAMS`; the service itself scopes every
+  lookup by `and(eq(id), eq(householdId))`.
+- **"Gekocht" lives on the RECIPE router**, not here: `POST`/`DELETE
+  /api/households/:householdId/recipe/recipes/:recipeId/cooked` (see "Recipes" above) is what stamps a plan
+  entry's `cookedAt`, because cooking is something you do to a recipe that may or may not be on a
+  plan that day — the planner itself never writes `cooked_at` outside that path.
+
+### Saved cards — `apps/api/src/modules/recipe/routes/cards.ts`
+
+Mounted at `/api/recipe/cards` (the module's `userRouter`, NOT behind `requireModule`). **The only router that is not household-scoped.** A saved card is a loyalty or
+membership barcode belonging to the signed-in USER (Payback, DeutschlandCard, the gym, the library),
+so there is no `:householdId` in any path and no `requireHouseholdRole`: `requireSession()` plus the `userId`
+every query filters on is the whole authorisation. See the header of
+`packages/shared/src/modules/recipe/schemas/card.ts` for why this entity is a deliberate exception to "households own
+the content".
+
+| Method | Path | Auth | Request | Response | Status |
+| --- | --- | --- | --- | --- | --- |
+| GET | `/api/recipe/cards` | session | – | `CardListResponse` | 200, 401 |
+| POST | `/api/recipe/cards` | session | `CreateCardRequest` | `CardResponse` | 201, 401, 403, 409 `card_already_saved`, 409 `too_many_cards`, 422 |
+| PATCH | `/api/recipe/cards/:cardId` | session (owner) | `UpdateCardRequest` | `CardResponse` | 200, 401, 403, 404, 409, 422 |
+| DELETE | `/api/recipe/cards/:cardId` | session (owner) | – | – | 204, 401, 403, 404 |
+| POST | `/api/recipe/cards/:cardId/used` | session (owner) | – | `CardResponse` | 200, 401, 403, 404 |
+
+Notes
+- **`format` is one of `qr · ean13 · ean8 · upca · code128 · code39 · itf`** (`BarcodeFormat`), the
+  symbologies real German loyalty cards carry AND this app can draw offline. A format outside that
+  list is a 422, not a stored row it could never display — see `packages/shared/src/modules/recipe/barcode.ts`.
+- **`value` is normalised by the schema, not by the handler.** Separators are stripped from the
+  numeric formats, `code39` is upper-cased, and an EAN/UPC value that is exactly one digit short
+  GAINS its check digit — so the twelve digits printed under a Payback barcode are a valid request
+  body. The stored value is always the normalised one.
+- **The check digit is validated** for `ean13`/`ean8`/`upca`. A mistyped digit answers 422 with
+  `details[0].path = "value"` and `details[0].i18n.key = "server.card.valueCheckDigit"`. This router
+  throws the raw `ZodError` (rather than using `zValidator`'s hook, which drops `i18n`) precisely so
+  a client can re-render that issue in its own language.
+- **`format` and `value` travel together or not at all** in a PATCH: a value cannot be check-digit
+  validated without its symbology. `{ "value": … }` alone is 422 `server.card.formatAndValue`.
+- **`(userId, format, value)` is unique.** Saving the same number twice is 409 `card_already_saved` —
+  two identical cards in a wallet cannot be told apart. Two different accounts may of course save the
+  same household card.
+- **The list is ordered by last USE**, most recent first, then newest. `POST /api/recipe/cards/:cardId/used` is what records
+  a use; it is a separate call because the list is re-fetched on every visit to the screen and
+  bumping on read would make the ordering meaningless. It moves `lastUsedAt` only — showing a card is
+  not an edit, so `updatedAt` stays put.
+- **Writes are gated by the confirmed-address rule** like every other write (403 `email_unverified`
+  where the deployment can mail). That includes `POST /api/recipe/cards/:cardId/used`, which is why the web client fires it
+  and forgets it: losing the ordering bump must never break showing a card.
+- **No pagination.** `CARD_LIMITS.perUser` (50) is the page size, and the screen has to render from
+  the offline cache; `{ items }` is the whole envelope.
+
+### Tables (SQLite, `apps/api/src/db/schema.ts`)
+
+`recipe_recipes`, `recipe_recipe_ingredients`, `recipe_recipe_steps`, `recipe_tags`,
+`recipe_recipe_tags`, `recipe_collections`, `recipe_collection_recipes`, `recipe_meal_plan_entries`,
+`recipe_recipe_cook_log`, `recipe_import_drafts`, `recipe_shopping_lists`, `recipe_shopping_list_items`,
+`recipe_shopping_list_catalog`, `recipe_shopping_bought_items`, `recipe_shopping_list_recipes`,
+`recipe_shopping_mutations`, `recipe_cards`.
+
+Unique indexes: `recipe_tags(household_id, name)`, `recipe_shopping_lists(household_id, name)`,
+`recipe_shopping_list_items(list_id, merge_key)`, `recipe_shopping_list_catalog(list_id, name_key)`,
+`recipe_cards(user_id, format, value)`, `recipe_meal_plan_entries(household_id, planned_on, recipe_id)`,
+`recipe_shopping_list_recipes(list_id, recipe_id)`.
+
+`recipe_shopping_list_items.merge_key` is the item's *identity*, not a cache: the unique index on it is what
+performs the merging, so two members adding the same ingredient at once cannot produce two lines.
+`recipe_shopping_mutations` is an idempotency ledger keyed by the client's `mutationId` (TTL 14 days, pruned
+on write) — see the Shopping lists notes above for why it has to exist.
+`recipe_meal_plan_entries(household_id, planned_on, recipe_id)` is what makes `POST /plan` idempotent (see the
+"Meal plan" section): planning the same recipe on the same day twice hits the index instead of
+inserting a duplicate. `recipe_shopping_list_recipes(list_id, recipe_id)` is why adding a recipe to a list
+twice, at a different portion count, upserts the "Recipes on this list" rail row instead of adding a
+second one.
+Composite primary keys: `recipe_recipe_tags(recipe_id, tag_id)`, `recipe_collection_recipes(collection_id, recipe_id)`.
+All household-scoped tables cascade from `households`; child rows cascade from `recipe_recipes`, with one
+exception: `recipe_recipe_cook_log.meal_plan_entry_id` is `ON DELETE set null` — deleting a plan entry must
+not erase the fact that the meal was cooked, only the link between the two facts.
+
+**`recipe_meal_plan_entries.planned_on` is the one column in this whole schema that is NOT an instant.**
+Every other timestamp in every table (`created_at`, `updated_at`, `cooked_at`, `bought_at`,
+`last_cooked_at`, `bought_cleared_at`, …) is integer unix ms, resolved into a moment the same way
+everywhere. `planned_on` is `YYYY-MM-DD` text instead, because a plan entry is a DATE — "Thursday"
+— and an integer midnight is an instant that every reader has to re-interpret in some timezone,
+which is wrong twice a night for a UTC server and Europe/Berlin users. It is always the CLIENT's
+calendar date (never derived server-side, see the "Meal plan" section above), sorts
+lexicographically = chronologically, and needs no timezone to be wrong about.
+
+`recipe_cards` is the one table that hangs off `users` instead of `households` — a saved loyalty barcode is
+personal property (see the Saved cards section). It cascades from `users`, so deleting an account
+takes its wallet with it.
 
 ## Finance module
 
