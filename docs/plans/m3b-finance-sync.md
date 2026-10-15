@@ -1,7 +1,8 @@
 # M3b — finance-sync: plan
 
-**Status: PLANNED (2026-10-15), revised after the plan review the same day (section 11).** Section 9
-(integration record) is written by M3b-T12, section 10 (what changed vs plan) by M3b-T13.
+**Status: DONE (2026-10-15)**, planned and revised after the plan review the same day (section 11). Section 9
+(integration record) was written by M3b-T12, section 10 (what changed vs plan, with the F gotcha map) by
+M3b-T13.
 
 Milestone M3b of `docs/SPEC.md` §8, written by the planner of the `build-household` workflow. Paths:
 `H` = `/home/erics/software/toon-household` (this repo), `R` = `/home/erics/software/toon-recipe`,
@@ -1678,7 +1679,93 @@ out. The light 390 and 1440 sets are complete; dark exists for the screens with 
 
 ## 10. What changed vs plan
 
-(written by M3b-T13)
+Written by M3b-T13 on the merged tree (2026-10-15). Gates after T13: `bun run typecheck` OK, `bun test` 2202 pass
+in 129 files (T13 changed comments and docs only; the count is T12's, section 9.2).
+
+### 10.1 Deviations from section 6, confirmed
+
+- **ADR 0006** (SPEC D1, D4, D12, §4, §6 items 1/2/5/6, §9) is the only change to SPEC §1, written in T01 with
+  the SPEC text edited in the same commit. Nothing else in §1 moved.
+- **SPEC §2 (no ADR):** the `seedDemo` context gained `demoPassword` (T06, decision 17); `modules/types.ts`,
+  `modules/finance/seed.ts` and `scripts/seed.ts` follow it, and `finance-seed.test.ts` proves robin's and
+  kim's hashes verify against it and not against `demo1234`.
+- **Plan-level choices, as built:** D6 kept (Erfassen stays tab 3, Fixkosten sidebar-only), the sheet is
+  module-local without a FAB or a SideNav button (the headless run of 9.6 opened it with `n` and from the empty
+  list's opener); the CSP is wider than F's for the recipe module (`'wasm-unsafe-eval'`, `img-src` with `data:`
+  `blob:` `https:`, `media-src 'self' blob:`; 9.4 lists the header); the origin guard trusts the `WEB_ORIGIN`
+  entries; F's leave rules are not ported (ADR 0004 covers them; `finance-security.test.ts` asserts H's rule
+  under F's case titles, and `anchorCannotLeave` does not exist in H); claim invites need admin+ (F: either
+  member); five core web strings are NEW German core-neutral variants (decision 8) while the finance section keeps
+  F's text; `common.appName`, `nav.manage`, the petrol palette, F's fonts and icons and `lib/lazy-page.tsx` were
+  not ported.
+- **Not planned, found by the integration run (9.1):** `af71df1`, a production build baked the dev fallback
+  `http://localhost:3001` into the bundle even with `PUBLIC_API_URL` empty; `lib/api.ts` now falls back to `""`
+  in a production build. Not a SPEC §1 deviation.
+- **Not planned, found by T13:** six citations written by M3b tasks named the wrong F gotcha (10.3); corrected in
+  a separate comment-only commit.
+
+### 10.2 The F gotcha map (decision 11, step 1)
+
+Every numbered gotcha of F's CLAUDE.md at `cbdec67` (55) was paired with one at `1715207` (74) by its bold or
+leading title text, the first 70 characters compared verbatim. All 55 pairs matched; none was left unpaired or
+unconfirmed. Result:
+
+| F `cbdec67` | F `1715207` | titles |
+| --- | --- | --- |
+| 1 to 18 | 1 to 18 (unchanged) | `db/client.ts` PRAGMAs (1) ... `controlClasses` min-w-0 (17), `clientIp()` and `TRUST_PROXY` (18) |
+| (none) | **19** (new) | the network alias in `docker-compose.yml` is load-bearing |
+| 19 to 55 | 20 to 56 (+1) | 19 `GET /api/auth/sessions` hands out handles (now 20); 20 `/password/forgot` is 204 (21); 21 mail failures never fail the action (22); 22 the invite token is the capability (23); 23 `safeNextPath` (24); 24 `translate()` outside React (25); 25 `"system"` as a third preference (26); 26 label maps frozen at import time (27); 27 the isolated linker (28); 28 `sw.js` and `index.html` never cached (29); 29 `/app/data` is a VOLUME (30); 30 the status-bar style (31); 31 `halfForOther(-101)` (32); 32 halve per transaction (33); 33 the plan share is rounded once (34); 34 the catch-up is historical (35); 35 booked periods are immutable (36); 36 `expectedBalanceCents` (37); 37 `origin` (38); 38 the balance sign (39); 39 `SETTLEMENT` and `OTHER_ONLY` (40); 40 Excel `SUM` skips text cells (41); 41 ledger text in `defaultLocale` (42); 42 ops output is English (43); 43 diffs against the EFFECTIVE amount (44); 44 `lastBookedPeriod` never skips a gap (45); 45 the `externalKey` namespaces (46); 46 an idempotency check mirrors the composite unique index (47); 47 a Zod `.refine()` cannot carry a code (48); 48 `R8` is a SUM cell (49); 49 `PUBLIC_API_URL` MUST be empty (50); 50 Drizzle wraps every query error (51); 51 query keys that only LOOK hierarchical (52); 52 an optimistic delete needs `onError` (53); 53 a zero-share period still advances `lastBookedPeriod` (54); 54 an accepted invite token stops being a capability (55); 55 sheet row order is not chronological (56) |
+| (none) | 57 to 74 (new) | 57 `cn()` is plain clsx; 58 `[data-autofocus]` queried first; 59 `AmountInput`'s text buffer; 60 `import.meta.glob`; 61 390px row layout; 62 sheet open is not unsaved work; 63 one-shot autofocus; 64 separators go BETWEEN parts; 65 two frames, one form hook; 66 `SameSite=Lax` and the origin guard; 67 the CSP over inline scripts; 68 the plan names only members; 69 leaving: slot 1 stays while slot 2 sits; 70 `PeriodSchema` bounds; 71 LIKE escaping and bounds; 72 `claimPlaceholderUser` is a conditional UPDATE; 73 idempotency read paths filter on `household_id`; 74 ops hardening |
+
+The shift therefore starts at 19, as decision 11 corrected (the first draft said 18).
+
+### 10.3 What the renumbering touched (step 2)
+
+Candidates: `git grep -nE 'gotchas? [0-9]+' 7b974b1 -- apps packages scripts` (19 lines), the `CLAUDE.md gotcha #N`
+shape the same grep does not match (8 more lines in the ported finance code), and `CLAUDE.md`'s own citations. Each line was
+checked with `git blame` at HEAD (line numbers had moved since `7b974b1`): a line last written at or before
+`7b974b1` is old, one written by T01 to T12 already cites the new numbers.
+
+- **Commit `ed5d87c`, comments only, 14 lines in 11 files:** `scripts/legacy/finance.ts` (35, 37, 45 to 36,
+  38, 46), `core/services/auth/users.ts` (50 to 51), `modules/finance/schema.ts` (41 to 42 twice, 37 to 38),
+  `services/participants/participants.service.ts` (47 to 48, 50 to 51), `services/plan/plan.service.ts` (47 to
+  48), `services/settings/settings.service.ts` (41 to 42), `test/fixtures/legacy/build.ts` (31-33 to 32-34),
+  `finance/HomeCard.tsx` (38 to 39), `KindBadge.tsx` and `transactions/lib/kinds.ts` (`#26` to `#27`),
+  shared `schemas/participants.ts` (47 to 48). `git show --stat` plus a read of the diff shows no non-comment line.
+- **Citations that stay, because the number did not move (1 to 18):** gotchas 2, 4 (tests), 7 to 11 (the outbox
+  and the service-worker rule), 15 (the sticky bar), and the `#9/#10`, `#7`, `#7-#10` shapes of the ported
+  idempotency and offline files.
+- **Cited by M3b tasks already with the new numbers (never touched):** 18, 48, 50, 51, 55, 58 to 67, 70 to 74
+  in the files of T03 to T11 (for example `originGuard.ts` cites 66, `securityHeaders.ts` 67, `invites.ts` and
+  `users.ts` 72 and 55, `rateLimit.ts` 18 and 74).
+- **Six wrong citations in M3b lines, found while checking titles, corrected in commit `4ad9b7b` (comments
+  only, 7 lines in 6 files):** the household-scoped claim read (`idempotency.ts` twice, `settlements.service.ts`)
+  cited 71 (LIKE escaping) and now cites 73; the plan-payer check (`plan.service.ts`) cited 70 (`PeriodSchema`)
+  and now cites 68; `useCreateForm.ts` cited 46 (the `externalKey` namespace) for the composite-unique-index
+  idempotency check and now cites 47; the two `api.test.ts` files cited 70 for path-segment encoding, which is in
+  no F gotcha, and now say "security review".
+- **`CLAUDE.md`** (docs commit of this task): every `toon-finance gotcha N` and the "inherited finance gotchas"
+  paragraph moved by title (47 to 48, 37 to 38, 50 to 51, 41 to 42, 31 to 32, 32 to 33, 33 to 34, 35 to 36, 44 to
+  45, 53 to 54, 36 to 37, 38 to 39, 46 to 47, 45 to 46); 2, 7 to 11 and 15 stayed.
+- **Left alone on purpose:** toon-recipe's gotchas, H's own plan decisions, the historical plans (m0 to m5 and
+  m3b's own text, which already says "gotcha 48 (was 47)") and ADRs 0001 to 0006 (ADR 0003's gotcha 2 did not move
+  either). The m3 plan's "F gotcha 47" lines say what the gotcha was numbered on 2026-10-14.
+
+Check: every new number was looked up in `git -C /home/erics/software/toon-finance show 1715207:CLAUDE.md` and names
+the same title as the old number in `cbdec67:CLAUDE.md` (the table above).
+
+### 10.4 Docs synced by T13
+
+`CLAUDE.md` (status names M3b, 2202 tests in 129 files, the "What M3b added" paragraph, the layout additions
+(`originGuard.ts`, `securityHeaders.ts`, `legacy/claims.ts`, `0003_placeholder_members.sql`, the Erfassen sheet and
+the placeholder components), `bun run seed` with `ALLOW_SEED` / `SEED_PASSWORD`, eight new gotchas (placeholders and
+claim invites, origin guard with `WEB_ORIGIN`, CSP with the recipe exceptions and `PUBLIC_API_URL=""`, core
+hardening, the module-local sheet, claim links as credentials, the claim test's cleanup, core-neutral copy with the
+new-German totals, F gotcha numbering), the schema gate at 3 finance migrations, the ADR 0006 entry, the M3b
+obligations and the M6 items of section 7.2, the M7 documentation list); `docs/SPEC.md` §3 (the two middleware
+files, `scripts/legacy/claims.ts`, the finance web additions; no other section); the m3 plan's section 9.3 (the
+M3b addendum: four changed F test files with case counts H >= F, the eight `placeholders.test.ts` cases with their
+H titles); this plan's status and this section.
 
 ## 11. Review revisions (2026-10-15, before implementation)
 

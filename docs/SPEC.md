@@ -284,7 +284,10 @@ packages/shared/src/
 apps/api/src/
   index.ts               wiring: health, uploads, /api/auth, /api/households, module mounts, staticWeb LAST
   env.ts  db/{client,migrate,schema.ts,schema/core.ts}
-  lib/  middleware/{session,household,verifiedEmail,module,staticWeb}.ts
+  lib/  middleware/{session,household,verifiedEmail,module,staticWeb,originGuard,securityHeaders}.ts
+                         (originGuard: the CSRF defence on unsafe /api/* methods, trusts WEB_ORIGIN, mounted
+                         after cors() and before the routers; securityHeaders: the CSP hashed over the built
+                         index.html, nosniff, frame denial, no HSTS; plan m3b decisions 15 and 16)
   core/routes/{auth,households,members,invites,modules}.ts  core/services/{auth,households,mail,media}/
                          (members/invites/modules export register…Routes(router) onto the one
                          householdRoutes instance, invite-token routes first; /uploads is inline in index.ts)
@@ -299,7 +302,8 @@ apps/api/src/
                          are `finance_*` and their TS identifiers carry a `finance` prefix
 apps/api/scripts/        migrate, seed, reset-password, uploads-gc, plan-run, finance-import-xlsx.ts + finance-import/,
                          migrate-legacy.ts (the CLI), legacy/{types,sources,ledger,copy,report,users,mapping,
-                         households,recipe,uploads,finance,balance,run}.ts (the library; not a module hook, §6)
+                         households,recipe,uploads,finance,claims,balance,run}.ts (the library; not a module hook, §6;
+                         claims.ts creates or reuses the claim invite of each migrated placeholder, ADR 0006)
                          (seed and uploads-gc only call the manifests' seedDemo / uploadReferences hooks)
 apps/api/test/           all api tests (test/, never tests/)
 apps/api/drizzle/        one journal
@@ -320,8 +324,10 @@ apps/web/src/
                          fetchers, query keys/options and formatters (the core lib stays module-free)
   modules/finance/{index.ts,routes.tsx,HomeCard.tsx,features/,components/,catalogs/,lib/}
                          features/{transactions,overview,plan,categories,participants}/ (participants is new:
-                         FinanceGate, NonParticipantState, ParticipantsSection, EnableFinanceDialog);
-                         components/{AmountText,KindBadge,PeriodLabel,PageHeader}; lib/ shims like recipe's
+                         FinanceGate, NonParticipantState, ParticipantsSection, EnableFinanceDialog,
+                         PlaceholderForm, ClaimLinkDialog); components/{AmountText,KindBadge,PeriodLabel,
+                         PageHeader,PendingSyncNote}; lib/ shims like recipe's plus quick-add.tsx (the Erfassen
+                         sheet's provider, module-local, no FAB: D6 stands)
   styles/{index.css,theme.css}   toon-recipe's, unchanged except new tokens in all four blocks
   public/fonts/          Newsreader + Figtree woff2 + licences
 docker/                  Caddyfile, entrypoint.sh, env.example, toon-deploy.sh

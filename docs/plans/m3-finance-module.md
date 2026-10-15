@@ -1678,6 +1678,37 @@ never collide", "a period covered by an IMPORT row is never given a plan adjustm
 `isPeriodBooked` is exercised through them, F has no direct test of it either) and `409
 balance_stale` (`finance-settlements.test.ts:30`, and live in 9.5).
 
+#### M3b addendum (2026-10-15, plan `m3b-finance-sync.md` section 2)
+
+toon-finance moved from `cbdec67` to `1715207` after this milestone. `git diff --stat cbdec67 1715207 --
+'*.test.ts' '*.test.tsx'` lists four files, so the table above stands for every other pair. Counted the same
+way (`test(` / `it(` cases per file, F read with `git show 1715207:<file>`, H on the merged tree), equal or
+higher in H for every pair:
+
+| F file at `1715207` | H counterpart | cases F / H |
+| --- | --- | --- |
+| api `placeholders.test.ts` (new) | `placeholders.test.ts` (core, 13) + the placeholder cases of `finance-participants.test.ts` (8 of its 26); `placeholders-core.test.ts` (6) is H's own | 8 / 21 |
+| api `security.test.ts` (new) | `security.test.ts` (18: origin guard 7, body parsing 4, headers 2, `clientIp` 1, `env.ts` 1, seed guard 3) + `finance-security.test.ts` (13) | 15 / 31 |
+| web `format.test.ts` (`formatDayHeading`, was 7) | `modules/finance/lib/format.test.ts` | 10 / 10 |
+| shared `schemas.test.ts` (`ERROR_CODES` 30 to 32, same 24 cases) | `finance-schemas.test.ts` (32) + `core.test.ts`, whose `ERROR_CODES` case asserts `member_has_account` and `invite_claim_requires_register` | 24 / 32 |
+
+F's `placeholders.test.ts`, case by case (every case has a named H counterpart; where H's rule differs the H
+test asserts H's rule and names F's case in its title):
+
+| F case | H counterpart (file: test title) |
+| --- | --- |
+| seats a person without an account in slot 2 | `placeholders.test.ts`: "F: seats a person without an account in slot 2 (H: an admin adds a placeholder member, 201, hasAccount false, email null)"; `finance-participants.test.ts`: "F: seats a person without an account in slot 2 (H: hasAccount false, e-mail null, named after users.name)" |
+| a third seat is still 409 household_full, and a plain invite is refused too | `finance-participants.test.ts`: "F: a third seat is still 409 household_full (H: PUT with a third entry is 422 validation_failed, exactly two seats, D3)"; `placeholders.test.ts`: "F: a third seat is still 409 household_full, and a plain invite is refused too (H: plain e-mail invite in a household with a placeholder is 201, D1)" |
+| the other member may rename and remove the placeholder, but never a real member | `placeholders.test.ts`: "F: the other member may rename and remove the placeholder, but never a real member (H: an admin renames and removes it; an account is 409 member_has_account; a plain member is 403)"; `finance-participants.test.ts`: "F: the other member may rename the placeholder, but never a real member (PATCH …/participants/:userId)" |
+| a placeholder with bookings cannot be removed (409 member_has_ledger) | `finance-participants.test.ts`: "F: a placeholder with bookings cannot be removed (409 member_has_ledger through the core DELETE; the user row stays)" |
+| registering with a claim token turns the placeholder into the account, same user id | `placeholders.test.ts`: "F: registering with a claim token turns the placeholder into the account — same user id" |
+| an existing account cannot accept a claim invite (409 invite_claim_requires_register) | `placeholders.test.ts`: "F: an existing account cannot accept a claim invite (409 invite_claim_requires_register)" |
+| a claim invite for a member who already has an account is 409 member_has_account | `placeholders.test.ts`: "F: a claim invite for a member who already has an account is 409 member_has_account (+ a stranger's id is 404)" |
+| a placeholder cannot log in and a taken address is 409 email_taken on claim | `placeholders.test.ts`: "F: a placeholder cannot log in and a taken address is 409 email_taken on claim"; the race of two claims is its own test ("two claims of the same placeholder race: exactly one wins") |
+
+The migration side has no F counterpart: `legacy-placeholders.test.ts` (6) proves a migrated placeholder claimable
+by register on the fixtures, `db-placeholder-migration.test.ts` the migration `0003`.
+
 ### 9.4 `i18n:check` leftover hits, all classified (137)
 
 | Class | Count | Where |

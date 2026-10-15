@@ -43,10 +43,14 @@ headless numbers, the four-combination measurement, the print and offline runs a
 index; section 10 is "what changed vs plan"; no deviation from SPEC §1, no new ADR, ADR 0004 gained one
 consequence bullet) and **M5 migration** (2026-10-15, plan `docs/plans/m5-migration.md`; section 9 is the
 integration record with the gates, the fixture, seeded-target and dev-DB runs and the plain statement that no
-owner copy was available; section 10 is "what changed vs plan" and lists the two review fixes; one ADR, 0005, below). Next: **M6 deploy**,
-then M7 harden.
+owner copy was available; section 10 is "what changed vs plan" and lists the two review fixes; one ADR, 0005, below) and
+**M3b finance-sync** (2026-10-15, plan `docs/plans/m3b-finance-sync.md`, the follow-up port of toon-finance
+`cbdec67..1715207` plus the placeholder migration; section 9 is the integration record with the gates, the
+fresh-DB curl walkthrough, the owner-data counts, the headless run and the 92 screenshots in
+`docs/plans/screenshots/m3b/`; section 10 is "what changed vs plan" with the F gotcha map; one ADR, 0006,
+below). Next: **M6 deploy**, then M7 harden.
 
-What exists after M5: the three workspaces build, typecheck and test green (`bun test`: 2016 pass in 115 files).
+What exists after M3b: the three workspaces build, typecheck and test green (`bun test`: 2202 pass in 129 files).
 Two modules are built: `API_MODULES` and `WEB_MODULES` are `[recipe, finance]` and `/api/health`
 reports `modules: ["recipe","finance"]`. The recipe module is as after M2 (recipes with search and
 filters, tags, collections, URL / photo / PDF import, meal plan with cook log, shopping lists with the
@@ -58,7 +62,8 @@ outbox, `finance_participants` (exactly two slots by user id, D3), the participa
 the enable dialog, the non-participant and module-disabled states, the demo ledger in `seed`, and the
 one-off `finance:import-xlsx` importer. Web tabs inside `/finance`: Übersicht, Buchungen, Erfassen
 (+ Profil); sidebar-only Fixkosten `/finance/plan` and Kategorien `/finance/categories` (+ the shell's
-Gruppen). Every toon-finance test file has a counterpart (map in the m3 plan's section 8). Still no
+Gruppen). Every toon-finance test file has a counterpart (map in the m3 plan's section 8, the M3b addendum in its
+section 9.3 for the four files that changed up to `1715207`). Still no
 Docker files (M6), no `docs/API.md` or `docs/modules/*.md` (M7).
 
 What M5 added (migration, plan `m5-migration.md`): `bun run migrate:legacy`, the one-off, dry-run-by-default,
@@ -77,6 +82,35 @@ the fixture dry run, apply and second apply, a `--mapping` dry run, a run into a
 --dry-run`, and a recipe-only run on a copy of toon-recipe's dev database with the API started on the result.
 No owner copy of production data was available (`migration-in/` did not exist): the owner runs
 `docs/migration.md` at cutover.
+
+What M3b added (finance-sync, plan `m3b-finance-sync.md`): toon-finance's seven commits after the M3 port
+(`cbdec67..1715207`, what production runs) and the owner's decision that the placeholder user is migrated as a
+placeholder with a NULL e-mail plus a claim invite (ADR 0006, the one change to SPEC §1). Core: a placeholder is a
+`users` row with `email IS NULL AND password_hash IS NULL` (`0003_placeholder_members`, `isPlaceholderUser`),
+added by an admin (`POST …/members`), renamed (`PATCH …/members/:userId/placeholder`), removed through the
+normal `removeMember` plus the module veto, and turned into an account by a claim invite
+(`household_invites.claims_user_id`, `CreateInviteRequest.claimsUserId`) that only `POST /api/auth/register`
+redeems, in place, same user id; the web has the "ohne Konto" member row, `PlaceholderRenameDialog`,
+`ClaimInviteDialog` and the claim variants of `InvitePage` and `RegisterPage`. Finance: a placeholder may hold
+slot 2 (`server.finance.placeholderSlotOne` for slot 1), `PATCH …/finance/participants/:userId`, the placeholder
+form in `EnableFinanceDialog` and `ParticipantsSection`, `ClaimLinkDialog`, `InviteSecondPerson`; the Erfassen
+sheet (`lib/quick-add.tsx`, `QuickAddDialog`, the `n` key; no FAB, D6 stands), the transaction list grouped by
+day (`lib/group-by-day.ts`) and F's row fixes; F's API fixes (the plan names only participants, period bounds,
+LIKE escaping and tag bounds, household-scoped idempotency reads, the accrual audit row stores the error name
+only). Security from `1715207`: `middleware/originGuard.ts`, `middleware/securityHeaders.ts` (CSP), a JSON
+content-type check in `readJson`, the LAST `X-Forwarded-For` hop, per-user rate limits on e-mail invites (10/h)
+and household creation (5/h), a production refusal of the `change-me…` `SESSION_SECRET`, `foreign_keys = ON`,
+bounds on password length and control characters, a 401 in the web app purging the persisted cache, `bun run
+seed` refusing production without `ALLOW_SEED=1` and its own `SEED_PASSWORD`, SHA-pinned CI actions. Migration:
+`migrate:legacy` gates the finance input at F's three migrations, migrates a placeholder as its own placeholder
+user and gives it exactly one pending claim invite (`scripts/legacy/claims.ts`), reports it in a new section
+`== Placeholders and claim invites ==` and proves it claimable by register on the fixtures
+(`legacy-placeholders.test.ts`). Verified on the merged tree: the gates, a fresh-DB curl walkthrough, the dry
+run, `--apply` and the second `--apply` on copies of the owner's backups (counts only, nothing from them in the
+tree), a headless Chromium run (354 checks at `localhost` and `127.0.0.1`, no console error, no CSP violation)
+and 92 PNGs. The integration run found one defect (`af71df1`: a production build baked the dev fallback
+`http://localhost:3001`, which the CSP's `connect-src 'self'` would block on any other origin; the fallback is
+now `import.meta.env.PROD ? "" : "http://localhost:3001"`).
 
 What M4 added (design pass, plan `m4-design-pass.md`): the Home cards as designed (recipe: a seven-day
 week strip with the next planned titles and the active shopping list's open-item count; finance: the
@@ -105,7 +139,8 @@ right-aligned digits); `AmountInput.test.ts` guards it from the source and the s
 were retaken.
 
 `bun run i18n:check` exits 1 by design; its parity half is OK and its leftover-German half reports
-138 hits: 128 German labels or umlaut examples quoted in doc comments (18 of them in finance code:
+146 hits: 136 German labels or umlaut examples quoted in doc comments (26 of them in finance code, the eight
+added by M3b being comment quotes in the placeholder, sheet and list code:
 `AmountText`, `routes.tsx`, the transaction screens, `PendingSyncNote`, `kinds.ts`, `clock.ts`, shared `tags.ts`) and 10
 lines of recipe content vocabulary (the ingredient-paste placeholder, `UNIT_SUGGESTIONS`,
 `STEP_HEADING_RE`, the seven `html/entities.ts` umlaut entities). All are false positives; classify
@@ -134,8 +169,15 @@ ADRs (`docs/adr/`, each edits the SPEC text in the same commit):
   household, re-seats a lone slot-2 participant in slot 1 although the ledger has rows, re-points a plan payer
   who is not a participant to slot 1 and keeps an income naming a non-participant, each with a warning; the
   runtime rules are unchanged).
+- `0006-placeholder-members-and-claim-invites.md` (D1, D4, D12, SPEC §4, §6 items 1/2/5/6, §9: a placeholder
+  member has no e-mail and no password and cannot sign in; a claim invite, without an e-mail and redeemed only
+  by registration, turns it into an account in place; the legacy migration moves toon-finance's placeholder as
+  a placeholder user plus one pending claim invite, gates the finance input at three migrations, matches
+  households on account members only and answers an all-placeholder finance household with
+  `no-account-members`; the apply report holds live claim links and is a credential).
 
-M3 and M4 deviated from nothing in SPEC §1 beyond ADRs 0001 to 0004 above, M5 beyond ADR 0005; their plan-level choices
+M3 and M4 deviated from nothing in SPEC §1 beyond ADRs 0001 to 0004 above, M5 beyond ADR 0005, M3b beyond ADR 0006
+(plus SPEC §2's `seedDemo` context gaining `demoPassword`, no ADR: §2 is the contract); their plan-level choices
 (non-participants see nothing of the ledger, `start` and `enableDialog`, table identifiers, "Gruppe"
 stays, the recipe exceptions are pinned not converted, the outbox note is module-local) are in the
 plans' sections 6 and SPEC §2 / §3 / §5. The two M3 review findings (A, B) were fixed first in M4-T01;
@@ -145,7 +187,7 @@ it is covered by the import/plan collision tests).
 ## Layout (as built)
 
 Package names are `@toon/shared`, `@toon/api`, `@toon/web`; the root is `toon-household`. Paths per
-SPEC §3 with what M0 to M5 actually created:
+SPEC §3 with what M0 to M5 and M3b actually created:
 
 - `packages/shared/src/` — `index.ts` (the ONLY entry: the vite alias maps exactly `"@toon/shared"`,
   never import a subpath), `core/` (`i18n/` runtime + `catalogs/server.{de,en}.ts`, `schemas/`
@@ -161,7 +203,7 @@ SPEC §3 with what M0 to M5 actually created:
 - `apps/api/src/` — `index.ts` wiring (health, `/uploads/:filename` inline, `mountModules`,
   `/api/auth`, `/api/households`, SIGTERM/SIGINT calling each module's `shutdown`, static web LAST),
   `env.ts`, `db/{client,migrate,schema}.ts` + `db/schema/core.ts`, `lib/`,
-  `middleware/{session,household,module,verifiedEmail,staticWeb}.ts`, `modules/{index,types,mount}.ts`,
+  `middleware/{session,household,module,verifiedEmail,staticWeb,originGuard,securityHeaders}.ts`, `modules/{index,types,mount}.ts`,
   `core/routes/{auth,households,members,invites,modules}.ts` (the last three export
   `register…Routes(router)` onto the one `householdRoutes` instance in `households.ts`),
   `core/services/{auth,households,mail,media}/` (`households/modules.ts` holds `enabledModulesFor`,
@@ -173,8 +215,9 @@ SPEC §3 with what M0 to M5 actually created:
   mirroring toon-recipe's `services/` one to one (`import/` has `url/`, `html/`, `ocr/`).
   `apps/api/scripts/{migrate,seed,reset-password,uploads-gc,migrate-legacy}.ts` (`migrate-legacy.ts` is the
   CLI, `apps/api/scripts/legacy/` its library, see the gotchas; the fixtures are
-  `apps/api/test/fixtures/legacy/`), `apps/api/drizzle/{0000_core,
-  0001_recipe}.sql` (both generated by drizzle-kit). Tests in `apps/api/test/` (`core-walkthrough`,
+  `apps/api/test/fixtures/legacy/`; `legacy/claims.ts` is the placeholders' claim-invite step),
+  `apps/api/drizzle/{0000_core,0001_recipe,0003_placeholder_members}.sql` (generated by drizzle-kit; `0003` has
+  three generator defects corrected by hand, ADR 0006). Tests in `apps/api/test/` (`core-walkthrough`,
   `modules`, `households`, `auth`, `middleware`, `import-order`, `recipe-module`,
   `recipe-cross-household`, `recipes*`, `tags-kind`, `plan`, `cards`, `shopping*`, `uploads`,
   `import/` with its fixtures in `test/fixtures/import/`, …).
@@ -187,7 +230,7 @@ SPEC §3 with what M0 to M5 actually created:
   `apps/api/scripts/plan-run.ts`, `finance-import-xlsx.ts` and `finance-import/{amounts,categorize,dates,
   rent,xlsx-reader}.ts`; the migration is `0002_finance.sql`. Finance tests are
   `apps/api/test/finance-*.test.ts` (`module`, `participants`, `transactions`, `idempotency`, `balance`,
-  `settlements`, `categories`, `tags`, `plan`, `import-xlsx`, `cross-household`, `file-db`, `seed`) with
+  `settlements`, `categories`, `tags`, `plan`, `import-xlsx`, `cross-household`, `file-db`, `seed`, `security`) with
   `test/support/{finance-harness,finance-synthetic-workbook}.ts`.
 - `apps/web/src/` — `main.tsx`, `app.tsx`, `route-roots.tsx` (`rootRoute`, `appRoute` without a
   component, `householdScopedRoute`; imports no shell and no registry), `router.tsx` (attaches
@@ -222,10 +265,15 @@ SPEC §3 with what M0 to M5 actually created:
   files `common|nav|transactions|categories|plan|balance|settings|participants` plus `index.ts`, every key
   prefixed `finance.`), `lib/{api,queries,format,participants}.ts` (shims over the core lib plus the
   ledger fetchers, keys, formatters and `useFinanceHousehold` / `useOtherParticipant`),
-  `components/{AmountText,KindBadge,PeriodLabel,PageHeader,PendingSyncNote}.tsx`, `lib/pending-sync.ts` (which
-  paused mutations the note counts) and `features/{transactions,overview,
+`components/{AmountText,KindBadge,PeriodLabel,PageHeader,PendingSyncNote}.tsx`, `lib/pending-sync.ts` (which
+  paused mutations the note counts), `lib/quick-add.tsx` (the Erfassen sheet's provider, `useQuickAdd`,
+  `useQuickAddHostedHere`, the `n` shortcut) and `features/{transactions,overview,
   plan,categories,participants}/` mirroring toon-finance's `features/` (`participants` is new:
-  `FinanceGate`, `NonParticipantState`, `ParticipantsSection`, `EnableFinanceDialog`).
+  `FinanceGate`, `NonParticipantState`, `ParticipantsSection`, `EnableFinanceDialog`, `PlaceholderForm`,
+  `ClaimLinkDialog`; `transactions` gained `QuickAddDialog.tsx`, `lib/useCreateForm.ts` (the one form hook
+  both frames share), `lib/group-by-day.ts` and `components/InviteSecondPerson.tsx`).
+  The core web gained `core/features/households/components/{PlaceholderRenameDialog,ClaimInviteDialog}.tsx`,
+  `core/features/auth/lib/invite-mode.ts` (which variant `InvitePage` renders) and `lib/session-purge.test.ts`.
 - `scripts/` — `dev.ts`, `typecheck.ts`, `i18n-check.ts`, `icons.ts` (`bun run icons`). `.github/workflows/ci.yml` (verify job with
   a poppler step for `pdf-rasterize.test.ts`; no docker-build until M6; `i18n:check` is a local gate
   because it needs the sibling source repos). `docs/design/recipe-redesign/` is the copied design
@@ -266,11 +314,15 @@ Run from the repo root. Bun 1.4.2 (`.bun-version`); `bun install --frozen-lockfi
 - `bun run db:generate`: drizzle-kit generates a migration from `apps/api/src/db/schema`.
 - `bun run db:migrate`: applies the migrations to `DATABASE_URL` (e.g. `file:./data/m2.db`) and every build module's `afterMigrate`.
 - `bun run db:studio`: drizzle-kit studio on the configured DB.
-- `bun run seed`: idempotent demo data on `DATABASE_URL` (migrates first; needs `SESSION_SECRET`):
+- `bun run seed`: idempotent demo data on `DATABASE_URL` (migrates first; needs `SESSION_SECRET`). One password
+  for every login of every module: `SEED_PASSWORD` when set, else `demo1234`; with `NODE_ENV=production` it
+  refuses (exit 1, before the database is opened) unless `ALLOW_SEED=1` and a `SEED_PASSWORD` of 10+ characters
+  are set. The script resolves the password once and hands it to each module in the `seedDemo` context
+  (`{ householdId, userId, demoPassword }`), so no module keeps its own constant. The demo data:
   user `demo@toon.local` / `demo1234`, the household "Familie" with the default module rows, then each
   build module's `seedDemo` (recipe: tags, three recipes, a plan week, cook log, the shopping list
   "Rewe" with bought history; finance: two more users, `robin@toon.local` in slot 2 and
-  `kim@toon.local` as a household member WITHOUT a slot, both with password `demo1234`, about eight
+  `kim@toon.local` as a household member WITHOUT a slot, both with the seed password, about eight
   transactions covering the four kinds, one settlement, the fixed-cost items and both incomes, the plan
   enabled from two periods ago and one catch-up run).
 - `bun run icons`: regenerates the PWA icon PNGs in `apps/web/public/icons/` from `public/favicon.svg`
@@ -350,7 +402,7 @@ from SPEC and M0 to M3:
 - Ported tests that need unported code are removed with a placeholder comment naming the returning
   milestone, never skipped silently.
 
-## Gotchas in use (M0 to M5)
+## Gotchas in use (M0 to M5, M3b)
 
 Binding gotchas of the sources stay binding inside their module (SPEC D13); these are the ones
 the code actually relies on or introduced.
@@ -409,7 +461,7 @@ the code actually relies on or introduced.
 - **Plan payer and income person must be participants (M4-T01, finding B).** `PATCH …/finance/plan
   { payerId }` and the income create/update routes answer `422 validation_failed` with a field detail
   on `payerId` / `personId` and `server.finance.personNotParticipant` unless the id is one of the
-  household's `finance_participants`; the check lives in the plan SERVICE (toon-finance gotcha 47),
+  household's `finance_participants`; the check lives in the plan SERVICE (toon-finance gotcha 48),
   never in the route.
 - **Enabling finance needs two participants (D3).** `onEnable` seats the two users from the enable
   POST's `settings` (`{ participants: [{ userId, memberSlot: 1 }, { userId, memberSlot: 2 }] }`) or, on a
@@ -537,8 +589,8 @@ the code actually relies on or introduced.
   its 50/200 pagination are exported as `FinanceTag…` / `FinancePaginationQuery…`, and consumers alias
   them back (`FinanceTagResponse as TagResponse`); the bare names are recipe's and the core's types,
   `request<T>` compiles with the wrong shape, so a missed alias is silent. `origin` keeps no drizzle
-  default (toon-finance gotcha 37). `isUniqueViolation` (core `auth/users.ts`) walks the error's cause
-  chain, because drizzle wraps every query error (toon-finance gotcha 50).
+  default (toon-finance gotcha 38). `isUniqueViolation` (core `auth/users.ts`) walks the error's cause
+  chain, because drizzle wraps every query error (toon-finance gotcha 51).
 - **Participants and the gate (D3, plan m3 decisions 3-5).** Exactly two `finance_participants` rows per
   household, by user id, slots 1 and 2 (unique index plus CHECK). A household member without a slot is a
   non-participant and sees nothing of the ledger: every ledger router (`transactions`, `categories`,
@@ -546,7 +598,7 @@ the code actually relies on or introduced.
   for every method, so a non-participant gets `403 finance_not_participant` on reads too (the kinds and
   the balance sign are projections onto a viewer's slot and mean nothing for a third person). The only
   route they reach is `GET …/finance/participants` (`{ items, viewerSlot }`, `viewerSlot: null` for them).
-  `PUT …/participants` (admin) replaces the two (validated in the SERVICE, toon-finance gotcha 47; `409
+  `PUT …/participants` (admin) replaces the two (validated in the SERVICE, toon-finance gotcha 48; `409
   finance_participant_in_use` when a user leaves the budget and the household has ANY transaction row or an
   income naming them, ADR 0004; the plan payer and income person are checked against the participants,
   see below), `PATCH …/participants/me`
@@ -571,10 +623,11 @@ the code actually relies on or introduced.
   bounds live under `server.zod.field.description.too_small.1` / `…too_big.200`. A new finance
   server string goes to the core catalog; a new web string goes to
   `modules/finance/catalogs/participants.{de,en}.ts` AND `NEW_GERMAN` in `scripts/i18n-check.ts`
-  (15 web and 4 server keys are new German). A key diff of every `"server.…"` literal in the ported
+  (15 web and 4 server keys are new German from M3, a fifth server key from M4, and M3b added two
+  server and five core web keys, see the core-neutral copy gotcha below). A key diff of every `"server.…"` literal in the ported
   files against the core catalog must stay empty. Content language (category names, plan and settlement
   descriptions written into rows) follows `finance_settings.default_locale`, never the viewer's
-  interface language (toon-finance gotcha 41).
+  interface language (toon-finance gotcha 42).
 - **The finance test harness gives toon-finance's names H semantics (plan m3 decision 18).** In
   toon-finance a one-member household is a valid ledger; here finance needs two participants, so
   `apps/api/test/support/finance-harness.ts` `createHousehold(owner, name)` creates the household, joins
@@ -644,14 +697,15 @@ the code actually relies on or introduced.
   household has not enabled lands on Home with the module-disabled toast. `.webmanifest` is served as
   `application/manifest+json` (toon-recipe's gotcha, checked by curl in M4).
 - **Inherited finance gotchas stay binding inside `modules/finance`** (SPEC D13): read toon-finance's
-  `CLAUDE.md` before touching the ledger arithmetic (31 `halfForOther(-101)` is `-50`; 32 halve per
-  transaction; 33 the plan share is rounded once; 35 booked periods are immutable; 44 and 53
-  `lastBookedPeriod`), settlements (36 `expectedBalanceCents` is required, `409 balance_stale` carries the
-  current balance), the balance sign (38: the UI never shows a raw sign, `viewerBalanceCents` is the
-  viewer's projection), idempotency (9, 10, 46: `mutationId` is minted at the call site and claimed by an
-  INSERT on the primary key; a replay answers 200 with the current state), the offline outbox (7-9,
-  11), the sticky "Buchen" bar (15: `.bottom-tabbar`, never `bottom-0`) and the import/plan collision
-  rule (45, `isPeriodBooked`). Money is integer cents; the ledger-spec numbers are the spec.
+  `CLAUDE.md` before touching the ledger arithmetic (32 `halfForOther(-101)` is `-50`; 33 halve per
+  transaction; 34 the plan share is rounded once; 36 booked periods are immutable; 45 and 54
+  `lastBookedPeriod`), settlements (37 `expectedBalanceCents` is required, `409 balance_stale` carries the
+  current balance), the balance sign (39: the UI never shows a raw sign, `viewerBalanceCents` is the
+  viewer's projection), idempotency (9, 10, 47: `mutationId` is minted at the call site and claimed by an
+  INSERT on the primary key; a replay answers 200 with the current state; 73: the read paths filter on the
+  household), the offline outbox (7-9, 11), the sticky "Buchen" bar (15: `.bottom-tabbar`, never `bottom-0`) and
+  the import/plan collision rule (46, `isPeriodBooked`). The numbers are F's numbering at `1715207`, see the
+  gotcha "F gotcha numbers" below. Money is integer cents; the ledger-spec numbers are the spec.
 - **The offline queue survives a second reload (M3-T12 fix).** TanStack's `onlineManager` starts
   "online" and only changes on a browser event, so an app reloaded while offline believed it was online:
   the restored paused write re-ran, failed and waited in an unpaused retry, which the persist policy
@@ -695,7 +749,7 @@ the code actually relies on or introduced.
   directory and opens the copy with a plain `createClient` (not `createDatabase`: its WAL pragma rewrites a
   header) plus `PRAGMA query_only = 1`; a copy of the main file alone loses every page still in the WAL, so
   the operator copies the whole volume (`docs/migration.md`). A schema gate (exit 2) wants recipe at 9
-  migrations / `0008_shopping_bought` and finance at 2 / `0001_material_nebula`. Dry run = the full
+  migrations / `0008_shopping_bought` and finance at 3 / `0002_placeholder_members` (M3b, ADR 0006). Dry run = the full
   pipeline against a scratch copy of the target; `--apply` = that pass, then the real write only if it is
   clean, then a balance re-check. Every row and its `legacy_ids` entry go in the same
   `client.batch(…, "write")` (chunks of 500); a mapped row is never updated again (a one-shot cutover that
@@ -747,12 +801,90 @@ the code actually relies on or introduced.
 - **Migration evidence stays out of the tree.** `migration-in/` and `migration-out/` are in `.gitignore`;
   real copies of the owner's data never get committed, and a record of a real run names counts and OK/FAIL
   only, never people or amounts.
+- **Placeholders and claim invites (ADR 0006, plan m3b decisions 1-6).** A placeholder is a core user row with
+  `email IS NULL AND password_hash IS NULL`: `isPlaceholderUser` (`core/services/auth/users.ts`) is the one
+  predicate, `password_hash` alone is not enough here (an OAuth-only account has a NULL hash). It has no OAuth
+  link, no session, no avatar and cannot sign in; `toUserDto` answers 401 for one, so a session naming it is a
+  bug, and every reader of `users.email` narrows it (`requireAccountEmail`; mail and auth code never see a NULL).
+  `claimPlaceholderUser` is ONE conditional `UPDATE … WHERE id = ? AND password_hash IS NULL AND email IS NULL
+  RETURNING id` (F gotcha 72: never check-then-write; zero rows is `409 member_has_account`, a unique violation
+  `409 email_taken`; `placeholders.test.ts` races two claims). A claim invite is redeemed ONLY by `POST
+  /api/auth/register { inviteToken }` (the user keeps the placeholder's id, so every payer, income person,
+  membership and seat stays valid); `POST …/invites/accept` answers `409 invite_claim_requires_register` unless
+  the caller IS the claimed user. Creating a claim invite is admin+ (F: either member) and revokes the older
+  pending one for the same placeholder; a spent claim token is `404 invite_invalid`, no longer a capability (F
+  gotcha 55). The claimed account is unconfirmed, so the verified-e-mail gate keeps it read-only until the
+  address is confirmed. Placeholders never hold finance slot 1, and one alone in slot 1 after ADR 0004's re-seat
+  is an accepted dead state until an admin seats two people. Deleting a household deletes its placeholder users.
+- **The origin guard trusts `WEB_ORIGIN` (plan m3b decision 15, F gotcha 66).** `middleware/originGuard.ts`
+  runs on `/api/*` for unsafe methods before the routers: an `Origin` that is an entry of `WEB_ORIGIN`
+  (`env.webOrigins`) passes (the dev setup calls the API from `:5173`, the same SITE, which F's rule would
+  refuse); otherwise `Sec-Fetch-Site: cross-site|same-site`, `Origin: null` and an `Origin` host other than the
+  request host answer `403` with `server.error.originMismatch`; no `Origin` (curl, tests) passes; only the host
+  is compared (TLS ends at the Caddy). It sits after `cors()` (a preflight keeps its headers) and before
+  `mountModules`, and `readJson` in `core/routes/auth.ts` wants `Content-Type: application/json`. A second
+  origin that legitimately calls the API must be listed in `WEB_ORIGIN`, comma-separated.
+- **The CSP and the baked API URL (plan m3b decision 16, F gotchas 67 and 50).** `middleware/securityHeaders.ts`
+  hashes every inline `<script>` of the built `index.html` at boot (the pre-paint theme script) and sends, on
+  every response: `script-src 'self' 'wasm-unsafe-eval' <hashes>` (zxing-wasm for the card scanner), `style-src
+  'self'`, `img-src 'self' data: blob: https:` (import previews are `blob:` and `data:`, a recipe may keep an
+  external hero image), `media-src 'self' blob:`, `font-src`, `connect-src 'self'`, `frame-ancestors 'none'`,
+  `X-Frame-Options: DENY`, `nosniff`; no HSTS (the Caddy owns it, D11) and no `Permissions-Policy` (it would
+  block the camera). Those are the two recipe exceptions to F's CSP. **`connect-src 'self'` presumes a build with
+  `PUBLIC_API_URL=""`:** an absolute value is baked into the bundle and, served from any other origin, has every
+  API call and every `/uploads` image blocked, while a run at `localhost:3001` hides it. Build the served app with
+  the variable EMPTY (`PUBLIC_API_URL= bun run build`; `.env.example` keeps the absolute value for `bun run dev`
+  only); a production build with the variable unset is relative too (`lib/api.ts`, `import.meta.env.PROD`), and
+  the image check is `! grep -rl 'localhost:3001' apps/web/dist/assets`. A browser-visible CSP break shows up only
+  in the container and only in a browser (`bun test` never sees it): check a served build at a second origin
+  (`127.0.0.1:3001`) with the console open.
+- **Core hardening from `1715207` (F gotchas 18 and 74).** `clientIp` reads the LAST `X-Forwarded-For` entry
+  (what the trusted proxy appends; keep `header_up X-Forwarded-For {remote_host}` in the Caddyfile), e-mail
+  invites are rate limited per user (10/h; a claim invite without an address is not) and `POST /api/households`
+  too (5/h, so a headless script that creates households must restart the API between passes), a production API
+  refuses the `change-me…` `SESSION_SECRET`, `db/client.ts` also sends `foreign_keys = ON` and creates the data
+  directory `0o700` (D7 stays WAL + FULL), passwords are capped at 200 characters before argon2, display and
+  household names refuse control characters, and a 401 in the web app purges the persisted cache like a logout.
+- **The Erfassen sheet is module-local and has no FAB (plan m3b decisions 9 and 10, F gotchas 62, 63, 65).**
+  D6 stands: Erfassen stays tab 3 at `/finance/new`. `FinanceGate` mounts the sheet for participants only (static
+  imports, so a cold offline start has it); openers are the `n` key on every finance screen and the list's own
+  button. `/finance/new` claims the host (`useQuickAddHostedHere`), so the sheet never opens over it. Both frames
+  share ONE form hook (`useCreateForm`) and H's one create mutation with its client-minted `mutationId` and the
+  `["toon","finance","tx"]` outbox namespace; each frame holds its own state. "Is the sheet open" is not "has
+  the sheet unsaved work" (`useUnsavedWork(form.isDirty)`). The shell has no "+" button and no FAB: a second one
+  above the tab bar would duplicate the Erfassen tab.
+- **Claim links are credentials (plan m3b decision 14).** Whoever holds a claim link becomes that person. The
+  migration's `--apply` report and stdout carry live links (`<first WEB_ORIGIN>/invite/<token>`; never a dry
+  run) and must stay outside any repository (`docs/migration.md`); the claim-link dialogs show the link to an
+  admin and copy it (`shareOrCopy` / `copyToClipboard`); a record of a real run names counts only.
+- **The claim test cleans the shared DB (plan m3b decision 18).** `legacy-placeholders.test.ts` runs a real
+  `apply` of a FINANCE-ONLY input into the shared `file::memory:` DB (it must: `app.request` sees only that
+  DB) and registers with the migrated claim token. To keep later files order-independent it asserts first that
+  no fixture e-mail exists, records the counts of `users`, `households`, `household_invites` and `legacy_ids`,
+  and in `afterAll` deletes every household and user the run wrote (ids from `legacy_ids`, households first so
+  the cascade takes the finance rows) and asserts the counts are back. The merge path is proven on the legacy
+  harness's temp DBs, not there.
+- **Core copy stays module-neutral (plan m3b decision 8).** F wrote its placeholder copy for its finance
+  screen. In H the core Gruppe screens and the auth pages say "Gruppe" and never "Buchungen", "Platz" or
+  "Haushalt": F's module-neutral strings are in the core catalogs byte-identical, F's finance-flavoured ones live
+  only in `finance.settings.household.*` (the participants section), and five core strings are NEW German
+  (`auth.register.claimHint`, `auth.invite.claimSubtitle`, `household.placeholder.removeConfirm`,
+  `household.claim.hint`, `household.claim.linkHint`), listed in `NEW_GERMAN` with two new server keys
+  (`server.household.placeholderRole`, `server.finance.placeholderSlotOne`). The new-German totals are now: 15
+  finance web keys (M3), 5 core web keys (M3b), 6 finance server keys (4 from M3, `personNotParticipant` from M4,
+  `placeholderSlotOne` from M3b), 1 core household server key (M3b) and the zod and home/household keys of M1/M2.
+  A person's name is content and never goes through `t()`.
+- **F gotcha numbers are F's numbering at `1715207`.** Between `cbdec67` and `1715207` toon-finance inserted a
+  gotcha 19 (the docker network alias): F's 1-18 kept their numbers, its old 19-55 are now 20-56 and 57-74 are
+  new. Every citation in H's code and in this file names the new number; the pair-by-title map is in the m3b plan's
+  section 10, and a historical plan or ADR keeps the number of its date (the m3 plan says
+  "gotcha 47" where the new number is 48). When F moves on again, map by the bold title, never by a blanket +1.
 
 ## Obligations handed to later milestones
 
 Each later plan lists and closes them (full text: `docs/plans/m4-design-pass.md` §8 and its §9; earlier ones
 in `docs/plans/m0-scaffold.md` §4, `docs/plans/m1-core.md` §6 and §8, `docs/plans/m2-recipe-module.md` §8 and
-§9, `docs/plans/m3-finance-module.md` §7 to §9, `docs/plans/m5-migration.md` §8). M0, M1, M2, M3, M4 and M5 closed theirs; M4 closed findings A and
+§9, `docs/plans/m3-finance-module.md` §7 to §9, `docs/plans/m5-migration.md` §8, `docs/plans/m3b-finance-sync.md` §7 and §8). M0, M1, M2, M3, M4, M5 and M3b closed theirs; M4 closed findings A and
 B, the recipe phone header and its guard, the ActionMenu chip, the NotFound icon, the sidebar counts and
 the Plan "Neu" pill, the Home cards, the manifest shortcuts and icons, theme-colour sync, the finance D5 audit,
 the outbox indicator, print-to-PDF, the `scrollWidth` measurement, and the dark/light screenshots with the
@@ -766,18 +898,37 @@ four-combination measurement.
 - M5 (closed): `migrate:legacy` shipped with its fixtures, the report and the balance invariant, and
   ADR 0005; plan `docs/plans/m5-migration.md` sections 8 to 10. Left for later: the owner's own cutover run
   against copies of the production volumes (`docs/migration.md`; no owner copy existed in M5).
+- M3b (closed): the finance port up to `1715207`, ADR 0006 and the placeholder migration; plan
+  `docs/plans/m3b-finance-sync.md` sections 8 to 10. Left for later: the owner's cutover run with the claim link
+  handed over privately (`docs/migration.md`).
 - M6: `docs/deployment.md` "Cutover from toon-edge" links `docs/migration.md` and names the new stack's
   volume and image for the copy-in step (migration.md's step 6 uses `<new-volume>` and `/app/data/local.db`
   as placeholders to check against it, and its `chown -R 1000:1000 /data` against the image's real `bun` uid: the copy runs as root into a pre-filled volume, so Docker does not seed ownership); redirects from toon-recipe's old paths (`/recipes/…`, `/plan`, `/shopping`, `/import`) and from
   toon-finance's (`/transactions`, `/new`, `/plan`, `/categories`, `/household`) for bookmarks arriving
   through the old-hostname redirect (with the Caddyfile; note `/plan` exists in both sources); image
-  build with `WITH_OCR=1 WITH_PDF=0`.
+  build with `WITH_OCR=1 WITH_PDF=0`. From toon-finance `97ab955`, `590697f` and `1715207` (plan m3b section
+  7.2): compose sets `cap_drop: [ALL]` and `security_opt: [no-new-privileges:true]` on `app`, and any mailpit
+  is bound to `127.0.0.1` and on no shared network (its UI shows every reset and invite link); `release.yml`
+  publishes on push to `main` and on `v*` tags, `:latest` from `type=raw,value=latest,enable={{is_default_branch}}`,
+  typecheck and test BEFORE the image push, `provenance: false`, a digest output, actions pinned to commit SHAs;
+  `deploy.yml` is gated by the repository VARIABLE `DEPLOY_ENABLED` (a job-level `if` cannot read secrets) and a
+  freshly published GHCR package is private until made public or the server logs in; `docker/toon-deploy.sh` is
+  a forced-command SSH key per app with `set -f` and argument checks, `docker/env.example` has `TOON_IMAGE`,
+  `TRUST_PROXY=1` and no TLS variables (the Caddy owns `TOON_TLS_ISSUER` and `TOON_HSTS_MAX_AGE`); the Caddy
+  keeps `header_up X-Forwarded-For {remote_host}` and sends the only HSTS; `bun run seed` in the container
+  refuses production without `ALLOW_SEED=1` plus `SEED_PASSWORD`; **the Dockerfile's web build sets
+  `PUBLIC_API_URL=""` explicitly** (set and empty, the defensive form) and the image check greps the built
+  assets for `localhost:3001`, otherwise the CSP blocks every API call and every upload image on the real
+  hostname. A service name is never reused on a shared network (F gotcha 19).
 - M7: `docs/API.md` (recipe and finance sections; note that migrated finance-only accounts start
   unconfirmed), `docs/modules/recipe.md`, `docs/modules/finance.md`;
   the member-leaves veto exists (`ApiModule.onMemberRemoving`; finance refuses a seated participant's
   leaving with `409 member_has_ledger` while the ledger has rows, so no ghost participant can appear;
   an empty-ledger leaver's seat is deleted, a slot-2 survivor is re-seated in slot 1, and an admin seats a
   replacement through `PUT …/participants`); M7 documents it in `docs/API.md` together with
-  `member_has_ledger`, `finance_participant_in_use` and `422 server.finance.personNotParticipant`, and may
+  `member_has_ledger`, `finance_participant_in_use` and `422 server.finance.personNotParticipant`, plus the
+  M3b surface (`POST …/members` for a placeholder, `PATCH …/members/:userId/placeholder`, the claim invite and its
+  two `409` codes `member_has_account` and `invite_claim_requires_register`, `PATCH …/finance/participants/:userId`,
+  the origin guard with `WEB_ORIGIN`, the CSP), and may
   extend the veto to other modules; the N-person ledger stays out (D3); switching the whole test
   suite to a temp-file DB (ADR 0003's consequence).
