@@ -13,7 +13,7 @@ import type {
   HouseholdWithRole,
   UpdateHouseholdRequest,
 } from "@toon/shared";
-import { and, asc, count, eq, inArray, ne } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNull, ne } from "drizzle-orm";
 import type { Database } from "../../../db/client.ts";
 import { householdMembers, households, users } from "../../../db/schema.ts";
 import type { HouseholdRow } from "../../../db/schema.ts";
@@ -22,6 +22,7 @@ import { API_MODULES } from "../../../modules/index.ts";
 import type { ApiModule } from "../../../modules/types.ts";
 import type { Membership } from "../../../lib/types.ts";
 import { normalizeStoredUploadUrl } from "../../../lib/uploadUrls.ts";
+import { createPlaceholderUser, isPlaceholderUser } from "../auth/users.ts";
 import { toHouseholdMember, toHouseholdWithRole } from "./mappers.ts";
 import { assertRole, countOwners, toHouseholdRole } from "./membership.ts";
 import { enabledModulesFor, initializeHousehold } from "./modules.ts";
@@ -206,10 +207,111 @@ export async function updateHousehold(
   return getHouseholdWithRole(db, householdId, role);
 }
 
-/** Deletes a household; members, invites, module rows and every module's household-scoped rows cascade. */
-export async function deleteHousehold(db: DbLike, householdId: string): Promise<void> {
+/**
+ * Deletes a household; members, invites, module rows and every module's household-scoped rows
+ * cascade. The users that were PLACEHOLDER members of it go too (ADR 0006, plan m3b decision 3):
+ * a placeholder exists only for its household and has no login that could join another one.
+ * They are deleted AFTER the household row, whose cascade first removes the module rows that
+ * reference them (finance's `payer_id` / `person_id` / seats are `RESTRICT`), and only while
+ * they are still placeholders in no other household.
+ */
+export async function deleteHousehold(db: Database, householdId: string): Promise<void> {
   await loadHouseholdRow(db, householdId);
-  await db.delete(households).where(eq(households.id, householdId));
+  await withTransaction(db, async (tx) => {
+    const placeholderIds = (
+      await tx
+        .select({ id: users.id })
+        .from(householdMembers)
+        .innerJoin(users, eq(users.id, householdMembers.userId))
+        .where(and(eq(householdMembers.householdId, householdId), isNull(users.email), isNull(users.passwordHash)))
+    ).map((row) => row.id);
+
+    await tx.delete(households).where(eq(households.id, householdId));
+    if (placeholderIds.length === 0) return;
+
+    const stillMembers = new Set(
+      (
+        await tx
+          .select({ userId: householdMembers.userId })
+          .from(householdMembers)
+          .where(inArray(householdMembers.userId, placeholderIds))
+      ).map((row) => row.userId),
+    );
+    const orphans = placeholderIds.filter((id) => !stillMembers.has(id));
+    if (orphans.length === 0) return;
+    await tx
+      .delete(users)
+      .where(and(inArray(users.id, orphans), isNull(users.email), isNull(users.passwordHash)));
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* placeholder members (ADR 0006)                                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Adds a PLACEHOLDER member: a person without an account, named by an admin (ADR 0006, plan m3b
+ * decision 2; toon-finance `addPlaceholderMember`). The user row and the `member` membership are
+ * written in one transaction: a placeholder in no household is an orphan nobody can see or
+ * claim. The core has no "household full" rule (D1: N members); a module that seats people
+ * (finance) decides its own seats.
+ */
+export async function addPlaceholderMember(
+  db: Database,
+  householdId: string,
+  displayName: string,
+): Promise<HouseholdMember> {
+  await loadHouseholdRow(db, householdId);
+  const timestamp = nowMs();
+  const userId = await withTransaction(db, async (tx) => {
+    const user = await createPlaceholderUser(tx, displayName, householdId);
+    await tx.insert(householdMembers).values({
+      id: crypto.randomUUID(),
+      householdId,
+      userId: user.id,
+      role: "member",
+      createdAt: timestamp,
+    });
+    await tx.update(households).set({ updatedAt: timestamp }).where(eq(households.id, householdId));
+    return user.id;
+  });
+  return getMember(db, householdId, userId);
+}
+
+/**
+ * True when `userId` is a member of `householdId` AND a placeholder (no e-mail, no password).
+ * False for a non-member, so a caller that needs the 404 checks membership first.
+ */
+export async function isPlaceholderMember(db: DbLike, householdId: string, userId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ email: users.email, passwordHash: users.passwordHash })
+    .from(householdMembers)
+    .innerJoin(users, eq(users.id, householdMembers.userId))
+    .where(and(eq(householdMembers.householdId, householdId), eq(householdMembers.userId, userId)))
+    .limit(1);
+  return row !== undefined && isPlaceholderUser(row);
+}
+
+/**
+ * Renames a placeholder (`users.name`, ADR 0006 decision 3). A person with an account names
+ * themselves (`PATCH /api/auth/me`), so a member with an account is `409 member_has_account`;
+ * a non-member is `404`.
+ */
+export async function renamePlaceholderMember(
+  db: DbLike,
+  householdId: string,
+  userId: string,
+  name: string,
+): Promise<HouseholdMember> {
+  await loadMemberRow(db, householdId, userId);
+  if (!(await isPlaceholderMember(db, householdId, userId))) {
+    throw ApiError.conflict("member_has_account", "server.household.memberHasAccount");
+  }
+  await db
+    .update(users)
+    .set({ name: name.trim(), updatedAt: nowMs() })
+    .where(and(eq(users.id, userId), isNull(users.email), isNull(users.passwordHash)));
+  return getMember(db, householdId, userId);
 }
 
 /**
@@ -232,6 +334,12 @@ export async function updateMemberRole(
   if (currentRole === nextRole) return getMember(db, householdId, targetUserId);
 
   if (nextRole === "owner" || currentRole === "owner") assertRole(actor, "owner");
+
+  // A placeholder keeps `member` (ADR 0006 decision 2): an admin without a login could never
+  // act, and an ownership transfer to one would orphan the household.
+  if (await isPlaceholderMember(db, householdId, targetUserId)) {
+    throw ApiError.conflict("conflict", "server.household.placeholderRole");
+  }
 
   if (currentRole === "owner" && (await countOwners(db, householdId)) <= 1) {
     throw ApiError.conflict("last_owner", "server.group.lastOwner");
@@ -268,9 +376,13 @@ export async function updateMemberRole(
  * cannot leave -> 409 `last_owner`. Every build module's `onMemberRemoving` hook runs
  * first and may veto (finance: 409 `member_has_ledger` while the ledger has rows, SPEC D13);
  * a veto deletes nothing.
+ *
+ * A PLACEHOLDER member (ADR 0006 decision 3) goes the same way, module vetoes included, and
+ * then its user row is deleted in the same transaction: there is no account that could join
+ * another household later. Its claim invites follow by `ON DELETE cascade`.
  */
 export async function removeMember(
-  db: DbLike,
+  db: Database,
   actor: Membership,
   targetUserId: string,
   modules: readonly ApiModule[] = API_MODULES,
@@ -293,9 +405,18 @@ export async function removeMember(
     );
   }
 
-  for (const module of modules) await module.onMemberRemoving?.(householdId, targetUserId, db);
+  const placeholder = await isPlaceholderMember(db, householdId, targetUserId);
 
-  await db
-    .delete(householdMembers)
-    .where(and(eq(householdMembers.householdId, householdId), eq(householdMembers.userId, targetUserId)));
+  await withTransaction(db, async (tx) => {
+    for (const module of modules) await module.onMemberRemoving?.(householdId, targetUserId, tx);
+
+    await tx
+      .delete(householdMembers)
+      .where(and(eq(householdMembers.householdId, householdId), eq(householdMembers.userId, targetUserId)));
+    if (placeholder) {
+      await tx
+        .delete(users)
+        .where(and(eq(users.id, targetUserId), isNull(users.email), isNull(users.passwordHash)));
+    }
+  });
 }

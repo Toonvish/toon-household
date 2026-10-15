@@ -97,7 +97,8 @@ describe("wire shapes for placeholders and claim invites (decision 5)", () => {
       ["Pia", true, false],
     ]);
 
-    // A claim invite without an address: the mapper and the public preview pass the NULL through.
+    // A claim invite without an address: the mapper and the public preview pass the NULL through;
+    // the preview names the placeholder it hands over (T05, plan m3b decision 4).
     const token = `claim-${crypto.randomUUID()}`;
     const inviteId = crypto.randomUUID();
     await db.insert(householdInvites).values({
@@ -119,7 +120,7 @@ describe("wire shapes for placeholders and claim invites (decision 5)", () => {
 
     const preview = await previewInvite(db, token);
     expect(preview.email).toBeNull();
-    expect(preview.claimsDisplayName).toBeNull();
+    expect(preview.claimsDisplayName).toBe("Pia");
     expect(preview.householdName).toBe("Platzhalter");
   });
 });

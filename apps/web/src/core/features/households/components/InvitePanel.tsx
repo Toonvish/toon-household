@@ -13,11 +13,13 @@
  */
 import { useState } from "react";
 import { Copy, Link2, MailPlus, Share2, Undo2 } from "lucide-react";
+import { z } from "zod";
 import {
-  CreateInviteRequestSchema,
+  EmailSchema,
   type HouseholdInvite,
   type HouseholdInviteResponse,
   type InvitableRole,
+  InvitableRoleSchema,
   type MailDelivery,
 } from "@toon/shared";
 import {
@@ -37,6 +39,16 @@ import { isApiError } from "@/lib/api";
 import { copyToClipboard, shareOrCopy } from "@/lib/share";
 import { ROLE_LABEL_KEYS } from "../lib/roleLabels";
 import { INVITE_STATUS_LABELS, useCreateInvite, useHouseholdInvites, useRevokeInvite } from "../lib/queries";
+
+/**
+ * This panel always sends an address: `CreateInviteRequest.email` is optional only for a claim
+ * invite (ADR 0006), which this form never creates. The request schema's plain-invite half,
+ * with `email` required, keeps `result.data.email` a string for the toasts.
+ */
+const InviteFormSchema = z.object({
+  email: EmailSchema,
+  role: InvitableRoleSchema.default("member"),
+});
 
 export interface InvitePanelProps {
   householdId: string;
@@ -140,7 +152,7 @@ export function InvitePanel({ householdId, householdName, enabled }: InvitePanel
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const result = validate(CreateInviteRequestSchema, { email, role });
+    const result = validate(InviteFormSchema, { email, role });
     if (!result.ok) {
       setErrors(result.errors);
       return;

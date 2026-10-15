@@ -64,7 +64,7 @@ import {
   confirmEmailVerification,
   createEmailVerificationToken,
 } from "../services/auth/emailVerification.ts";
-import { acceptInvite, loadRedeemableInvite } from "../services/auth/invites.ts";
+import { acceptInvite, claimInvite, loadRedeemableInvite } from "../services/auth/invites.ts";
 import {
   linkOAuthAccount,
   listOAuthAccounts,
@@ -162,13 +162,35 @@ authRoutes.post("/register", async (c) => {
 
   // Validate the invite BEFORE creating anything, so a bad token cannot leave a
   // user without a household behind.
-  if (body.inviteToken) await loadRedeemableInvite(db, body.inviteToken);
+  const invite = body.inviteToken ? await loadRedeemableInvite(db, body.inviteToken) : undefined;
+  // A spent CLAIM link is no capability any more (toon-finance gotcha 55): 404 before anything
+  // else, so a second registration onto it never reaches the account it created.
+  if (invite?.claimsUserId && invite.status !== "pending") {
+    throw new ApiError(404, "invite_invalid", "server.invite.invalid");
+  }
 
+  // Before the claim too: an address that already has an account never claims a placeholder.
   if (await findUserByEmail(db, body.email)) {
     throw ApiError.conflict("email_taken", "server.auth.emailTaken");
   }
 
   const passwordHash = await hashPassword(body.password);
+
+  // A CLAIM invite creates no user (ADR 0006 decision 4, toon-finance b1b517d): it writes this
+  // registration's credentials onto the placeholder it names, in place, so every membership,
+  // seat and ledger row keeps naming the same id. Unconfirmed like any registration (D4).
+  if (invite?.claimsUserId) {
+    const claimedId = await claimInvite(db, invite, {
+      email: body.email,
+      name: body.name,
+      passwordHash,
+    });
+    const claimed = await findUserById(db, claimedId);
+    if (!claimed) throw ApiError.unauthorized();
+    await sendVerificationLinkQuietly(c, claimed);
+    await startSession(c, claimedId);
+    return created(c, await authPayload(claimedId));
+  }
   const user = await createUser(db, {
     email: body.email,
     name: body.name,

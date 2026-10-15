@@ -8,11 +8,16 @@
  * The token is the capability: whoever holds the link may join with the role it
  * carries. The invited e-mail is informational (it is what the UI shows), it is
  * deliberately NOT enforced, otherwise forwarding an invite would break.
+ *
+ * A CLAIM invite (`claims_user_id`, ADR 0006) is the exception to "join": it is redeemed only
+ * by registration, onto the placeholder it names (`claimInvite`), never by an existing account.
  */
 import { and, eq } from "drizzle-orm";
 import type { Database } from "../../../db/client.ts";
-import { type HouseholdInviteRow, householdInvites, householdMembers } from "../../../db/schema.ts";
+import { type HouseholdInviteRow, householdInvites, householdMembers, users } from "../../../db/schema.ts";
 import { ApiError } from "../../../lib/errors.ts";
+import { withTransaction } from "../households/support.ts";
+import { type ClaimPlaceholderInput, claimPlaceholderUser } from "./users.ts";
 
 /** Invite links are valid for 14 days (docs/API.md). */
 export const INVITE_TTL_MS = 14 * 24 * 60 * 60 * 1000;
@@ -87,6 +92,13 @@ export async function acceptInvite(
 ): Promise<AcceptedInvite> {
   const invite = await loadRedeemableInvite(database, token);
 
+  // A claim invite is redeemed by `claimInvite` (registration) only; the claimed user itself
+  // replaying is the one exception (ADR 0006, toon-finance `acceptInvite`).
+  if (invite.claimsUserId !== null && invite.claimsUserId !== userId) {
+    if (invite.status === "accepted") throw new ApiError(404, "invite_invalid", "server.invite.invalid");
+    throw ApiError.conflict("invite_claim_requires_register", "server.invite.claimRequiresRegister");
+  }
+
   const existing = await database
     .select()
     .from(householdMembers)
@@ -132,4 +144,40 @@ export async function acceptInvite(
     .where(eq(householdInvites.id, invite.id));
 
   return { invite, householdId: invite.householdId, memberId, role, alreadyMember: false };
+}
+
+/**
+ * Redeems a CLAIM invite at registration (ADR 0006 decision 3; toon-finance `claimInvite`):
+ * writes the new credentials onto the placeholder the invite names (`claimPlaceholderUser`,
+ * ONE conditional UPDATE, gotcha 72), marks the invite accepted by that very user id and points
+ * the account's active household at the invite's household, all in one transaction. Returns the
+ * claimed user's id; the caller mails the confirmation link and starts the session.
+ *
+ * `invite` comes from `loadRedeemableInvite` (revoked: 404, expired: 409). A spent claim link
+ * (`accepted`) is `404 invite_invalid` (toon-finance gotcha 55: an accepted token stops being a
+ * capability), and a token that is no claim invite is `404 invite_invalid` too: `register`
+ * decides between the two paths by `claimsUserId` before calling this.
+ */
+export async function claimInvite(
+  database: Database,
+  invite: HouseholdInviteRow,
+  input: ClaimPlaceholderInput,
+): Promise<string> {
+  const userId = invite.claimsUserId;
+  if (userId === null || invite.status !== "pending") {
+    throw new ApiError(404, "invite_invalid", "server.invite.invalid");
+  }
+  const now = Date.now();
+  await withTransaction(database, async (tx) => {
+    await claimPlaceholderUser(tx, userId, input);
+    await tx
+      .update(householdInvites)
+      .set({ status: "accepted", acceptedBy: userId, acceptedAt: now })
+      .where(eq(householdInvites.id, invite.id));
+    await tx
+      .update(users)
+      .set({ activeHouseholdId: invite.householdId, updatedAt: now })
+      .where(eq(users.id, userId));
+  });
+  return userId;
 }

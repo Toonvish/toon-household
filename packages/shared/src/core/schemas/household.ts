@@ -103,10 +103,22 @@ export const UpdateHouseholdRequestSchema = z
   .refine((value) => Object.keys(value).length > 0, refineKey("server.validation.noChanges"));
 export type UpdateHouseholdRequest = z.infer<typeof UpdateHouseholdRequestSchema>;
 
-export const CreateInviteRequestSchema = z.object({
-  email: EmailSchema,
-  role: InvitableRoleSchema.default("member"),
-});
+/**
+ * `POST /api/households/:householdId/invites` (admin+). A plain invite needs `email`. A CLAIM
+ * invite names a placeholder member in `claimsUserId` (ADR 0006, plan m3b decision 4): its
+ * `email` is optional (the link is only mailed when one is given) and its role is always
+ * `member`, whatever `role` says. Hence `email` is required unless `claimsUserId` is present.
+ */
+export const CreateInviteRequestSchema = z
+  .object({
+    email: EmailSchema.optional(),
+    role: InvitableRoleSchema.default("member"),
+    claimsUserId: IdSchema.optional(),
+  })
+  .refine((value) => value.email !== undefined || value.claimsUserId !== undefined, {
+    ...refineKey("server.zod.field.email.invalid_format"),
+    path: ["email"],
+  });
 export type CreateInviteRequest = z.infer<typeof CreateInviteRequestSchema>;
 
 /**

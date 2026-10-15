@@ -5,13 +5,14 @@
  * and the row -> `User` DTO mapping used by every auth response.
  */
 import type { User } from "@toon/shared";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import type { Database } from "../../../db/client.ts";
 import { type UserRow, householdMembers, households, users } from "../../../db/schema.ts";
 import { ApiError } from "../../../lib/errors.ts";
 import { toIso, toIsoOrNull } from "../../../lib/http.ts";
 import { signUploadUrl } from "../../../lib/uploadUrls.ts";
 import { initializeHousehold } from "../households/modules.ts";
+import type { DbLike } from "../households/support.ts";
 
 /** Default name of the household created for a brand-new account. */
 export const DEFAULT_HOUSEHOLD_NAME = "Meine Rezepte";
@@ -121,6 +122,82 @@ export async function createUser(database: Database, input: CreateUserInput): Pr
     throw error;
   }
   return row;
+}
+
+/**
+ * Inserts a PLACEHOLDER user (ADR 0006, plan m3b decision 1): a name and nothing else, so
+ * `isPlaceholderUser` holds. Only `addPlaceholderMember` (households.service.ts) calls it, inside
+ * the transaction that also writes the membership: a placeholder in no household is an orphan
+ * nobody can see or claim (toon-finance `createPlaceholderUser`). `locale` stays NULL, so
+ * `env.defaultLocale` applies until the claimed account picks one; `activeHouseholdId` is the
+ * household it is created in, which is where the claimed account lands first.
+ */
+export async function createPlaceholderUser(
+  database: DbLike,
+  name: string,
+  householdId: string,
+): Promise<UserRow> {
+  const now = Date.now();
+  const row: UserRow = {
+    id: crypto.randomUUID(),
+    email: null,
+    name: name.trim(),
+    avatarUrl: null,
+    emailVerified: false,
+    emailVerifiedAt: null,
+    passwordHash: null,
+    activeHouseholdId: householdId,
+    locale: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+  await database.insert(users).values(row);
+  return row;
+}
+
+export interface ClaimPlaceholderInput {
+  email: string;
+  name: string;
+  /** argon2id hash of the password chosen at registration. */
+  passwordHash: string;
+}
+
+/**
+ * Turns a placeholder into an account IN PLACE (ADR 0006, plan m3b decision 4): same id, so
+ * every membership, `finance_participants`, `payer_id` and `person_id` row keeps naming the
+ * same person. ONE conditional statement, never check-then-write (toon-finance gotcha 72): two
+ * registrations through the same claim link race on the `WHERE … IS NULL` conditions, the first
+ * one writes, the second matches zero rows and gets `409 member_has_account` instead of
+ * overwriting the first one's e-mail and password. The address arrives unconfirmed
+ * (`email_verified = 0`, D4): the verified-e-mail gate keeps the account read-only until the
+ * confirmation link is used. A unique violation on the address is `409 email_taken`.
+ */
+export async function claimPlaceholderUser(
+  database: DbLike,
+  userId: string,
+  input: ClaimPlaceholderInput,
+): Promise<void> {
+  let claimed: Array<{ id: string }>;
+  try {
+    claimed = await database
+      .update(users)
+      .set({
+        email: input.email.trim().toLowerCase(),
+        name: input.name.trim(),
+        passwordHash: input.passwordHash,
+        emailVerified: false,
+        emailVerifiedAt: null,
+        updatedAt: Date.now(),
+      })
+      .where(and(eq(users.id, userId), isNull(users.passwordHash), isNull(users.email)))
+      .returning({ id: users.id });
+  } catch (error) {
+    if (isUniqueViolation(error)) throw ApiError.conflict("email_taken", "server.auth.emailTaken");
+    throw error;
+  }
+  if (claimed.length === 0) {
+    throw ApiError.conflict("member_has_account", "server.household.memberHasAccount");
+  }
 }
 
 /** Creates a household with `userId` as its owner and makes it the active household. */
