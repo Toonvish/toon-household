@@ -47,6 +47,12 @@ describe("ERROR_CODES", () => {
   test("contains module_disabled", () => {
     expect(ERROR_CODES).toContain("module_disabled");
   });
+
+  test("contains the placeholder and claim-invite codes (ADR 0006)", () => {
+    expect(ERROR_CODES).toContain("member_has_account");
+    expect(ERROR_CODES).toContain("invite_claim_requires_register");
+    expect(new Set(ERROR_CODES).size).toBe(ERROR_CODES.length);
+  });
 });
 
 describe("roleAtLeast", () => {

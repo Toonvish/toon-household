@@ -56,6 +56,10 @@ export const ERROR_CODES = [
   "too_many_shopping_lists",
   "invite_invalid",
   "invite_expired",
+  /** The member already has an account: a placeholder action on a real account (ADR 0006). */
+  "member_has_account",
+  /** A claim invite is redeemed only by registration, never by `POST …/invites/accept` (ADR 0006). */
+  "invite_claim_requires_register",
   /**
    * A password-reset token is unknown, expired or already used. ONE code for all
    * three on purpose: telling them apart would confirm that a token existed.

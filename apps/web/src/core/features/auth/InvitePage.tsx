@@ -102,12 +102,15 @@ export function InvitePage() {
           </span>
           <div className="min-w-0 text-sm">
             <p className="font-display text-display-xs font-medium text-fg">{invite.householdName}</p>
-            <p className="text-fg-muted">
-              {t("auth.invite.roleAndEmail", {
-                role: t(ROLE_LABEL_KEYS[invite.role]),
-                email: invite.email,
-              })}
-            </p>
+            {/* A claim invite may carry no address (ADR 0006): the line is left out then. */}
+            {invite.email !== null ? (
+              <p className="text-fg-muted">
+                {t("auth.invite.roleAndEmail", {
+                  role: t(ROLE_LABEL_KEYS[invite.role]),
+                  email: invite.email,
+                })}
+              </p>
+            ) : null}
             <p className="text-fg-muted">
               {t("auth.invite.validUntil", { date: formatDate(invite.expiresAt) })}
             </p>

@@ -26,7 +26,16 @@ export const users = sqliteTable(
   "users",
   {
     id: text("id").primaryKey(),
-    email: text("email").notNull(),
+    /**
+     * NULL only for a PLACEHOLDER member (ADR 0006, plan m3b decision 1): a person added to a
+     * household by name, without an account, so the finance ledger can name them before they
+     * ever sign in. A placeholder also has a NULL `passwordHash`; `isPlaceholderUser`
+     * (core/services/auth/users.ts) is the one predicate. It cannot sign in (login, reset and
+     * OAuth all look up by e-mail or provider id) and becomes an account only through a claim
+     * invite redeemed by registration, in place, same id. The unique index stays: SQLite
+     * treats NULLs as distinct, so any number of placeholders coexist under it.
+     */
+    email: text("email"),
     name: text("name").notNull(),
     avatarUrl: text("avatar_url"),
     emailVerified: integer("email_verified", { mode: "boolean" }).notNull().default(false),
@@ -212,7 +221,8 @@ export const householdInvites = sqliteTable(
     householdId: text("household_id")
       .notNull()
       .references(() => households.id, { onDelete: "cascade" }),
-    email: text("email").notNull(),
+    /** NULL for a claim invite created without an address (ADR 0006). */
+    email: text("email"),
     /** "admin" | "member" */
     role: text("role").notNull().default("member"),
     /** Random URL-safe token; the invite link carries it. */
@@ -226,12 +236,20 @@ export const householdInvites = sqliteTable(
     expiresAt: integer("expires_at").notNull(),
     acceptedAt: integer("accepted_at"),
     createdAt: integer("created_at").notNull().$defaultFn(now),
+    /**
+     * Set on a CLAIM invite (ADR 0006, plan m3b decision 4): the placeholder member this link
+     * turns into an account. Redeemed only by registration, which writes e-mail and password
+     * onto that very row (same id); a plain invite has NULL here. Deleting the placeholder
+     * deletes its claim invites.
+     */
+    claimsUserId: text("claims_user_id").references(() => users.id, { onDelete: "cascade" }),
   },
   (table) => [
     uniqueIndex("household_invites_token_unique").on(table.token),
     index("household_invites_household_id_idx").on(table.householdId),
     index("household_invites_email_idx").on(table.email),
     index("household_invites_invited_by_idx").on(table.invitedBy),
+    index("household_invites_claims_user_id_idx").on(table.claimsUserId),
   ],
 );
 

@@ -295,4 +295,15 @@ export const serverEn: LocaleCatalog<ServerCatalog> = {
   "server.finance.participantNotMember": "This person is not a member of the household.",
   "server.finance.participantInUse": "This person already has entries in the household budget and cannot give up their slot.",
   "server.finance.personNotParticipant": "This person does not take part in this household's budget.",
+
+  /* ------------- M3b finance-sync: toon-finance 1715207, byte-identical ------------- */
+  "server.household.memberHasAccount": "This person already has an account of their own.",
+  "server.invite.claimRequiresRegister":
+    "This link creates the account for a person who is already listed. Sign out and use it to create a new account.",
+  "server.error.originMismatch": "This request did not come from the app and was rejected.",
+  "server.validation.periodBounds": "The month must lie between 2000-01 and 2100-12.",
+  "server.validation.noControlChars": "The name must not contain control characters or line breaks.",
+  /* M3b: placeholder rules (ADR 0006) */
+  "server.household.placeholderRole": "A person without an account cannot get another role.",
+  "server.finance.placeholderSlotOne": "A person without an account can only take seat 2.",
 };

@@ -235,10 +235,13 @@ export async function previewInvite(db: DbLike, token: string): Promise<InvitePr
   return {
     householdName,
     invitedByName,
+    // As stored: NULL for a claim invite created without an address (ADR 0006).
     email: invite.email,
     role: toInvitableRole(invite.role),
     status: toInviteStatus(invite.status, invite.expiresAt),
     expiresAt: toIso(invite.expiresAt),
+    // The placeholder's name once claim invites exist (M3b-T05); a plain invite has none.
+    claimsDisplayName: null,
   };
 }
 

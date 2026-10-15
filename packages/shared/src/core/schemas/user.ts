@@ -52,7 +52,8 @@ export type User = z.infer<typeof UserSchema>;
 export const PublicUserSchema = z.object({
   id: IdSchema,
   name: z.string(),
-  email: z.string(),
+  /** `null` for a placeholder member: a person without an account (ADR 0006). */
+  email: z.string().nullable(),
   avatarUrl: z.string().nullish(),
 });
 export type PublicUser = z.infer<typeof PublicUserSchema>;

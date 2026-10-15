@@ -81,7 +81,10 @@ export function MemberList({ householdId, members, myRole, myUserId, onLeft }: M
                     <Badge variant="neutral">{t("household.members.soleOwner")}</Badge>
                   ) : null}
                 </p>
-                <p className="truncate text-sm text-fg-muted">{member.user.email}</p>
+                {/* A placeholder member has no e-mail (ADR 0006): nothing is shown then. */}
+                {member.user.email !== null ? (
+                  <p className="truncate text-sm text-fg-muted">{member.user.email}</p>
+                ) : null}
               </div>
 
               <Badge variant={member.role === "owner" ? "brand" : "neutral"}>

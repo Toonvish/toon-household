@@ -26,7 +26,7 @@ import {
 } from "../../../db/schema.ts";
 import { ApiError } from "../../../lib/errors.ts";
 import { assertSpendableToken, generateOpaqueToken, hashToken } from "./tokens.ts";
-import { findUserById } from "./users.ts";
+import { findUserById, requireAccountEmail } from "./users.ts";
 
 /** 24 hours — long enough for "I'll do it tonight", short enough to matter. */
 export const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
@@ -63,6 +63,8 @@ export async function createEmailVerificationToken(
     throw ApiError.conflict("conflict", "server.auth.emailAlreadyVerified");
   }
 
+  // Only an account is ever asked to confirm (a placeholder has no session, ADR 0006).
+  const email = requireAccountEmail(user);
   const now = Date.now();
   const token = generateOpaqueToken();
 
@@ -78,7 +80,7 @@ export async function createEmailVerificationToken(
     id: crypto.randomUUID(),
     userId: user.id,
     tokenHash: hashToken(token),
-    email: user.email,
+    email,
     expiresAt,
     usedAt: null,
     requestedIp: options.requestedIp ?? null,
@@ -86,7 +88,7 @@ export async function createEmailVerificationToken(
   });
 
   void sweepExpiredVerificationTokens(db);
-  return { token, expiresAt, email: user.email };
+  return { token, expiresAt, email };
 }
 
 /** Resolves a raw token, or throws 400 `verification_token_invalid`. */

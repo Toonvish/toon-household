@@ -50,6 +50,7 @@ describe("household contract", () => {
       role: "member",
       status: "pending",
       expiresAt: ISO,
+      claimsDisplayName: null,
     };
     expect(InvitePreviewResponseSchema.safeParse({ ...preview, householdName: "X" }).success).toBe(
       true,
@@ -90,6 +91,7 @@ describe("household contract", () => {
       role: "member",
       createdAt: ISO,
       user: { id: UUID, name: "Eric", email: "eric@example.com" },
+      hasAccount: true,
     };
     expect(HouseholdMemberSchema.safeParse({ ...member, householdId: UUID }).success).toBe(true);
     expect(HouseholdMemberSchema.safeParse({ ...member, groupId: UUID }).success).toBe(false);

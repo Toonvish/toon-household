@@ -33,6 +33,8 @@ code is the smallest possible one and is recorded in the plan and in `docs/adr/`
   persists the active one; the top bar has a household switcher. Invites, member management and
   the "content belongs to the household, not the user" rule come from `toon-recipe` decision 1
   unchanged. The recipe module's one exception (saved cards belong to the user) stays.
+  Besides R's e-mail invites, a claim invite (no e-mail, naming a placeholder member) turns that
+  placeholder into an account; it is redeemed only by registration (ADR 0006).
 - **D2 — Modules.** The app is a core plus modules. Core: auth, users, households, members,
   invites, mail, uploads, i18n runtime, the shell, Home, Settings. Modules: `recipe` and `finance`
   now; more later. A module is a directory with a manifest on both sides of the wire (§2). **Modules
@@ -58,6 +60,9 @@ code is the smallest possible one and is recorded in the plan and in `docs/adr/`
   OAuth with explicit linking only, the e-mail confirmation gate that follows the configured mailer,
   password reset, the signed `/uploads` URLs. Finance's auth is a strict subset and its users
   migrate with their password hashes (same algorithm, same `Bun.password` format).
+  Placeholder accounts without e-mail or password exist (a household member added by name, so the
+  finance ledger can name them); they cannot sign in and become accounts only through a claim
+  invite redeemed by registration, in place, same id (ADR 0006).
 - **D5 — Design = toon-recipe's 2026-09 design system.** Tokens (`theme.css` with its four blocks
   and 39 semantic tokens), the type scale (`--text-control`, `--text-item`, `--text-display-*`,
   `.eyebrow`), Newsreader + Figtree self-hosted in `public/fonts/`, the `components/ui` primitives,
@@ -123,8 +128,9 @@ code is the smallest possible one and is recorded in the plan and in `docs/adr/`
 - **D12 — Migration = one idempotent CLI, dry-run by default.** `bun run migrate:legacy` reads the
   two old libSQL files and the recipe uploads directory and writes into the household DB (§6).
   Users are matched by `email_normalized`; every recipe group becomes a household; a finance
-  household merges into the recipe group whose members include both finance members, else it
-  becomes a household of its own; a `--mapping <file>` overrides the proposal; the CLI prints the
+  household merges into the recipe group whose members include every finance member that has an
+  account (placeholders do not count; they join the household as members, and a finance household
+  without any account member needs `--mapping`, ADR 0006), else it becomes a household of its own; a `--mapping <file>` overrides the proposal; the CLI prints the
   full proposal and a report, and writes nothing without `--apply`. It is re-runnable: every
   written row carries a `legacy_source` + `legacy_id` pair in `legacy_ids(table, legacy_source,
   legacy_id, new_id)` and a second run skips what is already mapped.
@@ -328,11 +334,11 @@ Core (from toon-recipe unless noted):
 
 | New table | From | Notes |
 | --- | --- | --- |
-| `users` | recipe `users` ∪ finance `users` | matched by `email_normalized`; `active_group_id` → `active_household_id`; finance-only users get `email_verified_at = NULL` (read-only until confirmed, the same honest rule toon-recipe applies to pre-flow accounts) |
+| `users` | recipe `users` ∪ finance `users` | matched by `email_normalized`; `active_group_id` → `active_household_id`; finance-only users get `email_verified_at = NULL` (read-only until confirmed, the same honest rule toon-recipe applies to pre-flow accounts); a finance placeholder (no e-mail, no password) becomes a placeholder user with a NULL e-mail, never matched by e-mail (ADR 0006) |
 | `oauth_accounts`, `sessions`, `password_reset_tokens`, `email_verification_tokens` | recipe | sessions are **not** migrated (everyone logs in again) |
 | `households` | recipe `groups` (+ finance `households` that do not merge) | `name`, `created_by`, timestamps; finance `default_locale` → `finance_settings` |
 | `household_members` | recipe `group_members` (+ finance `household_members`) | role; finance members join as `member` unless they created the household |
-| `household_invites` | recipe `group_invites` | finance `invites` are not migrated (a finance invite is a seat, which D3 models differently) |
+| `household_invites` | recipe `group_invites` (+ one claim invite per migrated placeholder) | finance `invites` are not migrated (a finance invite is a seat, which D3 models differently), except a still-pending claim invite of a migrated placeholder; a placeholder without one gets a fresh claim invite (ADR 0006) |
 | `household_modules` | new | `recipe` enabled for every migrated group; `finance` enabled where a finance household merged or became one |
 | `legacy_ids` | new | `(table, legacy_source, legacy_id) → new_id`, the idempotency ledger of the migration |
 
@@ -405,7 +411,8 @@ error, detected before anything is written.
    inputs are never opened in place: each file and its `-wal` (never `-shm`) is copied into a scratch
    directory and the copy is opened with `PRAGMA query_only = 1`, so the operator's files are
    byte-identical after any run. A schema gate refuses (exit 2) a database that is not at the last
-   migration of its source (recipe: 9, finance: 2).
+   migration of its source (recipe: 9, finance: 3, the last being F's `0002_placeholder_members`,
+   ADR 0006).
 2. **Users**: union by `email_normalized`. A collision keeps the recipe row's id and password hash
    (recipe has OAuth links and the verified timestamp; finance's hash is only used when recipe has
    none, i.e. the user existed only in finance). A recipe account without a password (OAuth-only)
@@ -414,7 +421,11 @@ error, detected before anything is written.
    id already taken in the target or by an earlier user of the same run gets a fresh UUID. A legacy
    user whose e-mail matches an account already in the target is mapped onto it only when that
    account is confirmed (`email_verified_at` set); an unconfirmed one is an error (D4: no
-   auto-linking).
+   auto-linking). A finance user without a password hash is a placeholder (its e-mail must be NULL
+   too, else an error) and migrates as its own placeholder user with a NULL e-mail, never grouped
+   or matched by e-mail; household matching (step 3) counts only the members with an account, a
+   placeholder joins the target household as `member`, and a finance household whose members are
+   all placeholders is the `no-account-members` error unless `--mapping` names its target (ADR 0006).
 3. **Households**: every recipe group → household (same id). For every finance household H with
    members {a, b}: if exactly one recipe group G contains both a and b, H merges into G; if several,
    the one with the most recipes (then the oldest, then the lowest id); if none, H becomes a new
@@ -434,11 +445,15 @@ error, detected before anything is written.
    written in the same batch as its row and a mapped row is never updated afterwards. Uploads are copied
    with `cp`-like semantics (skip existing, verify size; a different size is an error, never an
    overwrite). R's password-reset and e-mail verification tokens are copied; sessions, finance
-   invites and finance reset tokens are not (§9).
+   invites (except claim invites: each migrated placeholder gets exactly one pending claim invite,
+   its still-pending legacy one or a fresh one, ADR 0006) and finance reset tokens are not (§9).
 6. **Report**: counts per table, collisions, merge decisions, skipped rows with reasons, and the
    finance balance per household before and after (the ledger invariant: the migrated balance equals
    the legacy balance to the cent, or the run fails; checked from the perspective of the legacy user
-   who holds slot 1 in the target, with the transaction count and the amount sum).
+   who holds slot 1 in the target, with the transaction count and the amount sum). A section
+   `== Placeholders and claim invites ==` lists each placeholder, its target household and slot and
+   its claim invite state; the claim link appears only in an `--apply` run's real pass (stdout and
+   the `--report` JSON), which makes that report a credential (ADR 0006).
 7. Dry-run is the default; it runs the whole pipeline against a scratch copy of the target (uploads are
    only counted), so its report is real and nothing is written, not even the database file. `--apply`
    repeats that pass first, writes only when it is clean, and re-checks the balances after the real
@@ -490,5 +505,6 @@ sequentially on main otherwise.
 ## 9. Out of scope
 
 The N-person ledger (D3), path-prefix routing (toon-edge's warning stands), React Native, a second
-web server, migrating sessions or finance invites, translating the finance specs wholesale, keeping
-toon-edge, new recipe or finance features that neither source has today.
+web server, migrating sessions or finance invites (claim invites of placeholders excepted, ADR 0006),
+translating the finance specs wholesale, keeping toon-edge, new recipe or finance features that
+neither source has today.
