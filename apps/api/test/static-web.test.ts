@@ -10,13 +10,17 @@
  *     update itself again, and the symptom appears days later),
  *   - hashed assets ARE cached immutably,
  *   - a missing *.js is a 404, not the SPA shell,
- *   - path traversal cannot escape the dist directory.
+ *   - path traversal cannot escape the dist directory,
+ *   - the served shell's CSP allow-lists exactly the inline scripts of the BUILT
+ *     index.html by hash (M3b-T06, toon-finance gotcha 67; the pre-paint theme
+ *     script is inline).
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Hono } from "hono";
+import { inlineScriptHashes, securityHeaders } from "../src/middleware/securityHeaders.ts";
 import { webAppMiddleware } from "../src/middleware/staticWeb.ts";
 
 let distDir = "";
@@ -206,6 +210,43 @@ describe("without a build", () => {
       });
     } finally {
       rmSync(empty, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("the CSP of the served shell", () => {
+  test("script-src carries one sha256 per inline script of the built index.html, none for src= scripts", async () => {
+    const dist = mkdtempSync(join(tmpdir(), "toon-csp-"));
+    const theme = 'try { document.documentElement.dataset.theme = "dark"; } catch (error) {}';
+    const second = "window.__second = 1;";
+    writeFileSync(
+      join(dist, "index.html"),
+      `<!doctype html><head><script>${theme}</script><script type="module" crossorigin src="/assets/index-1.js"></script></head>` +
+        `<body><script>${second}</script></body>`,
+    );
+    const served = new Hono();
+    served.use("*", securityHeaders(dist));
+    served.use("*", webAppMiddleware(dist));
+    try {
+      const response = await served.request("http://localhost/");
+      expect(response.status).toBe(200);
+      const csp = response.headers.get("content-security-policy") ?? "";
+      const scriptSrc = csp
+        .split(";")
+        .map((part) => part.trim())
+        .find((part) => part.startsWith("script-src "));
+      const sha = (text: string): string => {
+        const hasher = new Bun.CryptoHasher("sha256");
+        hasher.update(text);
+        return `'sha256-${hasher.digest("base64")}'`;
+      };
+      expect(scriptSrc).toBe(`script-src 'self' 'wasm-unsafe-eval' ${sha(theme)} ${sha(second)}`);
+      expect(inlineScriptHashes(await Bun.file(join(dist, "index.html")).text())).toHaveLength(2);
+      // A deep link (the SPA fallback) carries the same header.
+      const deep = await served.request("http://localhost/finance/new");
+      expect(deep.headers.get("content-security-policy")).toBe(csp);
+    } finally {
+      rmSync(dist, { recursive: true, force: true });
     }
   });
 });

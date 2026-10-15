@@ -118,8 +118,20 @@ export const authRoutes = new Hono<AppEnv>();
 
 /* ------------------------------- helpers --------------------------------- */
 
-/** Parses + validates a JSON body. ZodError becomes 422 `validation_failed`. */
+/**
+ * Parses + validates a JSON body. A malformed body is 400, a ZodError becomes 422
+ * `validation_failed` — and a body that does not DECLARE itself JSON is 400 too:
+ * `Request.json()` happily parses a `text/plain` form post, which is exactly the body
+ * an HTML form on a foreign page can send with the cookie attached. Requiring the
+ * content type is what `zValidator("json", …)` does for every other router; this
+ * helper must not be the one exception (toon-finance gotcha 66, 1715207; the other
+ * half of the CSRF defence is middleware/originGuard.ts).
+ */
 async function readJson<S extends z.ZodType>(c: AppContext, schema: S): Promise<z.output<S>> {
+  const contentType = c.req.header("content-type") ?? "";
+  if (!/^application\/json\b/i.test(contentType.trim())) {
+    throw ApiError.badRequest("server.auth.invalidJsonBody");
+  }
   let raw: unknown;
   try {
     raw = await c.req.json();

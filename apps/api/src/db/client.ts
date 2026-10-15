@@ -21,7 +21,10 @@ function prepareUrl(url: string): string {
   const path = url.slice("file:".length);
   if (path.startsWith(":memory:") || path.length === 0) return url;
   const absolute = isAbsolute(path) ? path : resolve(process.cwd(), path);
-  mkdirSync(dirname(absolute), { recursive: true });
+  // 0700 (toon-finance 1715207, gotcha 74): the file holds a household's ledger and
+  // its users; a world-readable data/ on a developer host (default umask -> 0755) is
+  // not what anyone intended. Only directories this call CREATES get the mode.
+  mkdirSync(dirname(absolute), { recursive: true, mode: 0o700 });
   return `file:${absolute}`;
 }
 
@@ -65,6 +68,11 @@ function prepareUrl(url: string): string {
 const LOCAL_FILE_PRAGMAS: readonly string[] = [
   "journal_mode = WAL",
   "synchronous = FULL",
+  // Every `onDelete: cascade/restrict` in the schema depends on this, and it is
+  // PER-CONNECTION and only a compile-time default of the bundled libsql (toon-finance
+  // 1715207, gotcha 74) — sent explicitly so the schema's guarantees never hinge on a
+  // build flag.
+  "foreign_keys = ON",
   // Wait rather than throw SQLITE_BUSY when another connection holds the write
   // lock. The default is 0, i.e. fail immediately.
   "busy_timeout = 5000",

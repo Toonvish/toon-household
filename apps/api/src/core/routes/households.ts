@@ -44,6 +44,7 @@ import { requireMembership, requireUser } from "../../lib/types.ts";
 import { requireHouseholdRole } from "../../middleware/household.ts";
 import { requireSession } from "../../middleware/session.ts";
 import { requireVerifiedEmail } from "../../middleware/verifiedEmail.ts";
+import { HOUSEHOLD_CREATE_RULE, enforceRateLimit } from "../services/auth/rateLimit.ts";
 import {
   createHousehold,
   deleteHousehold,
@@ -80,6 +81,7 @@ householdRoutes.post(
   zValidator("json", CreateHouseholdRequestSchema, onValidationError),
   async (c) => {
     const user = requireUser(c);
+    enforceRateLimit(c, "household-create", user.id, HOUSEHOLD_CREATE_RULE);
     const household = await createHousehold(db, user.id, c.req.valid("json"));
     return created(c, { household }, `/api/households/${household.id}`);
   },

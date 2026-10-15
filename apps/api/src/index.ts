@@ -26,6 +26,8 @@ import {
   UPLOAD_SIG_PARAM,
   verifyUploadSignature,
 } from "./lib/uploadUrls.ts";
+import { originGuard } from "./middleware/originGuard.ts";
+import { securityHeaders } from "./middleware/securityHeaders.ts";
 import { webAppMiddleware } from "./middleware/staticWeb.ts";
 import { API_MODULES } from "./modules/index.ts";
 import { mountModules } from "./modules/mount.ts";
@@ -36,6 +38,13 @@ app.onError(onErrorHandler);
 app.notFound(notFoundHandler);
 
 if (!env.isTest) app.use("*", logger());
+
+// Browser hardening headers on EVERY response (CSP with the built index.html's
+// inline-script hashes, frame denial, nosniff, …), preflights and error bodies
+// included — see middleware/securityHeaders.ts for what differs from Hono's
+// defaults, why HSTS is left to the edge proxy, and why `connect-src 'self'`
+// presumes a build with PUBLIC_API_URL="" (toon-finance gotcha 50).
+app.use("*", securityHeaders(env.webDistDir));
 
 app.use(
   "/api/*",
@@ -52,6 +61,15 @@ app.use(
 // Negotiates the interface locale ApiError.toBody() renders in — must run
 // before every router so onErrorHandler/notFoundHandler can read it too.
 app.use("*", localeMiddleware);
+
+// CSRF defence in depth for every state-changing API call (toon-finance gotcha 66,
+// plan m3b decision 15): a browser request from a foreign origin, or from a SIBLING
+// app on the shared toon-edge domain (which `SameSite=Lax` alone lets through), is
+// refused before any router parses its body or slides a session. After cors() so a
+// preflight still gets its CORS headers, after the locale so the 403 is localised,
+// before health, /uploads and mountModules. An Origin listed in WEB_ORIGIN passes
+// (the dev web app on :5173 is same-site, not same-origin, with the API on :3001).
+app.use("/api/*", originGuard(env.webOrigins));
 
 /**
  * Liveness/readiness probe, and the one place a client can ask what this

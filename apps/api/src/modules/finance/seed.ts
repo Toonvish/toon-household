@@ -13,13 +13,16 @@
  * language is German on purpose (demo data, not interface copy), so nothing here goes
  * through `t()`.
  *
- * Logins: robin@toon.local and kim@toon.local, password demo1234 (like the demo user).
+ * Logins: robin@toon.local and kim@toon.local, with the demo user's password: the
+ * `demoPassword` `scripts/seed.ts` resolved (`SEED_PASSWORD`, else demo1234; plan m3b
+ * decision 17). The log prints it only outside production.
  */
 import { comparePeriods, currentPeriod, previousPeriod, type TxKindValue } from "@toon/shared";
 import { and, eq } from "drizzle-orm";
 import { enableModule } from "../../core/services/households/modules.ts";
 import type { Database } from "../../db/client.ts";
 import { householdMembers, users } from "../../db/schema.ts";
+import { env } from "../../env.ts";
 import { nowMs } from "./lib/clock.ts";
 import { financeParticipants, financeTransactions } from "./schema.ts";
 import { categoryIdBySlug } from "./services/categories/categories.service.ts";
@@ -29,11 +32,10 @@ import { createTransaction } from "./services/ledger/transactions.service.ts";
 import { runCatchUp } from "./services/plan/accrual.service.ts";
 import { createFixedCostItem, createIncome, updatePlan } from "./services/plan/plan.service.ts";
 
-const DEMO_PASSWORD = "demo1234";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Finds the user by e-mail or creates a verified one (the seed vouches for the fictional address). */
-async function ensureUser(db: Database, email: string, name: string): Promise<string> {
+async function ensureUser(db: Database, email: string, name: string, password: string): Promise<string> {
   const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
   if (existing[0]) return existing[0].id;
   const id = crypto.randomUUID();
@@ -44,11 +46,14 @@ async function ensureUser(db: Database, email: string, name: string): Promise<st
     name,
     emailVerified: true,
     emailVerifiedAt: now,
-    passwordHash: await Bun.password.hash(DEMO_PASSWORD, { algorithm: "argon2id" }),
+    passwordHash: await Bun.password.hash(password, { algorithm: "argon2id" }),
     createdAt: now,
     updatedAt: now,
   });
-  console.log(`[seed] user ${email} / ${DEMO_PASSWORD}`);
+  // The password only outside production: there it is the operator's own SEED_PASSWORD.
+  console.log(
+    env.isProduction ? `[seed] user ${email}` : `[seed] user ${email} / ${password}`,
+  );
   return id;
 }
 
@@ -81,10 +86,10 @@ interface DemoTransaction {
 
 export async function seedFinanceDemo(
   db: Database,
-  { householdId, userId }: { householdId: string; userId: string },
+  { householdId, userId, demoPassword }: { householdId: string; userId: string; demoPassword: string },
 ): Promise<void> {
-  const robinId = await ensureUser(db, "robin@toon.local", "Robin");
-  const kimId = await ensureUser(db, "kim@toon.local", "Kim");
+  const robinId = await ensureUser(db, "robin@toon.local", "Robin", demoPassword);
+  const kimId = await ensureUser(db, "kim@toon.local", "Kim", demoPassword);
   await ensureMember(db, householdId, robinId);
   await ensureMember(db, householdId, kimId);
 
