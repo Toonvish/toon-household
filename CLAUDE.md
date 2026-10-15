@@ -47,7 +47,7 @@ owner copy was available; section 10 is "what changed vs plan" and lists the two
 **M3b finance-sync** (2026-10-15, plan `docs/plans/m3b-finance-sync.md`, the follow-up port of toon-finance
 `cbdec67..1715207` plus the placeholder migration; section 9 is the integration record with the gates, the
 fresh-DB curl walkthrough, the owner-data counts, the headless run and the 92 screenshots in
-`docs/plans/screenshots/m3b/`; section 10 is "what changed vs plan" with the F gotcha map; one ADR, 0006,
+`docs/plans/screenshots/m3b/`; section 10 is "what changed vs plan" with the F gotcha map; ADR 0006, and ADR 0007 added by the post-review sync,
 below). Next: **M6 deploy**, then M7 harden.
 
 What exists after M3b: the three workspaces build, typecheck and test green (`bun test`: 2202 pass in 129 files).
@@ -85,7 +85,7 @@ No owner copy of production data was available (`migration-in/` did not exist): 
 
 What M3b added (finance-sync, plan `m3b-finance-sync.md`): toon-finance's seven commits after the M3 port
 (`cbdec67..1715207`, what production runs) and the owner's decision that the placeholder user is migrated as a
-placeholder with a NULL e-mail plus a claim invite (ADR 0006, the one change to SPEC §1). Core: a placeholder is a
+placeholder with a NULL e-mail plus a claim invite (ADR 0006, the one change to SPEC §1; ADR 0007 records the D13 adaptations of F's leave rule, CSP and origin guard). Core: a placeholder is a
 `users` row with `email IS NULL AND password_hash IS NULL` (`0003_placeholder_members`, `isPlaceholderUser`),
 added by an admin (`POST …/members`), renamed (`PATCH …/members/:userId/placeholder`), removed through the
 normal `removeMember` plus the module veto, and turned into an account by a claim invite
@@ -175,8 +175,13 @@ ADRs (`docs/adr/`, each edits the SPEC text in the same commit):
   a placeholder user plus one pending claim invite, gates the finance input at three migrations, matches
   households on account members only and answers an all-placeholder finance household with
   `no-account-members`; the apply report holds live claim links and is a credential).
+- `0007-finance-sync-security-and-leave-adaptations.md` (D13: three adaptations of toon-finance `1715207` that
+  survived the M3b review: F's leave rule, gotcha 69 `anchorCannotLeave`, is replaced by ADR 0004's rule; the CSP
+  adds the recipe module's needs (`'wasm-unsafe-eval'`, `img-src 'self' data: blob: https:`, `media-src` and
+  `object-src` with `blob:`, CORP `same-site`) and still presumes a build with `PUBLIC_API_URL=""`; the origin
+  guard trusts the `WEB_ORIGIN` entries before F's `Sec-Fetch-Site` rule).
 
-M3 and M4 deviated from nothing in SPEC §1 beyond ADRs 0001 to 0004 above, M5 beyond ADR 0005, M3b beyond ADR 0006
+M3 and M4 deviated from nothing in SPEC §1 beyond ADRs 0001 to 0004 above, M5 beyond ADR 0005, M3b beyond ADRs 0006 and 0007
 (plus SPEC §2's `seedDemo` context gaining `demoPassword`, no ADR: §2 is the contract); their plan-level choices
 (non-participants see nothing of the ledger, `start` and `enableDialog`, table identifiers, "Gruppe"
 stays, the recipe exceptions are pinned not converted, the outbox note is module-local) are in the
@@ -824,7 +829,7 @@ the code actually relies on or introduced.
   is compared (TLS ends at the Caddy). It sits after `cors()` (a preflight keeps its headers) and before
   `mountModules`, and `readJson` in `core/routes/auth.ts` wants `Content-Type: application/json`. A second
   origin that legitimately calls the API must be listed in `WEB_ORIGIN`, comma-separated.
-- **The CSP and the baked API URL (plan m3b decision 16, F gotchas 67 and 50).** `middleware/securityHeaders.ts`
+- **The CSP and the baked API URL (plan m3b decision 16, F gotchas 67 and 50, ADR 0007).** `middleware/securityHeaders.ts`
   hashes every inline `<script>` of the built `index.html` at boot (the pre-paint theme script) and sends, on
   every response: `script-src 'self' 'wasm-unsafe-eval' <hashes>` (zxing-wasm for the card scanner), `style-src
   'self'`, `img-src 'self' data: blob: https:` (import previews are `blob:` and `data:`, a recipe may keep an
@@ -898,7 +903,7 @@ four-combination measurement.
 - M5 (closed): `migrate:legacy` shipped with its fixtures, the report and the balance invariant, and
   ADR 0005; plan `docs/plans/m5-migration.md` sections 8 to 10. Left for later: the owner's own cutover run
   against copies of the production volumes (`docs/migration.md`; no owner copy existed in M5).
-- M3b (closed): the finance port up to `1715207`, ADR 0006 and the placeholder migration; plan
+- M3b (closed): the finance port up to `1715207`, ADRs 0006 and 0007 and the placeholder migration; plan
   `docs/plans/m3b-finance-sync.md` sections 8 to 10. Left for later: the owner's cutover run with the claim link
   handed over privately (`docs/migration.md`).
 - M6: `docs/deployment.md` "Cutover from toon-edge" links `docs/migration.md` and names the new stack's

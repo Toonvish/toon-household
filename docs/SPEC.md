@@ -145,6 +145,10 @@ code is the smallest possible one and is recorded in the plan and in `docs/adr/`
   chain — is binding for the module that inherits it.
   One recorded exception: finance's tests run on the shared memory DB and prove real
   transactions on a temp file DB instead of running the whole suite on one (ADR 0003).
+  Three more from the 1715207 sync (ADR 0007): toon-finance's leave rule (gotcha 69) is replaced by
+  ADR 0004's, the CSP carries the recipe module's needs (`'wasm-unsafe-eval'`, `img-src` with `data:`
+  `blob:` `https:`, `media-src` and `object-src` with `blob:`), and the origin guard trusts the
+  `WEB_ORIGIN` entries before applying toon-finance's rule.
 - **D14 — Repository.** `github.com/Toonvish/toon-household`, public, fresh history (no subtree
   merge; the sources stay as they are), Bun workspaces with the same three workspaces
   (`packages/shared`, `apps/api`, `apps/web`) and module directories inside each (§3).

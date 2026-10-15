@@ -1684,8 +1684,13 @@ in 129 files (T13 changed comments and docs only; the count is T12's, section 9.
 
 ### 10.1 Deviations from section 6, confirmed
 
-- **ADR 0006** (SPEC D1, D4, D12, §4, §6 items 1/2/5/6, §9) is the only change to SPEC §1, written in T01 with
-  the SPEC text edited in the same commit. Nothing else in §1 moved.
+- **ADR 0006** (SPEC D1, D4, D12, §4, §6 items 1/2/5/6, §9) is the only change to the TEXT of SPEC §1 that the
+  plan expected, written in T01 with the SPEC text edited in the same commit. After the review, **ADR 0007**
+  (`0007-finance-sync-security-and-leave-adaptations.md`, SPEC D13) records the three plan-level departures from
+  toon-finance's 1715207 gotchas that survived it: F's leave rule (gotcha 69) is replaced by ADR 0004's (decision
+  12), the CSP carries the recipe module's exceptions (decision 16: `'wasm-unsafe-eval'`, `img-src` `data:` `blob:`
+  `https:`, `media-src` and `object-src` `blob:`, CORP `same-site`) and the origin guard trusts `WEB_ORIGIN`
+  (decision 15). The SPEC D13 text carries them in the same commit. Nothing else in §1 moved.
 - **SPEC §2 (no ADR):** the `seedDemo` context gained `demoPassword` (T06, decision 17); `modules/types.ts`,
   `modules/finance/seed.ts` and `scripts/seed.ts` follow it, and `finance-seed.test.ts` proves robin's and
   kim's hashes verify against it and not against `demo1234`.
@@ -1754,7 +1759,12 @@ checked with `git blame` at HEAD (line numbers had moved since `7b974b1`): a lin
 Check: every new number was looked up in `git -C /home/erics/software/toon-finance show 1715207:CLAUDE.md` and names
 the same title as the old number in `cbdec67:CLAUDE.md` (the table above).
 
-### 10.4 Docs synced by T13
+### 10.4 Docs synced by T13 and the post-review ADR
+
+The post-review sync (2026-10-15) added ADR 0007 and its SPEC D13 sentence (section 10.1), the ADR list and the
+deviation sentence in `CLAUDE.md`, and nothing else; no code moved.
+
+T13 itself synced:
 
 `CLAUDE.md` (status names M3b, 2202 tests in 129 files, the "What M3b added" paragraph, the layout additions
 (`originGuard.ts`, `securityHeaders.ts`, `legacy/claims.ts`, `0003_placeholder_members.sql`, the Erfassen sheet and
