@@ -1453,7 +1453,228 @@ codes, `PATCH …/finance/participants/:userId`, the origin guard and the CSP.
 
 ## 9. Integration record
 
-(written by M3b-T12)
+Written by M3b-T12 on the merged tree (`main`, after the merge of T11), run on 2026-10-15. Logs of the
+gate and headless runs are in the session scratch directory (not committed); the owner-data outputs are in
+`migration-out/` (gitignored, and `m3b-apply.log` holds a live claim link, so none of them is quoted
+here beyond counts). The Playwright script lived in a scratch directory outside the repo (Playwright
+1.64, Chromium 1248, de-DE, `Europe/Berlin`, one login per script run, seeded demo data only).
+
+### 9.1 Defect found by the integration run (its own commit, with the failing check)
+
+1. `af71df1` **A production build has no dev fallback API URL.** Check: `PUBLIC_API_URL="" bun run build`
+   then `! grep -rl 'localhost:3001' apps/web/dist/assets` (step 2 and the task's verify command) found
+   `assets/queries-*.js`. Cause: `lib/api.ts` read `PUBLIC_API_URL ?? VITE_API_URL ?? "http://localhost:3001"`
+   and Vite inlines `import.meta.env` as an object, so the dead fallback literal stayed in the bundle with the
+   variable set and empty (the value used was `""`, so no request went there; the literal is only a trap for
+   the image check of M6 and for anybody who greps). The fallback is now
+   `import.meta.env.PROD ? "" : "http://localhost:3001"`: Vite replaces `PROD` statically, the literal is
+   dropped from a production build, and a production build that sets neither variable is relative too
+   (toon-finance's default, gotcha 50, whose F `lib/api.ts` has `""`). `bun run dev` and `bun test` are
+   unchanged (`PROD` is false or undefined there, so tests still see the absolute base). Guard in
+   `apps/web/src/lib/api.test.ts` (one source test). After: grep finds nothing in the built assets. Not a
+   SPEC §1 deviation (D11's same-origin deployment is what this serves); section 7.2's M6 item stays valid
+   (`PUBLIC_API_URL=""` set explicitly in the Dockerfile is still the right, defensive form, and the image
+   check by grep now works).
+
+No other defect: the headless run, the curl walkthrough and the owner-data runs found nothing else.
+
+### 9.2 Gates (merged tree, after the fix)
+
+| Gate | Result |
+| --- | --- |
+| `bun run typecheck` | exit 0, five projects, `[typecheck] OK` |
+| `bun test` | exit 0, **2202 pass, 0 fail**, 12052 `expect()` calls, 129 files, 23.6 s (2201 in 129 files before the one guard test of 9.1) |
+| `PUBLIC_API_URL= bun run build` | exit 0; `! grep -rl 'localhost:3001' apps/web/dist/assets` holds after 9.1 (it failed before) |
+| `bun run i18n:check` | exit 1 by design; step 1/2 (catalog parity) `[i18n:check] OK` (the seven NEW_GERMAN keys of decision 8 are in the set); step 2/2 reports **146** hits (see 9.3) |
+| `bun run db:generate` then `git status --porcelain apps/api/drizzle` | empty: no pending migration, `0003` is the last one |
+| `bun run apps/api/test/fixtures/legacy/build.ts --check` | `committed fixtures match a fresh build` |
+| `grep -q 'already migrated' migration-out/m3b-apply-2.log` | holds |
+| `git status --porcelain` for `migration-in/` and `migration-out/` | nothing (both gitignored); no commit of this task touches them |
+
+### 9.3 `i18n:check` leftover hits (146, all classified)
+
+The M5 tree (`5162e6e`) reported 138. The diff of the two hit lists by file and text (line numbers ignored)
+shows 13 added and 5 removed lines (net +8), all of them **German labels quoted in doc comments** of the
+M3b finance web code, so false positives like the 128 before them. Added: `participants/ClaimLinkDialog.tsx`
+("Konto für {name} verknüpfen"), `EnableFinanceDialog.tsx`, `ParticipantsSection.tsx`, `PlaceholderForm.tsx`
+and `participants/lib/queries.ts` ("Ohne Konto hinzufügen", the last one wrapped), `AmountInput.tsx`
+("12,50", "Buchen", "Bitte gib einen Betrag ein"), `TransactionFormFields.tsx` and `NewTransactionPage.tsx`
+("Mehr Details", now said to be gone), `TransactionList.tsx` ("Mehr laden"), `TransactionRow.tsx` ("Dein
+Anteil", two lines), `NewTransactionPage.tsx` ("Rückgängig") and `lib/format.ts` ("das war …"). Removed: the
+five quotes of the old comments of `CategorySheet.tsx`, `TransactionFormFields.tsx`, `TransactionList.tsx`
+and `NewTransactionPage.tsx` (two), which the rewrite replaced. The 10 recipe content vocabulary lines are
+unchanged. No German literal in code, no new German outside `NEW_GERMAN`.
+
+### 9.4 Fresh database and curl (`data/m3b.db`, built app on `:3001`, `PUBLIC_API_URL=""` build)
+
+`db:migrate`, `seed`, `seed` again: exit 0; the second run reports "already present" for every recipe and
+the ledger (idempotent). Walkthrough as the demo user (`curl`, one cookie jar per user):
+
+- `POST /api/households` 201; `POST …/members {displayName}` **201**, `{ role: "member", hasAccount: false,
+  email: null }` (a placeholder).
+- `POST …/modules/finance` with the two participants (the placeholder in slot 2) **200**; `PUT
+  …/finance/participants` with the same two **200**, items slot 1 `hasAccount: true`, slot 2
+  `hasAccount: false`; `GET …/finance/participants` `viewerSlot: 1`.
+- `POST …/invites { claimsUserId }` **201** (`email: null`, a `/invite/<token>` URL); `GET
+  /api/households/invites/<token>` (public) 200 with `claimsDisplayName`, `status: pending`.
+- **A logged-in accept of the claim token: `409 invite_claim_requires_register`.**
+- **Register with the claim token (no session): `201`, the new user's id equals the placeholder's id**
+  (`sameId: true`), `emailVerified: false`; `GET /api/auth/me` for that session lists the household. The
+  claim is spent (the preview now reports `status: accepted`), and `GET …/finance/participants` as the demo
+  user shows slot 2 with `hasAccount: true`: the ledger seat is the same person, nothing was re-seated.
+- **Origin guard** (`POST /api/households/invites/accept` with a bad token, only the status class matters):
+  `Origin: https://evil.example` **403**; `Origin: null` **403**; `Sec-Fetch-Site: same-site` without an
+  Origin **403**; `Origin: http://127.0.0.1:3001` against `http://localhost:3001` **403** (host differs); the
+  app's own origin `http://localhost:3001` passes (404 for the bad token); an `Origin` from `WEB_ORIGIN`
+  (`http://localhost:5173`) passes (404); no Origin (curl) passes (404); `Origin: http://127.0.0.1:3001`
+  against `http://127.0.0.1:3001` passes (401, not 403).
+- **CSP header** on `/` and on `/api/health`: `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'
+  'sha256-…'` (one hash: the pre-paint theme script); `style-src 'self'`; `img-src 'self' data: blob:
+  https:`; `media-src 'self' blob:`; `font-src 'self'`; `connect-src 'self'`; `manifest-src 'self'`;
+  `worker-src 'self'`; `frame-ancestors 'none'`; `base-uri 'self'`; `form-action 'self'`; `object-src
+  blob:`; plus `X-Frame-Options: DENY` and `X-Content-Type-Options: nosniff`; no `Strict-Transport-Security`
+  (the Caddy owns it, D11) and no `Permissions-Policy`.
+- `PRAGMA foreign_keys` through the app's own client on the file DB: **1** (`journal_mode` `wal`,
+  `synchronous` 2, D7).
+- `NODE_ENV=production bun run seed` without `ALLOW_SEED`: exit 1 ("refusing to run with
+  NODE_ENV=production"); with `ALLOW_SEED=1` but no `SEED_PASSWORD`: exit 1 ("SEED_PASSWORD (>= 10 chars)
+  is required in production"); no database file was created by either.
+- The API also keeps the 5-per-hour household-creation limit (`429 rate_limited`), which the headless
+  script runs around by restarting the server between passes (in-memory buckets).
+
+### 9.5 The owner's data (counts only; `migration-out/`, outputs gitignored)
+
+Inputs, copies in `migration-in/` (as in section 1.2): finance backup at 3 migrations
+(`0002_placeholder_members`), 2 users, 1 household, 2 participants, 334 transactions, 2 incomes, 1 plain
+invite; recipe backup at 9 migrations, 2 users, 2 groups, 55 recipes. `DATABASE_URL=file:./migration-out/toon.db`,
+`UPLOAD_DIR=./migration-out/uploads`, `toon.db` absent beforehand (nothing to move to `pre-m3b/`).
+
+| Run | Exit | Result |
+| --- | --- | --- |
+| dry run (`--report migration-out/m3b-dry-run.json`, stdout to `m3b-dry-run.log`) | **0** | **no errors, no warnings**; 3032 rows would be written, 89 files would be copied; mapping proposal: the finance household **merges** into the recipe group (`only-group`, the placeholder is added as a member); finance balance per household **OK** (legacy and migrated balance equal, 334 legacy and 334 migrated transactions, equal sums); `== Placeholders and claim invites ==` lists **1 placeholder** (slot 2) with claim invite `would-create`, and no invite URL is printed in a dry run |
+| `--apply --report migration-out/m3b-apply.json` (stdout to `m3b-apply.log`) | **0** | "applied: 3032 rows written, 89 files copied"; the same section lists the placeholder with the claim invite **`created`** and its link under "Claim links" (a credential: the log is shared with nobody) |
+| second `--apply` (`m3b-apply-2.log`) | **0** | **"already migrated: nothing written."**; the section reports the claim invite `already-migrated` |
+
+Counts read from `migration-out/toon.db` after the apply (read-only query): users **3**, of which
+placeholders (no e-mail, no password) **1**; households **2**; household members 4; `finance_participants` 2;
+`finance_transactions` **334**; `recipe_recipes` 55; pending claim invites **1** (claim invites in total 1);
+uploads copied 89; `PRAGMA foreign_keys` 1. A claim invite of the placeholder exists exactly once after two
+applies.
+
+### 9.6 Headless run (**354 of 354 checks pass**, exit 0, six passes of 59 checks)
+
+Contexts: 390x844 is a mobile context (`isMobile`, `hasTouch`, overlay scrollbars), 1440x900 a desktop
+context, `colorScheme` light and dark. Four passes at `http://localhost:3001` (390 light, 1440 light, 390
+dark, 1440 dark; they take the 92 screenshots) and two at `http://127.0.0.1:3001` (390 light, 1440 light, no
+screenshots), all against the build of step 2 (`PUBLIC_API_URL=""`) served by `WEB_DIST_DIR=./apps/web/dist
+bun run start`. Each pass creates its own households from a non-SPA page (`/api/health`, the stale
+`["toon","me"]` rule) and restarts the API first (login and household-create limits). Per pass, 20 pages
+plus the two logged-out claim pages:
+
+- **Screens**: Home, the finance list grouped by day (12 day headings, e.g. "MITTWOCH, 14.10.2026 28,50 €"),
+  `/finance/new`, the finance overview, recipe library, detail, import, shopping, cards and plan, Settings,
+  and on fresh households: the empty finance list, the participants section with the placeholder, the
+  claim-link dialog, the core member list (`ohne Konto`), Home with "Aktivieren", the enable dialog, the
+  finance overview after enabling, and the claim `InvitePage` and `RegisterPage` logged out and logged in.
+- **No console error, no page error, no CSP violation, no failed request** on any of them, at both origins
+  and both widths (STATS per pass: `consoleErrors` 0, `pageErrors` 0, `csp` 0, `failedReq` 0). One
+  `net::ERR_ABORTED` per pass (a `…/members` query of the enable flow, cancelled by the page) is a
+  request the page itself cancelled and is counted apart (`aborted: 1`), not a failure. The only tolerated
+  console line is the pre-login `401 /api/auth/me` on the two logged-out pages.
+- **CSP on the second origin** (decision 16, the trap): at `http://127.0.0.1:3001` the relative build logs
+  in, the Home cards load (recipe week strip and the finance card), the finance and recipe screens render
+  and the `/uploads` hero image of the recipe detail decodes (`naturalWidth` 900) with zero violations,
+  exactly as at `http://localhost:3001`.
+- **Observation, the build WITHOUT `PUBLIC_API_URL=""`** (opened at 127.0.0.1, Chromium, logged in): with
+  the variable set to the `.env.example` value `http://localhost:3001` (what an unset variable baked in
+  before 9.1) the SPA stays on "Anmeldung wird geprüft …" and logs **4 CSP violations** ("Connecting to
+  'http://localhost:3001/api/auth/me' violates the following Content Security Policy directive:
+  "connect-src 'self'""); at `http://localhost:3001` the same build is clean (the trap's hiding place).
+  After 9.1 a build with the variable truly UNSET is relative and clean at both origins (0 violations at
+  127.0.0.1); the only way to get the trap now is to set the variable to an absolute URL, which
+  `.env.example` already says not to do for a served build. M6's image build still sets it empty (7.2).
+- **Erfassen sheet** (decision 10): `n` on `/finance/transactions` opens it (a bottom sheet at 390, a
+  centred dialog at 1440), the focus is on Betrag, Esc closes it; the "Erste Buchung erfassen" opener of the
+  empty list opens it; a booking of "12,50" with a description: the sheet **stays open**, **Betrag is empty**,
+  the booking is in the list after Esc, `n` reopens it; on `/finance/new` `n` does nothing (host claimed) and
+  there is exactly one "Buchen" button and no dialog. Observation, not a defect: after a click on "Buchen" the
+  focus is on `body`, not on Betrag (the sheet re-renders the form); toon-finance has no refocus code
+  either (its `grep focus` finds only `Dialog`, the one-shot autofocus on opening), so this matches F;
+  Cmd/Ctrl+Enter from inside the field keeps the focus where it is.
+- **Enable dialog** (decision 8): on a household with one placeholder member and finance off, Home's
+  "Aktivieren" opens "Finanzen aktivieren" with "Ohne Konto hinzufügen"; a second placeholder entered in the
+  dialog ("Person eintragen") is preselected for Platz 2 as "<name> (ohne Konto)"; "Aktivieren" closes the
+  dialog and `GET …/finance/participants` answers 200 with a seat that has `hasAccount: false`.
+- **Claim flow screens**: the participants section shows the placeholder with the "ohne Konto" badge,
+  "Umbenennen" and "Konto für Pia verknüpfen"; the dialog creates the link (`/invite/<token>`, shown with
+  "Kopieren"); the core member list shows the badge and "Kann sich noch nicht anmelden."; logged out the
+  `InvitePage` offers "Konto erstellen", logged in it explains the link and offers "Abmelden"; the
+  `RegisterPage` shows the hint "Du erstellst das Konto für „Pia" in der Gruppe „…"." with the name prefilled.
+  The claim link of the dialog starts with the first `WEB_ORIGIN` entry (`http://localhost:5173` in this
+  run), as decision 14 says; the run opened its token on the served origin.
+- **No horizontal overflow** (`documentElement.scrollWidth <= clientWidth` and no element's right edge
+  beyond `innerWidth` + 0.5, elements inside an `overflow-x` clipper excluded; every page prints its
+  numbers): 60 page measurements per width, all equal to the same numbers:
+
+| Context | `scrollWidth` | `clientWidth` | `innerWidth` | max element right |
+| --- | --- | --- | --- | --- |
+| 390, mobile (overlay scrollbar) | 390 | 390 | 390 | 390 |
+| 1440, desktop (`scrollbar-gutter: stable`) | 1425 | 1440 | 1440 | 1425 |
+
+  The 15 px difference at 1440 is the stable gutter, shown from the script and never in the app: with
+  `documentElement.style.scrollbarGutter = "auto"` the numbers become **1440 == 1440** (before: 1425/1440),
+  once per script run (six runs). The Erfassen sheet and the enable dialog, opened, measure the same.
+
+### 9.7 Screenshot index (`docs/plans/screenshots/m3b/<screen>-<width>-<scheme>.png`, KB)
+
+**92** viewport-only PNGs, **5.37 MB** in total (under the 25 MB limit, nothing stored as JPEG). Seeded
+demo data only: the Familie household and the fixture households "Kasse A/B", never the owner's data.
+`finance-erfassen-sheet` is the sheet opened by `n` on the Familie list, `finance-erfassen-opener` the
+sheet opened by "Erste Buchung erfassen" on the empty list, `finance-erfassen-after-book` the same after one
+"Buchen" (the sheet stays open, the success toast on top); `settings-claim-link` is the claim-link dialog on
+the participants section; the `invite-claim-*` and `register-claim` pages are the claim flow logged in and
+out. The light 390 and 1440 sets are complete; dark exists for the screens with a dash-free column.
+
+| screen | 390 light | 390 dark | 1440 light | 1440 dark |
+|---|---|---|---|---|
+| `home` | 43 | 44 | 62 | 63 |
+| `home-enable-finance` | 34 | - | 53 | - |
+| `home-finance-placeholder` | 41 | - | 59 | - |
+| `finance-transactions` | 62 | 62 | 106 | 107 |
+| `finance-transactions-empty` | 29 | 29 | 52 | 53 |
+| `finance-new` | 51 | 51 | 92 | 93 |
+| `finance-overview` | 46 | - | 84 | - |
+| `finance-overview-placeholder` | 44 | - | 75 | - |
+| `finance-erfassen-sheet` | 47 | 47 | 149 | 143 |
+| `finance-erfassen-opener` | 48 | 48 | 106 | 104 |
+| `finance-erfassen-after-book` | 49 | 49 | 117 | 113 |
+| `finance-enable-dialog` | 41 | 40 | 80 | 75 |
+| `finance-enable-dialog-placeholder-added` | 41 | 39 | 80 | 74 |
+| `settings` | 40 | 40 | 64 | 64 |
+| `settings-participants` | 43 | 43 | 68 | 68 |
+| `settings-claim-link` | 44 | 43 | 92 | 85 |
+| `household-detail` | 43 | 41 | 64 | 62 |
+| `invite-claim-out` | 25 | 25 | 31 | 30 |
+| `invite-claim-in` | 29 | 29 | 36 | 35 |
+| `register-claim` | 32 | 31 | 37 | 36 |
+| `recipe-library` | 47 | 47 | 114 | 115 |
+| `recipe-detail` | 44 | 44 | 100 | 101 |
+| `recipe-import` | 43 | 43 | 68 | 69 |
+| `recipe-shopping` | 51 | 51 | 89 | 90 |
+| `recipe-cards` | 33 | 33 | 56 | 57 |
+
+### 9.8 Exit criteria (SPEC §8 M3b, this plan's goal) against the evidence
+
+| Criterion | Evidence |
+| --- | --- |
+| Gates green | 9.2: typecheck OK, `bun test` 2202 pass / 0 fail, build OK with no `localhost:3001` in the assets, parity OK, no pending migration, fixtures match |
+| Every F test file at `1715207` has a passing counterpart | section 2 of this plan maps the four F test files that changed (`placeholders`, `security`, `format`, `schemas`) to their H counterparts; all of them exist (`placeholders.test.ts`, `security.test.ts`, `finance-security.test.ts`, `finance-participants.test.ts`, `finance-schemas.test.ts`, `core.test.ts`, `modules/finance/lib/format.test.ts`) and run green inside the 2202; the per-case recount into the m3 plan is T13's |
+| A migrated placeholder is claimable by register on the fixtures | `legacy-placeholders.test.ts` (T09), and 9.4 proves the same path over HTTP on a fresh database (register with the claim token returns the placeholder's own id; a logged-in accept is `409 invite_claim_requires_register`) |
+| Real-data dry run exits 0, no errors, balance OK, placeholder and claim invite listed | 9.5: exit 0, no errors and no warnings, balance OK, 1 placeholder, claim invite `would-create` |
+| `--apply` into `migration-out/`, then a second `--apply` writes nothing | 9.5: exit 0 and 0, "already migrated: nothing written.", 1 pending claim invite, 1 placeholder |
+| The changed finance screens verified at 390 and 1440 with screenshots, seeded demo data only | 9.6 and 9.7: 354 of 354 checks, 92 PNGs |
+| CSP console clean on two origins, no horizontal overflow | 9.6: zero violations at `localhost` and `127.0.0.1`, `scrollWidth <= clientWidth` on every measured page |
+| Nothing from `migration-in/` or `migration-out/` in git | `git status --porcelain` shows neither directory, and the commits of this task add only the code fix, its test and this plan section plus the PNGs |
 
 ## 10. What changed vs plan
 
