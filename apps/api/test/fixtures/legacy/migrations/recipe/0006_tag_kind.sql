@@ -1,0 +1,11 @@
+-- Category becomes a DIMENSION of a tag (D5). SQLite cannot add a NOT NULL column to a
+-- populated table without a SQL-level default, hence DEFAULT 'free' — and unlike
+-- 0003's fold columns, here the drizzle schema KEEPS the default too: 'free' is the
+-- right value for every existing insert site, so the default is what lets those three
+-- sites compile unchanged instead of forcing a decision they do not have.
+--
+-- The VOCABULARY ('Hauptspeise', 'Beilage', ...) is CONTENT: German, viewer-independent,
+-- never routed through t(). Only the filter rail's heading is interface.
+--
+-- No backfill needed: DEFAULT 'free' fills every existing row in the same statement.
+ALTER TABLE `tags` ADD `kind` text DEFAULT 'free' NOT NULL;
