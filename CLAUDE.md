@@ -768,7 +768,7 @@ four-combination measurement.
   against copies of the production volumes (`docs/migration.md`; no owner copy existed in M5).
 - M6: `docs/deployment.md` "Cutover from toon-edge" links `docs/migration.md` and names the new stack's
   volume and image for the copy-in step (migration.md's step 6 uses `<new-volume>` and `/app/data/local.db`
-  as placeholders to check against it); redirects from toon-recipe's old paths (`/recipes/…`, `/plan`, `/shopping`, `/import`) and from
+  as placeholders to check against it, and its `chown -R 1000:1000 /data` against the image's real `bun` uid: the copy runs as root into a pre-filled volume, so Docker does not seed ownership); redirects from toon-recipe's old paths (`/recipes/…`, `/plan`, `/shopping`, `/import`) and from
   toon-finance's (`/transactions`, `/new`, `/plan`, `/categories`, `/household`) for bookmarks arriving
   through the old-hostname redirect (with the Caddyfile; note `/plan` exists in both sources); image
   build with `WITH_OCR=1 WITH_PDF=0`.

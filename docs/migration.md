@@ -504,8 +504,16 @@ reversible by starting the old stacks again.
    ```bash
    docker volume create <new-volume>
    docker run --rm -v <new-volume>:/data -v "$PWD/migration-out:/in:ro" alpine sh -c \
-     'cp /in/toon.db /data/local.db && { [ ! -f /in/toon.db-wal ] || cp /in/toon.db-wal /data/local.db-wal; } && cp -a /in/uploads /data/uploads'
+     'cp /in/toon.db /data/local.db && { [ ! -f /in/toon.db-wal ] || cp /in/toon.db-wal /data/local.db-wal; } && cp -a /in/uploads /data/uploads && chown -R 1000:1000 /data'
    ```
+
+   The `chown` is required. Docker only seeds a named volume with the image's `/app/data` contents
+   and ownership when the volume is empty at its first mount; this one is pre-filled, so everything
+   the root container wrote stays owned by root. The app image runs as `USER bun` (uid 1000, as both
+   source images do), and without the `chown` it cannot write the database, the `-wal` or `-shm`
+   files or `uploads/`: the WAL pragma and the migrations fail at boot and image uploads fail.
+   Check the uid against the new image (`docker run --rm --entrypoint id <image>`) and use that uid
+   if it is not 1000.
 
 7. **Start the new stack** (`docker compose pull && docker compose up -d` in the new stack's
    directory), with `RECIPE_HOSTNAME` and `FINANCE_HOSTNAME` set so the old hostnames redirect to
