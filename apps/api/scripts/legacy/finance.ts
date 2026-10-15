@@ -14,7 +14,7 @@
  * - `incomes` keep a `person_id` that is not a participant, with a warning (never skipped, never
  *   an error: the plan merely reports `plan_incomplete` until an admin replaces the row).
  * - Booked periods, `last_booked_period`, `origin`, `external_key`, amounts and timestamps are
- *   copied unchanged (F gotchas 35, 37, 45).
+ *   copied unchanged (F gotchas 36, 38, 46).
  *
  * The finance TS identifiers carry a `finance` prefix and are aliased here (H/CLAUDE.md). No
  * module-scope code beyond imports and constants (decision 5); the library takes the target from

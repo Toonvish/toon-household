@@ -273,7 +273,7 @@ const UNIQUE_VIOLATION_RE = /unique constraint|sqlite_constraint_unique|constrai
  * (`SQLITE_CONSTRAINT: UNIQUE constraint failed: …`) sits one level down in
  * `cause`. Inspecting just the top level therefore answers `false` for every
  * unique violation drizzle can produce and turns each 409 built on this helper
- * into a 500 (toon-finance gotcha 50, plan M3 decision 16). Hence: walk the
+ * into a 500 (toon-finance gotcha 51, plan M3 decision 16). Hence: walk the
  * chain, depth-capped so a self-referential `cause` cannot spin.
  */
 export function isUniqueViolation(error: unknown): boolean {

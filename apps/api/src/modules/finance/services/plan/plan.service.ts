@@ -185,7 +185,7 @@ async function maxOccupiedPeriod(db: Database, householdId: string): Promise<str
  * (M3 review finding B, SPEC D3/D8): the household comes from the path only, never from the id
  * being checked, so a member without a seat or a user of another household is refused with
  * `422 validation_failed` and a detail on `field` carrying `server.finance.personNotParticipant`
- * (the same issue shape as every other service-side validation, toon-finance gotcha 47).
+ * (the same issue shape as every other service-side validation, toon-finance gotcha 48).
  */
 async function assertParticipant(db: DbLike, householdId: string, userId: string, field: "payerId" | "personId"): Promise<void> {
   if ((await participantSlotOf(db, householdId, userId)) !== null) return;

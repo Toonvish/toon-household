@@ -158,7 +158,7 @@ export async function slot1UserId(db: DbLike, householdId: string): Promise<stri
  * executor it is given — the enable hook passes the core's transaction; the PUT route
  * goes through {@link saveParticipants}, which opens one.
  *
- * Rules, checked here and not in a Zod refine (F gotcha 47: a refine cannot carry a code):
+ * Rules, checked here and not in a Zod refine (F gotcha 48: a refine cannot carry a code):
  * - exactly two entries, slots exactly {1, 2}, two different users, else
  *   `422 finance_participants_required` (`server.finance.participantsRequired`);
  * - both are core members of the household, else the same code with
@@ -179,7 +179,7 @@ export async function slot1UserId(db: DbLike, householdId: string): Promise<stri
  *   (trimmed, ≤ 80) and `joined_at` = the module clock.
  *
  * A unique violation (a concurrent assignment won the race for a slot) answers the same
- * 409, never a 500 (`isUniqueViolation` walks drizzle's cause chain, F gotcha 50).
+ * 409, never a 500 (`isUniqueViolation` walks drizzle's cause chain, F gotcha 51).
  */
 export async function assignParticipants(
   db: DbLike,

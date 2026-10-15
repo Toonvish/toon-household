@@ -8,7 +8,7 @@ import { MemberSlotSchema } from "./common.ts";
  * the household budget, seated in slot 1 and slot 2. Replaces F's
  * `household_members` contract (`MemberResponse`), same shape, renamed.
  *
- * Distinctness and membership are service checks (F gotcha 47), never
+ * Distinctness and membership are service checks (F gotcha 48), never
  * refinements: a Zod `.refine()` cannot carry its own error code.
  */
 

@@ -8,7 +8,7 @@ import { useT, type MessageKey } from "@/lib/i18n";
  * `features/transactions/lib/kinds.ts`) or HERKUNFT (`origin`, below) —
  * generic on purpose: the label is a resolved catalog key the caller
  * supplies, never a literal string, so a label-map frozen at import time
- * (CLAUDE.md gotcha #26) can never sneak in here. `TX_KIND_LABEL_KEYS` lives
+ * (CLAUDE.md gotcha #27) can never sneak in here. `TX_KIND_LABEL_KEYS` lives
  * in `WEB-TX`; this component only renders whatever key it is given.
  */
 export function KindBadge({ labelKey, variant = "neutral" }: { labelKey: MessageKey; variant?: BadgeVariant }) {

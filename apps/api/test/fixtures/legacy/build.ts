@@ -775,7 +775,7 @@ function financeStatements(): InStatement[] {
   const fh1 = FINANCE_HOUSEHOLDS.FH1.id;
   const t1 = tx({ household: "FH1", payer: "anna", mode: "SPLIT_EQUAL", cents: 4590, description: "Wocheneinkauf Rewe", category: "lebensmittel", at: ms(2026, 7, 4) });
   tx({ household: "FH1", payer: "ben", mode: "SPLIT_EQUAL", cents: 1999, description: "Drogerie", category: "drogerie", at: ms(2026, 7, 9) });
-  // A refund: halfForOther(-101) is -50, never -51 (F gotchas 31-33).
+  // A refund: halfForOther(-101) is -50, never -51 (F gotchas 32-34).
   tx({ household: "FH1", payer: "anna", mode: "SPLIT_EQUAL", cents: -101, description: "Pfand Rückerstattung", category: "lebensmittel", at: ms(2026, 7, 11) });
   tx({ household: "FH1", payer: "ben", mode: "SPLIT_EQUAL", cents: 7777, description: "Baumarkt Schrauben", category: "baumarkt", at: ms(2026, 7, 15) });
   tx({ household: "FH1", payer: "anna", mode: "OTHER_ONLY", cents: 2500, description: "Geschenk für Ben", category: "geschenke", at: ms(2026, 7, 20) });

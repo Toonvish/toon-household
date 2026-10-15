@@ -13,7 +13,7 @@
  * - `finance_participants` replaces F's `household_members` (the two slots, by user
  *   id, same PK / unique index / CHECK — F decision 1, SPEC D3);
  * - `finance_settings` holds what F kept in `households.default_locale` (the
- *   language server-written ledger text is stored in, F gotcha 41);
+ *   language server-written ledger text is stored in, F gotcha 42);
  * - `household_id` references the core `households.id` (cascade, as in F); user
  *   references keep F's `onDelete` (`restrict` for payer/person/participant,
  *   `set null` for `created_by`).
@@ -81,7 +81,7 @@ export type NewFinanceParticipantRow = typeof financeParticipants.$inferInsert;
 /**
  * One row per household (written by `onHouseholdCreated`, SPEC §2, finance enabled or
  * not). `default_locale` is the language the server writes ledger text in (plan
- * booking descriptions) — never the request's locale (F gotcha 41).
+ * booking descriptions) — never the request's locale (F gotcha 42).
  */
 export const financeSettings = sqliteTable("finance_settings", {
   householdId: text("household_id")
@@ -184,7 +184,7 @@ export const financeTransactions = sqliteTable(
     // unix ms, 00:00 Europe/Berlin for day-precision entries.
     bookedAt: integer("booked_at").notNull(),
     dateSource: text("date_source", { enum: ["exact", "day", "month", "estimated"] }).notNull(),
-    // NO default (F gotcha 37): `tsc` must fail at every insert that forgets it.
+    // NO default (F gotcha 38): `tsc` must fail at every insert that forgets it.
     origin: text("origin", {
       enum: ["manual", "fixed_plan", "fixed_plan_adjustment", "import"],
     }).notNull(),

@@ -4,7 +4,7 @@
  *
  * Replaces F `services/households/households.service.ts#loadHouseholdRow` for the
  * ledger: the ported services read `household.defaultLocale` (the language
- * server-written ledger text is stored in, F gotcha 41 — never the request's locale)
+ * server-written ledger text is stored in, F gotcha 42 — never the request's locale)
  * and nothing else of F's household row, so `loadHouseholdRow` keeps its name and
  * returns `{ householdId, defaultLocale }`.
  */

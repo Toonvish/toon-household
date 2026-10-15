@@ -3,7 +3,7 @@
  * balance sentence and the current period's spend; for a household member without a slot one line
  * naming the two. M4 polishes it.
  *
- * The balance reads exactly as `BalanceHero` does (F gotcha 38): `viewerBalanceCents` is the
+ * The balance reads exactly as `BalanceHero` does (F gotcha 39): `viewerBalanceCents` is the
  * viewer's projection, so its sign picks `owesYou` / `youOwe` / `settled`; a raw `balanceCents`
  * (slot 1's truth) is never shown. Non-participants never fire the ledger queries (they would
  * answer 403).

@@ -1,7 +1,7 @@
 /**
  * The four transaction kinds — labels, hints, live "what does this mean for
  * the balance" copy, and icons. One place, so `KindPicker`, `TransactionRow`
- * and the filter panel never invent their own strings (CLAUDE.md gotcha #26:
+ * and the filter panel never invent their own strings (CLAUDE.md gotcha #27:
  * a label resolved once at import time would freeze on whichever locale
  * loaded first — every lookup here is a KEY, resolved through `t()` at
  * render time).
