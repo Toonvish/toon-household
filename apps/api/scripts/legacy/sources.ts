@@ -24,7 +24,7 @@ import type { LegacyDb, LegacySource, Row } from "./types.ts";
 /** The drizzle journal each source must be at (plan m5 §1.2: count, last `when`, last tag). */
 export const LEGACY_SCHEMAS = {
   recipe: { migrations: 9, lastCreatedAt: 1788859780811, lastTag: "0008_shopping_bought" },
-  finance: { migrations: 2, lastCreatedAt: 1787307431957, lastTag: "0001_material_nebula" },
+  finance: { migrations: 3, lastCreatedAt: 1789194481486, lastTag: "0002_placeholder_members" },
 } as const satisfies Record<LegacySource, { migrations: number; lastCreatedAt: number; lastTag: string }>;
 
 /**
@@ -67,10 +67,7 @@ function schemaMessage(source: LegacySource, applied: number, lastCreatedAt: num
   if (newer) {
     return `${head}; it is newer than ${expected.lastTag} (${expected.lastCreatedAt}), which this migration tool was written for`;
   }
-  const detail =
-    applied === expected.migrations
-      ? ` (its last migration is from ${lastCreatedAt ?? "nowhere"}, expected ${expected.lastTag} at ${expected.lastCreatedAt})`
-      : "";
+  const detail = ` (its last migration is from ${lastCreatedAt ?? "nowhere"}, expected ${expected.lastTag} at ${expected.lastCreatedAt})`;
   return `${head}${detail}; start the old app once (it migrates on boot) and copy it again`;
 }
 

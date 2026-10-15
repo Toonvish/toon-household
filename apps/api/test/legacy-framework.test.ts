@@ -176,7 +176,7 @@ describe("(b) openLegacy and the schema gate", () => {
   test("fewer journal rows are refused with 'N of 9'", async () => {
     const error = await refusal(await legacyFile(8, 1788859780811 - 5000));
     expect(error.message).toBe(
-      "legacy recipe database is at migration 8 of 9; start the old app once (it migrates on boot) and copy it again",
+      "legacy recipe database is at migration 8 of 9 (its last migration is from 1788859775811, expected 0008_shopping_bought at 1788859780811); start the old app once (it migrates on boot) and copy it again",
     );
   });
 
@@ -235,12 +235,18 @@ describe("(b) openLegacy and the schema gate", () => {
   });
 
   test("the finance gate uses its own journal", async () => {
-    const ok = await legacyFile(2, LEGACY_SCHEMAS.finance.lastCreatedAt);
+    const ok = await legacyFile(LEGACY_SCHEMAS.finance.migrations, LEGACY_SCHEMAS.finance.lastCreatedAt);
     const legacy = await openLegacy("finance", ok, freshDir("gate-scratch"));
     track(legacy.client);
     expect(legacy.source).toBe("finance");
     const error = await refusal(await legacyFile(1, LEGACY_SCHEMAS.finance.lastCreatedAt - 10_000), "finance");
-    expect(error.message).toContain("legacy finance database is at migration 1 of 2");
+    expect(error.message).toContain("legacy finance database is at migration 1 of 3");
+  });
+
+  test("a 2-migration finance database (before 0002_placeholder_members) is refused naming that migration", async () => {
+    const error = await refusal(await legacyFile(2, 1787307431957), "finance");
+    expect(error.message).toContain("legacy finance database is at migration 2 of 3");
+    expect(error.message).toContain("expected 0002_placeholder_members at 1789194481486");
   });
 });
 

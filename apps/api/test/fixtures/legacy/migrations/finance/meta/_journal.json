@@ -15,6 +15,13 @@
       "when": 1787307431957,
       "tag": "0001_material_nebula",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789194481486,
+      "tag": "0002_placeholder_members",
+      "breakpoints": true
     }
   ]
 }
