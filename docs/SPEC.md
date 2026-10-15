@@ -30,7 +30,8 @@ code is the smallest possible one and is recorded in the plan and in `docs/adr/`
 
 - **D1 — Household = recipe's group model, renamed.** A household has N members with roles
   `owner > admin > member`, a user can belong to several households, and `users.active_household_id`
-  persists the active one; the top bar has a household switcher. Invites, member management and
+  persists the active one; each shell screen's header row has a household switcher chip on phones and
+  the sidebar head has it from `lg` (ADR 0010). Invites, member management and
   the "content belongs to the household, not the user" rule come from `toon-recipe` decision 1
   unchanged. The recipe module's one exception (saved cards belong to the user) stays.
   Besides R's e-mail invites, a claim invite (no e-mail, naming a placeholder member) turns that
@@ -71,8 +72,9 @@ code is the smallest possible one and is recorded in the plan and in `docs/adr/`
   the finance-participant settings are designed inside it. `docs/redesign/` of toon-recipe is the
   design record and is copied into `docs/design/recipe-redesign/` for reference.
 - **D6 — Navigation = module-scoped tabs + a switcher.** Home (`/`) is a household screen with one
-  card per enabled module and the household switcher. A **module switcher** in the top bar (and
-  the sidebar head from `lg`) changes the active module; inside a module the phone tab bar shows
+  card per enabled module and the household switcher. A **module switcher** (the module chip of each
+  screen's header row on phones, the sidebar head from `lg`; there is no global top bar, ADR 0010)
+  changes the active module; inside a module the phone tab bar shows
   that module's own four tabs, so each module keeps the mobile layout it was designed for:
   recipe: Rezepte `/recipe` · Plan `/recipe/plan` · Einkauf `/recipe/shopping` · Profil `/settings`;
   finance: Übersicht `/finance` · Buchungen `/finance/transactions` · Erfassen `/finance/new` ·
