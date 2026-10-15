@@ -39,7 +39,8 @@ code is the smallest possible one and is recorded in the plan and in `docs/adr/`
   are enabled per household**: `household_modules(household_id, module_id, enabled_at, settings)`.
   The shell hides a disabled module, its routes redirect to Home, and the API answers
   `404 module_disabled` for that household. `recipe` is enabled by default on a new household;
-  `finance` is enabled when its two slots are assigned (D3).
+  `finance` is enabled when its two slots are assigned (D3) (a household migrated from a one-person
+  toon-finance ledger keeps its one seat, ADR 0005).
 - **D3 — Finance keeps the two-person ledger.** `toon-finance` decision 1 (exactly two people,
   `member_slot ∈ {1,2}`, symmetric `payer_id` + `split_mode`, four viewer-projected kinds, slot 1 as
   the balance anchor) is kept as is. In a household with more than two members, **the finance
@@ -50,7 +51,9 @@ code is the smallest possible one and is recorded in the plan and in `docs/adr/`
   has any transaction row, or an income naming the outgoing user (`409 finance_participant_in_use`;
   every two-person row involves both slots, so a row need not name the outgoing user, ADR 0004); a
   seated participant who leaves the household is vetoed the same way (`409 member_has_ledger`) and
-  otherwise loses the seat (ADR 0004). The N-person generalisation is explicitly out of scope.
+  otherwise loses the seat (ADR 0004). The legacy migration re-seats a lone slot-2 participant in
+  slot 1 and re-points a plan payer who is not a participant to slot 1 (ADR 0005). The N-person
+  generalisation is explicitly out of scope.
 - **D4 — Auth = toon-recipe's.** E-mail + password (argon2id via `Bun.password`), Google and GitHub
   OAuth with explicit linking only, the e-mail confirmation gate that follows the configured mailer,
   password reset, the signed `/uploads` URLs. Finance's auth is a strict subset and its users
@@ -399,7 +402,7 @@ the plan's `start_period` etc. → `finance_settings`; `categories`, `tags`, `tr
    `--mapping` (`{"finance": {"<H.id>": "<G.id>" | "new"}}`).
 4. **Modules**: `recipe` enabled on every household that came from a group; `finance` enabled on
    every household that received a finance household, with `finance_participants` from
-   `member_slot`.
+   `member_slot`; a one-member finance household keeps one seat, in slot 1 (ADR 0005).
 5. **Rows**: module migrators copy tables in dependency order with `legacy_ids` lookups, chunked in
    transactions of 500 rows, idempotent on `(table, legacy_source, legacy_id)`. Uploads are copied
    with `cp`-like semantics (skip existing, verify size).
