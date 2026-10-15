@@ -3,7 +3,7 @@
 #
 # `bun run i18n:check` is deliberately NOT a step: it proves German parity against the two
 # source repos (toon-recipe, toon-finance), which must sit next to the checkout, so it is a
-# local gate. docker-build is added by M6 together with the Dockerfile.
+# local gate. docker-build (pull requests only, no push) builds the image release.yml publishes.
 #
 # Every action is pinned to a commit SHA (toon-finance 1715207, gotcha 74): a moved tag
 # cannot change what runs here. The comment names the release the SHA belongs to.
@@ -77,3 +77,26 @@ jobs:
           test -f apps/web/dist/index.html
           test -f apps/web/dist/sw.js
           ls apps/web/dist/*.webmanifest >/dev/null
+
+  # A pull request that changes how the image is built should prove the image
+  # still builds — but only for amd64 and without pushing, which keeps it a few
+  # minutes. The build args are release.yml's, so the pull request builds the
+  # image that would be published (WITH_OCR=1 WITH_PDF=0, see release.yml).
+  docker-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      - name: Build (amd64, no push)
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+          build-args: |
+            WITH_OCR=1
+            WITH_PDF=0
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

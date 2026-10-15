@@ -1,0 +1,147 @@
+# Rolls a published image out to the server over SSH.
+#
+# Called by release.yml after a successful build, and runnable on its own to
+# redeploy or roll back a specific image.
+#
+# THE KEY IN GITHUB'S SECRET STORE IS NOT A SHELL. It is pinned to a forced
+# command in the server's authorized_keys:
+#
+#   restrict,command="/usr/local/bin/toon-household-deploy" ssh-ed25519 AAAA… household-deploy
+#
+# so everything this job can ask for is `deploy <digest>` — the image REPOSITORY is
+# a constant inside that script, not something the client sends. That is what makes
+# a deploy key on a public VPS an acceptable trade at all; the script is
+# docker/toon-deploy.sh in this repo, and it must be installed on the server before
+# the first run — as `toon-household-deploy`, since the old toon-recipe and toon-finance
+# keys already own their own names on the same machine during the cutover, and each key
+# drives exactly one app. It also means there is no scp step:
+# docker-compose.yml and docker/Caddyfile are synced with
+# `toon-household-deploy sync-config` when they change, on purpose, since a compose
+# or Caddy change deserves a human. THE DEPLOY JOB NEVER SYNCS THEM: it only runs
+# `deploy <digest>`.
+#
+# SECRETS (Settings -> Secrets and variables -> Actions):
+#   DEPLOY_SSH_HOST         hostname or IP of the server
+#   DEPLOY_SSH_USER         the ssh user (must be in the `docker` group)
+#   DEPLOY_SSH_KEY          private key, no passphrase, its own key for this job only
+#   DEPLOY_SSH_KNOWN_HOSTS  output of `ssh-keyscan -p <port> <host>` — see the note below
+#   DEPLOY_SSH_PORT         optional, defaults to 22
+#
+# VARIABLES (not secrets — Settings -> Variables -> Actions):
+#   DEPLOY_ENABLED          `true` — THE MASTER SWITCH, read by release.yml's job-level
+#                           `if`. A job-level condition cannot inspect the `secrets`
+#                           context, so this variable is the only way to ask "is a
+#                           server configured?". Leave it unset until all five secrets
+#                           above exist: otherwise every push to main starts this job
+#                           and fails it on the empty known_hosts below — a permanent
+#                           red X that says nothing about the cause.
+#   TOON_HOSTNAME           only for the clickable link on the deployment; the server
+#                           reads its own hostname from its .env
+#
+# There is no registry secret, PROVIDED THE GHCR PACKAGE IS PUBLIC — and a freshly
+# published package is PRIVATE by default, which nothing here flips for you: GitHub ->
+# Packages -> toon-household -> Package settings -> Change visibility -> Public. Keep it
+# private and you must `docker login ghcr.io` once on the server instead; the forced
+# command cannot log in for you. Both cases answer an anonymous pull with the same
+# bare `denied`, so check the visibility before suspecting the workflow.
+name: Deploy
+
+on:
+  workflow_call:
+    inputs:
+      image_digest:
+        description: "Image digest to deploy (sha256:…). Empty deploys the :latest tag."
+        type: string
+        required: false
+        default: ""
+  workflow_dispatch:
+    inputs:
+      image_digest:
+        description: "Image digest (sha256:…) or empty for :latest"
+        type: string
+        required: false
+        default: ""
+
+concurrency:
+  # Two deploys of THIS app at the same time would fight over the same containers.
+  # Scoped to the app, not to the server: toon-household, toon-recipe and toon-finance
+  # are separate compose projects with separate images, so their deploys do not
+  # conflict and serialising them across repos would only make releases wait on each
+  # other.
+  group: deploy-toon-household
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Gate: add required reviewers to this environment in the repo settings and
+    # every deploy waits for an approval. Also the natural place to scope the
+    # secrets above so no other workflow can read them.
+    environment:
+      name: production
+      url: https://${{ vars.TOON_HOSTNAME }}
+    steps:
+      # No checkout: nothing from the working tree is sent to the server any more.
+
+      - name: Prepare SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          # STRICT HOST KEY CHECKING, DELIBERATELY.
+          #
+          # The convenient thing to write here is `StrictHostKeyChecking=no` or an
+          # `ssh-keyscan` at deploy time. Both accept whatever key answers on the
+          # day, so a machine-in-the-middle between GitHub and the VPS is handed the
+          # deploy key and everything it can do. The expected host key has to be
+          # pinned in a secret instead.
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          if [ ! -s ~/.ssh/known_hosts ]; then
+            echo "::error::DEPLOY_SSH_KNOWN_HOSTS is empty. On the server run: ssh-keyscan -p <port> <host>"
+            exit 1
+          fi
+
+      - name: Deploy
+        env:
+          HOST: ${{ secrets.DEPLOY_SSH_HOST }}
+          USER: ${{ secrets.DEPLOY_SSH_USER }}
+          PORT: ${{ secrets.DEPLOY_SSH_PORT || '22' }}
+          DIGEST: ${{ inputs.image_digest }}
+        run: |
+          set -euo pipefail
+
+          # Validated HERE TOO, even though toon-deploy validates it again on the
+          # server. This is the copy that produces a readable error in the run log
+          # instead of a bare exit code out of sshd.
+          if [ -n "$DIGEST" ]; then
+            if ! printf '%s' "$DIGEST" | grep -Eq '^sha256:[0-9a-f]{64}$'; then
+              echo "::error::Not a valid digest: $DIGEST"
+              exit 1
+            fi
+            REF="$DIGEST"
+          else
+            REF=latest
+          fi
+          echo "Deploying $REF"
+
+          # IdentitiesOnly stops a runner-side agent key from being offered first;
+          # BatchMode turns a passphrase prompt into an error instead of a hang.
+          # The remote command is a REQUEST, not an instruction — sshd replaces it
+          # with the forced command and passes this in SSH_ORIGINAL_COMMAND.
+          ssh -i ~/.ssh/deploy_key -p "$PORT" \
+              -o IdentitiesOnly=yes -o BatchMode=yes \
+              "$USER@$HOST" "deploy $REF"
+
+      - name: Clean up the key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
