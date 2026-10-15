@@ -64,7 +64,7 @@ export async function claimMutation(
 
 /**
  * A lost claim whose owner is another household is a refusal, never a replay (toon-finance
- * 1715207, gotcha 71, carried to the PATCH and DELETE paths): without this, a PATCH or DELETE
+ * 1715207, gotcha 73, carried to the PATCH and DELETE paths): without this, a PATCH or DELETE
  * carrying a foreign `mutationId` answered as if it had been applied and changed nothing.
  */
 export function assertOwnClaim(claim: ClaimResult): void {
@@ -94,7 +94,7 @@ export async function linkMutationClaim(db: DbLike, mutationId: string, transact
  */
 export async function peekMutationClaim(db: DbLike, mutationId: string, householdId: string): Promise<boolean> {
   // Scoped to the household: a client-minted id from ANOTHER household must never turn this delete
-  // into a silent "already done" (toon-finance 1715207, gotcha 71).
+  // into a silent "already done" (toon-finance 1715207, gotcha 73).
   const existing = await db
     .select({ id: mutationClaims.id })
     .from(mutationClaims)

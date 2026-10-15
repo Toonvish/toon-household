@@ -1,5 +1,5 @@
 /**
- * Path-segment encoding (toon-finance 1715207, gotcha 70): every value interpolated into a URL
+ * Path-segment encoding (toon-finance 1715207, security review): every value interpolated into a URL
  * path goes through `seg()`, so a `/`, `?` or `..%2F` in an id stays inside ONE segment instead
  * of re-targeting the request. The fetchers are driven against a stubbed `fetch`.
  */

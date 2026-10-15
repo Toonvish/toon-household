@@ -50,7 +50,7 @@ export async function createSettlement(
       if (!claim.claimed) {
         if (!claim.transactionId) throw ApiError.internal();
         // The claim was found by its client-minted id alone; the row it points at must belong to THIS
-        // household before it is echoed back (toon-finance 1715207, gotcha 71).
+        // household before it is echoed back (toon-finance 1715207, gotcha 73).
         const rows = await tx
           .select()
           .from(transactions)

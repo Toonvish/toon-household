@@ -1,5 +1,5 @@
 /**
- * Path-segment encoding in the finance fetchers (toon-finance 1715207, gotcha 70): every id goes
+ * Path-segment encoding in the finance fetchers (toon-finance 1715207, security review): every id goes
  * through `seg()`, so a `/` or `?` in an id stays inside ONE segment. Driven against a stubbed `fetch`.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";

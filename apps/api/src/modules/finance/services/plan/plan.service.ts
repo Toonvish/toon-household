@@ -223,7 +223,7 @@ export async function updatePlan(db: Database, householdId: string, input: Updat
   if (input.payerId !== undefined) await assertParticipant(db, householdId, input.payerId, "payerId");
   if (input.enabled === true && input.payerId === undefined) {
     // Switching the plan on must start from a participant, too: the payer of record may have been
-    // seated once and left since (toon-finance 1715207, gotcha 70).
+    // seated once and left since (toon-finance 1715207, gotcha 68).
     const current = await loadPlanRow(db, householdId);
     await assertParticipant(db, householdId, current.payerId, "payerId");
   }

@@ -9,7 +9,7 @@
  * (`useCreateTransactionMutation`, namespace `["toon","finance","tx","create"]`), never a second path.
  *
  * The `mutationId` is minted AT CALL TIME, never inside the mutation function, which reruns verbatim
- * on every offline replay (toon-finance gotchas 9, 10 and 46: the API claims an id once).
+ * on every offline replay (toon-finance gotchas 9, 10 and 47: the API claims an id once).
  *
  * Each frame holds its OWN instance of this state (toon-finance gotcha 65); `useQuickAddHostedHere`
  * keeps the sheet from opening over `/finance/new`.
