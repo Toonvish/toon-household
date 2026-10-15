@@ -13,6 +13,8 @@ with room for more modules. The next session has no memory of this one, so the d
 3. `docs/plans/` — one plan per milestone (`m0-scaffold.md` …), written by the workflow; a plan names
    tasks, files and verify commands and, once done, its "what changed vs plan" section.
 4. `docs/migration.md` — the operator's guide to `migrate:legacy` (inputs, rules, report, cutover order).
+   `docs/deployment.md` — the operator's guide to the stack (fresh install, operations, the cutover from
+   toon-edge, variants, the local stack test).
 5. `docs/adr/` — one record per deviation from SPEC §1 (`NNNN-slug.md`: date, context, decision,
    consequences; the ADR edits the SPEC text in the same commit).
 
@@ -48,9 +50,12 @@ owner copy was available; section 10 is "what changed vs plan" and lists the two
 `cbdec67..1715207` plus the placeholder migration; section 9 is the integration record with the gates, the
 fresh-DB curl walkthrough, the owner-data counts, the headless run and the 92 screenshots in
 `docs/plans/screenshots/m3b/`; section 10 is "what changed vs plan" with the F gotcha map; ADR 0006, and ADR 0007 added by the post-review sync,
-below). Next: **M6 deploy**, then M7 harden.
+below) and **M6 deploy** (2026-10-15, plan `docs/plans/m6-deploy.md`; section 9 is the integration record with the
+gates, the image builds with their exit codes, the four `caddy validate` combinations, the local stack, the 54 Table R
+curls, the headless run, the cutover rehearsal from the image and the one defect it found; section 10 is "what changed vs
+plan"; one ADR, 0008, below). Next: **M7 harden**.
 
-What exists after M3b: the three workspaces build, typecheck and test green (`bun test`: 2202 pass in 129 files).
+What exists after M6: the three workspaces build, typecheck and test green (`bun test`: 2418 pass in 136 files).
 Two modules are built: `API_MODULES` and `WEB_MODULES` are `[recipe, finance]` and `/api/health`
 reports `modules: ["recipe","finance"]`. The recipe module is as after M2 (recipes with search and
 filters, tags, collections, URL / photo / PDF import, meal plan with cook log, shopping lists with the
@@ -63,8 +68,31 @@ the enable dialog, the non-participant and module-disabled states, the demo ledg
 one-off `finance:import-xlsx` importer. Web tabs inside `/finance`: Übersicht, Buchungen, Erfassen
 (+ Profil); sidebar-only Fixkosten `/finance/plan` and Kategorien `/finance/categories` (+ the shell's
 Gruppen). Every toon-finance test file has a counterpart (map in the m3 plan's section 8, the M3b addendum in its
-section 9.3 for the four files that changed up to `1715207`). Still no
-Docker files (M6), no `docs/API.md` or `docs/modules/*.md` (M7).
+section 9.3 for the four files that changed up to `1715207`). Still no `docs/API.md` or `docs/modules/*.md` (M7).
+
+What M6 added (deploy, plan `m6-deploy.md`): the app ships as ONE image and ONE compose stack with its own Caddy
+(SPEC D11), in toon-recipe's pre-toon-edge shape. `Dockerfile` (toon-recipe's, with a build-time guard that fails
+when the web bundle contains `localhost:3001`; `WITH_OCR` / `WITH_PDF` build args, the published image is
+`WITH_OCR=1 WITH_PDF=0`), `.dockerignore`, `docker/entrypoint.sh`, `docker-compose.yml` (project `name:
+toon-household`; services `app` with `cap_drop: [ALL]` and `no-new-privileges`, and `caddy` pinned to
+`2.11.4-alpine`; volumes `toon-data`, `caddy-data`, `caddy-config`; network `toon`), `docker/Caddyfile` (toon-edge's
+`(hardening)` and `(fwd)` snippets verbatim, the app site with the recipe import timeouts, the two optional
+old-hostname sites with Table R, the plain-http block with the local CA download), `docker/env.example` (English),
+`docker/toon-deploy.sh` (forced command `toon-household-deploy`: `deploy [latest|sha256:…]`, `sync-config`,
+`status`), `.github/workflows/{release,deploy}.yml` and the `docker-build` job in `ci.yml`, `.env.local-stack`,
+`docs/deployment.md` (fresh install, operations, "Cutover from toon-edge" steps 0 to 12, variants, the local stack
+test) and ADR 0008. Every artefact has a test that pins its load-bearing lines and runs in CI without Docker
+(`apps/api/test/deploy-{dockerfile,compose,caddyfile,script,workflows}.test.ts`, `deployment-doc.test.ts`,
+`apps/web/src/legacy-redirects.test.ts`, which resolves every Table R target against the real route tree). Verified
+on the merged tree (plan section 9): both image builds `exit=0`, uid 1000, no `localhost:3001` in the bundle; the
+local stack healthy in 7 s under the project `toon-household-local`; `caddy validate` through compose in four
+combinations (old hostnames set, unset, set-but-empty, `acme`); all 54 Table R requests `301` to the expected target
+and `/sw.js` 200 on both old hosts; a headless Chromium run on the stack (no console error, the retiring worker
+registered, activated, unregistered itself and reloaded the window onto the new app); the cutover from the image
+(dry run, apply, second apply, the doc's copy-in into `toon-household_toon-data`, the stack started as the production
+project, login and balances) on the legacy fixtures. The one defect it found: the first boot's fixed-cost plan catch-up
+adds `Fixkostenanteil` rows, so a migrated household's balance is the report's plus those rows (the two docs now say so).
+Not run (the owner's): the real cutover, the first `release.yml` / `deploy.yml` run, arm64.
 
 What M5 added (migration, plan `m5-migration.md`): `bun run migrate:legacy`, the one-off, dry-run-by-default,
 idempotent import of toon-recipe's and toon-finance's databases and the recipe uploads into the household
@@ -180,8 +208,13 @@ ADRs (`docs/adr/`, each edits the SPEC text in the same commit):
   adds the recipe module's needs (`'wasm-unsafe-eval'`, `img-src 'self' data: blob: https:`, `media-src` and
   `object-src` with `blob:`, CORP `same-site`) and still presumes a build with `PUBLIC_API_URL=""`; the origin
   guard trusts the `WEB_ORIGIN` entries before F's `Sec-Fetch-Site` rule).
+- `0008-old-hostnames-map-paths-and-retire-workers.md` (D11: the optional old-hostname Caddy sites do not redirect
+  everything to `{uri}`; each maps its source's own paths to the new ones, Table R of the m6 plan, so `/plan` is the
+  meal plan on the recipe host and the Fixkostenplan on the finance host, and answers `/sw.js` with a 200
+  self-retiring worker, because a redirect there is a failed update that would keep an installed old PWA alive
+  forever; everything else keeps D11's `{uri}` rule).
 
-M3 and M4 deviated from nothing in SPEC §1 beyond ADRs 0001 to 0004 above, M5 beyond ADR 0005, M3b beyond ADRs 0006 and 0007
+M3 and M4 deviated from nothing in SPEC §1 beyond ADRs 0001 to 0004 above, M5 beyond ADR 0005, M3b beyond ADRs 0006 and 0007, M6 beyond ADR 0008
 (plus SPEC §2's `seedDemo` context gaining `demoPassword`, no ADR: §2 is the contract); their plan-level choices
 (non-participants see nothing of the ledger, `start` and `enableDialog`, table identifiers, "Gruppe"
 stays, the recipe exceptions are pinned not converted, the outbox note is module-local) are in the
@@ -192,7 +225,7 @@ it is covered by the import/plan collision tests).
 ## Layout (as built)
 
 Package names are `@toon/shared`, `@toon/api`, `@toon/web`; the root is `toon-household`. Paths per
-SPEC §3 with what M0 to M5 and M3b actually created:
+SPEC §3 with what M0 to M6 and M3b actually created:
 
 - `packages/shared/src/` — `index.ts` (the ONLY entry: the vite alias maps exactly `"@toon/shared"`,
   never import a subpath), `core/` (`i18n/` runtime + `catalogs/server.{de,en}.ts`, `schemas/`
@@ -280,8 +313,14 @@ SPEC §3 with what M0 to M5 and M3b actually created:
   The core web gained `core/features/households/components/{PlaceholderRenameDialog,ClaimInviteDialog}.tsx`,
   `core/features/auth/lib/invite-mode.ts` (which variant `InvitePage` renders) and `lib/session-purge.test.ts`.
 - `scripts/` — `dev.ts`, `typecheck.ts`, `i18n-check.ts`, `icons.ts` (`bun run icons`). `.github/workflows/ci.yml` (verify job with
-  a poppler step for `pdf-rasterize.test.ts`; no docker-build until M6; `i18n:check` is a local gate
-  because it needs the sibling source repos). `docs/design/recipe-redesign/` is the copied design
+  a poppler step for `pdf-rasterize.test.ts`, SHA-pinned actions, and the `docker-build` job on pull requests
+  that builds the image `release.yml` would publish, `WITH_OCR=1 WITH_PDF=0`, without pushing; `i18n:check` is a
+  local gate because it needs the sibling source repos), `.github/workflows/release.yml` (push to `main` and `v*`
+  tags: typecheck and test, then the multi-arch image to `ghcr.io/toonvish/toon-household`) and `deploy.yml`
+  (gated by the repository variable `DEPLOY_ENABLED`, one SSH forced command).
+- Deployment files at the repo root: `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `.env.local-stack` (the
+  committed local-test values) and `docker/{Caddyfile,entrypoint.sh,env.example,toon-deploy.sh}`;
+  `docs/deployment.md` (the operator's guide) and the ADR 0008 text. Nothing of it is built by `bun run build`. `docs/design/recipe-redesign/` is the copied design
   record (D5); `docs/plans/screenshots/m4/` holds the 78 headless viewport PNGs of the M4 close
   (`<screen>-<390|1440>-<light|dark>.png`; the plan's section 9 indexes them).
 - Core DB tables (unprefixed): `users`, `oauth_accounts`, `sessions`, `password_reset_tokens`,
@@ -295,8 +334,7 @@ SPEC §3 with what M0 to M5 and M3b actually created:
   `finance_transaction_tags`, `finance_fixed_cost_plans`, `finance_fixed_cost_items`,
   `finance_incomes`, `finance_accrual_runs`, `finance_mutation_claims`.
 
-Not yet present (so do not look for them): Dockerfile and compose (M6), `docs/deployment.md` (M6),
-`docs/API.md`, `docs/modules/*.md` (M7).
+Not yet present (so do not look for them): `docs/API.md`, `docs/modules/*.md` (M7).
 
 ## Commands
 
@@ -346,6 +384,23 @@ Run from the repo root. Bun 1.4.2 (`.bun-version`); `bun install --frozen-lockfi
   generated `*.thumb.webp` follow their original); files younger than 24 h are always kept.
 - `bun run auth:reset-password <email> [--send]`: prints a password-reset link for a locked-out
   account (works without mail; `--send` also mails it when a transport is configured).
+- **The local stack test** (the whole image, compose file, Caddyfile and redirects on this machine; guide:
+  `docs/deployment.md` "Local stack test"; never in `/opt/toon-household`). It is the compose project
+  `toon-household-local`:
+  `docker build -t toon-household:local . > build.log 2>&1; echo "exit=$?" >> build.log` (read `exit=0`; add
+  `--build-arg WITH_OCR=1 --build-arg WITH_PDF=0` for the published variant), then
+  `docker compose --env-file .env.local-stack up -d` (ports 80 and 443 must be free), wait for the app container
+  to be `healthy`, `curl --resolve haushalt.test:80:127.0.0.1 http://haushalt.test/toon-root-ca.crt -o root.crt`,
+  then `curl --cacert root.crt --resolve haushalt.test:443:127.0.0.1 https://haushalt.test/api/health`; the old
+  hostnames are `rezepte.test` and `finanzen.test` (no `/etc/hosts` edit: `--resolve` for curl,
+  `--host-resolver-rules` for Chromium, plus `--ignore-certificate-errors` for a service worker to register).
+  Tear down with `docker compose -p toon-household-local --env-file .env.local-stack down -v`.
+- **`caddy validate`** only through compose, so the stack's `.env` is interpolated as `up` does: `docker compose
+  --env-file <env> run --rm --no-deps --entrypoint caddy caddy validate --config /etc/caddy/Caddyfile --adapter
+  caddyfile` (no `caddy` binary on the host; never a raw `docker run -e RECIPE_HOSTNAME=`, see the gotcha).
+- **Scripts inside the running container:** `docker compose exec app bun apps/api/scripts/<script>.ts`
+  (`seed.ts` refuses production without `-e ALLOW_SEED=1 -e SEED_PASSWORD=<10+ chars>`, `reset-password.ts <email>`,
+  `uploads-gc.ts`, `plan-run.ts`, `migrate-legacy.ts` via `docker run --entrypoint bun` as in the cutover guide).
 
 Environment switches of the recipe module (`env.ts`): `IMPORT_OCR_ENABLED` (photo import, needs the
 `tesseract` binary), `IMPORT_PDF_ENABLED` (unset follows the OCR flag; needs `pdftoppm`),
@@ -407,7 +462,7 @@ from SPEC and M0 to M3:
 - Ported tests that need unported code are removed with a placeholder comment naming the returning
   milestone, never skipped silently.
 
-## Gotchas in use (M0 to M5, M3b)
+## Gotchas in use (M0 to M6, M3b)
 
 Binding gotchas of the sources stay binding inside their module (SPEC D13); these are the ones
 the code actually relies on or introduced.
@@ -748,7 +803,9 @@ the code actually relies on or introduced.
 - **i18n-check from worktrees** resolves the source repos via the git common dir; it needs
   `toon-recipe` and `toon-finance` next to the main checkout (or `I18N_CHECK_SOURCES`).
 - **Long commands** (cold `bun install`, docker build, headless browser) go to the background with one
-  log ending in `exit=$?`.
+  log ending in `exit=$?`. A `docker build` is judged by `$?` written to its log, never through a pipe
+  (`docker build ... | tail` reports tail's status); the repo-root `build.log` is ignored by `*.log` and removed
+  after the check.
 - **`migrate:legacy` reads snapshots and writes only through a redirected, validated path (plan m5
   decisions 3, 5, 6, 16).** `sources.ts` copies each legacy file and its `-wal` (never `-shm`) into a scratch
   directory and opens the copy with a plain `createClient` (not `createDatabase`: its WAL pragma rewrites a
@@ -885,11 +942,70 @@ the code actually relies on or introduced.
   section 10, and a historical plan or ADR keeps the number of its date (the m3 plan says
   "gotcha 47" where the new number is 48). When F moves on again, map by the bold title, never by a blanket +1.
 
+- **The Dockerfile refuses a bundle with the dev API URL (M6).** The web-build stage sets `PUBLIC_API_URL=""` (set
+  and empty) and its `RUN` ends in `! grep -rqF 'localhost:3001' apps/web/dist`, so an image whose bundle carries
+  `lib/api.ts`'s dev fallback cannot be built: the API's CSP says `connect-src 'self'`, and an absolute
+  `http://localhost:3001` would block every API call and upload image on the real hostname (toon-finance gotcha 50).
+  The same grep runs on the built image in the integration task. Bun 1.4's isolated linker needs THREE
+  `node_modules` copies into the runtime stage (`/app/node_modules`, `apps/api/node_modules`,
+  `packages/shared/node_modules`; `apps/web` is absent on purpose): copying only the root builds, starts and dies
+  on the first import with "Cannot find module '@libsql/client'". The runtime user is `bun` (uid 1000), the process
+  needs no capability (`cap_drop: [ALL]`, `no-new-privileges`), and a volume PRE-FILLED by a root container (the
+  migration's copy-in) keeps root ownership, which is why `docs/migration.md` step 6 ends in `chown -R 1000:1000
+  /data`.
+- **Caddy treats an empty `{$VAR}` as set (M6, plan m6 decision 7).** `{$VAR:default}` falls back only when the
+  variable is UNSET; a set-but-empty `RECIPE_HOSTNAME` leaves a site block without an address and `caddy adapt` fails
+  with "server block without any key is global configuration, and if used, it must be first". The Caddyfile's
+  `http://old-recipe-hostname.unset.invalid` and `http://old-finance-hostname.unset.invalid` defaults therefore cover
+  the unset case only; set-but-empty is covered by compose's `${RECIPE_HOSTNAME:-http://…unset.invalid}` defaults,
+  which always hand the Caddy container a non-empty value. The empty case is proven through compose
+  (`docker compose --env-file <empty> config` shows the defaults, then `run … caddy validate`), and a raw `docker
+  run -e RECIPE_HOSTNAME=` failing is expected, never a reason to change the Caddyfile. One global `cert_issuer
+  {$TOON_TLS_ISSUER:acme}` serves every site, so the old-hostname sites need no `tls` block of their own (a `tls`
+  block on the `.invalid` placeholder would be a config error); the app's own site keeps its explicit one.
+- **The old-hostname blocks use `handle`, never a bare `redir` (ADR 0008).** Caddy sorts `redir` before `handle`, so a
+  bare `redir` would swallow `/sw.js`; every route of an old-host block is a `handle`, and `/sw.js` answers 200 with the
+  retiring worker (`(retire_old_worker)`: deletes the caches, claims, unregisters itself, reloads every window, which
+  then hits the 301). A 301 is cached by browsers, so a Table R row must be right before go-live
+  (`legacy-redirects.test.ts` resolves every target against the route tree, the integration task curls every row).
+  The worker leaves IndexedDB alone: the cutover guide tells everybody to open both old apps online once first.
+  `apps/api/test/deploy-caddyfile.test.ts` pins the two verbatim snippets by digest (`(hardening)`, `(fwd)`): the
+  `header_up X-Forwarded-For {remote_host}` overwrite is what makes the API's LAST-hop read safe, and a
+  `trusted_proxies` line would re-open the rate-limit bypass.
+- **A single-file bind mount pins the old inode (M6).** `docker-compose.yml` mounts `./docker/Caddyfile` as one file;
+  replacing it (`curl -o`, `mv`) leaves the running Caddy on the old config, and `deploy` never recreates caddy.
+  `toon-household-deploy sync-config` downloads the compose file AND the Caddyfile, validates both
+  (`config -q`, `caddy validate` through compose), restores the `*.bak` copies on any failure and restarts the caddy
+  container when the Caddyfile changed. `toon-deploy.sh` is the forced command of ONE ssh key (`toon-household-deploy`;
+  verbs `deploy [latest|sha256:<64 hex>]`, `sync-config`, `status`; `set -f`), distinct from the old
+  `toon-deploy` and `toon-finance-deploy` so the new key can be installed before the old ones are removed.
+- **A freshly published GHCR package is private (M6).** `release.yml` pushes on `main` and `v*` tags (typecheck and test
+  first, `provenance: false`, SHA-pinned actions, `WITH_OCR=1 WITH_PDF=0`); the package stays private until the owner
+  makes it public or the server runs `docker login`, and `deploy.yml` runs only when the repository VARIABLE
+  `DEPLOY_ENABLED` is `true` (a job-level `if` cannot read secrets). Both workflows are verified by their YAML tests
+  only: the first push to `main` is their first real run.
+- **The local stack is the compose project `toon-household-local`, never the production name (M6, plan m6 decision 5).**
+  The compose file says `name: toon-household`, so without a project name of its own a local `up` would use
+  `toon-household_toon-data` and a local `down -v` (or a `down -v` run from a checkout on the server) would delete the
+  production data volume. `.env.local-stack` sets `COMPOSE_PROJECT_NAME=toon-household-local` (it beats the file's
+  `name:`; `-p` beats both), every local command in `docs/deployment.md` also spells `-p toon-household-local`
+  (`deployment-doc.test.ts` pins that every `down -v` sits on such a line), and the production `.env` never sets the
+  variable. Only the cutover REHEARSAL deliberately uses `-p toon-household` (the project the server's step 7 runs),
+  on a machine shown to have no `toon-household_*` volume; a volume made by `docker volume create` before compose
+  has no compose label, so `down -v` leaves it and it is removed by name. Compose only WARNS that such a volume "was
+  not created by Docker Compose"; the stack uses it. Check the machine with
+  `docker volume ls -q | grep -E '^toon-household(-local)?_'` (empty when nothing is left).
+- **The first boot catches the fixed-cost plan up, so a migrated balance moves (M6).** `ApiModule.start` runs
+  `plan:run` once at boot; an enabled plan whose periods since the old finance app last ran are unbooked gets
+  `Fixkostenanteil MM/YYYY` rows (origin `fixed_plan`) created at that boot. After a cutover the balance equals the
+  report's plus those rows; the balance without them must match (the legacy fixtures: 119486 ct in the report, 222286
+  ct after the boot, two rows of 51400 ct).
+
 ## Obligations handed to later milestones
 
 Each later plan lists and closes them (full text: `docs/plans/m4-design-pass.md` §8 and its §9; earlier ones
 in `docs/plans/m0-scaffold.md` §4, `docs/plans/m1-core.md` §6 and §8, `docs/plans/m2-recipe-module.md` §8 and
-§9, `docs/plans/m3-finance-module.md` §7 to §9, `docs/plans/m5-migration.md` §8, `docs/plans/m3b-finance-sync.md` §7 and §8). M0, M1, M2, M3, M4, M5 and M3b closed theirs; M4 closed findings A and
+§9, `docs/plans/m3-finance-module.md` §7 to §9, `docs/plans/m5-migration.md` §8, `docs/plans/m3b-finance-sync.md` §7 and §8). M0, M1, M2, M3, M4, M5, M3b and M6 closed theirs (M6's: `docs/plans/m6-deploy.md` §8 and §9); M4 closed findings A and
 B, the recipe phone header and its guard, the ActionMenu chip, the NotFound icon, the sidebar counts and
 the Plan "Neu" pill, the Home cards, the manifest shortcuts and icons, theme-colour sync, the finance D5 audit,
 the outbox indicator, print-to-PDF, the `scrollWidth` measurement, and the dark/light screenshots with the
@@ -906,25 +1022,17 @@ four-combination measurement.
 - M3b (closed): the finance port up to `1715207`, ADRs 0006 and 0007 and the placeholder migration; plan
   `docs/plans/m3b-finance-sync.md` sections 8 to 10. Left for later: the owner's cutover run with the claim link
   handed over privately (`docs/migration.md`).
-- M6: `docs/deployment.md` "Cutover from toon-edge" links `docs/migration.md` and names the new stack's
-  volume and image for the copy-in step (migration.md's step 6 uses `<new-volume>` and `/app/data/local.db`
-  as placeholders to check against it, and its `chown -R 1000:1000 /data` against the image's real `bun` uid: the copy runs as root into a pre-filled volume, so Docker does not seed ownership); redirects from toon-recipe's old paths (`/recipes/…`, `/plan`, `/shopping`, `/import`) and from
-  toon-finance's (`/transactions`, `/new`, `/plan`, `/categories`, `/household`) for bookmarks arriving
-  through the old-hostname redirect (with the Caddyfile; note `/plan` exists in both sources); image
-  build with `WITH_OCR=1 WITH_PDF=0`. From toon-finance `97ab955`, `590697f` and `1715207` (plan m3b section
-  7.2): compose sets `cap_drop: [ALL]` and `security_opt: [no-new-privileges:true]` on `app`, and any mailpit
-  is bound to `127.0.0.1` and on no shared network (its UI shows every reset and invite link); `release.yml`
-  publishes on push to `main` and on `v*` tags, `:latest` from `type=raw,value=latest,enable={{is_default_branch}}`,
-  typecheck and test BEFORE the image push, `provenance: false`, a digest output, actions pinned to commit SHAs;
-  `deploy.yml` is gated by the repository VARIABLE `DEPLOY_ENABLED` (a job-level `if` cannot read secrets) and a
-  freshly published GHCR package is private until made public or the server logs in; `docker/toon-deploy.sh` is
-  a forced-command SSH key per app with `set -f` and argument checks, `docker/env.example` has `TOON_IMAGE`,
-  `TRUST_PROXY=1` and no TLS variables (the Caddy owns `TOON_TLS_ISSUER` and `TOON_HSTS_MAX_AGE`); the Caddy
-  keeps `header_up X-Forwarded-For {remote_host}` and sends the only HSTS; `bun run seed` in the container
-  refuses production without `ALLOW_SEED=1` plus `SEED_PASSWORD`; **the Dockerfile's web build sets
-  `PUBLIC_API_URL=""` explicitly** (set and empty, the defensive form) and the image check greps the built
-  assets for `localhost:3001`, otherwise the CSP blocks every API call and every upload image on the real
-  hostname. A service name is never reused on a shared network (F gotcha 19).
+- M6 (closed): the image, the compose stack with its own Caddy, the Table R redirects and the retiring worker (ADR
+  0008), `toon-household-deploy`, the workflows, `docs/deployment.md` with the cutover section and the local stack
+  test, `docs/migration.md` step 6 and 8 checked against the real image (uid 1000, `/app/data/local.db`,
+  `toon-household_toon-data`), the toon-finance `97ab955` / `590697f` / `1715207` items (`cap_drop`,
+  `no-new-privileges`, the `PUBLIC_API_URL=""` guard, `release.yml` and `deploy.yml` as specified in plan m3b §7.2)
+  and `WITH_OCR=1 WITH_PDF=0`; plan `docs/plans/m6-deploy.md` sections 9 and 10. Left for the owner, outside any
+  workflow: the real cutover on the server (`docs/deployment.md`, steps 0 to 12, DNS first), the first
+  `release.yml` and `deploy.yml` runs after the first push to `main`, making the GHCR package public (or a `docker
+  login` on the server), the repository variable `DEPLOY_ENABLED`, the OAuth callback URLs at the providers, arm64
+  (never built locally), dropping the two old-hostname variables after the bookmarks have moved, and the final
+  deletion of the old volumes. The M7 documentation of the deploy surface, where it touches the API, stays in M7.
 - M7: `docs/API.md` (recipe and finance sections; note that migrated finance-only accounts start
   unconfirmed), `docs/modules/recipe.md`, `docs/modules/finance.md`;
   the member-leaves veto exists (`ApiModule.onMemberRemoving`; finance refuses a seated participant's

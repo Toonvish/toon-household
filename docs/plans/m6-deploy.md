@@ -1,9 +1,9 @@
 # M6 — deploy: plan
 
-**Status: PLANNED (2026-10-15), revised the same day after the plan review** (T03's empty-hostname
+**Status: DONE (2026-10-15)** (planned and revised the same day after the plan review, integrated by T08) (T03's empty-hostname
 proof and its route-coverage check, T05's SHA rule and German strings, the local stack's own compose
 project, `docs/migration.md` step 8; listed in section 7). Section 9 (integration record) and section 10
-("what changed vs plan") are written by the integration task T08.
+("what changed vs plan") were written by the integration task T08.
 
 Milestone M6 of `docs/SPEC.md` §8, written by the planner of the `build-household` workflow. Paths:
 `H` = `/home/erics/software/toon-household` (this repo), `R` = `/home/erics/software/toon-recipe`,
@@ -1090,8 +1090,193 @@ never takes a fallback over the raw empty failure, and never edits `docker-compo
 
 ## 9. Integration record
 
-(Written by T08.)
+Written by T08 on 2026-10-15; every number below comes from a command run on the merged tree.
+
+### 9.1 Gates on the merged tree (HEAD `0d93a88`, before T08's own commit)
+
+| Gate | Result |
+| --- | --- |
+| `bun install --frozen-lockfile` | `Checked 436 installs across 625 packages (no changes)`, exit 0 |
+| `bun run typecheck` | `[typecheck] OK` |
+| `bun test` | **2418 pass, 0 fail, 136 files** (22.6 s; M3b closed at 2202 / 129: M6 added 7 files, the six `deploy-*` / `deployment-doc` files in `apps/api/test/` and `apps/web/src/legacy-redirects.test.ts`, and 216 tests) |
+| `PUBLIC_API_URL= bun run build`, then `! grep -rlF 'localhost:3001' apps/web/dist` | build exit 0, grep finds nothing |
+| `bun run i18n:check` | exit 1 by design; parity `[i18n:check] OK`; the leftover list is **146** hits, the same count as M3b's (M6 touched only four comments in `apps/api/src`, no scanned German); nothing new to classify |
+| LINKS and LINKS_FIN greps (CLAUDE.md) | both empty |
+
+### 9.2 Exit criterion 1: the image (decision 3, T01)
+
+- `docker build -t toon-household:local . > build.log 2>&1; echo "exit=$?" >> build.log`: log ends
+  **`exit=0`** (checked from the log, never through a pipe), 24 s wall clock (BuildKit, no `CACHED` step in the log: every layer ran, including both `bun install` stages and the
+  web build with its `localhost:3001` guard). `docker image ls`: `toon-household:local` **356 MB**.
+- `docker build --build-arg WITH_OCR=1 --build-arg WITH_PDF=0 -t toon-household:ocr .` (the image
+  `release.yml` publishes): **`exit=0`**, 28 s, **464 MB**, env `IMPORT_OCR_ENABLED=1`, `IMPORT_PDF_ENABLED=0`.
+- `docker run --rm --entrypoint id toon-household:local` prints `uid=1000(bun) gid=1000(bun)`; the shell
+  check of T08 step 2 (`! grep -rqF localhost:3001 /app/apps/web/dist`, `sw.js` present, `apps/api/node_modules` and
+  `packages/shared/node_modules` present, no `tesseract`) exits 0; on `:ocr`, `tesseract --list-langs`
+  has `deu` and there is no `pdftoppm` (exit 0).
+- arm64 was not built (plan section 8): unverified until the first `release.yml` run.
+
+### 9.3 Exit criterion 3: `caddy validate` through compose (decisions 5 and 7, T03)
+
+`docker compose --env-file .env.local-stack config | head -n 1` prints `name: toon-household-local`.
+`docker compose --env-file <file> run --rm --no-deps --entrypoint caddy caddy validate --config
+/etc/caddy/Caddyfile --adapter caddyfile` printed `Valid configuration` in all four combinations (the four
+scratch env files all keep `COMPOSE_PROJECT_NAME=toon-household-local`):
+
+| Combination | Env file | Result |
+| --- | --- | --- |
+| old hostnames set, `internal` | `.env.local-stack` | Valid configuration |
+| old hostnames unset | `.env.local-stack` minus the two lines | Valid configuration |
+| old hostnames set-but-empty (`RECIPE_HOSTNAME=`, `FINANCE_HOSTNAME=`) | scratch `env-empty` | Valid configuration; `docker compose --env-file env-empty config` shows the caddy service with `FINANCE_HOSTNAME: http://old-finance-hostname.unset.invalid` and `RECIPE_HOSTNAME: http://old-recipe-hostname.unset.invalid`: the proof of decision 7, compose's `:-` fills what Caddy alone would treat as set |
+| old hostnames set, `acme` (no `TOON_TLS_ISSUER`, default HSTS) | scratch `env-acme` | Valid configuration |
+
+`caddy adapt` of the set case: one TLS automation policy, no subjects, issuer `internal`, which covers the
+three sites `haushalt.test`, `finanzen.test` and `rezepte.test` (global `cert_issuer`, decision 7). T03 recorded no
+compose-side fallback and the global `cert_issuer` was accepted, so decision 7's fallbacks were not needed.
+
+### 9.4 Exit criterion 2: the local stack (decision 5, T02)
+
+- Ports: `ss -ltnu` showed nothing on 80 or 443 before the `up` (and again after the teardown).
+- `docker compose --env-file .env.local-stack up -d` (the exit form, no `-p`): project **`toon-household-local`**;
+  the app container `toon-household-local-app-1` was `healthy` after **7 s**; `docker volume ls` showed
+  `toon-household-local_toon-data`, `toon-household-local_caddy-data`, `toon-household-local_caddy-config` and the
+  network `toon-household-local_toon`, and **no** `toon-household_*` volume: the isolation of decision 5 holds.
+- Caddy obtained three certificates from the `local` issuer (the three hostnames).
+- curl through the local CA (`curl --cacert root.crt --resolve ...`; `/etc/hosts` untouched):
+  `http://haushalt.test/toon-root-ca.crt` fetched; `GET /api/health` 200 with `"modules":["recipe","finance"]`;
+  `GET /` 200 with a `content-security-policy` (the API's, hashed), `strict-transport-security: max-age=0`,
+  `x-frame-options: DENY`, `alt-svc: h3=":443"` and no `server` header; `/sw.js` `cache-control: no-cache`;
+  `/manifest.webmanifest` `application/manifest+json; charset=utf-8`; `http://haushalt.test/recipe` 301 to
+  `https://haushalt.test/recipe`.
+- Proxy and app: `exec app bun apps/api/scripts/seed.ts` exits 1 with `[seed] refusing to run with
+  NODE_ENV=production. Set ALLOW_SEED=1 if you really mean it.` and wrote nothing; with `-e ALLOW_SEED=1 -e
+  SEED_PASSWORD=<18 chars>` it exits 0 (finance enabled, 8 transactions and 1 settlement, plan 3 periods booked).
+  Login as `demo@toon.local` 200 (`Origin: https://haushalt.test`), `/api/auth/me` returns the household with
+  `modules: ["recipe","finance"]`, the recipe list returns the seeded recipes, the finance balance is 200 (128436 ct,
+  12 transactions). The seed has no recipe with an image, so no upload URL was loaded here (the migrated avatar
+  upload in 9.7 was). XFF spoof: after an app restart (the limiter is in memory) 12 wrong-password logins without
+  the header gave `401 x10, 429 x2`; after another restart 12 wrong logins each with a different
+  `X-Forwarded-For: 10.9.8.N` gave the same `401 x10, 429 x2` (the `(fwd)` overwrite plus the last-hop read hold).
+  A login POST with `Origin: https://evil.test` answered 403 (origin guard). `exec app bun
+  apps/api/scripts/reset-password.ts demo@toon.local` printed `https://haushalt.test/reset-password/<token>`.
+
+### 9.5 Table R (decision 8, T03)
+
+A scratch script curled every row of Table R through `https://rezepte.test` and `https://finanzen.test`
+with `curl -s -o /dev/null -w '%{http_code} %{redirect_url}'` against the local CA, with query strings where the
+table keeps them: **54 requests, 54 `301` to the expected `https://haushalt.test<target>`, 0 failures**. That covers
+every row (recipe host: `/`, `/?q=…`, `/search[?q=…]`, `/recipes/new|<id>|<id>/edit|<id>?servings=4`, `/import`,
+`/import/<id>`, `/collections[/<id>]`, `/tags`, `/shopping`, `/shopping/cards|history|<id>`, `/plan[?week=…]`,
+`/groups`, `/groups/<id>[?x=1]`; finance host: `/`, `/transactions[?kind=…]`, `/transactions/<id>[/edit]`,
+`/new`, `/plan`, `/categories`, `/household`, `/password/forgot`, `/password/reset[?token=…|/<id>]`) and the fall-through rows
+(`/settings`, `/login`, `/register`, `/forgot-password`, `/reset-password/<t>`, `/verify-email/<t>`, `/invite/<t>`,
+`/oauth/callback[?code&state]`, `/uploads/<f>?exp&sig`, `/api/health`, an unknown path, each equal to `{uri}`; the finance
+`/password/reset` rows lose their query as the table says). `/sw.js` on both hosts: 200, `content-type: text/javascript;
+charset=utf-8`, `cache-control: no-cache`, the retiring worker body (identical on the two hosts). Following the redirect:
+`http://rezepte.test/plan` ends at `https://haushalt.test/recipe/plan` (200) and `http://finanzen.test/plan` at
+`https://haushalt.test/finance/plan` (200).
+
+### 9.6 Headless smoke (Playwright, scratch directory outside the repo)
+
+Chromium 1248 with `--host-resolver-rules=MAP haushalt.test 127.0.0.1, MAP rezepte.test 127.0.0.1, MAP finanzen.test 127.0.0.1`
+and `--ignore-certificate-errors` (plus `ignoreHTTPSErrors`: without the flag a service worker will not register on a
+certificate the browser does not trust). One login, `storageState` reused for the mobile (`isMobile`, `hasTouch`, 390x844) and
+desktop (1440x900) contexts: `/`, `/recipe`, `/recipe/plan`, `/finance`, `/finance/transactions`, `/settings` all rendered at their
+own URL on both, **0 console errors and 0 page errors** (CSP violations are console errors) on all 12 loads,
+`scrollWidth <= clientWidth` (390/390 on the phone; 1425/1440 on desktop, which is `scrollbar-gutter: stable`, and
+`documentElement.style.scrollbarGutter = "auto"` makes it 1440/1440) and no element outside the viewport that is not inside a
+clipping or scrolling ancestor. `navigator.serviceWorker.ready` resolved on `https://haushalt.test` with the worker
+`activated`, scope `/`. Old hostnames in a browser: `https://rezepte.test/plan` lands on `https://haushalt.test/recipe/plan`
+(the app adds `?week=<monday>`), `http://rezepte.test/plan` likewise, `https://finanzen.test/plan` on `/finance/plan`,
+`https://rezepte.test/groups` on `/households`, `https://finanzen.test/` on `/finance`. 21 checks per run, 0 failures after the
+two fixes of the script itself (a too strict URL equality that ignored the `week` query, and a retiring-worker test page that
+looped because `page.route` kept fulfilling the reload instead of letting it reach Caddy).
+
+**The retiring worker, driven for real:** a page served by `page.route` on `https://rezepte.test/__page?w=reg` (and on
+`finanzen.test`) created a cache and registered the real `/sw.js` from Caddy. The worker installed and activated, deleted
+the cache, unregistered itself and navigated the window, which then reached Caddy, got the 301 and ended at
+`https://haushalt.test/__page?w=reg`. A fresh page on the old origin reported `regs=0 caches=0`. The worker therefore
+retires itself in Chromium on both old hostnames; the unsent IndexedDB contents are untouched by design. No PNGs were
+committed (no UI changed).
+
+### 9.7 Cutover rehearsal from the image (decision 13, T07)
+
+Precondition checked: `docker volume ls -q --filter name=toon-household_` listed nothing. The local stack was taken down
+(`-p toon-household-local ... down -v`: its three volumes and the network removed). Then in a scratch directory with
+`migration-in/recipe/{local.db,uploads}` and `migration-in/finance/local.db` copied from the fixtures:
+
+- **Step 4 dry run, from the image** exactly as the doc writes it (`docker run --rm --user 1000:1000 -e DATABASE_URL=...
+  -v "$PWD:/work" --entrypoint bun toon-household:local apps/api/scripts/migrate-legacy.ts ...`): exit 0, `== Errors == (none)`,
+  all five finance households `OK` (Kasse Anna & Ben 119486 ct, Kasse Cleo & Dana 1675 ct, Emil & Fritz 1900 ct, Gina allein 2500 ct,
+  Kasse Anna & Pia 2100 ct, legacy and migrated equal), `274 rows would be written, 7 files would be copied`. The one
+  referenced-but-missing upload is the fixture's deliberate trap.
+- **Step 5 apply** (with `-v "$PRIVATE_DIR:/private"` and `--report /private/apply.json`): exit 0, `applied: 274 rows written, 7 files
+  copied`; the second apply: exit 0, `[migrate:legacy] already migrated: nothing written.` Both ran as uid 1000 with no
+  permission change (the scratch directory belongs to uid 1000, as the doc says).
+- **Step 6, the doc's command verbatim:** `docker volume create toon-household_toon-data`, then the `alpine sh -c 'cp ... && chown -R
+  1000:1000 /data'`: exit 0; `ls -la /data` shows `local.db`, `local.db-wal`, `uploads/` owned by `1000 1000`.
+- **Step 7 as the production project:** `docker compose -p toon-household --env-file .env.local-stack up -d` printed `level=warning
+  msg="volume \"toon-household_toon-data\" already exists but was not created by Docker Compose. Use `external: true` to use an
+  existing volume"` (the warning the doc announces; it is a warning, not a refusal), the app was `healthy` after 7 s, `docker inspect`
+  shows `toon-household_toon-data -> /app/data`, the log shows `[db:migrate] done` (a no-op on the migrated database) and
+  the new project's own volumes `toon-household_caddy-data` and `toon-household_caddy-config`.
+- **Step 8:** the three step-8 old-host rows of the doc and of `docs/migration.md` (`/`, `/plan`, `/shopping` on `rezepte.test`;
+  `/`, `/plan`, `/new` on `finanzen.test`) printed the expected `301` lines, `sw.js` is `HTTP/2 200` with the first line `// Retires the
+  service worker ...` on both hosts, `curl -sI .../` shows the 301 with `location: https://haushalt.test/recipe|finance`, and
+  `/api/health` lists both modules. Login as `anna@example.test` with the recipe password (`recipe-pass-anna`, the recipe row wins
+  for a user in both apps) answered 200; `/api/auth/me` lists the two merged households ("Familie Beispiel" and "Freundeskreis")
+  with both modules; the recipe list of the first returned its migrated recipes, and the avatar URL of the profile is a signed
+  `/uploads/…` URL. Finance balances: "Freundeskreis" (`…0002`) 2100 ct, equal to the report; "Familie Beispiel" (`…0001`)
+  **222286 ct**, not the report's 119486 ct: see the defect below.
+- **Defect found by the rehearsal (the doc's "balance must equal the migrated balance" was wrong), fixed in commit `ab93a10`:** the first
+  boot runs the finance `start` hook, the fixed-cost catch-up (`plan:run`), and the fixture's plan (`startPeriod 2026-07`, `lastBookedPeriod`
+  behind) booked two `fixed_plan` rows `Fixkostenanteil 09/2026` and `10/2026` of 51400 ct each at 10:59:36, the moment of the boot:
+  119486 + 2 x 51400 = 222286. Not a data defect (the migrated rows equal the report), but a check that a real operator would
+  have read as a failure. `docs/deployment.md` step 8 and `docs/migration.md` step 8 now say that the balance equals the report plus any
+  plan rows the first boot booked, and that the balance without those rows must match. The deployment-doc and legacy-migration-doc tests
+  still pass.
+- Teardown of the rehearsal: `docker compose -p toon-household --env-file .env.local-stack down -v` removed the containers, the
+  network and the two compose-created volumes, **but not `toon-household_toon-data`**: a volume that `docker volume create` made
+  before compose carries no compose label, so `down -v` leaves it. It was removed by name afterwards (`docker volume rm
+  toon-household_toon-data`; it was created by the rehearsal on a machine that had no such volume). The doc does not use `down -v` for the
+  production project (its rollback is `docker compose down` without a flag), so no doc change.
+
+### 9.8 Teardown (step 9)
+
+`docker compose -p toon-household-local --env-file .env.local-stack down -v` (a no-op after step 8: "No resource found to
+remove"), `docker image rm toon-household:ocr` and `toon-household:local` (both removed; the pulled base images
+`oven/bun:1.4.2-debian`, `caddy:2.11.4-alpine` and `alpine` stay in the local image cache), ports 80 and 443 free,
+`docker volume ls -q | grep -E '^toon-household(-local)?_'` empty, no `toon-household*` network or container, `build.log` removed,
+`git status` clean. The other compose projects on the machine (`default-ma-59179`, `toonfin_*`, others) were never touched.
+
+### 9.9 Defects
+
+| Commit | File | Defect |
+| --- | --- | --- |
+| `ab93a10` | `docs/deployment.md`, `docs/migration.md` | step 8 said the balance equals the report; the first boot's plan catch-up adds `Fixkostenanteil` rows (9.7) |
+
+No defect in the Dockerfile, the compose file, the Caddyfile, the script or the workflows; no ADR change (0008 stands as written
+by T03). The workflows (`release.yml`, `deploy.yml`, the `ci.yml` docker-build job) were checked statically by their tests only: the first push
+to `main` is the first real run.
+
 
 ## 10. What changed vs plan
 
-(Written by T08.)
+Against plan sections 2 to 7:
+
+- **Deviations from SPEC section 1:** none beyond ADR 0008 (D11, written by T03: path-by-path redirects and the retiring worker). No new ADR.
+- **No fallback was needed:** the global `cert_issuer` was accepted (decision 7), the compose-side Caddy fallback of T03 was never
+  recorded, ports 80 and 443 were free (no scratch compose override), `bun install --frozen-lockfile --production` worked in the deps stage as
+  in R (risk 7), `docker volume create` before compose gave a warning, not a refusal (risk 8: the doc's step 6 stands), and the
+  migration from the image (decision 13) ran as written, as uid 1000 (risk 11).
+- **Execution against the plan:** the image builds took 24 s and 28 s, not the 5 to 15 minutes of risk 6 (BuildKit on 16 cores);
+  the rehearsal's own `down -v` leaves a volume that was created by hand (9.7), so it was removed by name; Chromium needed
+  `--ignore-certificate-errors` next to `ignoreHTTPSErrors` for the service worker to register on the internal CA's
+  certificate; the retiring-worker test needs the reload to reach the network, which is how the real flow runs (9.6).
+- **One doc defect fixed in its own commit** (9.9): the balance check in step 8 of the cutover and of `docs/migration.md`.
+- **Commit trailers:** the earlier M6 commits carry `Co-Authored-By: Claude Fable 5.1` (the workflow's text); T08's commits carry the
+  trailer the session's harness prescribes, `Claude Sonnet 5.5`. Only the trailer differs.
+- **Left for the owner (plan section 8, unchanged):** the real cutover on the server, real DNS and certificates, pushing, the first
+  `release.yml` and `deploy.yml` runs, GHCR visibility, the `DEPLOY_ENABLED` variable, arm64 (never built locally). M7 is unchanged and
+  documents the deploy surface where it touches the API.
+
