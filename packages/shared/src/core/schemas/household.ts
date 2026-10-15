@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { refineKey } from "../i18n/zod.ts";
 import { IdSchema, IsoDateSchema, MailDeliverySchema, listResponse } from "./common.ts";
-import { DisplayNameSchema, EmailSchema, PublicUserSchema } from "./user.ts";
+import { DisplayNameSchema, EmailSchema, HouseholdNameSchema, PublicUserSchema } from "./user.ts";
 
 /**
  * Household DTOs: R's GroupSchema family renamed (SPEC D1).
@@ -89,14 +89,15 @@ export type HouseholdInvite = z.infer<typeof HouseholdInviteSchema>;
 /* ------------------------------- requests -------------------------------- */
 
 export const CreateHouseholdRequestSchema = z.object({
-  name: z.string().trim().min(1).max(80),
+  /** 1–80 chars, no control characters (toon-finance 1715207; see `HouseholdNameSchema`). */
+  name: HouseholdNameSchema,
   description: z.string().trim().max(500).optional(),
 });
 export type CreateHouseholdRequest = z.infer<typeof CreateHouseholdRequestSchema>;
 
 export const UpdateHouseholdRequestSchema = z
   .object({
-    name: z.string().trim().min(1).max(80).optional(),
+    name: HouseholdNameSchema.optional(),
     description: z.string().trim().max(500).nullish(),
     imageUrl: z.string().max(1000).nullish(),
   })

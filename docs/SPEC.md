@@ -181,7 +181,9 @@ export interface ApiModule {
                                               // e.g. finance's boot catch-up and 6-hour accrual tick; a rejection is logged
   shutdown?(): Promise<void>                  // SIGTERM/SIGINT in index.ts; e.g. recipe stops its OCR worker,
                                               // finance stops the accrual tick
-  seedDemo?(database, { householdId, userId }): Promise<void>   // the module's part of `bun run seed`, idempotent
+  seedDemo?(database, { householdId, userId, demoPassword }): Promise<void>   // the module's part of `bun run seed`,
+                                              // idempotent; every login it creates uses `demoPassword`
+                                              // (SEED_PASSWORD, else demo1234; plan m3b decision 17)
   uploadReferences?(database): Promise<string[]>   // every stored upload value the module's rows hold;
                                               // uploads:gc keeps a file iff the core or any module references it
 }

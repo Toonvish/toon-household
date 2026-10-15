@@ -75,8 +75,14 @@ export interface ApiModule {
   /**
    * The module's demo content for `bun run seed`, called after the core demo user and
    * household exist. MUST be idempotent: `seed` runs again on an existing database.
+   * `demoPassword` is the ONE password `scripts/seed.ts` resolved (`SEED_PASSWORD`, which
+   * production requires, else `demo1234`; plan m3b decision 17): every login a module's
+   * seed creates uses it, and no module keeps a password constant of its own.
    */
-  seedDemo?(database: Database, context: { householdId: string; userId: string }): Promise<void>;
+  seedDemo?(
+    database: Database,
+    context: { householdId: string; userId: string; demoPassword: string },
+  ): Promise<void>;
   /**
    * Every stored upload reference in the module's rows, as stored (bare
    * `/uploads/x.jpg`, absolute or signed — the caller normalises). `uploads:gc`

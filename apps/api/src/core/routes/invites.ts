@@ -31,6 +31,7 @@ import { requireMembership, requireUser } from "../../lib/types.ts";
 import { requireHouseholdRole } from "../../middleware/household.ts";
 import { requireSession } from "../../middleware/session.ts";
 import { requireVerifiedEmail } from "../../middleware/verifiedEmail.ts";
+import { INVITE_RULE, enforceRateLimit } from "../services/auth/rateLimit.ts";
 import {
   acceptInvite,
   createInvite,
@@ -87,7 +88,11 @@ export function registerHouseholdInviteRoutes(router: Hono<AppEnv>): void {
     async (c) => {
       const membership = requireMembership(c);
       const user = requireUser(c);
-      const result = await createInvite(db, membership.householdId, user.id, c.req.valid("json"));
+      const body = c.req.valid("json");
+      // Only the MAILING variant is metered (toon-finance 1715207) — a link-only invite
+      // sends nothing.
+      if (body.email !== undefined) enforceRateLimit(c, "invite-mail", user.id, INVITE_RULE);
+      const result = await createInvite(db, membership.householdId, user.id, body);
       return created(c, result);
     },
   );

@@ -12,7 +12,32 @@ export const PasswordSchema = z.string().min(8).max(200);
 /** Trims + lowercases BEFORE validating, so " Foo@Bar.DE " is accepted. */
 export const EmailSchema = z.string().max(254).trim().toLowerCase().pipe(z.email());
 
-export const DisplayNameSchema = z.string().trim().min(1).max(80);
+/**
+ * No control characters (`\p{Cc}`: line breaks, tabs, NUL, …) in a display or household
+ * name (toon-finance 1715207): a `\n` in a household name would otherwise travel into the
+ * invite mail's Subject and be refused by the SMTP header guard — a user-triggerable
+ * delivery failure.
+ */
+const NO_CONTROL_CHARS = /^[^\p{Cc}]*$/u;
+
+/** True when `value` contains no control character (see NO_CONTROL_CHARS). */
+export function hasNoControlChars(value: string): boolean {
+  return NO_CONTROL_CHARS.test(value);
+}
+
+/** Display names: 1–80 chars after trimming, no control characters. */
+export const DisplayNameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(80)
+  .refine(hasNoControlChars, refineKey("server.validation.noControlChars"));
+
+/**
+ * Household names: the same rules as a display name (1–80 chars, no control characters).
+ * Used by register's `householdName` and by the create/update household requests.
+ */
+export const HouseholdNameSchema = DisplayNameSchema;
 
 /** The full user record as the API exposes it to the user themself. */
 export const UserSchema = z.object({
@@ -92,15 +117,24 @@ export const RegisterRequestSchema = z.object({
   name: DisplayNameSchema,
   password: PasswordSchema,
   /** Optional: name of the first household created for the user (default "Meine Rezepte"). */
-  householdName: z.string().trim().min(1).max(80).optional(),
+  householdName: HouseholdNameSchema.optional(),
   /** Optional invite token: joins that household instead of creating one. */
   inviteToken: z.string().min(10).max(200).optional(),
 });
 export type RegisterRequest = z.infer<typeof RegisterRequestSchema>;
 
+/**
+ * A password as SUBMITTED for verification (login, current password): no new minimum —
+ * a legacy or wrong password must still reach argon2 and fail there, indistinguishably —
+ * but the same ceiling as `PasswordSchema` (toon-finance 1715207): the request body limit
+ * is 20 MB, and argon2id over a multi-megabyte string on an unauthenticated endpoint is a
+ * CPU-pinning primitive, not a login.
+ */
+const SUBMITTED_PASSWORD_MAX = 200;
+
 export const LoginRequestSchema = z.object({
   email: EmailSchema,
-  password: z.string().min(1),
+  password: z.string().min(1).max(SUBMITTED_PASSWORD_MAX),
 });
 export type LoginRequest = z.infer<typeof LoginRequestSchema>;
 
@@ -117,7 +151,7 @@ export type UpdateProfileRequest = z.infer<typeof UpdateProfileRequestSchema>;
 
 export const ChangePasswordRequestSchema = z.object({
   /** Required when the account already has a password; omit for OAuth-only accounts. */
-  currentPassword: z.string().min(1).optional(),
+  currentPassword: z.string().min(1).max(SUBMITTED_PASSWORD_MAX).optional(),
   newPassword: PasswordSchema,
 });
 export type ChangePasswordRequest = z.infer<typeof ChangePasswordRequestSchema>;

@@ -266,6 +266,14 @@ const EnvSchema = z
       defaultLocale: value.DEFAULT_LOCALE,
     };
   })
+  // The `.env.example` placeholder passes the length check (toon-finance 1715207,
+  // gotcha 74). A public secret makes every value derived from it predictable (the
+  // signatures of the /uploads URLs, the session handles) — and a copied template is exactly
+  // how it would end up on a real host.
+  .refine(
+    (value) => value.NODE_ENV !== "production" || !/^change-me/i.test(value.SESSION_SECRET),
+    "SESSION_SECRET is still the .env.example placeholder — generate one: openssl rand -hex 32",
+  )
   .refine(
     (value) => value.databaseKind === "file" || (value.DATABASE_AUTH_TOKEN ?? "").length > 0,
     "DATABASE_AUTH_TOKEN is required for a remote libsql:// database",
