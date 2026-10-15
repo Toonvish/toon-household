@@ -22,14 +22,14 @@ import type {
   PaginationQuery,
 } from "@toon/shared";
 import { type Locale, isLocale } from "@toon/shared";
-import { and, count, desc, eq } from "drizzle-orm";
+import { type SQL, and, count, desc, eq, isNull } from "drizzle-orm";
 import type { Database } from "../../../db/client.ts";
 import { householdInvites, householdMembers, households, users } from "../../../db/schema.ts";
 import { env } from "../../../env.ts";
 import { ApiError } from "../../../lib/errors.ts";
 import { toIso } from "../../../lib/http.ts";
 import { inviteMail, mailDeliveryOf, trySendMail } from "../mail/index.ts";
-import { getHouseholdWithRole, getMember } from "./households.service.ts";
+import { getHouseholdWithRole, getMember, isPlaceholderMember } from "./households.service.ts";
 import { toHouseholdInvite, toInvitableRole, toInviteStatus } from "./mappers.ts";
 import { toHouseholdRole } from "./membership.ts";
 import { type DbLike, eqFolded, nowMs, withTransaction } from "./support.ts";
@@ -61,26 +61,51 @@ export function buildInviteUrl(token: string): string {
 /**
  * Creates an invite. Any older pending invite for the same (household, e-mail) is
  * revoked in the same transaction so only the newest link works.
+ *
+ * A CLAIM invite (`claimsUserId`, ADR 0006 decision 3, toon-finance `createInvite`) names a
+ * placeholder member: `404` for a user who is not a member of this household, `409
+ * member_has_account` for a member who already has an account (a link that could write a
+ * password onto a real account must not exist even for a second). Its role is always
+ * `member`; older pending claim invites of the same placeholder are revoked in the same
+ * transaction (one open claim link per placeholder); it is mailed only when an `email` was
+ * given, otherwise the response carries `emailSent: false` and no `mailDelivery`.
  */
 export async function createInvite(
   db: Database,
   householdId: string,
   invitedBy: string,
-  input: { email: string; role: "admin" | "member" },
+  input: { email?: string | undefined; role: "admin" | "member"; claimsUserId?: string | undefined },
 ): Promise<HouseholdInviteResponse> {
-  const alreadyMember = await db
-    .select({ userId: householdMembers.userId })
-    .from(householdMembers)
-    .innerJoin(users, eq(users.id, householdMembers.userId))
-    .where(and(eq(householdMembers.householdId, householdId), eqFolded(users.email, input.email)))
-    .limit(1);
-  if (alreadyMember.length > 0) {
-    throw ApiError.conflict("conflict", "server.group.alreadyMember");
+  const claimsUserId = input.claimsUserId ?? null;
+  const email = input.email ?? null;
+
+  if (claimsUserId !== null) {
+    await getMember(db, householdId, claimsUserId);
+    if (!(await isPlaceholderMember(db, householdId, claimsUserId))) {
+      throw ApiError.conflict("member_has_account", "server.household.memberHasAccount");
+    }
+  } else {
+    if (email === null) throw ApiError.badRequest();
+    const alreadyMember = await db
+      .select({ userId: householdMembers.userId })
+      .from(householdMembers)
+      .innerJoin(users, eq(users.id, householdMembers.userId))
+      .where(and(eq(householdMembers.householdId, householdId), eqFolded(users.email, email)))
+      .limit(1);
+    if (alreadyMember.length > 0) {
+      throw ApiError.conflict("conflict", "server.group.alreadyMember");
+    }
   }
 
   const timestamp = nowMs();
   const id = crypto.randomUUID();
   const token = generateInviteToken();
+  // One open link per address for a plain invite (R's rule), one per placeholder for a claim
+  // invite; a plain invite never revokes a claim link that happens to carry the same address.
+  const supersedes: SQL | undefined =
+    claimsUserId !== null
+      ? eq(householdInvites.claimsUserId, claimsUserId)
+      : and(isNull(householdInvites.claimsUserId), eqFolded(householdInvites.email, email ?? ""));
 
   await withTransaction(db, async (tx) => {
     await tx
@@ -90,24 +115,28 @@ export async function createInvite(
         and(
           eq(householdInvites.householdId, householdId),
           eq(householdInvites.status, "pending"),
-          eqFolded(householdInvites.email, input.email),
+          supersedes,
         ),
       );
     await tx.insert(householdInvites).values({
       id,
       householdId,
-      email: input.email,
-      role: input.role,
+      email,
+      role: claimsUserId !== null ? "member" : input.role,
       token,
       status: "pending",
       invitedBy,
       expiresAt: timestamp + INVITE_TTL_MS,
       createdAt: timestamp,
+      claimsUserId,
     });
   });
 
   const invite = await loadInvite(db, { inviteId: id });
   const inviteUrl = buildInviteUrl(token);
+
+  // A claim link without an address is handed over by the admin (copy, share); nothing to mail.
+  if (email === null) return { invite, inviteUrl, emailSent: false };
 
   // AFTER the row is committed, and never able to fail the request: an invite that
   // exists but was not mailed is useful (copy the link); a 500 that leaves a
@@ -124,7 +153,7 @@ export async function createInvite(
   const locale: Locale = isLocale(inviter?.locale) ? inviter.locale : env.defaultLocale;
   const sent = await trySendMail(
     inviteMail({
-      to: input.email,
+      to: email,
       groupName: household?.name ?? "Rezepte",
       invitedByName: invite.invitedByName,
       inviteUrl,
@@ -240,9 +269,16 @@ export async function previewInvite(db: DbLike, token: string): Promise<InvitePr
     role: toInvitableRole(invite.role),
     status: toInviteStatus(invite.status, invite.expiresAt),
     expiresAt: toIso(invite.expiresAt),
-    // The placeholder's name once claim invites exist (M3b-T05); a plain invite has none.
-    claimsDisplayName: null,
+    // The placeholder's name (ADR 0006): what the landing page says the account is created for.
+    claimsDisplayName: await claimsDisplayNameOf(db, invite.claimsUserId),
   };
+}
+
+/** `users.name` of the user a claim invite hands over; `null` for a plain invite. */
+async function claimsDisplayNameOf(db: DbLike, claimsUserId: string | null): Promise<string | null> {
+  if (claimsUserId === null) return null;
+  const [row] = await db.select({ name: users.name }).from(users).where(eq(users.id, claimsUserId)).limit(1);
+  return row?.name ?? null;
 }
 
 /**
@@ -264,6 +300,15 @@ export async function acceptInvite(
     .limit(1);
 
   const timestamp = nowMs();
+
+  // A CLAIM invite is redeemed only by registering onto the placeholder (ADR 0006 decision 3,
+  // toon-finance `acceptInvite`): an existing account accepting it would burn the link or merge
+  // two user ids, neither is a feature. The one caller let through is the claimed user itself,
+  // replaying its accept. A spent claim link is no capability for anyone else (F gotcha 55).
+  if (invite.claimsUserId !== null && invite.claimsUserId !== userId) {
+    if (invite.status === "accepted") throw ApiError.notFound("server.invite.alreadyUsed");
+    throw ApiError.conflict("invite_claim_requires_register", "server.invite.claimRequiresRegister");
+  }
 
   if (!existing && invite.status === "accepted") {
     throw ApiError.notFound("server.invite.alreadyUsed");
