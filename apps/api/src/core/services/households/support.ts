@@ -16,7 +16,7 @@ export type Tx = Parameters<Parameters<Database["transaction"]>[0]>[0];
 /**
  * Anything that can run queries: the pooled drizzle instance or a transaction.
  * Every service function takes this so it can be composed inside a transaction
- * and so tests can pass an isolated in-memory database.
+ * and so tests can pass an isolated database of their own.
  */
 export type DbLike = Database | Tx;
 
@@ -29,11 +29,12 @@ export type DbLike = Database | Tx;
  * after the transaction commits, every table is gone. File-backed databases
  * (self-hosted `file:./data/local.db`) and Turso are unaffected.
  *
- * Integration tests run with DATABASE_URL=file::memory: (forced by env.ts), so
- * `withTransaction` degrades to sequential execution there and uses a real
- * transaction in every other configuration. The statement order is identical,
- * so the tests still cover the full write path; only the rollback guarantee is
- * missing on the memory DB.
+ * `bun test` runs on a fresh temp `file:` database per process (env.ts, ADR 0009,
+ * toon-finance gotcha 2), so `withTransaction` opens a REAL transaction under test
+ * exactly as in production, rollback included. Only an explicit
+ * `TEST_DATABASE_URL=file::memory:` (or any other memory URL) still makes it
+ * degrade to sequential execution on the one client: same statement order, no
+ * rollback guarantee.
  */
 export const transactionsSupported: boolean = !env.databaseUrl.includes(":memory:");
 

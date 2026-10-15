@@ -5,12 +5,17 @@
  *
  * M3b-T06 (toon-finance 1715207, gotcha 74): `foreign_keys = ON` is sent explicitly too, and the
  * data directory `createDatabase()` creates is 0700.
+ *
+ * M7-T02 (ADR 0009): the suite's own shared client is a temp `file:` DB with these pragmas, and
+ * a SECOND pooled connection (the one @libsql/client opens while a transaction holds the first)
+ * waits on a lock too: before the `timeout` client option it ran with `busy_timeout = 0`.
  */
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createDatabase } from "../src/db/client.ts";
+import { createDatabase, client as sharedClient } from "../src/db/client.ts";
+import { env } from "../src/env.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "toon-household-pragmas-"));
 
@@ -34,6 +39,34 @@ describe("connection pragmas", () => {
     } finally {
       created.client.close();
     }
+  });
+
+  test("a second pooled connection, opened while a transaction holds the first, waits 5 s on a lock too", async () => {
+    const created = createDatabase({ url: `file:${join(dir, "pool.db")}` });
+    try {
+      await created.ready;
+      const tx = await created.client.transaction("write");
+      try {
+        // The transaction borrows the tuned first connection, so these run on a new one.
+        expect(Number(await pragma(created, "busy_timeout"))).toBe(5000);
+        expect(Number(await pragma(created, "synchronous"))).toBe(2);
+        expect(Number(await pragma(created, "foreign_keys"))).toBe(1);
+        expect(String(await pragma(created, "journal_mode")).toLowerCase()).toBe("wal");
+        expect(Number((await tx.execute("PRAGMA busy_timeout")).rows[0]?.[0])).toBe(5000);
+      } finally {
+        await tx.rollback();
+      }
+    } finally {
+      created.client.close();
+    }
+  });
+
+  test("the suite's shared client is a temp file: DB in WAL mode, not file::memory: (ADR 0009)", async () => {
+    expect(env.databaseUrl.startsWith("file:")).toBe(true);
+    expect(env.databaseUrl).not.toContain(":memory:");
+    expect(env.databaseUrl).toMatch(/toon-household-test-\d+-[0-9a-f-]{36}\.db$/);
+    const result = await sharedClient.execute("PRAGMA journal_mode");
+    expect(String(result.rows[0]?.[0]).toLowerCase()).toBe("wal");
   });
 
   test("the data directory a file: DB needs is created with mode 0700", async () => {

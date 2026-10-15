@@ -1,5 +1,7 @@
 # 0003: Finance tests run on the shared memory DB, real transactions are proven on a file DB (amends D13)
 
+Superseded by ADR 0009.
+
 Date: 2026-10-14
 
 ## Context

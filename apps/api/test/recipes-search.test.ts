@@ -20,7 +20,7 @@
 import { FOLD_PAIRS, foldText } from "@toon/shared";
 import { describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
-import { client, db } from "../src/db/client.ts";
+import { db } from "../src/db/client.ts";
 import { runMigrations } from "../src/db/migrate.ts";
 import { backfillFoldedColumns } from "../src/modules/recipe/migrate.ts";
 import {
@@ -32,6 +32,7 @@ import {
   users,
 } from "../src/db/schema.ts";
 import { app } from "../src/index.ts";
+import { explain } from "./support/explain.ts";
 
 await runMigrations(db);
 
@@ -379,7 +380,7 @@ describe("folded search columns", () => {
   test("the title sort reads its order from an index, not a temp B-tree", async () => {
     // The whole point of storing the fold for sorting. `foldSql(title)` in the
     // ORDER BY forced `USE TEMP B-TREE FOR ORDER BY` over every row in the household.
-    const plan = await client.execute(
+    const plan = await explain(
       "explain query plan select * from recipe_recipes where household_id = 'x' order by title_fold asc limit 24",
     );
     const detail = plan.rows.map((row) => String(row.detail)).join(" | ");
@@ -397,7 +398,7 @@ describe("folded search columns", () => {
     // Counting `Function` opcodes rather than asserting their absence: LIKE compiles
     // to one, so "none" is unachievable and "few" is the real invariant.
     const countOpcodes = async (sql: string, args: unknown[]): Promise<number> => {
-      const plan = await client.execute({ sql, args: args as never[] });
+      const plan = await explain(sql, args as never[]);
       return plan.rows.filter((row) => String(row.opcode) === "Function").length;
     };
 

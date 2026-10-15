@@ -2,7 +2,7 @@
  * Applies the generated SQL migrations in apps/api/drizzle, then every build
  * module's `afterMigrate` hook (SPEC §2, plan M2 decision 4).
  * Used by `bun run db:migrate`, `bun run seed` AND by integration tests against
- * DATABASE_URL="file::memory:".
+ * the per-process temp `file:` test database (env.ts, ADR 0009).
  *
  * toon-recipe's `runMigrations` ran its JS backfill of the pre-folded search
  * columns (`backfillFoldedColumns`) right here. Those columns belong to the recipe

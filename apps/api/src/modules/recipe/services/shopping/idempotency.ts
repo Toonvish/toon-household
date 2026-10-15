@@ -21,7 +21,8 @@
  * `hasApplied()` + "then write" is a race: two replays of the same id can both read
  * "not applied". The claim is therefore an INSERT on a primary key —
  * {@link claimMutation} returns false when the insert conflicts, and only the request
- * that won the insert proceeds. On a memory DB (tests) `withTransaction` degrades to
+ * that won the insert proceeds. On a memory DB (an explicit `TEST_DATABASE_URL=file::memory:`;
+ * `bun test` itself runs on a temp file DB since ADR 0009) `withTransaction` degrades to
  * sequential statements, so a failure AFTER a successful claim leaves the id claimed
  * and the mutation unapplied. That is the deliberate trade: a lost mutation the user
  * can repeat by hand beats a silently doubled amount.
