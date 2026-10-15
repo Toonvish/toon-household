@@ -36,8 +36,8 @@ export const CreateTransactionRequestSchema = z.object({
   amountCents: CentsSchema,
   description: TransactionDescriptionSchema,
   categoryId: IdSchema.nullish(),
-  /** Tag NAMES, not ids — unknown ones are created (docs/spec.md §3.6). */
-  tags: z.array(TagNameSchema).optional(),
+  /** Tag NAMES, not ids — unknown ones are created (docs/spec.md §3.6); at most 20 per row (one INSERT each, inside the create transaction). */
+  tags: z.array(TagNameSchema).max(20).optional(),
   bookedAt: IsoDateSchema.optional(),
   mutationId: IdSchema.optional(),
 });
@@ -90,10 +90,10 @@ export const TransactionListQuerySchema = FinancePaginationQuerySchema.extend({
   payerId: IdSchema.optional(),
   categoryId: IdSchema.optional(),
   /** Comma-separated tag ids — a transaction must carry ALL of them. */
-  tagIds: z.string().optional(),
+  tagIds: z.string().max(400).optional(),
   origin: TransactionOriginSchema.optional(),
   /** Case-insensitive `LIKE` on `description`. No FTS. */
-  q: z.string().optional(),
+  q: z.string().max(100).optional(),
   /** Default true; false hides rows tagged `sammelbuchung`. */
   includeAggregates: BooleanQuerySchema.default(true),
   sort: TransactionSortSchema.default("-bookedAt"),

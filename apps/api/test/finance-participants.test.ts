@@ -24,6 +24,7 @@ import type { ApiModule } from "../src/modules/types.ts";
 import { financeFixedCostPlans, financeParticipants, financeTransactions } from "../src/modules/finance/schema.ts";
 import {
   addMember,
+  addPlaceholder,
   body,
   call,
   createPlainHousehold,
@@ -41,7 +42,8 @@ interface Participant {
   memberSlot: 1 | 2;
   displayName: string;
   name: string;
-  email: string;
+  email: string | null;
+  hasAccount: boolean;
   joinedAt: string;
 }
 
@@ -519,5 +521,181 @@ describe("a participant leaving the household (toon-finance member_has_ledger, S
     const leave = await call(membersPath(householdId, b.id), { method: "DELETE", cookie: b.cookie });
     expect(leave.status).toBe(409);
     expect((await errorOf(leave)).code).toBe("member_has_ledger");
+  });
+});
+
+describe("placeholder seats (plan m3b decision 6, ADR 0006; toon-finance b1b517d placeholders.test.ts)", () => {
+  const membersPath = (householdId: string, userId: string): string =>
+    `/api/households/${householdId}/members/${userId}`;
+
+  /** A household with finance enabled: the owner in slot 1, a placeholder created through the core route in slot 2. */
+  async function withPlaceholder(): Promise<{ owner: TestUser; placeholderId: string; householdId: string }> {
+    const owner = await createUser("Owner");
+    const householdId = await createPlainHousehold(owner, "Platzhalter");
+    const placeholderId = await addPlaceholder(owner, householdId, "Sandy");
+    const placeholder = { id: placeholderId } as TestUser;
+    const enabled = await enableFinance(owner, householdId, owner, placeholder);
+    expect(enabled.status).toBe(200);
+    return { owner, placeholderId, householdId };
+  }
+
+  test("F: seats a person without an account in slot 2 (H: hasAccount false, e-mail null, named after users.name)", async () => {
+    const { owner, placeholderId, householdId } = await withPlaceholder();
+    const seats = await list(owner, householdId);
+    expect(seats.items.map((item) => [item.userId, item.memberSlot])).toEqual([
+      [owner.id, 1],
+      [placeholderId, 2],
+    ]);
+    const seat = seats.items[1]!;
+    expect(seat.hasAccount).toBe(false);
+    expect(seat.email).toBeNull();
+    expect(seat.displayName).toBe("Sandy");
+    expect(seats.items[0]!.hasAccount).toBe(true);
+  });
+
+  test("a placeholder in slot 1 is 422 server.finance.placeholderSlotOne with a detail on the slot-1 entry; nothing changes", async () => {
+    const { owner, placeholderId, householdId } = await withPlaceholder();
+    const before = await list(owner, householdId);
+    const swap = {
+      participants: [
+        { userId: placeholderId, memberSlot: 1 },
+        { userId: owner.id, memberSlot: 2 },
+      ],
+    };
+    const response = await call(participantsPath(householdId), { method: "PUT", cookie: owner.cookie, body: swap });
+    expect(response.status).toBe(422);
+    const payload = (await body<{ error: { code: string; message: string; details?: Array<{ path: string }> } }>(response)).error;
+    expect(payload.code).toBe("validation_failed");
+    expect(payload.message).toBe("Eine Person ohne Konto kann nur Platz 2 belegen.");
+    expect(payload.details?.[0]?.path).toBe("participants.0.userId");
+    expect(await list(owner, householdId)).toEqual(before);
+  });
+
+  test("the enable settings refuse a placeholder in slot 1 too, and write nothing", async () => {
+    const owner = await createUser("Owner");
+    const householdId = await createPlainHousehold(owner, "Slot eins");
+    const placeholderId = await addPlaceholder(owner, householdId, "Sandy");
+    const enabled = await enableFinance(owner, householdId, { id: placeholderId } as TestUser, owner);
+    expect(enabled.status).toBe(422);
+    expect((await errorOf(enabled)).code).toBe("validation_failed");
+    const rows = await db.select().from(financeParticipants).where(eq(financeParticipants.householdId, householdId));
+    expect(rows).toEqual([]);
+  });
+
+  test("F: a third seat is still 409 household_full (H: PUT with a third entry is 422 validation_failed, exactly two seats, D3)", async () => {
+    const { owner, placeholderId, householdId } = await withPlaceholder();
+    const third = await createUser("Dritte");
+    await addMember(owner, householdId, third);
+    const response = await call(participantsPath(householdId), {
+      method: "PUT",
+      cookie: owner.cookie,
+      body: {
+        participants: [
+          { userId: owner.id, memberSlot: 1 },
+          { userId: placeholderId, memberSlot: 2 },
+          { userId: third.id, memberSlot: 2 },
+        ],
+      },
+    });
+    expect(response.status).toBe(422);
+    expect((await errorOf(response)).code).toBe("validation_failed");
+    expect((await list(owner, householdId)).items).toHaveLength(2);
+  });
+
+  test("F: the other member may rename the placeholder, but never a real member (PATCH …/participants/:userId)", async () => {
+    const { owner, placeholderId, householdId } = await withPlaceholder();
+    const renamed = await call(`${participantsPath(householdId)}/${placeholderId}`, {
+      method: "PATCH",
+      cookie: owner.cookie,
+      body: { displayName: "  Sandra " },
+    });
+    expect(renamed.status).toBe(200);
+    const seat = await body<Participant>(renamed);
+    expect(seat.displayName).toBe("Sandra");
+    expect(seat.hasAccount).toBe(false);
+    expect((await list(owner, householdId)).items[1]!.displayName).toBe("Sandra");
+
+    // A seat with an account is its holder's to rename (…/me), never the other participant's.
+    const b = await createUser("Bea");
+    await addMember(owner, householdId, b);
+    expect(
+      (
+        await call(participantsPath(householdId), {
+          method: "PUT",
+          cookie: owner.cookie,
+          body: { participants: [{ userId: owner.id, memberSlot: 1 }, { userId: b.id, memberSlot: 2 }] },
+        })
+      ).status,
+    ).toBe(200);
+    const refused = await call(`${participantsPath(householdId)}/${b.id}`, {
+      method: "PATCH",
+      cookie: owner.cookie,
+      body: { displayName: "Gehackt" },
+    });
+    expect(refused.status).toBe(403);
+    expect((await errorOf(refused)).code).toBe("forbidden");
+    expect((await list(owner, householdId)).items[1]!.displayName).toBe("Bea");
+
+    // A member without a seat is not a participant: the gate answers before the rename.
+    const outsider = await createUser("Draussen");
+    await addMember(owner, householdId, outsider);
+    const gate = await call(`${participantsPath(householdId)}/${b.id}`, {
+      method: "PATCH",
+      cookie: outsider.cookie,
+      body: { displayName: "Gehackt" },
+    });
+    expect(gate.status).toBe(403);
+    expect((await errorOf(gate)).code).toBe("finance_not_participant");
+  });
+
+  test("renaming a user without a seat in this household is 404; a control character in the name is 422", async () => {
+    const { owner, placeholderId, householdId } = await withPlaceholder();
+    const stranger = await createUser("Fremd");
+    const unseated = await call(`${participantsPath(householdId)}/${stranger.id}`, {
+      method: "PATCH",
+      cookie: owner.cookie,
+      body: { displayName: "Nope" },
+    });
+    expect(unseated.status).toBe(404);
+    for (const name of ["Zeile\neins", "Tab\tulator"]) {
+      const response = await call(`${participantsPath(householdId)}/${placeholderId}`, {
+        method: "PATCH",
+        cookie: owner.cookie,
+        body: { displayName: name },
+      });
+      expect([name, response.status]).toEqual([name, 422]);
+    }
+    expect((await list(owner, householdId)).items[1]!.displayName).toBe("Sandy");
+  });
+
+  test("F: a placeholder with bookings cannot be removed (409 member_has_ledger through the core DELETE; the user row stays)", async () => {
+    const { owner, placeholderId, householdId } = await withPlaceholder();
+    await db.insert(financeTransactions).values({
+      id: crypto.randomUUID(),
+      householdId,
+      payerId: owner.id,
+      splitMode: "SPLIT_EQUAL",
+      amountCents: 1_000,
+      description: "Sandy bekommt die Hälfte",
+      bookedAt: Date.now(),
+      dateSource: "day",
+      origin: "manual",
+      categorySource: "manual",
+    });
+    const removed = await call(membersPath(householdId, placeholderId), { method: "DELETE", cookie: owner.cookie });
+    expect(removed.status).toBe(409);
+    expect((await errorOf(removed)).code).toBe("member_has_ledger");
+    const [row] = await db.select({ id: users.id }).from(users).where(eq(users.id, placeholderId));
+    expect(row?.id).toBe(placeholderId);
+    expect((await list(owner, householdId)).items.map((item) => item.userId)).toEqual([owner.id, placeholderId]);
+  });
+
+  test("a seated placeholder with an empty ledger is removed with its seat and its user row (ADR 0004: the seat goes with it)", async () => {
+    const { owner, placeholderId, householdId } = await withPlaceholder();
+    const removed = await call(membersPath(householdId, placeholderId), { method: "DELETE", cookie: owner.cookie });
+    expect(removed.status).toBe(204);
+    expect((await list(owner, householdId)).items.map((item) => [item.userId, item.memberSlot])).toEqual([[owner.id, 1]]);
+    const rows = await db.select({ id: users.id }).from(users).where(eq(users.id, placeholderId));
+    expect(rows).toEqual([]);
   });
 });

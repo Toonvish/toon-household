@@ -11,8 +11,9 @@
  * time; for POST it starts `null` and is linked after the row exists (both
  * inside the same `withTransaction`, so a claim is never left dangling).
  */
-import { eq, lt } from "drizzle-orm";
+import { and, eq, lt } from "drizzle-orm";
 import { financeMutationClaims as mutationClaims } from "../../schema.ts";
+import { ApiError } from "../../../../lib/errors.ts";
 import { nowMs } from "../../lib/clock.ts";
 import type { DbLike } from "../support.ts";
 
@@ -24,6 +25,12 @@ export interface ClaimResult {
   claimed: boolean;
   /** The transaction this mutationId is linked to, if any (null on a fresh claim with no id yet). */
   transactionId: string | null;
+  /**
+   * True when the id was already claimed by ANOTHER household (the claim's primary key is the
+   * client-minted id alone). Such a claim is no replay of this household's call: the PATCH and
+   * DELETE paths must not treat it as one (a silent no-op), see `assertOwnClaim`.
+   */
+  foreign: boolean;
 }
 
 /**
@@ -44,14 +51,24 @@ export async function claimMutation(
     .onConflictDoNothing()
     .returning({ transactionId: mutationClaims.transactionId });
 
-  if (inserted.length > 0) return { claimed: true, transactionId: inserted[0]!.transactionId };
+  if (inserted.length > 0) return { claimed: true, transactionId: inserted[0]!.transactionId, foreign: false };
 
   const existing = await db
-    .select({ transactionId: mutationClaims.transactionId })
+    .select({ transactionId: mutationClaims.transactionId, householdId: mutationClaims.householdId })
     .from(mutationClaims)
     .where(eq(mutationClaims.id, mutationId))
     .limit(1);
-  return { claimed: false, transactionId: existing[0]?.transactionId ?? null };
+  const row = existing[0];
+  return { claimed: false, transactionId: row?.transactionId ?? null, foreign: row !== undefined && row.householdId !== householdId };
+}
+
+/**
+ * A lost claim whose owner is another household is a refusal, never a replay (toon-finance
+ * 1715207, gotcha 71, carried to the PATCH and DELETE paths): without this, a PATCH or DELETE
+ * carrying a foreign `mutationId` answered as if it had been applied and changed nothing.
+ */
+export function assertOwnClaim(claim: ClaimResult): void {
+  if (claim.foreign) throw ApiError.conflict("conflict", "server.error.conflict");
 }
 
 /** Links a claim (made with `transactionId: null`, i.e. from a POST) to the row it created. */
@@ -75,8 +92,14 @@ export async function linkMutationClaim(db: DbLike, mutationId: string, transact
  * gone, done" instead of a spurious 404 — see docs/spec.md §3.1: a replay is
  * never an error.
  */
-export async function peekMutationClaim(db: DbLike, mutationId: string): Promise<boolean> {
-  const existing = await db.select({ id: mutationClaims.id }).from(mutationClaims).where(eq(mutationClaims.id, mutationId)).limit(1);
+export async function peekMutationClaim(db: DbLike, mutationId: string, householdId: string): Promise<boolean> {
+  // Scoped to the household: a client-minted id from ANOTHER household must never turn this delete
+  // into a silent "already done" (toon-finance 1715207, gotcha 71).
+  const existing = await db
+    .select({ id: mutationClaims.id })
+    .from(mutationClaims)
+    .where(and(eq(mutationClaims.id, mutationId), eq(mutationClaims.householdId, householdId)))
+    .limit(1);
   return existing.length > 0;
 }
 

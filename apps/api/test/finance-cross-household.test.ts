@@ -180,6 +180,13 @@ function probes(): Probe[] {
       ...notFound,
     },
     {
+      label: "PATCH participants/:userId with B's owner id (a user of another household)",
+      method: "PATCH",
+      path: `/participants/${b.owner.id}`,
+      body: { displayName: "gehackt" },
+      ...notFound,
+    },
+    {
       label: "PUT participants naming B's owner",
       method: "PUT",
       path: "/participants",

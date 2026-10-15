@@ -202,6 +202,17 @@ async function assertParticipant(db: DbLike, householdId: string, userId: string
   );
 }
 
+/**
+ * `activeTo`/`validTo` before `activeFrom`/`validFrom` would hit the DB CHECK and surface as a 500
+ * (toon-finance 1715207). Thrown explicitly, not as a Zod refinement: a refinement on a partial
+ * PATCH cannot see the row's other half (F gotcha 48).
+ */
+function assertPeriodRange(from: string, to: string | null | undefined): void {
+  if (to !== null && to !== undefined && comparePeriods(to, from) < 0) {
+    throw ApiError.validationFailed(undefined, "server.validation.periodRange");
+  }
+}
+
 export async function updatePlan(db: Database, householdId: string, input: UpdatePlanRequest): Promise<PlanResponse> {
   if (input.startPeriod !== undefined) {
     const occupied = await maxOccupiedPeriod(db, householdId);
@@ -210,6 +221,12 @@ export async function updatePlan(db: Database, householdId: string, input: Updat
     }
   }
   if (input.payerId !== undefined) await assertParticipant(db, householdId, input.payerId, "payerId");
+  if (input.enabled === true && input.payerId === undefined) {
+    // Switching the plan on must start from a participant, too: the payer of record may have been
+    // seated once and left since (toon-finance 1715207, gotcha 70).
+    const current = await loadPlanRow(db, householdId);
+    await assertParticipant(db, householdId, current.payerId, "payerId");
+  }
   const patch: Partial<typeof fixedCostPlans.$inferInsert> = { updatedAt: nowMs() };
   if (input.enabled !== undefined) patch.enabled = input.enabled;
   if (input.payerId !== undefined) patch.payerId = input.payerId;
@@ -247,6 +264,7 @@ async function nextItemPosition(db: Database, householdId: string): Promise<numb
 }
 
 export async function createFixedCostItem(db: Database, householdId: string, input: CreateFixedCostItemRequest): Promise<FixedCostItemResponse> {
+  assertPeriodRange(input.activeFrom, input.activeTo);
   const id = crypto.randomUUID();
   const timestamp = nowMs();
   const position = input.position ?? (await nextItemPosition(db, householdId));
@@ -277,7 +295,8 @@ export async function updateFixedCostItem(
   itemId: string,
   input: UpdateFixedCostItemRequest,
 ): Promise<FixedCostItemResponse> {
-  await loadItemOr404(db, householdId, itemId);
+  const existing = await loadItemOr404(db, householdId, itemId);
+  assertPeriodRange(input.activeFrom ?? existing.activeFrom, input.activeTo === undefined ? existing.activeTo : input.activeTo);
   const patch: Partial<typeof fixedCostItems.$inferInsert> = { updatedAt: nowMs() };
   if (input.label !== undefined) patch.label = input.label;
   if (input.amountCents !== undefined) patch.amountCents = input.amountCents;
@@ -313,6 +332,7 @@ async function loadIncomeOr404(db: Database, householdId: string, incomeId: stri
  */
 export async function createIncome(db: Database, householdId: string, input: CreateIncomeRequest): Promise<IncomeResponse> {
   await assertParticipant(db, householdId, input.personId, "personId");
+  assertPeriodRange(input.validFrom, input.validTo);
   const id = crypto.randomUUID();
   const timestamp = nowMs();
   try {
@@ -334,8 +354,9 @@ export async function createIncome(db: Database, householdId: string, input: Cre
 }
 
 export async function updateIncome(db: Database, householdId: string, incomeId: string, input: UpdateIncomeRequest): Promise<IncomeResponse> {
-  await loadIncomeOr404(db, householdId, incomeId);
+  const existing = await loadIncomeOr404(db, householdId, incomeId);
   if (input.personId !== undefined) await assertParticipant(db, householdId, input.personId, "personId");
+  assertPeriodRange(input.validFrom ?? existing.validFrom, input.validTo === undefined ? existing.validTo : input.validTo);
   const patch: Partial<typeof incomes.$inferInsert> = { updatedAt: nowMs() };
   if (input.personId !== undefined) patch.personId = input.personId;
   if (input.amountCents !== undefined) patch.amountCents = input.amountCents;

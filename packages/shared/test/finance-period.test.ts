@@ -23,6 +23,15 @@ describe("isPeriod", () => {
   );
 });
 
+describe("the accepted period window (toon-finance 1715207)", () => {
+  test("the whole window is a bounded walk: 1212 months from 2000-01 to 2100-12", async () => {
+    const { MAX_PERIOD, MIN_PERIOD } = await import("../src/modules/finance/schemas/common.ts");
+    expect(isPeriod(MIN_PERIOD) && isPeriod(MAX_PERIOD)).toBe(true);
+    // Year 1 would have been ~24 000 months in ONE boot transaction.
+    expect(periodsInclusive(MIN_PERIOD, MAX_PERIOD)).toHaveLength(1212);
+  });
+});
+
 describe("nextPeriod / previousPeriod", () => {
   test("cross the year boundary forward", () => {
     expect(nextPeriod("2025-12")).toBe("2026-01");
