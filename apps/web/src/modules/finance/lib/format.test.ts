@@ -9,7 +9,7 @@
  * character instead of two visually identical strings that never compare equal.
  */
 import { describe, expect, test } from "bun:test";
-import { formatCurrency, formatPercent, formatPeriod } from "./format";
+import { formatCurrency, formatDayHeading, formatPercent, formatPeriod } from "./format";
 
 const NBSP = " ";
 
@@ -37,6 +37,27 @@ describe("formatPeriod", () => {
 
   test("an unparsable period is returned unchanged rather than throwing", () => {
     expect(formatPeriod("not-a-period", "de")).toBe("not-a-period");
+  });
+});
+
+describe("formatDayHeading", () => {
+  /*
+   * The heading of a day group in the transaction list. Since the redesign it
+   * is the ONLY place the date appears for a normal row, so a missing weekday
+   * or a swapped day/month is a silent loss of the one thing that makes the
+   * list scannable — not a cosmetic slip.
+   */
+  test("de: weekday, then the same dd.mm.yyyy the rest of the app uses", () => {
+    expect(formatDayHeading("2026-08-21T10:00:00.000Z", "de")).toBe("Freitag, 21.08.2026");
+  });
+
+  test("en-GB: weekday, then the en-GB day/month order", () => {
+    expect(formatDayHeading("2026-08-21T10:00:00.000Z", "en")).toBe("Friday, 21/08/2026");
+  });
+
+  test("nullish and unparsable input render the en dash, never 'Invalid Date'", () => {
+    expect(formatDayHeading(null, "de")).toBe("–");
+    expect(formatDayHeading("nope", "de")).toBe("–");
   });
 });
 
