@@ -911,7 +911,10 @@ database `local.db` in the second); toon-edge kept its certificates in `toon-edg
 
    - **The data:** sign in (see [Cutover order](migration.md#cutover-order) step 8 for the account cases),
      open a recipe, the meal plan, a shopping list and the finance overview. The balance must equal the
-     migrated balance in the report.
+     migrated balance in the report, plus any fixed-cost plan rows the first boot booked: the stack
+     catches the plan up at start (`plan:run`), so a period that began after the old finance app last ran
+     appears as a `Fixkostenanteil MM/YYYY` booking (origin `fixed_plan`) created at the first boot. Each
+     such row moves the balance by its viewer share; the balance without them must match the report.
    - **People:** hand each claim link over privately (the placeholder's person registers through it),
      then act on the ADR 0005 warnings of the report: seat the second participant of a solo ledger,
      check the plan payer, remove an income that names someone who is not a participant.

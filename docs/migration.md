@@ -621,7 +621,10 @@ reversible by starting the old stacks again.
    Sign in (each person uses the e-mail and password they had; OAuth-only recipe accounts use their
    provider; finance-only accounts need the address confirmation or a password-reset link from
    `bun run auth:reset-password <email>`). Open a recipe, the meal plan, a shopping list, and the
-   finance overview: the balance must equal the migrated balance in the report. Hand each claim link
+   finance overview: the balance must equal the migrated balance in the report, plus any fixed-cost plan
+   rows the first boot booked (the stack catches the plan up at start: a period that began after the old
+   finance app last ran shows up as a `Fixkostenanteil MM/YYYY` booking created at that boot, and the
+   balance without those rows must match the report). Hand each claim link
    privately to its person; registering through it makes them the placeholder (same seat, same
    bookings), and they then confirm their address. Act on the ADR 0005
    warnings (seat the second participant of a solo ledger, check the plan payer, remove an income that
