@@ -1,0 +1,193 @@
+# Builds the container image and publishes it to GHCR (docs/deployment.md).
+#
+# EVERY PUSH TO `main` PUBLISHES: `type=raw,value=latest`
+# is what makes `TOON_IMAGE=…:latest` in docker/env.example resolve at all, and it
+# is gated on `enable={{is_default_branch}}` so a branch build never moves the tag
+# the server pulls. A `v*` tag additionally publishes the semver tags. This used to
+# be tags-only, which meant a repo with no tags had NO package in GHCR at all — and
+# an unauthenticated `docker compose pull` on the server answers that with the same
+# `denied` as a private package, so the error said nothing about the cause.
+#
+# TWO ARCHITECTURES, BOTH DELIBERATE: amd64 is the ordinary x86 VPS (and a laptop
+# for testing), arm64 covers the cheap ARM instances and an Apple-Silicon dev
+# machine. 32-bit is not buildable at all — there is no Bun for it.
+#
+# HOW THE CROSS-BUILD STAYS FAST: the Dockerfile builds the web bundle on the BUILD
+# platform (`--platform=$BUILDPLATFORM`), because its output is
+# architecture-independent. Only the native node_modules install runs under QEMU.
+# Without that split, a full arm64 build under emulation takes roughly ten times as
+# long.
+name: Release
+
+#
+# BUILDS, THEN DEPLOYS. The deploy job is skipped unless the repository VARIABLE
+# `DEPLOY_ENABLED` is `true`; until then, rolling out stays the manual
+# `docker compose pull && docker compose up -d` from docs/deployment.md. The SSH
+# key it uses is pinned to a forced command on the server (docker/toon-deploy.sh,
+# installed as `toon-household-deploy`), so it cannot open a shell there — see
+# deploy.yml.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: "Deploy to the server after the build"
+        type: boolean
+        default: false
+
+concurrency:
+  # Never let two publishes race for the `latest` tag.
+  group: release
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      # Consumed by the deploy job below, and printed in the step summary for the
+      # human who wants to pin or roll back by hand.
+      digest: ${{ steps.build.outputs.digest }}
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Publishing an image that fails its own test suite is not a release. No
+      # DATABASE_URL is set on purpose: env.ts forces file::memory: under
+      # NODE_ENV=test, and a runner that could reach a real database would be a bug.
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+
+      # `pdf-rasterize.test.ts` drives the REAL pdftoppm and fails rather than skips
+      # when the binary is missing, so this step is as load-bearing here as it is in
+      # ci.yml — a release that skipped it published an image whose rasterize+OCR
+      # fallback nobody had exercised. tesseract is NOT needed: no test runs real OCR.
+      - name: Install poppler
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y poppler-utils
+
+      - run: bun test
+
+      # QEMU is what lets an amd64 runner produce arm64 layers.
+      - uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a # v4.3.0
+        with:
+          platforms: arm64
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tags and labels
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=long
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          platforms: linux/arm64,linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # THE PUBLISHED IMAGE CARRIES tesseract + German, AND DELIBERATELY NOT
+          # poppler. It used to be the fully slim build, which meant photo import
+          # could only be had by building an image yourself and hand-carrying it to
+          # the server — and `deploy.yml` pins TOON_IMAGE to the digest THIS step
+          # produces, so a hand-built image was overwritten on the next push to main.
+          # The image the server deploys therefore has to be the one that can do it.
+          #
+          # WITH_PDF=0 is the other half: a scanned PDF is up to MAX_PDF_PAGES
+          # tesseract runs and cannot finish inside OCR_TIMEOUT_MS on a one-core VPS,
+          # which is what this repo deploys to. Leaving poppler out keeps the image
+          # honest about that rather than offering a button that times out.
+          #
+          # This does NOT switch photo import on by itself: docker-compose.yml passes
+          # IMPORT_OCR_ENABLED explicitly, defaulting to 0, so a deployment still opts
+          # in through its .env. The build arg only decides what the image CAN do.
+          build-args: |
+            WITH_OCR=1
+            WITH_PDF=0
+          # provenance: false keeps the manifest list a plain multi-arch index.
+          # The attestation manifests that buildx adds otherwise confuse older
+          # dockers, and a distro-packaged docker on a small server is often
+          # exactly that old.
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # The digest is the useful half of this summary: it is what you paste into the
+      # server's `.env` as TOON_IMAGE to deploy exactly this build instead of a
+      # moving `:latest`.
+      - name: Summary
+        run: |
+          {
+            echo "### Image published"
+            echo
+            echo '```'
+            echo "${{ steps.meta.outputs.tags }}"
+            echo '```'
+            echo
+            echo "Digest: \`${{ steps.build.outputs.digest }}\`"
+            echo
+            echo "Rollout is done by the deploy job. By hand on the server:"
+            echo
+            echo '```bash'
+            echo "cd /opt/toon-household && docker compose pull && docker compose up -d --remove-orphans"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Deploys over SSH. Split into its own job so a failed deploy never un-publishes
+  # a good image, and gated on the `production` environment so GitHub can require a
+  # manual approval before anything touches the server.
+  deploy:
+    needs: build
+    # DEPLOY_ENABLED IS THE MASTER SWITCH, and it has to be a repository VARIABLE:
+    # the `secrets` context is not available in a job-level `if`, so "are the
+    # DEPLOY_SSH_* secrets configured?" is a question this condition cannot ask.
+    # Without it, a repository that never set up a server still runs this job on
+    # every push to main and fails it on the empty known_hosts — a permanent red X
+    # that says nothing. Set it to `true` (Settings -> Variables) once the five
+    # secrets in deploy.yml exist.
+    #
+    # Beyond that: a push to main or a version tag deploys automatically, while a
+    # manual run only deploys when the checkbox was ticked — without the event check
+    # below, the `refs/heads/main` clause would deploy anyway and the input would be
+    # a lie.
+    if: >-
+      vars.DEPLOY_ENABLED == 'true' &&
+      ((github.event_name == 'push' &&
+        (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) ||
+       (github.event_name == 'workflow_dispatch' && inputs.deploy))
+    uses: ./.github/workflows/deploy.yml
+    with:
+      # By digest, so the server runs the exact image this run built and tested
+      # rather than whatever `latest` points at by the time it pulls.
+      image_digest: ${{ needs.build.outputs.digest }}
+    secrets: inherit
