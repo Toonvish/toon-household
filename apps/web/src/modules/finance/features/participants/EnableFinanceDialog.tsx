@@ -1,8 +1,11 @@
 /**
  * The module-provided "Aktivieren" dialog (M3 decision 4; the core opens it when the manifest
  * declares `enableDialog`): lists the household's members, preselects the viewer as slot 1,
- * asks for slot 2 and enables finance with both as the module settings. A household with
- * fewer than two members gets `needsTwoMembers` and no submit.
+ * asks for slot 2 and enables finance with both as the module settings. "Ohne Konto hinzufügen"
+ * (ADR 0006, F's placeholder) is always offered: it adds a person by name and preselects them for
+ * slot 2 (a placeholder may only hold slot 2, so the slot-1 select never lists one). A household
+ * with fewer than two members gets `needsTwoMembers` AND that block instead of a dead end, and
+ * no submit until a second person exists.
  *
  * Static manifest graph: imports neither the module registry, nor the layout components, nor the module page header.
  */
@@ -21,9 +24,11 @@ import {
   assignmentOptions,
   initialAssignment,
   toAssignable,
+  withBadge,
   type Assignment,
 } from "./lib/assignment";
 import { useEnableFinance } from "./lib/queries";
+import { PlaceholderForm } from "./PlaceholderForm";
 
 export interface EnableFinanceDialogProps {
   open: boolean;
@@ -48,24 +53,28 @@ function EnableFinanceDialogBody({ householdId, onClose }: { householdId: string
   const assignable = toAssignable(members.data?.items ?? []);
   const needsTwo = members.data !== undefined && assignable.length < 2;
   const assignment: Assignment = { ...initialAssignment(assignable, user.id), ...override };
-  const options = assignmentOptions(assignable);
+  const badge = t("finance.settings.household.placeholderBadge");
+  const slot1Options = withBadge(assignmentOptions(assignable, null, 1), badge);
+  const slot2Options = withBadge(assignmentOptions(assignable, null, 2), badge);
   const errorKey = assignmentError(assignment);
-  const body = assignmentBody(assignment);
+  const body = assignmentBody(assignment, assignable);
 
-  const footer = needsTwo ? null : (
+  const footer = (
     <>
       <Button variant="secondary" onClick={onClose}>
         {t("finance.common.cancel")}
       </Button>
-      <Button
-        type="submit"
-        form="enable-finance-form"
-        loading={enable.isPending}
-        disabled={!canMutate || body === null}
-        title={reason}
-      >
-        {t("home.modules.enable")}
-      </Button>
+      {needsTwo ? null : (
+        <Button
+          type="submit"
+          form="enable-finance-form"
+          loading={enable.isPending}
+          disabled={!canMutate || body === null}
+          title={reason}
+        >
+          {t("home.modules.enable")}
+        </Button>
+      )}
     </>
   );
 
@@ -79,33 +88,41 @@ function EnableFinanceDialogBody({ householdId, onClose }: { householdId: string
     >
       {members.isPending ? (
         <Skeleton lines={3} />
-      ) : needsTwo ? (
-        <p className="text-sm text-fg">{t("finance.participants.needsTwoMembers")}</p>
       ) : (
-        <form
-          id="enable-finance-form"
-          className="flex flex-col gap-3 py-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (body) enable.mutate(body, { onSuccess: onClose });
-          }}
-        >
-          <Select
-            label={t("finance.participants.slot1")}
-            value={assignment.slot1}
-            options={options}
-            placeholder={t("finance.common.select")}
-            onChange={(event) => setOverride({ ...override, slot1: event.target.value })}
+        <div className="flex flex-col gap-4">
+          {needsTwo ? <p className="text-sm text-fg">{t("finance.participants.needsTwoMembers")}</p> : null}
+          {needsTwo ? null : (
+            <form
+              id="enable-finance-form"
+              className="flex flex-col gap-3 py-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (body) enable.mutate(body, { onSuccess: onClose });
+              }}
+            >
+              <Select
+                label={t("finance.participants.slot1")}
+                value={assignment.slot1}
+                options={slot1Options}
+                placeholder={t("finance.common.select")}
+                onChange={(event) => setOverride({ ...override, slot1: event.target.value })}
+              />
+              <Select
+                label={t("finance.participants.slot2")}
+                value={assignment.slot2}
+                options={slot2Options}
+                placeholder={t("finance.common.select")}
+                error={errorKey ? t(errorKey) : undefined}
+                onChange={(event) => setOverride({ ...override, slot2: event.target.value })}
+              />
+            </form>
+          )}
+          <PlaceholderForm
+            householdId={householdId}
+            className="flex flex-col gap-3 border-t border-border pt-4"
+            onCreated={(member) => setOverride((previous) => ({ ...previous, slot2: member.userId }))}
           />
-          <Select
-            label={t("finance.participants.slot2")}
-            value={assignment.slot2}
-            options={options}
-            placeholder={t("finance.common.select")}
-            error={errorKey ? t(errorKey) : undefined}
-            onChange={(event) => setOverride({ ...override, slot2: event.target.value })}
-          />
-        </form>
+        </div>
       )}
     </Dialog>
   );
