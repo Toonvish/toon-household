@@ -18,7 +18,7 @@ import { collectionRecipes, collections, recipes } from "../../../../db/schema.t
 import type { CollectionRow } from "../../../../db/schema.ts";
 import { ApiError } from "../../../../lib/errors.ts";
 import type { Membership } from "../../../../lib/types.ts";
-import { normalizeStoredUploadUrl } from "../../../../lib/uploadUrls.ts";
+import { localizeImageUrl } from "./remoteImage.ts";
 import { assertCanModifyOwned } from "../../../../core/services/households/membership.ts";
 import { type DbLike, nowMs, unique, withTransaction } from "../../../../core/services/households/support.ts";
 import { toCollection } from "./mappers.ts";
@@ -108,8 +108,9 @@ export async function createCollection(
     householdId,
     name: input.name,
     description: input.description ?? null,
-    // Bare `/uploads/<file>`, never the signed wire value (lib/uploadUrls.ts).
-    coverImageUrl: normalizeStoredUploadUrl(input.coverImageUrl) ?? null,
+    // Bare `/uploads/<file>`, never the signed wire value (lib/uploadUrls.ts);
+    // a remote cover becomes a local copy (remoteImage.ts).
+    coverImageUrl: (await localizeImageUrl(input.coverImageUrl)) ?? null,
     createdBy: userId,
     createdAt: nowMs(),
     updatedAt: nowMs(),
@@ -160,7 +161,7 @@ export async function updateCollection(
   if (input.name !== undefined) patch.name = input.name;
   if (input.description !== undefined) patch.description = input.description ?? null;
   if (input.coverImageUrl !== undefined) {
-    patch.coverImageUrl = normalizeStoredUploadUrl(input.coverImageUrl) ?? null;
+    patch.coverImageUrl = (await localizeImageUrl(input.coverImageUrl, row.coverImageUrl)) ?? null;
   }
 
   const recipeIds = input.recipeIds === undefined ? undefined : unique([...input.recipeIds]);

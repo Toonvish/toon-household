@@ -243,7 +243,8 @@ file that is served. The choices that differ from a plain policy, each for a rea
 - `'wasm-unsafe-eval'` (recipe): the card scanner instantiates zxing-wasm. It allows WebAssembly
   compilation only, not `eval`.
 - `img-src … blob: https:` and `media-src … blob:` (recipe): import previews are `blob:` and `data:`
-  object URLs and a recipe may keep an external `https:` hero image. `object-src blob:`: the PDF import
+  object URLs and a recipe keeps an external `https:` hero image when its local copy failed (the write
+  paths copy remote images into `/uploads`, `apps/api/src/modules/recipe/services/recipes/remoteImage.ts`). `object-src blob:`: the PDF import
   preview is an `<embed src="blob:…">`; only a script already running on this origin can mint a `blob:` URL.
 - `style-src 'self'` with no `'unsafe-inline'`: the built app has one external stylesheet and no inline
   style.

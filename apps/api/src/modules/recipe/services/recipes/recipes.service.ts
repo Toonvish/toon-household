@@ -52,6 +52,7 @@ import {
   withTransaction,
 } from "../../../../core/services/households/support.ts";
 import { toIngredientRecord, toRecipe, toStepRecord } from "./mappers.ts";
+import { localizeImageUrl } from "./remoteImage.ts";
 import { getOrCreateTagIds, tagsByRecipe } from "./tags.service.ts";
 
 /**
@@ -481,6 +482,8 @@ export async function createRecipe(
   if (input.totalMinutes === undefined || input.totalMinutes === null) {
     patch.totalMinutes = deriveTotalMinutes(input.prepMinutes, input.cookMinutes);
   }
+  // A remote image becomes a local copy, downloaded BEFORE the transaction opens.
+  if (input.imageUrl !== undefined) patch.imageUrl = (await localizeImageUrl(input.imageUrl)) ?? null;
 
   await withTransaction(db, async (tx) => {
     await tx.insert(recipes).values({
@@ -541,6 +544,11 @@ export async function updateRecipe(
       patch.prepMinutes === undefined ? row.prepMinutes : patch.prepMinutes,
       patch.cookMinutes === undefined ? row.cookMinutes : patch.cookMinutes,
     );
+  }
+  // A remote image becomes a local copy, downloaded BEFORE the transaction opens;
+  // the unchanged remote URL of a recipe whose copy failed earlier is not retried.
+  if (input.imageUrl !== undefined) {
+    patch.imageUrl = (await localizeImageUrl(input.imageUrl, row.imageUrl)) ?? null;
   }
 
   await withTransaction(db, async (tx) => {

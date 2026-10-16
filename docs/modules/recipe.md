@@ -91,7 +91,9 @@ schemas `schemas/{recipe,plan,import,shopping,card}.ts`. `foldText` and the cale
 - `bun run seed` runs `seedDemo` (above). `bun run uploads:gc` (`apps/api/scripts/uploads-gc.ts`)
   consults `uploadReferences`. `bun run db:migrate` runs `afterMigrate`. `bun run migrate:legacy`
   (`apps/api/scripts/legacy/recipe.ts`) imports toon-recipe's rows and relies on the backfill for the
-  folded columns.
+  folded columns. `bun run recipe:localize-images [-- --dry-run]` (`apps/api/scripts/localize-images.ts`)
+  copies every hero image and collection cover that is still a remote URL into `UPLOAD_DIR` (the one-off
+  catch-up for rows written before the write paths localized them; an unreachable one stays remote).
 - Environment switches read by the module (`apps/api/src/env.ts`), all off or conservative by default:
   `IMPORT_OCR_ENABLED` (photo import, needs the `tesseract` binary), `IMPORT_PDF_ENABLED` (PDF import,
   needs `pdftoppm`; unset follows the photo flag, an explicit `0` splits them), `IMPORT_OCR_CONCURRENCY`
@@ -307,6 +309,16 @@ a one-line pointer. Paths are repo-relative.
   1 kg). toon-recipe's gotcha "THE SHOPPING LIST IS THE ONE THING EDITABLE OFFLINE" (R40 below) and its
   `useCanMutate` split (shopping uses `useEmailVerificationBlock`, plan and cards use `useCanMutate`, both
   from `apps/web/src/lib/session.tsx`) stay binding.
+
+- **Remote images become local copies on write.** Recipe create and PATCH, the import commit and the
+  collection create/update run `imageUrl` / `coverImageUrl` through `localizeImageUrl`
+  (`apps/api/src/modules/recipe/services/recipes/remoteImage.ts`): an `http(s):` or `data:image/` value is
+  downloaded with the URL importer's `downloadHeroImage` (SSRF guard, 4 MB / 8 s, magic-byte sniff) BEFORE
+  the transaction opens, and the column stores `/uploads/<file>`. Best-effort: a failed download keeps the
+  remote URL and the save succeeds; a PATCH that sends back the unchanged remote URL is not retried (no
+  8 s wait on every edit of a recipe whose source is gone; `recipe:localize-images` retries those). Under
+  `bun test` the default downloader never touches the network; `apps/api/test/recipe-remote-image.test.ts`
+  installs one with `setRemoteImageDownloaderForTests`.
 
 - **Inherited recipe gotchas stay binding inside `modules/recipe`** (SPEC D13): read toon-recipe's
   `CLAUDE.md` before touching search (pre-folded columns), import (SSRF guard, JSON-LD `@graph`

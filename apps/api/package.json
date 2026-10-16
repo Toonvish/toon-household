@@ -13,6 +13,7 @@
     "seed": "bun scripts/seed.ts",
     "auth:reset-password": "bun scripts/reset-password.ts",
     "uploads:gc": "bun scripts/uploads-gc.ts",
+    "recipe:localize-images": "bun scripts/localize-images.ts",
     "plan:run": "bun scripts/plan-run.ts",
     "finance:import-xlsx": "bun scripts/finance-import-xlsx.ts",
     "migrate:legacy": "bun scripts/migrate-legacy.ts",

@@ -40,6 +40,7 @@ import { toIso } from "../../../../lib/http.ts";
 import { normalizeStoredUploadUrl, signUploadUrl } from "../../../../lib/uploadUrls.ts";
 import { toPublicUser } from "../../../../core/services/households/mappers.ts";
 import { thumbnailUrlFor } from "../../../../core/services/media/thumbnails.ts";
+import { localizeImageUrl } from "../recipes/remoteImage.ts";
 import { dedupeTags } from "./parsed.ts";
 
 /**
@@ -96,7 +97,7 @@ export interface CommitDraftResult {
  *   or no content, 404 when a collection does not belong to the household.
  */
 export async function commitDraft(db: Database, input: CommitDraftInput): Promise<CommitDraftResult> {
-  const parsed = input.parsed;
+  let parsed = input.parsed;
 
   const title = (parsed.title ?? "").trim();
   if (title.length === 0) {
@@ -128,6 +129,12 @@ export async function commitDraft(db: Database, input: CommitDraftInput): Promis
 
   const recipeId = crypto.randomUUID();
   const now = Date.now();
+  // A remote hero image (the importer's download failed, or the review screen
+  // changed it) becomes a local copy, downloaded before the transaction opens; the
+  // draft row below keeps the localized value too.
+  const imageUrl = await localizeImageUrl(parsed.imageUrl);
+  if (typeof imageUrl === "string" && imageUrl !== parsed.imageUrl) parsed = { ...parsed, imageUrl };
+
   const tagNames = dedupeTags([...parsed.tags, ...(input.tagNames ?? [])]);
   const collectionIds = [...new Set(input.collectionIds ?? [])];
 
