@@ -105,7 +105,10 @@ Source: `src/Schema.ts` (decoding and encoding exports), `SCHEMA.md` (Constructo
   `withDecodingDefault` (absent or `undefined`); the `...Type` variants take a decoded-side value. Constructor
   defaults: `Schema.withConstructorDefault(Effect.succeed(-1))`.
 - Deriving: `Struct.mapFields(Struct.pick(["a"]))`, `Struct.omit([...])`, `fieldsAssign({ c: Schema.Number })`,
-  `mapFields(Struct.map(Schema.optionalKey))` (v3 `partial`); reuse `X.fields` to share fields.
+  `mapFields(Struct.map(Schema.optionalKey))` (v3 `partial`); reuse `X.fields` to share fields. Wrapping a field
+  that has a decoding default in `Schema.optional` DROPS the default for an absent key (`{}` decodes to `{}`,
+  measured in E1-T02); zod's `.partial()` keeps it, so this repo uses `partial` from
+  `packages/shared/src/core/schemas/checks.ts`, which leaves such a field as it is.
   Source: `repos/effect/migration/schema.md` (pick / omit, partial, extend).
 - Tagged unions: `Schema.TaggedStruct("A", {...})`, `Schema.TaggedUnion({ A: {...}, B: {...} })`; `Schema.tag("A")`
   gives a `_tag` field; `Schema.toTaggedUnion("type")` adds `cases`, `guards`, `match`, `isAnyOf`.
@@ -200,7 +203,9 @@ Source: `repos/effect/migration/schema.md` summary table and notes.
 - A `Schema.Class` instance is a class, not a plain object: turn it into its wire form with `encode*`
   (`Schema.toCodecJson` for JSON), do not hand it to `JSON.stringify` and assume the encoded shape.
 - `Schema.Int` is `Number.check(isInt())`: money stays integer cents, but `Schema.Number` admits `NaN`; use
-  `Schema.Finite` or `Schema.Int` for amounts.
+  `Schema.Finite` or `Schema.Int` for amounts. In this repo use `Num` / `Int` of
+  `packages/shared/src/core/schemas/checks.ts` instead: `Schema.isInt` is `Number.isSafeInteger`, so `1e20` would
+  fail as "not an integer" where zod (and `Int`) report `too_big` with origin `int`.
 - `isMinLength` / `isMaxLength` count UTF-16 units; `isMinCodePoints` / `isMaxCodePoints` count code points.
 - Stale doc lines (checked against the source): SCHEMA.md reads `issue.filter.annotations?.meta` in a hook
   example, but filters carry `representation` (section 4); SCHEMA.md imports `Getter`, `Parser` from
@@ -214,14 +219,16 @@ Source: `repos/effect/migration/schema.md` summary table and notes.
 
 - Where it lands (E4, milestone E1): `packages/shared/src/core/schemas/{common,household,user,auth}.ts`,
   `packages/shared/src/modules/recipe/schemas/*.ts`, `packages/shared/src/modules/finance/schemas/*.ts`,
-  `packages/shared/src/core/i18n/zod.ts` (the issue-to-catalog adapter becomes a `SchemaIssue` walk, section 4;
-  `refineKey` becomes a filter annotation), `apps/api/src/core/services/households/validation.ts` (`onValidationError`) and the route files that use
+  `packages/shared/src/core/i18n/issues.ts` (the issue-to-catalog adapter is a `SchemaIssue` walk, `flattenIssue`,
+  over the `WIRE_ISSUE` annotations of the vocabulary `packages/shared/src/core/schemas/checks.ts`; `refineKey`
+  becomes `keyed` / `keyedIssue` there), `apps/api/src/core/services/households/validation.ts` (`onValidationError`) and the route files that use
   `@hono/zod-validator` (a `validate(target, schema)` helper decoding with `{ errors: "all" }`),
   `apps/web/src/lib/validation.ts`.
 - Tests: `packages/shared/test/` keeps its assertions; add table-driven accept/reject parity cases per schema file;
   run schemas with `Schema.decodeUnknownSync` / `decodeUnknownExit` under `bun test`.
 - Rule served: **E4** ("`Schema` replaces Zod as THE contract": same accepted and rejected inputs, same
-  `{ error: { code: "validation_error", message, details: [{ path, message, code }] } }` envelope, wording from the
+  `422 { error: { code: "validation_failed", message, details: [{ path, code, message, i18n }] } }` envelope of
+  `docs/API.md`, wording from the
   catalog (ADR 0002), never Effect's default messages), with **E12** (`Schema` instead of manual parsing,
   `Schema.TaggedError` for errors, `Predicate` instead of hand-written guards).
 
