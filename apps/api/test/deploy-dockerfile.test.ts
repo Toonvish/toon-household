@@ -140,6 +140,10 @@ describe(".dockerignore", () => {
     expect(ignored.has("migration-out")).toBe(true);
     expect(ignored.has(".worktrees")).toBe(true);
   });
+
+  test("keeps the vendored Effect source out of the context (docs/EFFECT.md E2)", () => {
+    expect(ignored.has("repos")).toBe(true);
+  });
 });
 
 describe("docker/entrypoint.sh", () => {

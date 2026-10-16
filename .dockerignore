@@ -55,3 +55,5 @@ migration-out
 # parallel task worktrees of the build workflow (whole repo copies)
 .worktrees
 # the legacy migration fixtures live under apps/api/test (excluded above)
+# the vendored Effect source (docs/EFFECT.md E2): read-only reference for agents, never built or shipped
+repos

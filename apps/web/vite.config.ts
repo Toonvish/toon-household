@@ -227,7 +227,8 @@ export default defineConfig(({ mode }) => {
         "@toon/shared": here("../../packages/shared/src/index.ts"),
       },
     },
-    server: { port: 5173, host: true, proxy },
+    // The vendored Effect source is never watched (docs/EFFECT.md E2).
+    server: { port: 5173, host: true, proxy, watch: { ignored: ["**/repos/**"] } },
     preview: { port: 4173, host: true, proxy },
     // sourcemap: false — `true` shipped 86 *.js.map files (5.0 MB of dist/assets)
     // next to the bundle, so anyone with the deployed URL could read the entire
