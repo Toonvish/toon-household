@@ -8,7 +8,6 @@
  * this is exactly what keeps an offline-replayed create correct regardless
  * of who is logged in when it is finally sent (docs/spec.md §3.6).
  */
-import { zValidator } from "@hono/zod-validator";
 import {
   CreateTransactionRequestSchema,
   type TransactionListResponse,
@@ -23,7 +22,7 @@ import { created, json, noContent } from "../../../lib/http.ts";
 import type { AppEnv } from "../../../lib/types.ts";
 import { requireUser } from "../../../lib/types.ts";
 import { requireFinanceParticipant, requireFinanceParticipantContext as requireHouseholdContext } from "../middleware.ts";
-import { onValidationError } from "../../../core/services/households/validation.ts";
+import { validate } from "../../../lib/validate.ts";
 import { requireVerifiedEmail } from "../../../middleware/verifiedEmail.ts";
 import {
   createTransaction,
@@ -40,7 +39,7 @@ transactionRoutes.use("*", requireVerifiedEmail());
 transactionRoutes.use("*", requireFinanceParticipant());
 
 /** GET / — filtered, paginated list. `kind` is a viewer-relative projection resolved server-side. */
-transactionRoutes.get("/", zValidator("query", TransactionListQuerySchema, onValidationError), async (c) => {
+transactionRoutes.get("/", validate("query", TransactionListQuerySchema), async (c) => {
   const household = requireHouseholdContext(c);
   const query = c.req.valid("query");
   const payload: TransactionListResponse = await listTransactions(db, household.householdId, household.userId, query);
@@ -48,7 +47,7 @@ transactionRoutes.get("/", zValidator("query", TransactionListQuerySchema, onVal
 });
 
 /** POST / — 201 on a fresh create, 200 on a replayed `mutationId`. */
-transactionRoutes.post("/", zValidator("json", CreateTransactionRequestSchema, onValidationError), async (c) => {
+transactionRoutes.post("/", validate("json", CreateTransactionRequestSchema), async (c) => {
   const household = requireHouseholdContext(c);
   const body = c.req.valid("json");
   const outcome = await createTransaction(db, { ...body, householdId: household.householdId, viewerId: household.userId, createdBy: household.userId });
@@ -56,7 +55,7 @@ transactionRoutes.post("/", zValidator("json", CreateTransactionRequestSchema, o
 });
 
 /** GET /summary — MUST stay above /:transactionId. */
-transactionRoutes.get("/summary", zValidator("query", TransactionSummaryQuerySchema, onValidationError), async (c) => {
+transactionRoutes.get("/summary", validate("query", TransactionSummaryQuerySchema), async (c) => {
   const household = requireHouseholdContext(c);
   const query = c.req.valid("query");
   const payload = await getTransactionSummary(db, household.householdId, query);
@@ -71,7 +70,7 @@ transactionRoutes.get("/:transactionId", async (c) => {
 });
 
 /** PATCH /:transactionId — `409 transaction_generated` unless `origin === "manual"`. */
-transactionRoutes.patch("/:transactionId", zValidator("json", UpdateTransactionRequestSchema, onValidationError), async (c) => {
+transactionRoutes.patch("/:transactionId", validate("json", UpdateTransactionRequestSchema), async (c) => {
   const household = requireHouseholdContext(c);
   const body = c.req.valid("json");
   const outcome = await updateTransaction(db, c.req.param("transactionId"), { ...body, householdId: household.householdId, viewerId: household.userId });

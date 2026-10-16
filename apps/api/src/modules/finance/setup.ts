@@ -22,9 +22,11 @@
  */
 import { currentPeriod, FinanceEnableSettingsSchema, isLocale, type Locale } from "@toon/shared";
 import { eq } from "drizzle-orm";
+import { Option } from "effect";
 import { households, users } from "../../db/schema.ts";
 import { env } from "../../env.ts";
 import { ApiError } from "../../lib/errors.ts";
+import { decodeOption } from "../../lib/validate.ts";
 import type { DbExecutor } from "../types.ts";
 import { nowMs } from "./lib/clock.ts";
 import { financeCategories, financeFixedCostPlans, financeParticipants } from "./schema.ts";
@@ -117,9 +119,9 @@ function participantsRequired(): ApiError {
 export async function onFinanceEnable(householdId: string, settings: unknown, tx: DbExecutor): Promise<void> {
   const hasParticipants = typeof settings === "object" && settings !== null && "participants" in settings;
   if (hasParticipants) {
-    const parsed = FinanceEnableSettingsSchema.safeParse(settings);
-    if (!parsed.success) throw participantsRequired();
-    await assignParticipants(tx, householdId, parsed.data.participants);
+    const parsed = decodeOption(FinanceEnableSettingsSchema, settings);
+    if (Option.isNone(parsed)) throw participantsRequired();
+    await assignParticipants(tx, householdId, parsed.value.participants);
   } else {
     const seated = await tx
       .select({ memberSlot: financeParticipants.memberSlot })

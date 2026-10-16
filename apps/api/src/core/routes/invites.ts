@@ -17,7 +17,6 @@
  *   ungated  DELETE /:householdId/invites/:inviteId — revoking is the UNDO for the
  *            gated create; blocking it could only strand a live invitation.
  */
-import { zValidator } from "@hono/zod-validator";
 import {
   AcceptInviteRequestSchema,
   CreateInviteRequestSchema,
@@ -39,7 +38,7 @@ import {
   previewInvite,
   revokeInvite,
 } from "../services/households/invites.service.ts";
-import { onValidationError } from "../services/households/validation.ts";
+import { validate } from "../../lib/validate.ts";
 
 /* -------------------------------------------------------------------------- */
 /* invite tokens (registered first — see the header)                          */
@@ -53,7 +52,7 @@ export function registerInviteTokenRoutes(router: Hono<AppEnv>): void {
   router.post(
     "/invites/accept",
     requireSession(),
-    zValidator("json", AcceptInviteRequestSchema, onValidationError),
+    validate("json", AcceptInviteRequestSchema),
     async (c) => {
       const user = requireUser(c);
       return json(c, await acceptInvite(db, user.id, c.req.valid("json").token));
@@ -71,7 +70,7 @@ export function registerHouseholdInviteRoutes(router: Hono<AppEnv>): void {
     "/:householdId/invites",
     requireSession(),
     requireHouseholdRole("admin"),
-    zValidator("query", PaginationQuerySchema, onValidationError),
+    validate("query", PaginationQuerySchema),
     async (c) => {
       const membership = requireMembership(c);
       return json(c, await listInvites(db, membership.householdId, c.req.valid("query")));
@@ -84,7 +83,7 @@ export function registerHouseholdInviteRoutes(router: Hono<AppEnv>): void {
     requireSession(),
     requireHouseholdRole("admin"),
     requireVerifiedEmail(),
-    zValidator("json", CreateInviteRequestSchema, onValidationError),
+    validate("json", CreateInviteRequestSchema),
     async (c) => {
       const membership = requireMembership(c);
       const user = requireUser(c);

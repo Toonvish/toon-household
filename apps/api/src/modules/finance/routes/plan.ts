@@ -5,7 +5,6 @@
  * side effect (`run`/`recalculate`) is a thin call into
  * `services/plan/accrual.service.ts` — never re-derived here.
  */
-import { zValidator } from "@hono/zod-validator";
 import {
   type AccrualRunListResponse,
   CreateFixedCostItemRequestSchema,
@@ -21,7 +20,7 @@ import {
 } from "@toon/shared";
 import { Hono } from "hono";
 import { db } from "../../../db/client.ts";
-import { onValidationError } from "../../../core/services/households/validation.ts";
+import { validate } from "../../../lib/validate.ts";
 import { requireVerifiedEmail } from "../../../middleware/verifiedEmail.ts";
 import { created, json, noContent } from "../../../lib/http.ts";
 import type { AppEnv } from "../../../lib/types.ts";
@@ -53,26 +52,26 @@ planRoutes.get("/", async (c) => {
 });
 
 /** PATCH / — enable/disable, change the payer, or move `startPeriod`. */
-planRoutes.patch("/", zValidator("json", UpdatePlanRequestSchema, onValidationError), async (c) => {
+planRoutes.patch("/", validate("json", UpdatePlanRequestSchema), async (c) => {
   const household = requireHouseholdContext(c);
   return json(c, await updatePlan(db, household.householdId, c.req.valid("json")));
 });
 
 /** GET /preview?period= — the read-only computation for one period, before anything is booked. */
-planRoutes.get("/preview", zValidator("query", PlanPreviewQuerySchema, onValidationError), async (c) => {
+planRoutes.get("/preview", validate("query", PlanPreviewQuerySchema), async (c) => {
   const household = requireHouseholdContext(c);
   const payload: PlanComputationResponse = await previewPlan(db, household.householdId, c.req.valid("query").period);
   return json(c, payload);
 });
 
 /** POST /run — the catch-up, on demand. `409 plan_disabled` / `409 plan_incomplete`. */
-planRoutes.post("/run", zValidator("json", RunPlanRequestSchema, onValidationError), async (c) => {
+planRoutes.post("/run", validate("json", RunPlanRequestSchema), async (c) => {
   const household = requireHouseholdContext(c);
   return json(c, await runPlanNow(db, household.householdId, c.req.valid("json").through));
 });
 
 /** POST /recalculate — preview (`dryRun: true`) or apply (booked periods are NEVER edited, only superseded by a new adjustment row). */
-planRoutes.post("/recalculate", zValidator("json", RecalculatePlanRequestSchema, onValidationError), async (c) => {
+planRoutes.post("/recalculate", validate("json", RecalculatePlanRequestSchema), async (c) => {
   const household = requireHouseholdContext(c);
   const user = requireUser(c);
   const body = c.req.valid("json");
@@ -80,7 +79,7 @@ planRoutes.post("/recalculate", zValidator("json", RecalculatePlanRequestSchema,
 });
 
 /** GET /runs — the audit trail, most recent first. */
-planRoutes.get("/runs", zValidator("query", PaginationQuerySchema, onValidationError), async (c) => {
+planRoutes.get("/runs", validate("query", PaginationQuerySchema), async (c) => {
   const household = requireHouseholdContext(c);
   const query = c.req.valid("query");
   const { items, total } = await listAccrualRuns(db, household.householdId, query.limit, query.offset);
@@ -92,13 +91,13 @@ planRoutes.get("/runs", zValidator("query", PaginationQuerySchema, onValidationE
 /* fixed-cost items                                                          */
 /* -------------------------------------------------------------------------- */
 
-planRoutes.post("/items", zValidator("json", CreateFixedCostItemRequestSchema, onValidationError), async (c) => {
+planRoutes.post("/items", validate("json", CreateFixedCostItemRequestSchema), async (c) => {
   const household = requireHouseholdContext(c);
   const item = await createFixedCostItem(db, household.householdId, c.req.valid("json"));
   return created(c, item);
 });
 
-planRoutes.patch("/items/:itemId", zValidator("json", UpdateFixedCostItemRequestSchema, onValidationError), async (c) => {
+planRoutes.patch("/items/:itemId", validate("json", UpdateFixedCostItemRequestSchema), async (c) => {
   const household = requireHouseholdContext(c);
   const item = await updateFixedCostItem(db, household.householdId, c.req.param("itemId"), c.req.valid("json"));
   return json(c, item);
@@ -114,13 +113,13 @@ planRoutes.delete("/items/:itemId", async (c) => {
 /* incomes                                                                    */
 /* -------------------------------------------------------------------------- */
 
-planRoutes.post("/incomes", zValidator("json", CreateIncomeRequestSchema, onValidationError), async (c) => {
+planRoutes.post("/incomes", validate("json", CreateIncomeRequestSchema), async (c) => {
   const household = requireHouseholdContext(c);
   const income = await createIncome(db, household.householdId, c.req.valid("json"));
   return created(c, income);
 });
 
-planRoutes.patch("/incomes/:incomeId", zValidator("json", UpdateIncomeRequestSchema, onValidationError), async (c) => {
+planRoutes.patch("/incomes/:incomeId", validate("json", UpdateIncomeRequestSchema), async (c) => {
   const household = requireHouseholdContext(c);
   const income = await updateIncome(db, household.householdId, c.req.param("incomeId"), c.req.valid("json"));
   return json(c, income);

@@ -20,6 +20,7 @@ import {
   type MailDelivery,
   type MeResponse,
   type OAuthProvidersResponse,
+  OAUTH_PROVIDERS,
   OAuthProviderSchema,
   RegisterRequestSchema,
   ResetPasswordRequestSchema,
@@ -31,7 +32,7 @@ import {
   serverText,
 } from "@toon/shared";
 import { Hono } from "hono";
-import type { z } from "zod";
+import { Option } from "effect";
 import { db } from "../../db/client.ts";
 import type { UserRow } from "../../db/schema.ts";
 import { env } from "../../env.ts";
@@ -43,6 +44,7 @@ import {
   setSessionCookie,
 } from "../../lib/cookies.ts";
 import { ApiError } from "../../lib/errors.ts";
+import { decodeOption, decodeOrThrow, type Decodable, type Decoded } from "../../lib/validate.ts";
 import { created, json, noContent } from "../../lib/http.ts";
 import { requestLocale } from "../../lib/locale.ts";
 import {
@@ -119,15 +121,15 @@ export const authRoutes = new Hono<AppEnv>();
 /* ------------------------------- helpers --------------------------------- */
 
 /**
- * Parses + validates a JSON body. A malformed body is 400, a ZodError becomes 422
+ * Parses + validates a JSON body. A malformed body is 400, a decode failure becomes 422
  * `validation_failed` — and a body that does not DECLARE itself JSON is 400 too:
  * `Request.json()` happily parses a `text/plain` form post, which is exactly the body
  * an HTML form on a foreign page can send with the cookie attached. Requiring the
- * content type is what `zValidator("json", …)` does for every other router; this
+ * content type is what `validate("json", …)` does for every other router; this
  * helper must not be the one exception (toon-finance gotcha 66, 1715207; the other
  * half of the CSRF defence is middleware/originGuard.ts).
  */
-async function readJson<S extends z.ZodType>(c: AppContext, schema: S): Promise<z.output<S>> {
+async function readJson<S extends Decodable>(c: AppContext, schema: S): Promise<Decoded<S>> {
   const contentType = c.req.header("content-type") ?? "";
   if (!/^application\/json\b/i.test(contentType.trim())) {
     throw ApiError.badRequest("server.auth.invalidJsonBody");
@@ -138,7 +140,7 @@ async function readJson<S extends z.ZodType>(c: AppContext, schema: S): Promise<
   } catch {
     throw ApiError.badRequest("server.auth.invalidJsonBody");
   }
-  return schema.parse(raw) as z.output<S>;
+  return decodeOrThrow(schema, raw);
 }
 
 /** What we store on a session row for the "Signed-in devices" screen. */
@@ -161,9 +163,9 @@ async function authPayload(userId: string): Promise<AuthSessionResponse> {
 
 /** Path param -> provider, 404 for anything else. */
 function readProvider(c: AppContext): OAuthProvider {
-  const parsed = OAuthProviderSchema.safeParse(c.req.param("provider"));
-  if (!parsed.success) throw ApiError.notFound("server.auth.unknownOauthProvider");
-  return parsed.data;
+  const parsed = decodeOption(OAuthProviderSchema, c.req.param("provider"));
+  if (Option.isNone(parsed)) throw ApiError.notFound("server.auth.unknownOauthProvider");
+  return parsed.value;
 }
 
 /* ----------------------------- registration ------------------------------ */
@@ -526,7 +528,7 @@ authRoutes.get("/oauth", optionalSession(), async (c) => {
   const user = c.get("user");
   const links = user ? await listOAuthAccounts(db, user.id) : [];
   const payload: OAuthProvidersResponse = {
-    providers: OAuthProviderSchema.options.map((provider) => {
+    providers: OAUTH_PROVIDERS.map((provider) => {
       const link = links.find((row) => row.provider === provider);
       return {
         provider,
