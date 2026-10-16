@@ -126,7 +126,7 @@ the walkthrough, the `migrate:legacy` fixture run and the print-to-PDF proof). M
 9 and 10. Milestone E1 (shared-schema: every Zod schema of `packages/shared` is an Effect `Schema` with the same
 accepted and rejected inputs, the API validates through `apps/api/src/lib/validate.ts`, the web forms through the
 same shared schemas, and `zod` and `@hono/zod-validator` are gone from the tree and `bun.lock`; ADR 0013) is
-done and reviewed; its integration record is `docs/plans/e1-shared-schema.md` sections 9 and 10 (the one deliberate wire change, the `details` prose of the former `zValidator` routes, awaits the owner: `docs/open-work.md` D-7). What is left is the owner's (see "Open work").
+done and reviewed; its integration record is `docs/plans/e1-shared-schema.md` sections 9 and 10 (the one deliberate wire change, the `details` prose of the former `zValidator` routes, accepted by the owner on 2026-10-16, ADR 0013). What is left is the owner's (see "Open work").
 
 ## Layout (as built)
 
@@ -724,6 +724,5 @@ gotchas 62, 63, 65)."; "F gotcha numbers are F's numbering at `1715207`."
 What is deliberately not done lives in `docs/open-work.md`: owner actions (the real cutover, the first
 `release.yml` / `deploy.yml` runs, GHCR visibility, `DEPLOY_ENABLED`, OAuth callbacks, arm64, the old hostnames
 and volumes, an iOS install check), owner decisions ("Gruppe" vs "Haushalt", toon-recipe's pinned design
-exceptions, finance print styles, a per-household PWA name or icon, D-7: accepting the validation-details wire change of
-E1, ADR 0013), items deferred by design (the N-person
+exceptions, finance print styles, a per-household PWA name or icon), items deferred by design (the N-person
 ledger, D3; the member-leaves veto beyond finance) and recorded observations. New open items go there, not here.

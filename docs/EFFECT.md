@@ -46,7 +46,7 @@ in `docs/adr/`, the ADR edits this text in the same commit.
   0013): one adapter (`toValidationIssues`) turns a `Schema` issue tree into the `details` items, and the
   wording stays the catalog's (`server.zod.*` and `server.validation.*` keys, ADR 0002), never Effect's default
   messages, for EVERY route (the former `zValidator` routes sent Zod's English sentence without `i18n` until E1,
-  ADR 0013, `docs/open-work.md` D-7). `zod` and
+  ADR 0013, accepted by the owner 2026-10-16). `zod` and
   `@hono/zod-validator` leave all three `package.json` at the end of E1. `drizzle-zod` is not in use and stays
   out.
 - **E5 — Drizzle stays the schema and migration source; the connection becomes a service.** SPEC D7 ("one
