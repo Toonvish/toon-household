@@ -31,7 +31,6 @@
  *
  * Endpoint contract: docs/API.md (section "Households").
  */
-import { zValidator } from "@hono/zod-validator";
 import {
   CreateHouseholdRequestSchema,
   UpdateHouseholdRequestSchema,
@@ -53,7 +52,7 @@ import {
   listMembers,
   updateHousehold,
 } from "../services/households/households.service.ts";
-import { onValidationError } from "../services/households/validation.ts";
+import { validate } from "../../lib/validate.ts";
 import { registerHouseholdInviteRoutes, registerInviteTokenRoutes } from "./invites.ts";
 import { registerMemberRoutes } from "./members.ts";
 import { registerModuleRoutes } from "./modules.ts";
@@ -78,7 +77,7 @@ householdRoutes.post(
   "/",
   requireSession(),
   requireVerifiedEmail(),
-  zValidator("json", CreateHouseholdRequestSchema, onValidationError),
+  validate("json", CreateHouseholdRequestSchema),
   async (c) => {
     const user = requireUser(c);
     enforceRateLimit(c, "household-create", user.id, HOUSEHOLD_CREATE_RULE);
@@ -107,7 +106,7 @@ householdRoutes.patch(
   requireSession(),
   requireHouseholdRole("admin"),
   requireVerifiedEmail(),
-  zValidator("json", UpdateHouseholdRequestSchema, onValidationError),
+  validate("json", UpdateHouseholdRequestSchema),
   async (c) => {
     const membership = requireMembership(c);
     const household = await updateHousehold(db, membership.householdId, membership.role, c.req.valid("json"));

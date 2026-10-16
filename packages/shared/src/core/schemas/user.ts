@@ -4,7 +4,8 @@ import { refineKey } from "../i18n/zod.ts";
 import { IdSchema, IsoDateSchema } from "./common.ts";
 
 /** OAuth providers wired up in this app. */
-export const OAuthProviderSchema = z.enum(["google", "github"]);
+export const OAUTH_PROVIDERS = ["google", "github"] as const;
+export const OAuthProviderSchema = z.enum(OAUTH_PROVIDERS);
 export type OAuthProvider = z.infer<typeof OAuthProviderSchema>;
 
 export const PasswordSchema = z.string().min(8).max(200);

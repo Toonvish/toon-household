@@ -30,7 +30,7 @@ import { requireSession } from "../../middleware/session.ts";
 import { requireVerifiedEmail } from "../../middleware/verifiedEmail.ts";
 import { getHouseholdWithRole } from "../services/households/households.service.ts";
 import { disableModule, enableModule } from "../services/households/modules.ts";
-import { onValidationError } from "../services/households/validation.ts";
+import { decodeOrThrow } from "../../lib/validate.ts";
 
 /** The `:moduleId` param as a `ModuleId`, or 404 `not_found`. */
 function moduleIdParam(c: AppContext): ModuleId {
@@ -41,7 +41,7 @@ function moduleIdParam(c: AppContext): ModuleId {
 
 /**
  * The optional JSON body. An empty body means `{}`; anything else goes through
- * `EnableModuleRequestSchema` and answers 422 `validation_failed` like every zValidator here.
+ * `EnableModuleRequestSchema` and answers 422 `validation_failed` like every validate() here.
  */
 async function enableBody(c: AppContext): Promise<{ settings?: Record<string, unknown> }> {
   const text = await c.req.text();
@@ -52,12 +52,7 @@ async function enableBody(c: AppContext): Promise<{ settings?: Record<string, un
   } catch {
     throw ApiError.validationFailed(undefined);
   }
-  const result = EnableModuleRequestSchema.safeParse(raw);
-  if (!result.success) {
-    onValidationError(result);
-    throw ApiError.validationFailed(undefined); // unreachable: onValidationError throws
-  }
-  return result.data;
+  return decodeOrThrow(EnableModuleRequestSchema, raw);
 }
 
 export function registerModuleRoutes(router: Hono<AppEnv>): void {

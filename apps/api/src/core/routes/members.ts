@@ -10,7 +10,6 @@
  * Adding and renaming a PLACEHOLDER member (ADR 0006, plan m3b decisions 2 and 3) writes
  * content (a person the household's modules can name), so those two routes ARE gated.
  */
-import { zValidator } from "@hono/zod-validator";
 import {
   CreatePlaceholderMemberRequestSchema,
   UpdateMemberRoleRequestSchema,
@@ -31,7 +30,7 @@ import {
   renamePlaceholderMember,
   updateMemberRole,
 } from "../services/households/households.service.ts";
-import { onValidationError } from "../services/households/validation.ts";
+import { validate } from "../../lib/validate.ts";
 
 export function registerMemberRoutes(router: Hono<AppEnv>): void {
   /** GET /api/households/:householdId/members */
@@ -51,7 +50,7 @@ export function registerMemberRoutes(router: Hono<AppEnv>): void {
     requireSession(),
     requireHouseholdRole("admin"),
     requireVerifiedEmail(),
-    zValidator("json", CreatePlaceholderMemberRequestSchema, onValidationError),
+    validate("json", CreatePlaceholderMemberRequestSchema),
     async (c) => {
       const membership = requireMembership(c);
       const member = await addPlaceholderMember(
@@ -73,7 +72,7 @@ export function registerMemberRoutes(router: Hono<AppEnv>): void {
     requireSession(),
     requireHouseholdRole("admin"),
     requireVerifiedEmail(),
-    zValidator("json", UpdatePlaceholderMemberRequestSchema, onValidationError),
+    validate("json", UpdatePlaceholderMemberRequestSchema),
     async (c) => {
       const membership = requireMembership(c);
       const member = await renamePlaceholderMember(
@@ -94,7 +93,7 @@ export function registerMemberRoutes(router: Hono<AppEnv>): void {
     "/:householdId/members/:userId",
     requireSession(),
     requireHouseholdRole("admin"),
-    zValidator("json", UpdateMemberRoleRequestSchema, onValidationError),
+    validate("json", UpdateMemberRoleRequestSchema),
     async (c) => {
       const membership = requireMembership(c);
       const member = await updateMemberRole(

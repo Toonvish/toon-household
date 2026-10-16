@@ -12,7 +12,6 @@
  * module-enabled checks, in that order. This router adds the per-route
  * gates itself: GET must stay open to a non-participant, so nothing is mounted with use("*").
  */
-import { zValidator } from "@hono/zod-validator";
 import {
   type FinanceParticipantListResponse,
   UpdateFinanceDisplayNameRequestSchema,
@@ -25,7 +24,7 @@ import type { AppContext, AppEnv } from "../../../lib/types.ts";
 import { requireMembership, requireUser } from "../../../lib/types.ts";
 import { requireHouseholdRole } from "../../../middleware/household.ts";
 import { requireVerifiedEmail } from "../../../middleware/verifiedEmail.ts";
-import { onValidationError } from "../../../core/services/households/validation.ts";
+import { validate } from "../../../lib/validate.ts";
 import { requireFinanceParticipant, requireFinanceParticipantContext } from "../middleware.ts";
 import {
   listParticipants,
@@ -54,7 +53,7 @@ participantRoutes.put(
   "/",
   requireVerifiedEmail(),
   requireHouseholdRole("admin"),
-  zValidator("json", UpdateFinanceParticipantsRequestSchema, onValidationError),
+  validate("json", UpdateFinanceParticipantsRequestSchema),
   async (c) => {
     const membership = requireMembership(c);
     await saveParticipants(db, membership.householdId, c.req.valid("json").participants);
@@ -67,7 +66,7 @@ participantRoutes.patch(
   "/me",
   requireVerifiedEmail(),
   requireFinanceParticipant(),
-  zValidator("json", UpdateFinanceDisplayNameRequestSchema, onValidationError),
+  validate("json", UpdateFinanceDisplayNameRequestSchema),
   async (c) => {
     const participant = requireFinanceParticipantContext(c);
     const updated = await updateParticipantDisplayName(
@@ -85,7 +84,7 @@ participantRoutes.patch(
   "/:userId",
   requireVerifiedEmail(),
   requireFinanceParticipant(),
-  zValidator("json", UpdateFinanceDisplayNameRequestSchema, onValidationError),
+  validate("json", UpdateFinanceDisplayNameRequestSchema),
   async (c) => {
     const participant = requireFinanceParticipantContext(c);
     const updated = await renamePlaceholderParticipant(
