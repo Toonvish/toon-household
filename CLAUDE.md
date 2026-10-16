@@ -11,7 +11,9 @@ the cross-cutting rules; each module's knowledge lives in its own doc (`docs/mod
 2. This file.
 2b. `docs/EFFECT.md` — the Effect migration spec: the fixed decisions E1–E12 (on top of D1–D15), how an agent
    learns Effect here (the vendored source under `repos/effect`, the pattern files under `agent-patterns/`),
-   the target architecture and the milestones E0–E8. Read it before any Effect work.
+   the target architecture and the milestones E0–E8. Read it before any Effect work. Before writing Effect code
+   read `repos/effect/LLMS.md` and the pattern files under `agent-patterns/` first ("Vendored reference code"
+   below).
 3. Before touching a module, its doc: `docs/modules/recipe.md` or `docs/modules/finance.md` (what the module owns,
    its source's locked decisions with their status here, its gotchas, the source's gotchas mapped one by one).
 4. The two source repos are archived on GitHub (`Toonvish/toon-recipe`, `Toonvish/toon-finance`) and this repo
@@ -39,7 +41,11 @@ migration may write (D2, D3, SPEC §6); 0006 placeholder members and claim invit
 0007 toon-finance `1715207` adaptations: leave rule, CSP additions, origin guard trusting `WEB_ORIGIN` (D13); 0008
 old hostnames map their own paths and retire their service workers (D11); 0009 the whole test suite on a temp file
 DB (restores toon-finance gotcha 2); 0010 a header row per shell screen instead of a global top bar (D1, D6); 0011
-the service worker's runtime rules are the union of both sources' (D9, D13).
+the service worker's runtime rules are the union of both sources' (D9, D13); 0012 Effect is the application
+framework (E1–E12; amends D10's wording).
+
+`docs/EFFECT.md` §1 (E1–E12) is fixed in the same way as D1–D15: it changes only through an ADR, and a task that
+forces a deviation makes the smallest one and records it (ADR 0012, `docs/adr/0012-effect-application-framework.md`).
 
 ## Building it
 
@@ -57,7 +63,48 @@ architecture tasks; dependency waves in parallel worktrees, merge, Sonnet verifi
 Review (Haiku runs the gates, Opus judges against the exit criteria and the "behaviour unchanged" rule),
 Harden (Sonnet fixes findings, Opus re-reviews, docs and pattern files synced). It writes the plan to
 `docs/plans/e<N>-<name>.md`, commits per task and never pushes; it stops at the first milestone whose exit
-criteria are not met and resumes with `resumeFromRunId`.
+criteria are not met and resumes with `resumeFromRunId`. The E0 plan is `docs/plans/e0-foundation.md`; its Learn
+phase verifies that `repos/effect` is present and at the installed version instead of re-adding it.
+
+## Vendored reference code
+
+`repos/effect` is the Effect source, vendored as a squashed `git subtree` of `https://github.com/Effect-TS/effect.git`
+at the release tag `effect@4.0.5` (squash commit `e54b8022a`, merge commit `60828f2e6`, subtree split `7f524e25c`,
+which IS the tag). It is the documentation: this repo's models remember Effect 3, and Effect 4 renamed a great
+deal, so every Effect signature is looked up in the vendored source, never recalled and never fetched from the
+web (`docs/EFFECT.md` E2, §2).
+
+- **Read order before writing Effect code (`docs/EFFECT.md` §2.1).** (1) `repos/effect/LLMS.md`, the library's own
+  guide for coding agents, whole once per session. (2) The pattern file(s) for the modules the task touches.
+  (3) The examples LLMS.md links under `repos/effect/ai-docs/src/` (`04_integration` for `ManagedRuntime`,
+  `09_testing`, `40_sql`, `50_http-client`, `51_http-server`). (4) For schemas `repos/effect/packages/effect/SCHEMA.md`
+  (large: in chunks), for HttpApi `repos/effect/packages/effect/HTTPAPI.md`, for config
+  `repos/effect/packages/effect/CONFIG.md`. (5) For an API you remember from v3: `repos/effect/MIGRATION.md` and
+  `repos/effect/migration/*.md`. (6) When the docs are silent: the source under
+  `repos/effect/packages/effect/src/` and the package's `test/`.
+- **Pattern files.** The five present are `agent-patterns/effect-core.md`, `agent-patterns/effect-schema.md`,
+  `agent-patterns/effect-services.md`, `agent-patterns/effect-errors.md` and `agent-patterns/effect-testing.md`;
+  the others (`effect-config`, `effect-datetime-clock`, `effect-stream`, `effect-http-client`, `effect-http-api`,
+  `effect-http-server-bun`, `effect-cli`) are distilled by the workflow's Learn phase before the milestone that
+  needs them. A milestone that finds a wrong line in one fixes the file in the same commit.
+- **v4, not v3.** `Context.Tag` / `Effect.Service` became `Context.Service` with a static `layer` and no accessors,
+  `Effect.catchAll` became `Effect.catch`, `Either` became `Result`, `Schema.Union` and `Schema.Literals` take arrays,
+  `.annotations()` became `.annotate()`, `.filter()` became `.check()`, `decodeUnknown` became
+  `decodeUnknownEffect`, `@effect/platform/*` moved into `effect/*` and `effect/unstable/http` into `effect/http`.
+  The full map is `repos/effect/migration/v3-to-v4.md`; read it whenever an API you remember is v3.
+- **Rules (`docs/EFFECT.md` §2.4, pinned by `apps/api/test/effect-idioms.test.ts`).** `repos/` is read-only
+  reference: nothing in `apps/`, `packages/` or `scripts/` imports from it, it is not a workspace, `bun install`,
+  `bun test` and `tsc` are never run inside it, no file in it is edited, and `git status --porcelain repos/` is
+  empty after every task.
+- **The fences (E2).** `bunfig.toml` (`[test] pathIgnorePatterns = ["repos/**"]`, test discovery), `.dockerignore`
+  (the line `repos`, the image), `.vscode/settings.json` (`search.exclude`, `files.watcherExclude`,
+  `typescript.preferences.autoImportFileExcludePatterns`: the editor) and `server.watch.ignored` in
+  `apps/web/vite.config.ts` (Vite's watcher).
+- **Updating it.** Bump `effect` in the three `package.json` that name it (`packages/shared`, `apps/api`,
+  `apps/web`) and `@effect/platform-bun` in `apps/api` together, as the same exact version, then in the SAME commit
+  run `git subtree pull --prefix=repos/effect https://github.com/Effect-TS/effect.git effect@<version> --squash`,
+  then the gates. The idioms test's version rules (one exact version everywhere, the vendored
+  `repos/effect/packages/effect/package.json` equal to the installed `effect`) fail otherwise.
 
 ## Status
 
@@ -89,7 +136,9 @@ Package names are `@toon/shared`, `@toon/api`, `@toon/web`; the root is `toon-ho
   SIGTERM/SIGINT calling each module's `shutdown`, the static web LAST. Beside it: `apps/api/src/env.ts`,
   `apps/api/src/db/{client,migrate,schema}.ts` plus `apps/api/src/db/schema/core.ts`, `apps/api/src/lib/`,
   `apps/api/src/middleware/{session,household,module,verifiedEmail,staticWeb,originGuard,securityHeaders}.ts`,
-  `apps/api/src/modules/{index,types,mount}.ts` (the registry, the contract, the mount chain).
+  `apps/api/src/modules/{index,types,mount}.ts` (the registry, the contract, the mount chain),
+  `apps/api/src/runtime.ts` (`AppLayer`, the shared memo map and the one `ManagedRuntime`, E0) and
+  `apps/api/src/core/health.ts` (`healthResponse`, the `/api/health` payload as an Effect).
 - Core API: `apps/api/src/core/routes/{auth,households,members,invites,modules}.ts` (the last three export
   `register…Routes(router)` onto the one `householdRoutes` of `households.ts`) and
   `apps/api/src/core/services/{auth,households,mail,media}/`;
@@ -127,6 +176,9 @@ Package names are `@toon/shared`, `@toon/api`, `@toon/web`; the root is `toon-ho
   `.github/workflows/deploy.yml` (gated by the repository variable `DEPLOY_ENABLED`, one SSH forced command).
   `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `.env.local-stack`,
   `docker/{Caddyfile,entrypoint.sh,env.example,toon-deploy.sh}`; nothing of it is built by `bun run build`.
+- Effect tooling (E0): `bunfig.toml` (test discovery skips `repos/**`), `.vscode/settings.json` (editor excludes for
+  `repos/`), `repos/effect/` (the vendored Effect source, read-only; "Vendored reference code") and `agent-patterns/`
+  (the `effect-<topic>.md` pattern files); the gate is `apps/api/test/effect-idioms.test.ts`.
 - Docs: see "Read order"; plus `docs/plans/screenshots/` and `docs/design/recipe-redesign/` (design record, D5).
 - Core DB tables (unprefixed): `users`, `oauth_accounts`, `sessions`, `password_reset_tokens`,
   `email_verification_tokens`, `households`, `household_members`, `household_invites`, `household_modules`,
@@ -144,7 +196,7 @@ Run from the repo root. Bun 1.4.2 (`.bun-version`); `bun install --frozen-lockfi
   built shell (needs `bun run build` first).
 - `bun run typecheck`: `tsc --noEmit` over packages/shared, apps/api and the three apps/web projects.
 - `bun test`: all unit and API tests, on a fresh temp file DB per process (ADR 0009; `TEST_DATABASE_URL`
-  overrides it).
+  overrides it). `bunfig.toml` keeps the vendored `repos/` out of discovery.
 - `bun run build`: Vite build plus the generated PWA service worker into `apps/web/dist`.
 - `bun run i18n:check`: German catalog parity plus no German left in ported source. Exits 1 by design: parity
   OK, and about 146 leftover-German hits, all false positives (German quoted in doc comments, 10 lines of recipe
@@ -248,6 +300,16 @@ Binding gotchas of the sources stay binding inside their module (SPEC D13). Thes
 ones; the module gotchas are indexed below and live in the module docs.
 
 ### Database and API
+
+- **One runtime, disposed on shutdown (E0).** `apps/api/src/runtime.ts` is the only file that calls
+  `ManagedRuntime.make` (`AppLayer`, today `Layer.empty`, the slot E2 fills; the shared `appMemoMap`). Nothing runs
+  an effect on it at module scope: the layer builds lazily on the first run, and a run at import time would
+  re-enter the API import cycle (below). `GET /api/health` is `runtime.runPromise(healthResponse)`
+  (`apps/api/src/core/health.ts`; the registry and the feature flags are read inside the generator, key order
+  `ok, status, version, time, database, modules, features`). On SIGTERM/SIGINT (never in tests) `apps/api/src/index.ts`
+  logs `[api] <signal> — stopping modules …`, runs every module's `shutdown`, THEN `await runtime.dispose()` and logs
+  `[api] runtime disposed` (a failed dispose logs `[api] runtime dispose failed:`), and `process.exit(0)` last in every
+  case. Never dispose the runtime in a test: the tests share one process and one runtime.
 
 - **D7 pragmas.** `apps/api/src/db/client.ts` sends WAL + `synchronous = FULL` (finance's ledger choice, not
   recipe's `NORMAL`), `foreign_keys = ON` and the busy timeout on every connection to a local `file:` DB, never
@@ -435,6 +497,21 @@ ones; the module gotchas are indexed below and live in the module docs.
 
 ### Testing and tooling
 
+- **`repos/` is fenced off, not deleted.** The vendored Effect source carries about 580 vitest files of its own, which
+  are reference material and not this repo's tests. `bunfig.toml` `[test] pathIgnorePatterns = ["repos/**"]` keeps
+  them out of `bun test` (Bun 1.4.2 and 1.4.3 both honour it). The proof is `bun test repos`: it prints "The
+  following filters did not match any test files" and exits 1, by design; a path filter that matches `repos/`
+  finds nothing, so never "fix" it. `.dockerignore`, `.vscode/settings.json` and Vite's `server.watch.ignored`
+  fence the rest; the idioms test reads all four.
+- **The idioms test is the E12 gate.** `apps/api/test/effect-idioms.test.ts` makes the greps of `docs/EFFECT.md` E12
+  permanent, in the shape of the design-system gate: a comment-free line scan, one `describe` per rule, a failure
+  of `file:line: code`, and a pinned allow list (file to reason, empty at E0) per rule. At E0 it holds: no import from
+  `repos/`, no `effect/unstable/` path, no Effect 3 package or service constructor, `ManagedRuntime.make(` only in
+  `apps/api/src/runtime.ts`, every `effect` / `@effect/*` dependency and lockfile entry one exact version, and the
+  vendored tree and the four fences matching it. The rules a later milestone switches on (no `zod` at E1, no `throw
+  new ApiError` and no `Date.now()` / `new Date()` in services at E2, no `hono` at E7) are a `PENDING_RULES`
+  comment in the file, never skipped tests, and each becomes a `describe` in the commit of the migration that
+  makes it true. Never relax a rule to get green.
 - **Headless runs.** Install Playwright in a scratch directory outside the repo (a `bun add` log ending in
   `exit=$?`), log in with `fetch("/api/auth/login")` from the page, assert `scrollWidth <= clientWidth`, and never
   match the tab bar by its `aria-label` (`SideNav` carries the same one): the tab bar is `nav.fixed`, the sidebar
