@@ -4,13 +4,8 @@
  * locale. Nothing here reads an Effect message: the wire issue rides on the schema as the `WIRE_ISSUE`
  * annotation of `../schemas/checks.ts`. The resolver ladder is the one docs/i18n.md section 5 describes,
  * unchanged since the Zod era (the catalog keys keep their `server.zod.*` names).
- *
- * Until E1-T11 `toValidationIssues` also takes a `ZodError` (plan e1 P8); its issues go through the same field
- * selection (`fromZodIssue`) and the same resolver.
  */
 import { Predicate, SchemaAST, SchemaIssue } from "effect";
-import type { ZodError } from "zod";
-import type { $ZodIssue } from "zod/v4/core";
 import { WIRE_ISSUE } from "../schemas/checks.ts";
 import { SERVER_CATALOGS, type ServerKey } from "./catalogs/index.ts";
 import { DEFAULT_LOCALE, type Locale } from "./locale.ts";
@@ -206,30 +201,6 @@ export function flattenIssue(issue: SchemaIssue.Issue): Array<FlatIssue> {
   return out;
 }
 
-/**
- * The P2 field selection of a zod issue (transitional, removed with zod in E1-T11): what `toValidationIssues`
- * and `resolveZodIssue` resolve for a zod issue.
- */
-export function fromZodIssue(issue: $ZodIssue): FlatIssue {
-  const path = issue.path.map(toSegment);
-  switch (issue.code) {
-    case "too_small":
-      return { code: issue.code, path, origin: issue.origin, minimum: Number(issue.minimum) };
-    case "too_big":
-      return { code: issue.code, path, origin: issue.origin, maximum: Number(issue.maximum) };
-    case "invalid_type":
-      return { code: issue.code, path, expected: issue.expected };
-    case "invalid_format":
-      return { code: issue.code, path, format: issue.format };
-    case "custom": {
-      const key = issue.params?.["i18n"];
-      return Predicate.isString(key) ? { code: issue.code, path, params: { i18n: key as ServerKey } } : { code: issue.code, path };
-    }
-    default:
-      return { code: issue.code, path };
-  }
-}
-
 // ---------------------------------------------------------------------------------------------------------------
 // FlatIssue to catalog key and message
 // ---------------------------------------------------------------------------------------------------------------
@@ -290,18 +261,12 @@ export function resolveIssue(
   return { message, key, values };
 }
 
-/**
- * Renders EVERY issue of a failed decode for the wire (`details`, docs/i18n.md section 4): a `SchemaIssue` tree
- * (an Effect `Schema` decode) or, until E1-T11, a `ZodError`.
- */
+/** Renders EVERY issue of a failed decode for the wire (`details`, docs/i18n.md section 4). */
 export function toValidationIssues(
-  source: SchemaIssue.Issue | ZodError,
+  source: SchemaIssue.Issue,
   locale: Locale = DEFAULT_LOCALE,
 ): Array<ValidationIssueItem> {
-  const issues = SchemaIssue.isIssue(source)
-    ? flattenIssue(source)
-    : source.issues.map((issue) => fromZodIssue(issue as $ZodIssue));
-  return issues.map((issue) => {
+  return flattenIssue(source).map((issue) => {
     const resolved = resolveIssue(issue, locale);
     return {
       path: issue.path.join("."),

@@ -1,40 +1,27 @@
 /**
- * Form validation glue: run the SAME Zod schemas the API uses (from @toon/shared)
+ * Form validation glue: run the SAME shared schemas the API uses (from @toon/shared)
  * in the browser and turn failures into `{ field: "message" }` maps that the
  * `<Input error>` prop understands.
  */
 import {
   ALL_ISSUES,
   flattenIssue,
-  fromZodIssue,
   resolveIssue,
   resolveWireKey,
   type FlatIssue,
 } from "@toon/shared";
 import { Result, Schema, type Types } from "effect";
-import type { z } from "zod";
-import type { $ZodIssue } from "zod/v4/core";
 import { isApiError } from "./api";
 import { getLocale, translate } from "./i18n/store.ts";
 
 /** `{ email: "Bitte eine gültige E-Mail-Adresse angeben" }` */
 export type FieldErrors = Record<string, string>;
 
-/**
- * A schema the browser can decode with: an Effect schema (no decoding services) or, until the zod
- * schemas are gone (plan e1 P8, E1-T11), a zod one.
- */
-export type Decodable = Schema.Decoder<unknown, never> | z.ZodType;
+/** A schema the browser can decode with: an Effect schema without decoding services. */
+export type Decodable = Schema.Decoder<unknown, never>;
 
-/**
- * What a successful decode yields: the Effect arm's `Type` made mutable (plan e1 P5), the zod arm's output.
- * Spelled out because a zod 4 `ZodType` has no `Type` member.
- */
-export type Decoded<S> = S extends Schema.Top
-  ? Types.DeepMutable<S["Type"]>
-  : S extends z.ZodType
-    ? z.output<S>
-    : never;
+/** What a successful decode yields: the schema's `Type`, made mutable (plan e1 P5). */
+export type Decoded<S extends Decodable> = Types.DeepMutable<S["Type"]>;
 
 /**
  * First message per field path, joined with "." for nested paths (`_form` for the root). Resolves
@@ -63,19 +50,9 @@ export function validate<Schema extends Decodable>(
   schema: Schema,
   value: unknown,
 ): ValidationResult<Decoded<Schema>> {
-  if (isEffectSchema(schema)) {
-    const decoded = Schema.decodeUnknownResult(schema as Schema.ConstraintDecoder<unknown>, ALL_ISSUES)(value);
-    if (Result.isSuccess(decoded)) return { ok: true, data: decoded.success as Decoded<Schema>, errors: null };
-    return { ok: false, data: null, errors: issueFieldErrors(flattenIssue(decoded.failure.issue)) };
-  }
-  const parsed = (schema as z.ZodType).safeParse(value);
-  if (parsed.success) return { ok: true, data: parsed.data as Decoded<Schema>, errors: null };
-  return { ok: false, data: null, errors: issueFieldErrors(parsed.error.issues.map((issue) => fromZodIssue(issue as $ZodIssue))) };
-}
-
-/** The one transitional test (plan e1 P8): a zod schema is not an Effect schema. */
-export function isEffectSchema(schema: Decodable): schema is Schema.Decoder<unknown, never> {
-  return Schema.isSchema(schema);
+  const decoded = Schema.decodeUnknownResult(schema as Schema.ConstraintDecoder<unknown>, ALL_ISSUES)(value);
+  if (Result.isSuccess(decoded)) return { ok: true, data: decoded.success as Decoded<Schema>, errors: null };
+  return { ok: false, data: null, errors: issueFieldErrors(flattenIssue(decoded.failure.issue)) };
 }
 
 /**

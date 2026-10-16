@@ -34,8 +34,7 @@ import {
   type UpdateImportDraftRequest,
 } from "@toon/shared";
 import { Result, Schema } from "effect";
-import type { ZodType } from "zod";
-import { type Decodable, type Decoded, isEffectSchema } from "@/lib/validation";
+import type { Decodable, Decoded } from "@/lib/validation";
 import { API_BASE_URL } from "@/modules/recipe/lib/api";
 import type { MessageKey } from "@/lib/i18n/catalogs/index.ts";
 import { getLocale } from "@/lib/i18n/store.ts";
@@ -305,18 +304,10 @@ export function describeError(error: unknown): DescribedImportError {
  * server change must not break the review screen, so a schema mismatch only logs.
  */
 function parseOrPassThrough<S extends Decodable>(schema: S, payload: unknown, label: string): Decoded<S> {
-  if (isEffectSchema(schema)) {
-    const decoded = Schema.decodeUnknownResult(schema as Schema.ConstraintDecoder<unknown>)(payload);
-    if (Result.isSuccess(decoded)) return decoded.success as Decoded<S>;
-    if (import.meta.env.DEV) {
-      console.warn(`[import] response from ${label} does not match the schema`, decoded.failure);
-    }
-    return payload as Decoded<S>;
-  }
-  const result = (schema as ZodType).safeParse(payload);
-  if (result.success) return result.data as Decoded<S>;
+  const decoded = Schema.decodeUnknownResult(schema as Schema.ConstraintDecoder<unknown>)(payload);
+  if (Result.isSuccess(decoded)) return decoded.success as Decoded<S>;
   if (import.meta.env.DEV) {
-    console.warn(`[import] response from ${label} does not match the schema`, result.error);
+    console.warn(`[import] response from ${label} does not match the schema`, decoded.failure);
   }
   return payload as Decoded<S>;
 }

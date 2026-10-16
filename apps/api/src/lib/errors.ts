@@ -21,7 +21,6 @@ import type { ApiError as ApiErrorBody, ErrorCode } from "@toon/shared";
 import { Schema } from "effect";
 import type { Context, ErrorHandler, NotFoundHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
-import { ZodError } from "zod";
 import { toValidationIssues } from "@toon/shared";
 import { env } from "../env.ts";
 import { requestLocale } from "./locale.ts";
@@ -104,10 +103,6 @@ function toApiError(error: unknown, locale: Locale): ApiError {
 
   if (Schema.isSchemaError(error)) {
     return ApiError.validationFailed(toValidationIssues(error.issue, locale));
-  }
-
-  if (error instanceof ZodError) {
-    return ApiError.validationFailed(toValidationIssues(error, locale));
   }
 
   if (error instanceof HTTPException) {

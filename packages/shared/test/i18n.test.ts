@@ -1,16 +1,17 @@
 import { describe, expect, test } from "bun:test";
-import { z } from "zod";
+import { Schema } from "effect";
 import {
   createTranslator,
   hasKey,
   interpolate,
   negotiateLocale,
   resolveWireKey,
-  resolveZodIssue,
+  resolveIssue,
   SERVER_CATALOGS,
   toValidationIssues,
 } from "../src/core/i18n/index.ts";
-import { refineKey } from "../src/core/i18n/zod.ts";
+import { Str, keyed, minLength } from "../src/core/schemas/checks.ts";
+import { safeParse } from "./support/schema.ts";
 
 describe("negotiateLocale", () => {
   test("picks the first supported tag", () => {
@@ -86,45 +87,50 @@ describe("hasKey / resolveWireKey", () => {
   });
 });
 
-describe("Zod issue resolution", () => {
+describe("Schema issue resolution", () => {
   test("a stripped .min(1) on a `name` field resolves to the field-specific German key", () => {
-    const schema = z.object({ name: z.string().min(1) });
-    const result = schema.safeParse({ name: "" });
+    const schema = Schema.Struct({ name: Str.check(minLength(1)) });
+    const result = safeParse(schema, { name: "" });
     expect(result.success).toBe(false);
-    const resolved = resolveZodIssue(result.error!.issues[0]! as never, "de");
+    if (result.success) throw new Error("expected a failure");
+    const resolved = resolveIssue(result.error.issues[0]!, "de");
     expect(resolved.key).toBe("server.zod.field.name.too_small.1");
     expect(resolved.message).toBe("Name fehlt");
   });
 
   test("the same issue resolves in English when asked", () => {
-    const schema = z.object({ name: z.string().min(1) });
-    const result = schema.safeParse({ name: "" });
-    const resolved = resolveZodIssue(result.error!.issues[0]! as never, "en");
+    const schema = Schema.Struct({ name: Str.check(minLength(1)) });
+    const result = safeParse(schema, { name: "" });
+    if (result.success) throw new Error("expected a failure");
+    const resolved = resolveIssue(result.error.issues[0]!, "en");
     expect(resolved.message).toBe("Name is required");
   });
 
   test("an unnamed generic constraint falls through to a generic key", () => {
-    const schema = z.object({ bio: z.string().min(5) });
-    const result = schema.safeParse({ bio: "hi" });
-    const resolved = resolveZodIssue(result.error!.issues[0]! as never, "de");
+    const schema = Schema.Struct({ bio: Str.check(minLength(5)) });
+    const result = safeParse(schema, { bio: "hi" });
+    if (result.success) throw new Error("expected a failure");
+    const resolved = resolveIssue(result.error.issues[0]!, "de");
     expect(resolved.key).toBe("server.zod.too_small.string");
     expect(resolved.message).toBe("Muss mindestens 5 Zeichen lang sein");
   });
 
-  test("an explicit refineKey on a custom refinement wins over inference", () => {
-    const schema = z
-      .object({ a: z.string().optional(), b: z.string().optional() })
-      .refine((v) => Boolean(v.a || v.b), refineKey("server.validation.noChanges"));
-    const result = schema.safeParse({});
-    const resolved = resolveZodIssue(result.error!.issues[0]! as never, "de");
+  test("an explicit keyed refinement on a custom refinement wins over inference", () => {
+    const schema = Schema.Struct({ a: Schema.optional(Str), b: Schema.optional(Str) }).check(
+      keyed((v) => Boolean(v.a || v.b), "server.validation.noChanges"),
+    );
+    const result = safeParse(schema, {});
+    if (result.success) throw new Error("expected a failure");
+    const resolved = resolveIssue(result.error.issues[0]!, "de");
     expect(resolved.key).toBe("server.validation.noChanges");
     expect(resolved.message).toBe("Keine Änderungen übergeben");
   });
 
   test("toValidationIssues renders every issue with its i18n key attached", () => {
-    const schema = z.object({ title: z.string().min(1) });
-    const result = schema.safeParse({ title: "" });
-    const issues = toValidationIssues(result.error!, "de");
+    const schema = Schema.Struct({ title: Str.check(minLength(1)) });
+    const result = safeParse(schema, { title: "" });
+    if (result.success) throw new Error("expected a failure");
+    const issues = toValidationIssues(result.error.issue, "de");
     expect(issues).toHaveLength(1);
     expect(issues[0]).toMatchObject({
       path: "title",
