@@ -1,0 +1,180 @@
+{
+  "source": "packages/shared/src/modules/registry.ts",
+  "zod": "4.5.4",
+  "cases": [
+    {
+      "id": "ModuleIdSchema#member-s(recipe)",
+      "schema": "ModuleIdSchema",
+      "input": "recipe",
+      "ok": true,
+      "output": "recipe"
+    },
+    {
+      "id": "ModuleIdSchema#member-s(finance)",
+      "schema": "ModuleIdSchema",
+      "input": "finance",
+      "ok": true,
+      "output": "finance"
+    },
+    {
+      "id": "ModuleIdSchema#bad-s(RECIPE)",
+      "schema": "ModuleIdSchema",
+      "input": "RECIPE",
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "ModuleIdSchema#bad-s( recipe)",
+      "schema": "ModuleIdSchema",
+      "input": " recipe",
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "ModuleIdSchema#bad-s(recipe )",
+      "schema": "ModuleIdSchema",
+      "input": "recipe ",
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "ModuleIdSchema#bad-s(nope)",
+      "schema": "ModuleIdSchema",
+      "input": "nope",
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "ModuleIdSchema#bad-s()",
+      "schema": "ModuleIdSchema",
+      "input": "",
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "ModuleIdSchema#bad-s(Recipe)",
+      "schema": "ModuleIdSchema",
+      "input": "Recipe",
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "ModuleIdSchema#bad-s(households)",
+      "schema": "ModuleIdSchema",
+      "input": "households",
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "ModuleIdSchema#bad-s(recipe,finance)",
+      "schema": "ModuleIdSchema",
+      "input": "recipe,finance",
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "ModuleIdSchema#type-undefined",
+      "schema": "ModuleIdSchema",
+      "input": {"$undefined":true},
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "ModuleIdSchema#type-null",
+      "schema": "ModuleIdSchema",
+      "input": null,
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "ModuleIdSchema#type-s()",
+      "schema": "ModuleIdSchema",
+      "input": "",
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "ModuleIdSchema#type-0",
+      "schema": "ModuleIdSchema",
+      "input": 0,
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "ModuleIdSchema#type-1",
+      "schema": "ModuleIdSchema",
+      "input": 1,
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "ModuleIdSchema#type-true",
+      "schema": "ModuleIdSchema",
+      "input": true,
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "ModuleIdSchema#type-false",
+      "schema": "ModuleIdSchema",
+      "input": false,
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "ModuleIdSchema#type-[]",
+      "schema": "ModuleIdSchema",
+      "input": [],
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "ModuleIdSchema#type-{}",
+      "schema": "ModuleIdSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "ModuleIdSchema#type-NaN",
+      "schema": "ModuleIdSchema",
+      "input": {"$number":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "ModuleIdSchema#type-Infinity",
+      "schema": "ModuleIdSchema",
+      "input": {"$number":"Infinity"},
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "ModuleIdSchema#type--Infinity",
+      "schema": "ModuleIdSchema",
+      "input": {"$number":"-Infinity"},
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    }
+  ]
+}

@@ -1,0 +1,1963 @@
+{
+  "source": "packages/shared/src/modules/finance/schemas/common.ts",
+  "zod": "4.5.4",
+  "cases": [
+    {
+      "id": "PeriodSchema#type-undefined",
+      "schema": "PeriodSchema",
+      "input": {"$undefined":true},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "PeriodSchema#type-null",
+      "schema": "PeriodSchema",
+      "input": null,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "PeriodSchema#type-s()",
+      "schema": "PeriodSchema",
+      "input": "",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodFormat"}},{"code":"custom","path":[],"params":{"i18n":"server.validation.periodBounds"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Bitte gib einen Monat im Format JJJJ-MM an.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}},{"path":"","code":"custom","message":"Der Monat muss zwischen 2000-01 und 2100-12 liegen.","i18n":{"key":"server.validation.periodBounds","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Please enter a month in the format YYYY-MM.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}},{"path":"","code":"custom","message":"The month must lie between 2000-01 and 2100-12.","i18n":{"key":"server.validation.periodBounds","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#type-0",
+      "schema": "PeriodSchema",
+      "input": 0,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "PeriodSchema#type-1",
+      "schema": "PeriodSchema",
+      "input": 1,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "PeriodSchema#type-true",
+      "schema": "PeriodSchema",
+      "input": true,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "PeriodSchema#type-false",
+      "schema": "PeriodSchema",
+      "input": false,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "PeriodSchema#type-[]",
+      "schema": "PeriodSchema",
+      "input": [],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "PeriodSchema#type-{}",
+      "schema": "PeriodSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "PeriodSchema#type-NaN",
+      "schema": "PeriodSchema",
+      "input": {"$number":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "PeriodSchema#type-Infinity",
+      "schema": "PeriodSchema",
+      "input": {"$number":"Infinity"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "PeriodSchema#type--Infinity",
+      "schema": "PeriodSchema",
+      "input": {"$number":"-Infinity"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s(2026-01)",
+      "schema": "PeriodSchema",
+      "input": "2026-01",
+      "ok": true,
+      "output": "2026-01"
+    },
+    {
+      "id": "PeriodSchema#s(2026-12)",
+      "schema": "PeriodSchema",
+      "input": "2026-12",
+      "ok": true,
+      "output": "2026-12"
+    },
+    {
+      "id": "PeriodSchema#s(2000-01)",
+      "schema": "PeriodSchema",
+      "input": "2000-01",
+      "ok": true,
+      "output": "2000-01"
+    },
+    {
+      "id": "PeriodSchema#s(2100-12)",
+      "schema": "PeriodSchema",
+      "input": "2100-12",
+      "ok": true,
+      "output": "2100-12"
+    },
+    {
+      "id": "PeriodSchema#s(2050-06)",
+      "schema": "PeriodSchema",
+      "input": "2050-06",
+      "ok": true,
+      "output": "2050-06"
+    },
+    {
+      "id": "PeriodSchema#s(1999-12)",
+      "schema": "PeriodSchema",
+      "input": "1999-12",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodBounds"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Der Monat muss zwischen 2000-01 und 2100-12 liegen.","i18n":{"key":"server.validation.periodBounds","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"The month must lie between 2000-01 and 2100-12.","i18n":{"key":"server.validation.periodBounds","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s(2101-01)",
+      "schema": "PeriodSchema",
+      "input": "2101-01",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodBounds"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Der Monat muss zwischen 2000-01 und 2100-12 liegen.","i18n":{"key":"server.validation.periodBounds","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"The month must lie between 2000-01 and 2100-12.","i18n":{"key":"server.validation.periodBounds","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s(0000-01)",
+      "schema": "PeriodSchema",
+      "input": "0000-01",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodBounds"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Der Monat muss zwischen 2000-01 und 2100-12 liegen.","i18n":{"key":"server.validation.periodBounds","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"The month must lie between 2000-01 and 2100-12.","i18n":{"key":"server.validation.periodBounds","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s(0001-01)",
+      "schema": "PeriodSchema",
+      "input": "0001-01",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodBounds"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Der Monat muss zwischen 2000-01 und 2100-12 liegen.","i18n":{"key":"server.validation.periodBounds","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"The month must lie between 2000-01 and 2100-12.","i18n":{"key":"server.validation.periodBounds","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s(9999-12)",
+      "schema": "PeriodSchema",
+      "input": "9999-12",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodBounds"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Der Monat muss zwischen 2000-01 und 2100-12 liegen.","i18n":{"key":"server.validation.periodBounds","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"The month must lie between 2000-01 and 2100-12.","i18n":{"key":"server.validation.periodBounds","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s(2026-00)",
+      "schema": "PeriodSchema",
+      "input": "2026-00",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodFormat"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Bitte gib einen Monat im Format JJJJ-MM an.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Please enter a month in the format YYYY-MM.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s(2026-13)",
+      "schema": "PeriodSchema",
+      "input": "2026-13",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodFormat"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Bitte gib einen Monat im Format JJJJ-MM an.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Please enter a month in the format YYYY-MM.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s(2026-1)",
+      "schema": "PeriodSchema",
+      "input": "2026-1",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodFormat"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Bitte gib einen Monat im Format JJJJ-MM an.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Please enter a month in the format YYYY-MM.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s(2026-001)",
+      "schema": "PeriodSchema",
+      "input": "2026-001",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodFormat"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Bitte gib einen Monat im Format JJJJ-MM an.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Please enter a month in the format YYYY-MM.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s(26-01)",
+      "schema": "PeriodSchema",
+      "input": "26-01",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodFormat"}},{"code":"custom","path":[],"params":{"i18n":"server.validation.periodBounds"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Bitte gib einen Monat im Format JJJJ-MM an.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}},{"path":"","code":"custom","message":"Der Monat muss zwischen 2000-01 und 2100-12 liegen.","i18n":{"key":"server.validation.periodBounds","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Please enter a month in the format YYYY-MM.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}},{"path":"","code":"custom","message":"The month must lie between 2000-01 and 2100-12.","i18n":{"key":"server.validation.periodBounds","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s(202-01)",
+      "schema": "PeriodSchema",
+      "input": "202-01",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodFormat"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Bitte gib einen Monat im Format JJJJ-MM an.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Please enter a month in the format YYYY-MM.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s(20260-01)",
+      "schema": "PeriodSchema",
+      "input": "20260-01",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodFormat"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Bitte gib einen Monat im Format JJJJ-MM an.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Please enter a month in the format YYYY-MM.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s(2026-01-01)",
+      "schema": "PeriodSchema",
+      "input": "2026-01-01",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodFormat"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Bitte gib einen Monat im Format JJJJ-MM an.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Please enter a month in the format YYYY-MM.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s(2026-01-)",
+      "schema": "PeriodSchema",
+      "input": "2026-01-",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodFormat"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Bitte gib einen Monat im Format JJJJ-MM an.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Please enter a month in the format YYYY-MM.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s(2026-01 )",
+      "schema": "PeriodSchema",
+      "input": "2026-01 ",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodFormat"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Bitte gib einen Monat im Format JJJJ-MM an.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Please enter a month in the format YYYY-MM.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s( 2026-01)",
+      "schema": "PeriodSchema",
+      "input": " 2026-01",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodFormat"}},{"code":"custom","path":[],"params":{"i18n":"server.validation.periodBounds"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Bitte gib einen Monat im Format JJJJ-MM an.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}},{"path":"","code":"custom","message":"Der Monat muss zwischen 2000-01 und 2100-12 liegen.","i18n":{"key":"server.validation.periodBounds","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Please enter a month in the format YYYY-MM.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}},{"path":"","code":"custom","message":"The month must lie between 2000-01 and 2100-12.","i18n":{"key":"server.validation.periodBounds","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s(2026-01\\n)",
+      "schema": "PeriodSchema",
+      "input": "2026-01\n",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodFormat"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Bitte gib einen Monat im Format JJJJ-MM an.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Please enter a month in the format YYYY-MM.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s(\\n2026-01)",
+      "schema": "PeriodSchema",
+      "input": "\n2026-01",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodFormat"}},{"code":"custom","path":[],"params":{"i18n":"server.validation.periodBounds"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Bitte gib einen Monat im Format JJJJ-MM an.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}},{"path":"","code":"custom","message":"Der Monat muss zwischen 2000-01 und 2100-12 liegen.","i18n":{"key":"server.validation.periodBounds","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Please enter a month in the format YYYY-MM.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}},{"path":"","code":"custom","message":"The month must lie between 2000-01 and 2100-12.","i18n":{"key":"server.validation.periodBounds","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s(2026/01)",
+      "schema": "PeriodSchema",
+      "input": "2026/01",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodFormat"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Bitte gib einen Monat im Format JJJJ-MM an.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Please enter a month in the format YYYY-MM.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s(2026_01)",
+      "schema": "PeriodSchema",
+      "input": "2026_01",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodFormat"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Bitte gib einen Monat im Format JJJJ-MM an.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Please enter a month in the format YYYY-MM.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s(2026.01)",
+      "schema": "PeriodSchema",
+      "input": "2026.01",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodFormat"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Bitte gib einen Monat im Format JJJJ-MM an.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Please enter a month in the format YYYY-MM.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s(202601)",
+      "schema": "PeriodSchema",
+      "input": "202601",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodFormat"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Bitte gib einen Monat im Format JJJJ-MM an.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Please enter a month in the format YYYY-MM.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s(\\uff12\\uff10\\uff12\\uff16-01)",
+      "schema": "PeriodSchema",
+      "input": "２０２６-01",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodFormat"}},{"code":"custom","path":[],"params":{"i18n":"server.validation.periodBounds"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Bitte gib einen Monat im Format JJJJ-MM an.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}},{"path":"","code":"custom","message":"Der Monat muss zwischen 2000-01 und 2100-12 liegen.","i18n":{"key":"server.validation.periodBounds","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Please enter a month in the format YYYY-MM.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}},{"path":"","code":"custom","message":"The month must lie between 2000-01 and 2100-12.","i18n":{"key":"server.validation.periodBounds","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s(2026-\\uff10\\uff11)",
+      "schema": "PeriodSchema",
+      "input": "2026-０１",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodFormat"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Bitte gib einen Monat im Format JJJJ-MM an.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Please enter a month in the format YYYY-MM.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s(2026-01\\u0000)",
+      "schema": "PeriodSchema",
+      "input": "2026-01\u0000",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodFormat"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Bitte gib einen Monat im Format JJJJ-MM an.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Please enter a month in the format YYYY-MM.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s(not-a-period)",
+      "schema": "PeriodSchema",
+      "input": "not-a-period",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodFormat"}},{"code":"custom","path":[],"params":{"i18n":"server.validation.periodBounds"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Bitte gib einen Monat im Format JJJJ-MM an.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}},{"path":"","code":"custom","message":"Der Monat muss zwischen 2000-01 und 2100-12 liegen.","i18n":{"key":"server.validation.periodBounds","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Please enter a month in the format YYYY-MM.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}},{"path":"","code":"custom","message":"The month must lie between 2000-01 and 2100-12.","i18n":{"key":"server.validation.periodBounds","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s(x)",
+      "schema": "PeriodSchema",
+      "input": "x",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodFormat"}},{"code":"custom","path":[],"params":{"i18n":"server.validation.periodBounds"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Bitte gib einen Monat im Format JJJJ-MM an.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}},{"path":"","code":"custom","message":"Der Monat muss zwischen 2000-01 und 2100-12 liegen.","i18n":{"key":"server.validation.periodBounds","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Please enter a month in the format YYYY-MM.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}},{"path":"","code":"custom","message":"The month must lie between 2000-01 and 2100-12.","i18n":{"key":"server.validation.periodBounds","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s(-2026-01)",
+      "schema": "PeriodSchema",
+      "input": "-2026-01",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodFormat"}},{"code":"custom","path":[],"params":{"i18n":"server.validation.periodBounds"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Bitte gib einen Monat im Format JJJJ-MM an.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}},{"path":"","code":"custom","message":"Der Monat muss zwischen 2000-01 und 2100-12 liegen.","i18n":{"key":"server.validation.periodBounds","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Please enter a month in the format YYYY-MM.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}},{"path":"","code":"custom","message":"The month must lie between 2000-01 and 2100-12.","i18n":{"key":"server.validation.periodBounds","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PeriodSchema#s(+2026-01)",
+      "schema": "PeriodSchema",
+      "input": "+2026-01",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.periodFormat"}},{"code":"custom","path":[],"params":{"i18n":"server.validation.periodBounds"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Bitte gib einen Monat im Format JJJJ-MM an.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}},{"path":"","code":"custom","message":"Der Monat muss zwischen 2000-01 und 2100-12 liegen.","i18n":{"key":"server.validation.periodBounds","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Please enter a month in the format YYYY-MM.","i18n":{"key":"server.validation.periodFormat","values":{"field":"","facet":"_"}}},{"path":"","code":"custom","message":"The month must lie between 2000-01 and 2100-12.","i18n":{"key":"server.validation.periodBounds","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "CentsSchema#n-0",
+      "schema": "CentsSchema",
+      "input": 0,
+      "ok": true,
+      "output": 0
+    },
+    {
+      "id": "CentsSchema#n-1",
+      "schema": "CentsSchema",
+      "input": 1,
+      "ok": true,
+      "output": 1
+    },
+    {
+      "id": "CentsSchema#n--1",
+      "schema": "CentsSchema",
+      "input": -1,
+      "ok": true,
+      "output": -1
+    },
+    {
+      "id": "CentsSchema#n-2",
+      "schema": "CentsSchema",
+      "input": 2,
+      "ok": true,
+      "output": 2
+    },
+    {
+      "id": "CentsSchema#n-1.5",
+      "schema": "CentsSchema",
+      "input": 1.5,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"int"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"int"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"int"}}}]}
+    },
+    {
+      "id": "CentsSchema#n--1.5",
+      "schema": "CentsSchema",
+      "input": -1.5,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"int"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"int"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"int"}}}]}
+    },
+    {
+      "id": "CentsSchema#n-0.1",
+      "schema": "CentsSchema",
+      "input": 0.1,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"int"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"int"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"int"}}}]}
+    },
+    {
+      "id": "CentsSchema#n-100",
+      "schema": "CentsSchema",
+      "input": 100,
+      "ok": true,
+      "output": 100
+    },
+    {
+      "id": "CentsSchema#n-100000000000000000000",
+      "schema": "CentsSchema",
+      "input": 100000000000000000000,
+      "ok": false,
+      "issues": [{"code":"too_big","path":[],"origin":"int","maximum":9007199254740991}],
+      "details": {"de":[{"path":"","code":"too_big","message":"Wert ist zu groß","i18n":{"key":"server.zod.too_big","values":{"field":"","facet":"int","bound":9007199254740991}}}],"en":[{"path":"","code":"too_big","message":"Value is too big","i18n":{"key":"server.zod.too_big","values":{"field":"","facet":"int","bound":9007199254740991}}}]}
+    },
+    {
+      "id": "CentsSchema#n--100000000000000000000",
+      "schema": "CentsSchema",
+      "input": -100000000000000000000,
+      "ok": false,
+      "issues": [{"code":"too_small","path":[],"origin":"int","minimum":-9007199254740991}],
+      "details": {"de":[{"path":"","code":"too_small","message":"Wert ist zu klein","i18n":{"key":"server.zod.too_small","values":{"field":"","facet":"int","bound":-9007199254740991}}}],"en":[{"path":"","code":"too_small","message":"Value is too small","i18n":{"key":"server.zod.too_small","values":{"field":"","facet":"int","bound":-9007199254740991}}}]}
+    },
+    {
+      "id": "CentsSchema#n-9007199254740991",
+      "schema": "CentsSchema",
+      "input": 9007199254740991,
+      "ok": true,
+      "output": 9007199254740991
+    },
+    {
+      "id": "CentsSchema#n--9007199254740991",
+      "schema": "CentsSchema",
+      "input": -9007199254740991,
+      "ok": true,
+      "output": -9007199254740991
+    },
+    {
+      "id": "CentsSchema#n-9007199254740992",
+      "schema": "CentsSchema",
+      "input": 9007199254740992,
+      "ok": false,
+      "issues": [{"code":"too_big","path":[],"origin":"int","maximum":9007199254740991}],
+      "details": {"de":[{"path":"","code":"too_big","message":"Wert ist zu groß","i18n":{"key":"server.zod.too_big","values":{"field":"","facet":"int","bound":9007199254740991}}}],"en":[{"path":"","code":"too_big","message":"Value is too big","i18n":{"key":"server.zod.too_big","values":{"field":"","facet":"int","bound":9007199254740991}}}]}
+    },
+    {
+      "id": "CentsSchema#n--9007199254740992",
+      "schema": "CentsSchema",
+      "input": -9007199254740992,
+      "ok": false,
+      "issues": [{"code":"too_small","path":[],"origin":"int","minimum":-9007199254740991}],
+      "details": {"de":[{"path":"","code":"too_small","message":"Wert ist zu klein","i18n":{"key":"server.zod.too_small","values":{"field":"","facet":"int","bound":-9007199254740991}}}],"en":[{"path":"","code":"too_small","message":"Value is too small","i18n":{"key":"server.zod.too_small","values":{"field":"","facet":"int","bound":-9007199254740991}}}]}
+    },
+    {
+      "id": "CentsSchema#n-NaN",
+      "schema": "CentsSchema",
+      "input": {"$number":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"number"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}]}
+    },
+    {
+      "id": "CentsSchema#n-Infinity",
+      "schema": "CentsSchema",
+      "input": {"$number":"Infinity"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"number"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}]}
+    },
+    {
+      "id": "CentsSchema#n--Infinity",
+      "schema": "CentsSchema",
+      "input": {"$number":"-Infinity"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"number"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}]}
+    },
+    {
+      "id": "CentsSchema#n-s(1)",
+      "schema": "CentsSchema",
+      "input": "1",
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"number"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}]}
+    },
+    {
+      "id": "CentsSchema#n-s(abc)",
+      "schema": "CentsSchema",
+      "input": "abc",
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"number"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}]}
+    },
+    {
+      "id": "CentsSchema#n-s()",
+      "schema": "CentsSchema",
+      "input": "",
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"number"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}]}
+    },
+    {
+      "id": "CentsSchema#n-null",
+      "schema": "CentsSchema",
+      "input": null,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"number"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}]}
+    },
+    {
+      "id": "CentsSchema#n-undefined",
+      "schema": "CentsSchema",
+      "input": {"$undefined":true},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"number"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}]}
+    },
+    {
+      "id": "CentsSchema#n-true",
+      "schema": "CentsSchema",
+      "input": true,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"number"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}]}
+    },
+    {
+      "id": "CentsSchema#n-[]",
+      "schema": "CentsSchema",
+      "input": [],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"number"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}]}
+    },
+    {
+      "id": "CentsSchema#n-{}",
+      "schema": "CentsSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"number"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}]}
+    },
+    {
+      "id": "CentsSchema#100",
+      "schema": "CentsSchema",
+      "input": 100,
+      "ok": true,
+      "output": 100
+    },
+    {
+      "id": "CentsSchema#-100",
+      "schema": "CentsSchema",
+      "input": -100,
+      "ok": true,
+      "output": -100
+    },
+    {
+      "id": "CentsSchema#1",
+      "schema": "CentsSchema",
+      "input": 1,
+      "ok": true,
+      "output": 1
+    },
+    {
+      "id": "CentsSchema#-1",
+      "schema": "CentsSchema",
+      "input": -1,
+      "ok": true,
+      "output": -1
+    },
+    {
+      "id": "CentsSchema#12345678",
+      "schema": "CentsSchema",
+      "input": 12345678,
+      "ok": true,
+      "output": 12345678
+    },
+    {
+      "id": "CentsSchema#9007199254740991",
+      "schema": "CentsSchema",
+      "input": 9007199254740991,
+      "ok": true,
+      "output": 9007199254740991
+    },
+    {
+      "id": "CentsSchema#-9007199254740991",
+      "schema": "CentsSchema",
+      "input": -9007199254740991,
+      "ok": true,
+      "output": -9007199254740991
+    },
+    {
+      "id": "CentsSchema#9007199254740992",
+      "schema": "CentsSchema",
+      "input": 9007199254740992,
+      "ok": false,
+      "issues": [{"code":"too_big","path":[],"origin":"int","maximum":9007199254740991}],
+      "details": {"de":[{"path":"","code":"too_big","message":"Wert ist zu groß","i18n":{"key":"server.zod.too_big","values":{"field":"","facet":"int","bound":9007199254740991}}}],"en":[{"path":"","code":"too_big","message":"Value is too big","i18n":{"key":"server.zod.too_big","values":{"field":"","facet":"int","bound":9007199254740991}}}]}
+    },
+    {
+      "id": "CentsSchema#-9007199254740992",
+      "schema": "CentsSchema",
+      "input": -9007199254740992,
+      "ok": false,
+      "issues": [{"code":"too_small","path":[],"origin":"int","minimum":-9007199254740991}],
+      "details": {"de":[{"path":"","code":"too_small","message":"Wert ist zu klein","i18n":{"key":"server.zod.too_small","values":{"field":"","facet":"int","bound":-9007199254740991}}}],"en":[{"path":"","code":"too_small","message":"Value is too small","i18n":{"key":"server.zod.too_small","values":{"field":"","facet":"int","bound":-9007199254740991}}}]}
+    },
+    {
+      "id": "CentsSchema#1-2",
+      "schema": "CentsSchema",
+      "input": 1,
+      "ok": true,
+      "output": 1
+    },
+    {
+      "id": "CentsSchema#2.5",
+      "schema": "CentsSchema",
+      "input": 2.5,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"int"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"int"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"int"}}}]}
+    },
+    {
+      "id": "CentsSchema#0.01",
+      "schema": "CentsSchema",
+      "input": 0.01,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"int"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"int"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"int"}}}]}
+    },
+    {
+      "id": "PositiveCentsSchema#n-0",
+      "schema": "PositiveCentsSchema",
+      "input": 0,
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.amountPositive"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Der Betrag muss größer als 0 sein.","i18n":{"key":"server.validation.amountPositive","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"The amount must be greater than 0.","i18n":{"key":"server.validation.amountPositive","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PositiveCentsSchema#n-1",
+      "schema": "PositiveCentsSchema",
+      "input": 1,
+      "ok": true,
+      "output": 1
+    },
+    {
+      "id": "PositiveCentsSchema#n--1",
+      "schema": "PositiveCentsSchema",
+      "input": -1,
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.amountPositive"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Der Betrag muss größer als 0 sein.","i18n":{"key":"server.validation.amountPositive","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"The amount must be greater than 0.","i18n":{"key":"server.validation.amountPositive","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PositiveCentsSchema#n-2",
+      "schema": "PositiveCentsSchema",
+      "input": 2,
+      "ok": true,
+      "output": 2
+    },
+    {
+      "id": "PositiveCentsSchema#n-1.5",
+      "schema": "PositiveCentsSchema",
+      "input": 1.5,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"int"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"int"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"int"}}}]}
+    },
+    {
+      "id": "PositiveCentsSchema#n--1.5",
+      "schema": "PositiveCentsSchema",
+      "input": -1.5,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"int"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"int"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"int"}}}]}
+    },
+    {
+      "id": "PositiveCentsSchema#n-0.1",
+      "schema": "PositiveCentsSchema",
+      "input": 0.1,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"int"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"int"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"int"}}}]}
+    },
+    {
+      "id": "PositiveCentsSchema#n-100",
+      "schema": "PositiveCentsSchema",
+      "input": 100,
+      "ok": true,
+      "output": 100
+    },
+    {
+      "id": "PositiveCentsSchema#n-100000000000000000000",
+      "schema": "PositiveCentsSchema",
+      "input": 100000000000000000000,
+      "ok": false,
+      "issues": [{"code":"too_big","path":[],"origin":"int","maximum":9007199254740991}],
+      "details": {"de":[{"path":"","code":"too_big","message":"Wert ist zu groß","i18n":{"key":"server.zod.too_big","values":{"field":"","facet":"int","bound":9007199254740991}}}],"en":[{"path":"","code":"too_big","message":"Value is too big","i18n":{"key":"server.zod.too_big","values":{"field":"","facet":"int","bound":9007199254740991}}}]}
+    },
+    {
+      "id": "PositiveCentsSchema#n--100000000000000000000",
+      "schema": "PositiveCentsSchema",
+      "input": -100000000000000000000,
+      "ok": false,
+      "issues": [{"code":"too_small","path":[],"origin":"int","minimum":-9007199254740991},{"code":"custom","path":[],"params":{"i18n":"server.validation.amountPositive"}}],
+      "details": {"de":[{"path":"","code":"too_small","message":"Wert ist zu klein","i18n":{"key":"server.zod.too_small","values":{"field":"","facet":"int","bound":-9007199254740991}}},{"path":"","code":"custom","message":"Der Betrag muss größer als 0 sein.","i18n":{"key":"server.validation.amountPositive","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"too_small","message":"Value is too small","i18n":{"key":"server.zod.too_small","values":{"field":"","facet":"int","bound":-9007199254740991}}},{"path":"","code":"custom","message":"The amount must be greater than 0.","i18n":{"key":"server.validation.amountPositive","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PositiveCentsSchema#n-9007199254740991",
+      "schema": "PositiveCentsSchema",
+      "input": 9007199254740991,
+      "ok": true,
+      "output": 9007199254740991
+    },
+    {
+      "id": "PositiveCentsSchema#n--9007199254740991",
+      "schema": "PositiveCentsSchema",
+      "input": -9007199254740991,
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.amountPositive"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Der Betrag muss größer als 0 sein.","i18n":{"key":"server.validation.amountPositive","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"The amount must be greater than 0.","i18n":{"key":"server.validation.amountPositive","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PositiveCentsSchema#n-9007199254740992",
+      "schema": "PositiveCentsSchema",
+      "input": 9007199254740992,
+      "ok": false,
+      "issues": [{"code":"too_big","path":[],"origin":"int","maximum":9007199254740991}],
+      "details": {"de":[{"path":"","code":"too_big","message":"Wert ist zu groß","i18n":{"key":"server.zod.too_big","values":{"field":"","facet":"int","bound":9007199254740991}}}],"en":[{"path":"","code":"too_big","message":"Value is too big","i18n":{"key":"server.zod.too_big","values":{"field":"","facet":"int","bound":9007199254740991}}}]}
+    },
+    {
+      "id": "PositiveCentsSchema#n--9007199254740992",
+      "schema": "PositiveCentsSchema",
+      "input": -9007199254740992,
+      "ok": false,
+      "issues": [{"code":"too_small","path":[],"origin":"int","minimum":-9007199254740991},{"code":"custom","path":[],"params":{"i18n":"server.validation.amountPositive"}}],
+      "details": {"de":[{"path":"","code":"too_small","message":"Wert ist zu klein","i18n":{"key":"server.zod.too_small","values":{"field":"","facet":"int","bound":-9007199254740991}}},{"path":"","code":"custom","message":"Der Betrag muss größer als 0 sein.","i18n":{"key":"server.validation.amountPositive","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"too_small","message":"Value is too small","i18n":{"key":"server.zod.too_small","values":{"field":"","facet":"int","bound":-9007199254740991}}},{"path":"","code":"custom","message":"The amount must be greater than 0.","i18n":{"key":"server.validation.amountPositive","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PositiveCentsSchema#n-NaN",
+      "schema": "PositiveCentsSchema",
+      "input": {"$number":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"number"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}]}
+    },
+    {
+      "id": "PositiveCentsSchema#n-Infinity",
+      "schema": "PositiveCentsSchema",
+      "input": {"$number":"Infinity"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"number"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}]}
+    },
+    {
+      "id": "PositiveCentsSchema#n--Infinity",
+      "schema": "PositiveCentsSchema",
+      "input": {"$number":"-Infinity"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"number"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}]}
+    },
+    {
+      "id": "PositiveCentsSchema#n-s(1)",
+      "schema": "PositiveCentsSchema",
+      "input": "1",
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"number"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}]}
+    },
+    {
+      "id": "PositiveCentsSchema#n-s(abc)",
+      "schema": "PositiveCentsSchema",
+      "input": "abc",
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"number"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}]}
+    },
+    {
+      "id": "PositiveCentsSchema#n-s()",
+      "schema": "PositiveCentsSchema",
+      "input": "",
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"number"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}]}
+    },
+    {
+      "id": "PositiveCentsSchema#n-null",
+      "schema": "PositiveCentsSchema",
+      "input": null,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"number"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}]}
+    },
+    {
+      "id": "PositiveCentsSchema#n-undefined",
+      "schema": "PositiveCentsSchema",
+      "input": {"$undefined":true},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"number"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}]}
+    },
+    {
+      "id": "PositiveCentsSchema#n-true",
+      "schema": "PositiveCentsSchema",
+      "input": true,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"number"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}]}
+    },
+    {
+      "id": "PositiveCentsSchema#n-[]",
+      "schema": "PositiveCentsSchema",
+      "input": [],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"number"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}]}
+    },
+    {
+      "id": "PositiveCentsSchema#n-{}",
+      "schema": "PositiveCentsSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"number"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"number"}}}]}
+    },
+    {
+      "id": "PositiveCentsSchema#100",
+      "schema": "PositiveCentsSchema",
+      "input": 100,
+      "ok": true,
+      "output": 100
+    },
+    {
+      "id": "PositiveCentsSchema#-100",
+      "schema": "PositiveCentsSchema",
+      "input": -100,
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.amountPositive"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Der Betrag muss größer als 0 sein.","i18n":{"key":"server.validation.amountPositive","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"The amount must be greater than 0.","i18n":{"key":"server.validation.amountPositive","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PositiveCentsSchema#1",
+      "schema": "PositiveCentsSchema",
+      "input": 1,
+      "ok": true,
+      "output": 1
+    },
+    {
+      "id": "PositiveCentsSchema#-1",
+      "schema": "PositiveCentsSchema",
+      "input": -1,
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.amountPositive"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Der Betrag muss größer als 0 sein.","i18n":{"key":"server.validation.amountPositive","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"The amount must be greater than 0.","i18n":{"key":"server.validation.amountPositive","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PositiveCentsSchema#12345678",
+      "schema": "PositiveCentsSchema",
+      "input": 12345678,
+      "ok": true,
+      "output": 12345678
+    },
+    {
+      "id": "PositiveCentsSchema#9007199254740991",
+      "schema": "PositiveCentsSchema",
+      "input": 9007199254740991,
+      "ok": true,
+      "output": 9007199254740991
+    },
+    {
+      "id": "PositiveCentsSchema#-9007199254740991",
+      "schema": "PositiveCentsSchema",
+      "input": -9007199254740991,
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.amountPositive"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Der Betrag muss größer als 0 sein.","i18n":{"key":"server.validation.amountPositive","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"The amount must be greater than 0.","i18n":{"key":"server.validation.amountPositive","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PositiveCentsSchema#9007199254740992",
+      "schema": "PositiveCentsSchema",
+      "input": 9007199254740992,
+      "ok": false,
+      "issues": [{"code":"too_big","path":[],"origin":"int","maximum":9007199254740991}],
+      "details": {"de":[{"path":"","code":"too_big","message":"Wert ist zu groß","i18n":{"key":"server.zod.too_big","values":{"field":"","facet":"int","bound":9007199254740991}}}],"en":[{"path":"","code":"too_big","message":"Value is too big","i18n":{"key":"server.zod.too_big","values":{"field":"","facet":"int","bound":9007199254740991}}}]}
+    },
+    {
+      "id": "PositiveCentsSchema#-9007199254740992",
+      "schema": "PositiveCentsSchema",
+      "input": -9007199254740992,
+      "ok": false,
+      "issues": [{"code":"too_small","path":[],"origin":"int","minimum":-9007199254740991},{"code":"custom","path":[],"params":{"i18n":"server.validation.amountPositive"}}],
+      "details": {"de":[{"path":"","code":"too_small","message":"Wert ist zu klein","i18n":{"key":"server.zod.too_small","values":{"field":"","facet":"int","bound":-9007199254740991}}},{"path":"","code":"custom","message":"Der Betrag muss größer als 0 sein.","i18n":{"key":"server.validation.amountPositive","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"too_small","message":"Value is too small","i18n":{"key":"server.zod.too_small","values":{"field":"","facet":"int","bound":-9007199254740991}}},{"path":"","code":"custom","message":"The amount must be greater than 0.","i18n":{"key":"server.validation.amountPositive","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "PositiveCentsSchema#1-2",
+      "schema": "PositiveCentsSchema",
+      "input": 1,
+      "ok": true,
+      "output": 1
+    },
+    {
+      "id": "PositiveCentsSchema#2.5",
+      "schema": "PositiveCentsSchema",
+      "input": 2.5,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"int"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"int"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"int"}}}]}
+    },
+    {
+      "id": "PositiveCentsSchema#0.01",
+      "schema": "PositiveCentsSchema",
+      "input": 0.01,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"int"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"int"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"int"}}}]}
+    },
+    {
+      "id": "BooleanQuerySchema#true",
+      "schema": "BooleanQuerySchema",
+      "input": true,
+      "ok": true,
+      "output": true
+    },
+    {
+      "id": "BooleanQuerySchema#false",
+      "schema": "BooleanQuerySchema",
+      "input": false,
+      "ok": true,
+      "output": false
+    },
+    {
+      "id": "BooleanQuerySchema#s(true)",
+      "schema": "BooleanQuerySchema",
+      "input": "true",
+      "ok": true,
+      "output": true
+    },
+    {
+      "id": "BooleanQuerySchema#s(false)",
+      "schema": "BooleanQuerySchema",
+      "input": "false",
+      "ok": true,
+      "output": false
+    },
+    {
+      "id": "BooleanQuerySchema#s(TRUE)",
+      "schema": "BooleanQuerySchema",
+      "input": "TRUE",
+      "ok": true,
+      "output": true
+    },
+    {
+      "id": "BooleanQuerySchema#s(False)",
+      "schema": "BooleanQuerySchema",
+      "input": "False",
+      "ok": true,
+      "output": false
+    },
+    {
+      "id": "BooleanQuerySchema#s(tRuE)",
+      "schema": "BooleanQuerySchema",
+      "input": "tRuE",
+      "ok": true,
+      "output": true
+    },
+    {
+      "id": "BooleanQuerySchema#s(1)",
+      "schema": "BooleanQuerySchema",
+      "input": "1",
+      "ok": true,
+      "output": true
+    },
+    {
+      "id": "BooleanQuerySchema#s(0)",
+      "schema": "BooleanQuerySchema",
+      "input": "0",
+      "ok": true,
+      "output": false
+    },
+    {
+      "id": "BooleanQuerySchema#s(01)",
+      "schema": "BooleanQuerySchema",
+      "input": "01",
+      "ok": false,
+      "issues": [{"code":"custom","path":[]}],
+      "details": {"de":[{"path":"","code":"custom","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "BooleanQuerySchema#s(yes)",
+      "schema": "BooleanQuerySchema",
+      "input": "yes",
+      "ok": false,
+      "issues": [{"code":"custom","path":[]}],
+      "details": {"de":[{"path":"","code":"custom","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "BooleanQuerySchema#s(no)",
+      "schema": "BooleanQuerySchema",
+      "input": "no",
+      "ok": false,
+      "issues": [{"code":"custom","path":[]}],
+      "details": {"de":[{"path":"","code":"custom","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "BooleanQuerySchema#s(on)",
+      "schema": "BooleanQuerySchema",
+      "input": "on",
+      "ok": false,
+      "issues": [{"code":"custom","path":[]}],
+      "details": {"de":[{"path":"","code":"custom","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "BooleanQuerySchema#s()",
+      "schema": "BooleanQuerySchema",
+      "input": "",
+      "ok": false,
+      "issues": [{"code":"custom","path":[]}],
+      "details": {"de":[{"path":"","code":"custom","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "BooleanQuerySchema#s( true)",
+      "schema": "BooleanQuerySchema",
+      "input": " true",
+      "ok": false,
+      "issues": [{"code":"custom","path":[]}],
+      "details": {"de":[{"path":"","code":"custom","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "BooleanQuerySchema#s(true )",
+      "schema": "BooleanQuerySchema",
+      "input": "true ",
+      "ok": false,
+      "issues": [{"code":"custom","path":[]}],
+      "details": {"de":[{"path":"","code":"custom","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "BooleanQuerySchema#s(2)",
+      "schema": "BooleanQuerySchema",
+      "input": "2",
+      "ok": false,
+      "issues": [{"code":"custom","path":[]}],
+      "details": {"de":[{"path":"","code":"custom","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "BooleanQuerySchema#s(-1)",
+      "schema": "BooleanQuerySchema",
+      "input": "-1",
+      "ok": false,
+      "issues": [{"code":"custom","path":[]}],
+      "details": {"de":[{"path":"","code":"custom","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "BooleanQuerySchema#s(null)",
+      "schema": "BooleanQuerySchema",
+      "input": "null",
+      "ok": false,
+      "issues": [{"code":"custom","path":[]}],
+      "details": {"de":[{"path":"","code":"custom","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "BooleanQuerySchema#s(undefined)",
+      "schema": "BooleanQuerySchema",
+      "input": "undefined",
+      "ok": false,
+      "issues": [{"code":"custom","path":[]}],
+      "details": {"de":[{"path":"","code":"custom","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "BooleanQuerySchema#undefined",
+      "schema": "BooleanQuerySchema",
+      "input": {"$undefined":true},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "BooleanQuerySchema#null",
+      "schema": "BooleanQuerySchema",
+      "input": null,
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "BooleanQuerySchema#1",
+      "schema": "BooleanQuerySchema",
+      "input": 1,
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "BooleanQuerySchema#0",
+      "schema": "BooleanQuerySchema",
+      "input": 0,
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "BooleanQuerySchema#NaN",
+      "schema": "BooleanQuerySchema",
+      "input": {"$number":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "BooleanQuerySchema#Infinity",
+      "schema": "BooleanQuerySchema",
+      "input": {"$number":"Infinity"},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "BooleanQuerySchema#[]",
+      "schema": "BooleanQuerySchema",
+      "input": [],
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "BooleanQuerySchema#[\"true\"]",
+      "schema": "BooleanQuerySchema",
+      "input": ["true"],
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "BooleanQuerySchema#{}",
+      "schema": "BooleanQuerySchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "MemberSlotSchema#1",
+      "schema": "MemberSlotSchema",
+      "input": 1,
+      "ok": true,
+      "output": 1
+    },
+    {
+      "id": "MemberSlotSchema#2",
+      "schema": "MemberSlotSchema",
+      "input": 2,
+      "ok": true,
+      "output": 2
+    },
+    {
+      "id": "MemberSlotSchema#0",
+      "schema": "MemberSlotSchema",
+      "input": 0,
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "MemberSlotSchema#3",
+      "schema": "MemberSlotSchema",
+      "input": 3,
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "MemberSlotSchema#-1",
+      "schema": "MemberSlotSchema",
+      "input": -1,
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "MemberSlotSchema#1.5",
+      "schema": "MemberSlotSchema",
+      "input": 1.5,
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "MemberSlotSchema#s(1)",
+      "schema": "MemberSlotSchema",
+      "input": "1",
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "MemberSlotSchema#s(2)",
+      "schema": "MemberSlotSchema",
+      "input": "2",
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "MemberSlotSchema#NaN",
+      "schema": "MemberSlotSchema",
+      "input": {"$number":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "MemberSlotSchema#Infinity",
+      "schema": "MemberSlotSchema",
+      "input": {"$number":"Infinity"},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "MemberSlotSchema#-Infinity",
+      "schema": "MemberSlotSchema",
+      "input": {"$number":"-Infinity"},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "MemberSlotSchema#null",
+      "schema": "MemberSlotSchema",
+      "input": null,
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "MemberSlotSchema#undefined",
+      "schema": "MemberSlotSchema",
+      "input": {"$undefined":true},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "MemberSlotSchema#true",
+      "schema": "MemberSlotSchema",
+      "input": true,
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "MemberSlotSchema#[]",
+      "schema": "MemberSlotSchema",
+      "input": [],
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "MemberSlotSchema#{}",
+      "schema": "MemberSlotSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "MemberSlotSchema#[1]",
+      "schema": "MemberSlotSchema",
+      "input": [1],
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "MemberSlotSchema#100000000000000000000",
+      "schema": "MemberSlotSchema",
+      "input": 100000000000000000000,
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[]}],
+      "details": {"de":[{"path":"","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#valid",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"50","offset":"0"},
+      "ok": true,
+      "output": {"limit":50,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#minimal",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {},
+      "ok": true,
+      "output": {"limit":50,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-0",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"0"},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["limit"],"origin":"number","minimum":1}],
+      "details": {"de":[{"path":"limit","code":"too_small","message":"Muss mindestens 1 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}],"en":[{"path":"limit","code":"too_small","message":"Must be at least 1","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-1",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"1"},
+      "ok": true,
+      "output": {"limit":1,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-2",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"1.5"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["limit"],"expected":"int"}],
+      "details": {"de":[{"path":"limit","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"int"}}}],"en":[{"path":"limit","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"int"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-3",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"-1"},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["limit"],"origin":"number","minimum":1}],
+      "details": {"de":[{"path":"limit","code":"too_small","message":"Muss mindestens 1 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}],"en":[{"path":"limit","code":"too_small","message":"Must be at least 1","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-4",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"0"},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["limit"],"origin":"number","minimum":1}],
+      "details": {"de":[{"path":"limit","code":"too_small","message":"Muss mindestens 1 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}],"en":[{"path":"limit","code":"too_small","message":"Must be at least 1","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-5",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"24"},
+      "ok": true,
+      "output": {"limit":24,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-6",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":" 12 "},
+      "ok": true,
+      "output": {"limit":12,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-7",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"1e2"},
+      "ok": true,
+      "output": {"limit":100,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-8",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"Infinity"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["limit"],"expected":"number"}],
+      "details": {"de":[{"path":"limit","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}],"en":[{"path":"limit","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-9",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"-Infinity"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["limit"],"expected":"number"}],
+      "details": {"de":[{"path":"limit","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}],"en":[{"path":"limit","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-10",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["limit"],"expected":"number"}],
+      "details": {"de":[{"path":"limit","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}],"en":[{"path":"limit","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-11",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"0x10"},
+      "ok": true,
+      "output": {"limit":16,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-12",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"1_000"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["limit"],"expected":"number"}],
+      "details": {"de":[{"path":"limit","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}],"en":[{"path":"limit","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-13",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":["1","2"]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["limit"],"expected":"number"}],
+      "details": {"de":[{"path":"limit","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}],"en":[{"path":"limit","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-14",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":1},
+      "ok": true,
+      "output": {"limit":1,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-15",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":24},
+      "ok": true,
+      "output": {"limit":24,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-16",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":0},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["limit"],"origin":"number","minimum":1}],
+      "details": {"de":[{"path":"limit","code":"too_small","message":"Muss mindestens 1 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}],"en":[{"path":"limit","code":"too_small","message":"Must be at least 1","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-17",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":-1},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["limit"],"origin":"number","minimum":1}],
+      "details": {"de":[{"path":"limit","code":"too_small","message":"Muss mindestens 1 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}],"en":[{"path":"limit","code":"too_small","message":"Must be at least 1","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-18",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":1.5},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["limit"],"expected":"int"}],
+      "details": {"de":[{"path":"limit","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"int"}}}],"en":[{"path":"limit","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"int"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-19",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":101},
+      "ok": true,
+      "output": {"limit":101,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-20",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":{"$number":"NaN"}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["limit"],"expected":"number"}],
+      "details": {"de":[{"path":"limit","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}],"en":[{"path":"limit","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-21",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":{"$number":"Infinity"}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["limit"],"expected":"number"}],
+      "details": {"de":[{"path":"limit","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}],"en":[{"path":"limit","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-22",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":{"$number":"-Infinity"}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["limit"],"expected":"number"}],
+      "details": {"de":[{"path":"limit","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}],"en":[{"path":"limit","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-23",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":null},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["limit"],"origin":"number","minimum":1}],
+      "details": {"de":[{"path":"limit","code":"too_small","message":"Muss mindestens 1 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}],"en":[{"path":"limit","code":"too_small","message":"Must be at least 1","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-24",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":true},
+      "ok": true,
+      "output": {"limit":1,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-25",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":[]},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["limit"],"origin":"number","minimum":1}],
+      "details": {"de":[{"path":"limit","code":"too_small","message":"Muss mindestens 1 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}],"en":[{"path":"limit","code":"too_small","message":"Must be at least 1","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-26",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":{}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["limit"],"expected":"number"}],
+      "details": {"de":[{"path":"limit","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}],"en":[{"path":"limit","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset-0",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":""},
+      "ok": true,
+      "output": {"limit":50,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset-1",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":"abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["offset"],"expected":"number"}],
+      "details": {"de":[{"path":"offset","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}],"en":[{"path":"offset","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset-2",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":"1.5"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["offset"],"expected":"int"}],
+      "details": {"de":[{"path":"offset","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"int"}}}],"en":[{"path":"offset","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"int"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset-3",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":"-1"},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["offset"],"origin":"number","minimum":0}],
+      "details": {"de":[{"path":"offset","code":"too_small","message":"Muss mindestens 0 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"offset","facet":"number","bound":0}}}],"en":[{"path":"offset","code":"too_small","message":"Must be at least 0","i18n":{"key":"server.zod.too_small.number","values":{"field":"offset","facet":"number","bound":0}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset-4",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":"0"},
+      "ok": true,
+      "output": {"limit":50,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset-5",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":"24"},
+      "ok": true,
+      "output": {"limit":50,"offset":24}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset-6",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":" 12 "},
+      "ok": true,
+      "output": {"limit":50,"offset":12}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset-7",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":"1e2"},
+      "ok": true,
+      "output": {"limit":50,"offset":100}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset-8",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":"Infinity"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["offset"],"expected":"number"}],
+      "details": {"de":[{"path":"offset","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}],"en":[{"path":"offset","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset-9",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":"-Infinity"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["offset"],"expected":"number"}],
+      "details": {"de":[{"path":"offset","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}],"en":[{"path":"offset","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset-10",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["offset"],"expected":"number"}],
+      "details": {"de":[{"path":"offset","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}],"en":[{"path":"offset","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset-11",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":"0x10"},
+      "ok": true,
+      "output": {"limit":50,"offset":16}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset-12",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":"1_000"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["offset"],"expected":"number"}],
+      "details": {"de":[{"path":"offset","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}],"en":[{"path":"offset","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset-13",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":["1","2"]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["offset"],"expected":"number"}],
+      "details": {"de":[{"path":"offset","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}],"en":[{"path":"offset","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset-14",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":1},
+      "ok": true,
+      "output": {"limit":50,"offset":1}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset-15",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":24},
+      "ok": true,
+      "output": {"limit":50,"offset":24}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset-16",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":0},
+      "ok": true,
+      "output": {"limit":50,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset-17",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":-1},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["offset"],"origin":"number","minimum":0}],
+      "details": {"de":[{"path":"offset","code":"too_small","message":"Muss mindestens 0 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"offset","facet":"number","bound":0}}}],"en":[{"path":"offset","code":"too_small","message":"Must be at least 0","i18n":{"key":"server.zod.too_small.number","values":{"field":"offset","facet":"number","bound":0}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset-18",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":1.5},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["offset"],"expected":"int"}],
+      "details": {"de":[{"path":"offset","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"int"}}}],"en":[{"path":"offset","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"int"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset-19",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":101},
+      "ok": true,
+      "output": {"limit":50,"offset":101}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset-20",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":{"$number":"NaN"}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["offset"],"expected":"number"}],
+      "details": {"de":[{"path":"offset","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}],"en":[{"path":"offset","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset-21",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":{"$number":"Infinity"}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["offset"],"expected":"number"}],
+      "details": {"de":[{"path":"offset","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}],"en":[{"path":"offset","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset-22",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":{"$number":"-Infinity"}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["offset"],"expected":"number"}],
+      "details": {"de":[{"path":"offset","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}],"en":[{"path":"offset","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset-23",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":null},
+      "ok": true,
+      "output": {"limit":50,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset-24",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":true},
+      "ok": true,
+      "output": {"limit":50,"offset":1}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset-25",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":[]},
+      "ok": true,
+      "output": {"limit":50,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset-26",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":{}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["offset"],"expected":"number"}],
+      "details": {"de":[{"path":"offset","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}],"en":[{"path":"offset","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-200",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"200"},
+      "ok": true,
+      "output": {"limit":200,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-201",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"201"},
+      "ok": false,
+      "issues": [{"code":"too_big","path":["limit"],"origin":"number","maximum":200}],
+      "details": {"de":[{"path":"limit","code":"too_big","message":"Darf höchstens 200 sein","i18n":{"key":"server.zod.too_big.number","values":{"field":"limit","facet":"number","bound":200}}}],"en":[{"path":"limit","code":"too_big","message":"Must be at most 200","i18n":{"key":"server.zod.too_big.number","values":{"field":"limit","facet":"number","bound":200}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-100",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"100"},
+      "ok": true,
+      "output": {"limit":100,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit-undefined",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":{"$undefined":true}},
+      "ok": true,
+      "output": {"limit":50,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset-undefined",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":{"$undefined":true}},
+      "ok": true,
+      "output": {"limit":50,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#both-bad",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"0","offset":"-1"},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["limit"],"origin":"number","minimum":1},{"code":"too_small","path":["offset"],"origin":"number","minimum":0}],
+      "details": {"de":[{"path":"limit","code":"too_small","message":"Muss mindestens 1 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}},{"path":"offset","code":"too_small","message":"Muss mindestens 0 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"offset","facet":"number","bound":0}}}],"en":[{"path":"limit","code":"too_small","message":"Must be at least 1","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}},{"path":"offset","code":"too_small","message":"Must be at least 0","i18n":{"key":"server.zod.too_small.number","values":{"field":"offset","facet":"number","bound":0}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#both-nan",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"abc","offset":"abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["limit"],"expected":"number"},{"code":"invalid_type","path":["offset"],"expected":"number"}],
+      "details": {"de":[{"path":"limit","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}},{"path":"offset","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}],"en":[{"path":"limit","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}},{"path":"offset","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#both-numbers",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":5,"offset":10},
+      "ok": true,
+      "output": {"limit":5,"offset":10}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#unknown-key",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"10","sort":"x"},
+      "ok": true,
+      "output": {"limit":10,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#root-null",
+      "schema": "FinancePaginationQuerySchema",
+      "input": null,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#root-undefined",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"$undefined":true},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#root-string",
+      "schema": "FinancePaginationQuerySchema",
+      "input": "x",
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#root-array",
+      "schema": "FinancePaginationQuerySchema",
+      "input": [],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#root-number",
+      "schema": "FinancePaginationQuerySchema",
+      "input": 1,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#root-nan",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"$number":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#root-true",
+      "schema": "FinancePaginationQuerySchema",
+      "input": true,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#root-empty-object",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {},
+      "ok": true,
+      "output": {"limit":50,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#unknown-key-2",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"50","offset":"0","unknownKey":1},
+      "ok": true,
+      "output": {"limit":50,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit=num",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":1,"offset":"0"},
+      "ok": true,
+      "output": {"limit":1,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit=missing",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"offset":"0"},
+      "ok": true,
+      "output": {"limit":50,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit=null",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":null,"offset":"0"},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["limit"],"origin":"number","minimum":1}],
+      "details": {"de":[{"path":"limit","code":"too_small","message":"Muss mindestens 1 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}],"en":[{"path":"limit","code":"too_small","message":"Must be at least 1","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit=undefined",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":{"$undefined":true},"offset":"0"},
+      "ok": true,
+      "output": {"limit":50,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit=empty",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"","offset":"0"},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["limit"],"origin":"number","minimum":1}],
+      "details": {"de":[{"path":"limit","code":"too_small","message":"Muss mindestens 1 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}],"en":[{"path":"limit","code":"too_small","message":"Must be at least 1","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit=blank",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"   ","offset":"0"},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["limit"],"origin":"number","minimum":1}],
+      "details": {"de":[{"path":"limit","code":"too_small","message":"Muss mindestens 1 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}],"en":[{"path":"limit","code":"too_small","message":"Must be at least 1","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}]}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#limit=padded",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"  50  ","offset":"0"},
+      "ok": true,
+      "output": {"limit":50,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset=num",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"50","offset":1},
+      "ok": true,
+      "output": {"limit":50,"offset":1}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset=missing",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"50"},
+      "ok": true,
+      "output": {"limit":50,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset=null",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"50","offset":null},
+      "ok": true,
+      "output": {"limit":50,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset=undefined",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"50","offset":{"$undefined":true}},
+      "ok": true,
+      "output": {"limit":50,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset=empty",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"50","offset":""},
+      "ok": true,
+      "output": {"limit":50,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset=blank",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"50","offset":"   "},
+      "ok": true,
+      "output": {"limit":50,"offset":0}
+    },
+    {
+      "id": "FinancePaginationQuerySchema#offset=padded",
+      "schema": "FinancePaginationQuerySchema",
+      "input": {"limit":"50","offset":"  0  "},
+      "ok": true,
+      "output": {"limit":50,"offset":0}
+    }
+  ]
+}

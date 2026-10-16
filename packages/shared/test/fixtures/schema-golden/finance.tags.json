@@ -1,0 +1,1224 @@
+{
+  "source": "packages/shared/src/modules/finance/schemas/tags.ts",
+  "zod": "4.5.4",
+  "cases": [
+    {
+      "id": "TagNameSchema#type-undefined",
+      "schema": "TagNameSchema",
+      "input": {"$undefined":true},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "TagNameSchema#type-null",
+      "schema": "TagNameSchema",
+      "input": null,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "TagNameSchema#type-s()",
+      "schema": "TagNameSchema",
+      "input": "",
+      "ok": false,
+      "issues": [{"code":"too_small","path":[],"origin":"string","minimum":1}],
+      "details": {"de":[{"path":"","code":"too_small","message":"Muss mindestens 1 Zeichen lang sein","i18n":{"key":"server.zod.too_small.string","values":{"field":"","facet":"string","bound":1}}}],"en":[{"path":"","code":"too_small","message":"Must be at least 1 characters long","i18n":{"key":"server.zod.too_small.string","values":{"field":"","facet":"string","bound":1}}}]}
+    },
+    {
+      "id": "TagNameSchema#type-0",
+      "schema": "TagNameSchema",
+      "input": 0,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "TagNameSchema#type-1",
+      "schema": "TagNameSchema",
+      "input": 1,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "TagNameSchema#type-true",
+      "schema": "TagNameSchema",
+      "input": true,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "TagNameSchema#type-false",
+      "schema": "TagNameSchema",
+      "input": false,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "TagNameSchema#type-[]",
+      "schema": "TagNameSchema",
+      "input": [],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"},{"code":"too_small","path":[],"origin":"array","minimum":1}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}},{"path":"","code":"too_small","message":"Es müssen mindestens 1 Einträge angegeben werden","i18n":{"key":"server.zod.too_small.array","values":{"field":"","facet":"array","bound":1}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}},{"path":"","code":"too_small","message":"At least 1 entries are required","i18n":{"key":"server.zod.too_small.array","values":{"field":"","facet":"array","bound":1}}}]}
+    },
+    {
+      "id": "TagNameSchema#type-{}",
+      "schema": "TagNameSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "TagNameSchema#type-NaN",
+      "schema": "TagNameSchema",
+      "input": {"$number":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "TagNameSchema#type-Infinity",
+      "schema": "TagNameSchema",
+      "input": {"$number":"Infinity"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "TagNameSchema#type--Infinity",
+      "schema": "TagNameSchema",
+      "input": {"$number":"-Infinity"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "TagNameSchema#s(bio)",
+      "schema": "TagNameSchema",
+      "input": "bio",
+      "ok": true,
+      "output": "bio"
+    },
+    {
+      "id": "TagNameSchema#s(  bio  )",
+      "schema": "TagNameSchema",
+      "input": "  bio  ",
+      "ok": true,
+      "output": "bio"
+    },
+    {
+      "id": "TagNameSchema#s()",
+      "schema": "TagNameSchema",
+      "input": "",
+      "ok": false,
+      "issues": [{"code":"too_small","path":[],"origin":"string","minimum":1}],
+      "details": {"de":[{"path":"","code":"too_small","message":"Muss mindestens 1 Zeichen lang sein","i18n":{"key":"server.zod.too_small.string","values":{"field":"","facet":"string","bound":1}}}],"en":[{"path":"","code":"too_small","message":"Must be at least 1 characters long","i18n":{"key":"server.zod.too_small.string","values":{"field":"","facet":"string","bound":1}}}]}
+    },
+    {
+      "id": "TagNameSchema#s( )",
+      "schema": "TagNameSchema",
+      "input": " ",
+      "ok": false,
+      "issues": [{"code":"too_small","path":[],"origin":"string","minimum":1}],
+      "details": {"de":[{"path":"","code":"too_small","message":"Muss mindestens 1 Zeichen lang sein","i18n":{"key":"server.zod.too_small.string","values":{"field":"","facet":"string","bound":1}}}],"en":[{"path":"","code":"too_small","message":"Must be at least 1 characters long","i18n":{"key":"server.zod.too_small.string","values":{"field":"","facet":"string","bound":1}}}]}
+    },
+    {
+      "id": "TagNameSchema#s(a)",
+      "schema": "TagNameSchema",
+      "input": "a",
+      "ok": true,
+      "output": "a"
+    },
+    {
+      "id": "TagNameSchema#s(ttttttttttttttttttttttttttttttttttttttt)",
+      "schema": "TagNameSchema",
+      "input": "ttttttttttttttttttttttttttttttttttttttt",
+      "ok": true,
+      "output": "ttttttttttttttttttttttttttttttttttttttt"
+    },
+    {
+      "id": "TagNameSchema#s(tttttttttttttttttttttttttttttttttttttttt)",
+      "schema": "TagNameSchema",
+      "input": "tttttttttttttttttttttttttttttttttttttttt",
+      "ok": true,
+      "output": "tttttttttttttttttttttttttttttttttttttttt"
+    },
+    {
+      "id": "TagNameSchema#s(ttttttttttttttttttttttttttttttttttttttttt)",
+      "schema": "TagNameSchema",
+      "input": "ttttttttttttttttttttttttttttttttttttttttt",
+      "ok": false,
+      "issues": [{"code":"too_big","path":[],"origin":"string","maximum":40}],
+      "details": {"de":[{"path":"","code":"too_big","message":"Darf höchstens 40 Zeichen lang sein","i18n":{"key":"server.zod.too_big.string","values":{"field":"","facet":"string","bound":40}}}],"en":[{"path":"","code":"too_big","message":"Must be at most 40 characters long","i18n":{"key":"server.zod.too_big.string","values":{"field":"","facet":"string","bound":40}}}]}
+    },
+    {
+      "id": "TagNameSchema#s(  tttttttttttttttttttttttttttttttttttttttt  )",
+      "schema": "TagNameSchema",
+      "input": "  tttttttttttttttttttttttttttttttttttttttt  ",
+      "ok": true,
+      "output": "tttttttttttttttttttttttttttttttttttttttt"
+    },
+    {
+      "id": "TagNameSchema#s(  tttttttttttttttttttttttttttttt~len45)",
+      "schema": "TagNameSchema",
+      "input": "  ttttttttttttttttttttttttttttttttttttttttt  ",
+      "ok": false,
+      "issues": [{"code":"too_big","path":[],"origin":"string","maximum":40}],
+      "details": {"de":[{"path":"","code":"too_big","message":"Darf höchstens 40 Zeichen lang sein","i18n":{"key":"server.zod.too_big.string","values":{"field":"","facet":"string","bound":40}}}],"en":[{"path":"","code":"too_big","message":"Must be at most 40 characters long","i18n":{"key":"server.zod.too_big.string","values":{"field":"","facet":"string","bound":40}}}]}
+    },
+    {
+      "id": "TagNameSchema#s(\\u00e4)",
+      "schema": "TagNameSchema",
+      "input": "ä",
+      "ok": true,
+      "output": "ä"
+    },
+    {
+      "id": "TagNameSchema#s(Bio Markt)",
+      "schema": "TagNameSchema",
+      "input": "Bio Markt",
+      "ok": true,
+      "output": "Bio Markt"
+    },
+    {
+      "id": "TagNameSchema#s(a\\u0000b)",
+      "schema": "TagNameSchema",
+      "input": "a\u0000b",
+      "ok": true,
+      "output": "a\u0000b"
+    },
+    {
+      "id": "TagNameSchema#s(\\ud83d\\ude00)",
+      "schema": "TagNameSchema",
+      "input": "😀",
+      "ok": true,
+      "output": "😀"
+    },
+    {
+      "id": "FinanceTagResponseSchema#valid",
+      "schema": "FinanceTagResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"bio","usageCount":4},
+      "ok": true,
+      "output": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"bio","usageCount":4}
+    },
+    {
+      "id": "FinanceTagResponseSchema#usage-negative",
+      "schema": "FinanceTagResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"bio","usageCount":-1},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["usageCount"],"origin":"number","minimum":0}],
+      "details": {"de":[{"path":"usageCount","code":"too_small","message":"Muss mindestens 0 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"usageCount","facet":"number","bound":0}}}],"en":[{"path":"usageCount","code":"too_small","message":"Must be at least 0","i18n":{"key":"server.zod.too_small.number","values":{"field":"usageCount","facet":"number","bound":0}}}]}
+    },
+    {
+      "id": "FinanceTagResponseSchema#usage-fraction",
+      "schema": "FinanceTagResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"bio","usageCount":0.5},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["usageCount"],"expected":"int"}],
+      "details": {"de":[{"path":"usageCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"int"}}}],"en":[{"path":"usageCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"int"}}}]}
+    },
+    {
+      "id": "FinanceTagResponseSchema#root-null",
+      "schema": "FinanceTagResponseSchema",
+      "input": null,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceTagResponseSchema#root-undefined",
+      "schema": "FinanceTagResponseSchema",
+      "input": {"$undefined":true},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceTagResponseSchema#root-string",
+      "schema": "FinanceTagResponseSchema",
+      "input": "x",
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceTagResponseSchema#root-array",
+      "schema": "FinanceTagResponseSchema",
+      "input": [],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceTagResponseSchema#root-number",
+      "schema": "FinanceTagResponseSchema",
+      "input": 1,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceTagResponseSchema#root-nan",
+      "schema": "FinanceTagResponseSchema",
+      "input": {"$number":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceTagResponseSchema#root-true",
+      "schema": "FinanceTagResponseSchema",
+      "input": true,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceTagResponseSchema#root-empty-object",
+      "schema": "FinanceTagResponseSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["id"],"expected":"string"},{"code":"invalid_type","path":["name"],"expected":"string"},{"code":"invalid_type","path":["usageCount"],"expected":"number"}],
+      "details": {"de":[{"path":"id","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}},{"path":"name","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}},{"path":"usageCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}],"en":[{"path":"id","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}},{"path":"name","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}},{"path":"usageCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}]}
+    },
+    {
+      "id": "FinanceTagResponseSchema#unknown-key",
+      "schema": "FinanceTagResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"bio","usageCount":4,"unknownKey":1},
+      "ok": true,
+      "output": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"bio","usageCount":4}
+    },
+    {
+      "id": "FinanceTagResponseSchema#id=num",
+      "schema": "FinanceTagResponseSchema",
+      "input": {"id":1,"name":"bio","usageCount":4},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["id"],"expected":"string"}],
+      "details": {"de":[{"path":"id","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}}],"en":[{"path":"id","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceTagResponseSchema#id=missing",
+      "schema": "FinanceTagResponseSchema",
+      "input": {"name":"bio","usageCount":4},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["id"],"expected":"string"}],
+      "details": {"de":[{"path":"id","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}}],"en":[{"path":"id","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceTagResponseSchema#id=null",
+      "schema": "FinanceTagResponseSchema",
+      "input": {"id":null,"name":"bio","usageCount":4},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["id"],"expected":"string"}],
+      "details": {"de":[{"path":"id","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}}],"en":[{"path":"id","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceTagResponseSchema#name=num",
+      "schema": "FinanceTagResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":1,"usageCount":4},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["name"],"expected":"string"}],
+      "details": {"de":[{"path":"name","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}],"en":[{"path":"name","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceTagResponseSchema#name=missing",
+      "schema": "FinanceTagResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","usageCount":4},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["name"],"expected":"string"}],
+      "details": {"de":[{"path":"name","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}],"en":[{"path":"name","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceTagResponseSchema#name=null",
+      "schema": "FinanceTagResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":null,"usageCount":4},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["name"],"expected":"string"}],
+      "details": {"de":[{"path":"name","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}],"en":[{"path":"name","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceTagResponseSchema#usageCount=nan",
+      "schema": "FinanceTagResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"bio","usageCount":{"$number":"NaN"}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["usageCount"],"expected":"number"}],
+      "details": {"de":[{"path":"usageCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}],"en":[{"path":"usageCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}]}
+    },
+    {
+      "id": "FinanceTagResponseSchema#usageCount=inf",
+      "schema": "FinanceTagResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"bio","usageCount":{"$number":"Infinity"}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["usageCount"],"expected":"number"}],
+      "details": {"de":[{"path":"usageCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}],"en":[{"path":"usageCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}]}
+    },
+    {
+      "id": "FinanceTagResponseSchema#usageCount=neg-inf",
+      "schema": "FinanceTagResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"bio","usageCount":{"$number":"-Infinity"}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["usageCount"],"expected":"number"}],
+      "details": {"de":[{"path":"usageCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}],"en":[{"path":"usageCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}]}
+    },
+    {
+      "id": "FinanceTagResponseSchema#usageCount=str-x",
+      "schema": "FinanceTagResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"bio","usageCount":"x"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["usageCount"],"expected":"number"}],
+      "details": {"de":[{"path":"usageCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}],"en":[{"path":"usageCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}]}
+    },
+    {
+      "id": "FinanceTagResponseSchema#usageCount=missing",
+      "schema": "FinanceTagResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"bio"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["usageCount"],"expected":"number"}],
+      "details": {"de":[{"path":"usageCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}],"en":[{"path":"usageCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}]}
+    },
+    {
+      "id": "FinanceTagResponseSchema#usageCount=null",
+      "schema": "FinanceTagResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"bio","usageCount":null},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["usageCount"],"expected":"number"}],
+      "details": {"de":[{"path":"usageCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}],"en":[{"path":"usageCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}]}
+    },
+    {
+      "id": "FinanceTagResponseSchema#usageCount=neg1",
+      "schema": "FinanceTagResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"bio","usageCount":-1},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["usageCount"],"origin":"number","minimum":0}],
+      "details": {"de":[{"path":"usageCount","code":"too_small","message":"Muss mindestens 0 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"usageCount","facet":"number","bound":0}}}],"en":[{"path":"usageCount","code":"too_small","message":"Must be at least 0","i18n":{"key":"server.zod.too_small.number","values":{"field":"usageCount","facet":"number","bound":0}}}]}
+    },
+    {
+      "id": "FinanceTagResponseSchema#usageCount=frac",
+      "schema": "FinanceTagResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"bio","usageCount":1.5},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["usageCount"],"expected":"int"}],
+      "details": {"de":[{"path":"usageCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"int"}}}],"en":[{"path":"usageCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"int"}}}]}
+    },
+    {
+      "id": "FinanceTagListResponseSchema#valid",
+      "schema": "FinanceTagListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"bio","usageCount":4}]},
+      "ok": true,
+      "output": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"bio","usageCount":4}]}
+    },
+    {
+      "id": "FinanceTagListResponseSchema#minimal",
+      "schema": "FinanceTagListResponseSchema",
+      "input": {"items":[]},
+      "ok": true,
+      "output": {"items":[]}
+    },
+    {
+      "id": "FinanceTagListResponseSchema#second-bad",
+      "schema": "FinanceTagListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"bio","usageCount":4},{"id":"x"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_format","path":["items",1,"id"],"format":"uuid"},{"code":"invalid_type","path":["items",1,"name"],"expected":"string"},{"code":"invalid_type","path":["items",1,"usageCount"],"expected":"number"}],
+      "details": {"de":[{"path":"items.1.id","code":"invalid_format","message":"Ungültiges Format","i18n":{"key":"server.zod.invalid_format","values":{"field":"id","facet":"uuid"}}},{"path":"items.1.name","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}},{"path":"items.1.usageCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}],"en":[{"path":"items.1.id","code":"invalid_format","message":"Invalid format","i18n":{"key":"server.zod.invalid_format","values":{"field":"id","facet":"uuid"}}},{"path":"items.1.name","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}},{"path":"items.1.usageCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}]}
+    },
+    {
+      "id": "FinanceTagListResponseSchema#root-null",
+      "schema": "FinanceTagListResponseSchema",
+      "input": null,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceTagListResponseSchema#root-undefined",
+      "schema": "FinanceTagListResponseSchema",
+      "input": {"$undefined":true},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceTagListResponseSchema#root-string",
+      "schema": "FinanceTagListResponseSchema",
+      "input": "x",
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceTagListResponseSchema#root-array",
+      "schema": "FinanceTagListResponseSchema",
+      "input": [],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceTagListResponseSchema#root-number",
+      "schema": "FinanceTagListResponseSchema",
+      "input": 1,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceTagListResponseSchema#root-nan",
+      "schema": "FinanceTagListResponseSchema",
+      "input": {"$number":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceTagListResponseSchema#root-true",
+      "schema": "FinanceTagListResponseSchema",
+      "input": true,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceTagListResponseSchema#root-empty-object",
+      "schema": "FinanceTagListResponseSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items"],"expected":"array"}],
+      "details": {"de":[{"path":"items","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"array"}}}],"en":[{"path":"items","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"array"}}}]}
+    },
+    {
+      "id": "FinanceTagListResponseSchema#unknown-key",
+      "schema": "FinanceTagListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"bio","usageCount":4}],"unknownKey":1},
+      "ok": true,
+      "output": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"bio","usageCount":4}]}
+    },
+    {
+      "id": "FinanceTagListResponseSchema#items=str-x",
+      "schema": "FinanceTagListResponseSchema",
+      "input": {"items":"x"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items"],"expected":"array"}],
+      "details": {"de":[{"path":"items","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"array"}}}],"en":[{"path":"items","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"array"}}}]}
+    },
+    {
+      "id": "FinanceTagListResponseSchema#items=missing",
+      "schema": "FinanceTagListResponseSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items"],"expected":"array"}],
+      "details": {"de":[{"path":"items","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"array"}}}],"en":[{"path":"items","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"array"}}}]}
+    },
+    {
+      "id": "FinanceTagListResponseSchema#items=null",
+      "schema": "FinanceTagListResponseSchema",
+      "input": {"items":null},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items"],"expected":"array"}],
+      "details": {"de":[{"path":"items","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"array"}}}],"en":[{"path":"items","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"array"}}}]}
+    },
+    {
+      "id": "FinanceTagListResponseSchema#items.0=str-x",
+      "schema": "FinanceTagListResponseSchema",
+      "input": {"items":["x"]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0],"expected":"object"}],
+      "details": {"de":[{"path":"items.0","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"object"}}}],"en":[{"path":"items.0","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceTagListResponseSchema#items.0.id=num",
+      "schema": "FinanceTagListResponseSchema",
+      "input": {"items":[{"id":1,"name":"bio","usageCount":4}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"id"],"expected":"string"}],
+      "details": {"de":[{"path":"items.0.id","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}}],"en":[{"path":"items.0.id","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceTagListResponseSchema#items.0.name=num",
+      "schema": "FinanceTagListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":1,"usageCount":4}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"name"],"expected":"string"}],
+      "details": {"de":[{"path":"items.0.name","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}],"en":[{"path":"items.0.name","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceTagListResponseSchema#items.0.usageCount=nan",
+      "schema": "FinanceTagListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"bio","usageCount":{"$number":"NaN"}}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"usageCount"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.usageCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}],"en":[{"path":"items.0.usageCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}]}
+    },
+    {
+      "id": "FinanceTagListResponseSchema#items.0.usageCount=inf",
+      "schema": "FinanceTagListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"bio","usageCount":{"$number":"Infinity"}}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"usageCount"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.usageCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}],"en":[{"path":"items.0.usageCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}]}
+    },
+    {
+      "id": "FinanceTagListResponseSchema#items.0.usageCount=neg-inf",
+      "schema": "FinanceTagListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"bio","usageCount":{"$number":"-Infinity"}}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"usageCount"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.usageCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}],"en":[{"path":"items.0.usageCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}]}
+    },
+    {
+      "id": "FinanceTagListResponseSchema#items.0.usageCount=str-x",
+      "schema": "FinanceTagListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"bio","usageCount":"x"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"usageCount"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.usageCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}],"en":[{"path":"items.0.usageCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}]}
+    },
+    {
+      "id": "FinanceUpdateTagRequestSchema#valid",
+      "schema": "FinanceUpdateTagRequestSchema",
+      "input": {"name":"bio"},
+      "ok": true,
+      "output": {"name":"bio"}
+    },
+    {
+      "id": "FinanceUpdateTagRequestSchema#padded",
+      "schema": "FinanceUpdateTagRequestSchema",
+      "input": {"name":"  bio  "},
+      "ok": true,
+      "output": {"name":"bio"}
+    },
+    {
+      "id": "FinanceUpdateTagRequestSchema#blank",
+      "schema": "FinanceUpdateTagRequestSchema",
+      "input": {"name":"   "},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["name"],"origin":"string","minimum":1}],
+      "details": {"de":[{"path":"name","code":"too_small","message":"Name fehlt","i18n":{"key":"server.zod.field.name.too_small.1","values":{"field":"name","facet":"string","bound":1}}}],"en":[{"path":"name","code":"too_small","message":"Name is required","i18n":{"key":"server.zod.field.name.too_small.1","values":{"field":"name","facet":"string","bound":1}}}]}
+    },
+    {
+      "id": "FinanceUpdateTagRequestSchema#padded-long",
+      "schema": "FinanceUpdateTagRequestSchema",
+      "input": {"name":"  ttttttttttttttttttttttttttttttttttttttttt  "},
+      "ok": false,
+      "issues": [{"code":"too_big","path":["name"],"origin":"string","maximum":40}],
+      "details": {"de":[{"path":"name","code":"too_big","message":"Darf höchstens 40 Zeichen lang sein","i18n":{"key":"server.zod.too_big.string","values":{"field":"name","facet":"string","bound":40}}}],"en":[{"path":"name","code":"too_big","message":"Must be at most 40 characters long","i18n":{"key":"server.zod.too_big.string","values":{"field":"name","facet":"string","bound":40}}}]}
+    },
+    {
+      "id": "FinanceUpdateTagRequestSchema#root-null",
+      "schema": "FinanceUpdateTagRequestSchema",
+      "input": null,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceUpdateTagRequestSchema#root-undefined",
+      "schema": "FinanceUpdateTagRequestSchema",
+      "input": {"$undefined":true},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceUpdateTagRequestSchema#root-string",
+      "schema": "FinanceUpdateTagRequestSchema",
+      "input": "x",
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceUpdateTagRequestSchema#root-array",
+      "schema": "FinanceUpdateTagRequestSchema",
+      "input": [],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceUpdateTagRequestSchema#root-number",
+      "schema": "FinanceUpdateTagRequestSchema",
+      "input": 1,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceUpdateTagRequestSchema#root-nan",
+      "schema": "FinanceUpdateTagRequestSchema",
+      "input": {"$number":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceUpdateTagRequestSchema#root-true",
+      "schema": "FinanceUpdateTagRequestSchema",
+      "input": true,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceUpdateTagRequestSchema#root-empty-object",
+      "schema": "FinanceUpdateTagRequestSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["name"],"expected":"string"}],
+      "details": {"de":[{"path":"name","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}],"en":[{"path":"name","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceUpdateTagRequestSchema#unknown-key",
+      "schema": "FinanceUpdateTagRequestSchema",
+      "input": {"name":"bio","unknownKey":1},
+      "ok": true,
+      "output": {"name":"bio"}
+    },
+    {
+      "id": "FinanceUpdateTagRequestSchema#name=num",
+      "schema": "FinanceUpdateTagRequestSchema",
+      "input": {"name":1},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["name"],"expected":"string"}],
+      "details": {"de":[{"path":"name","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}],"en":[{"path":"name","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceUpdateTagRequestSchema#name=missing",
+      "schema": "FinanceUpdateTagRequestSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["name"],"expected":"string"}],
+      "details": {"de":[{"path":"name","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}],"en":[{"path":"name","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceUpdateTagRequestSchema#name=null",
+      "schema": "FinanceUpdateTagRequestSchema",
+      "input": {"name":null},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["name"],"expected":"string"}],
+      "details": {"de":[{"path":"name","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}],"en":[{"path":"name","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceUpdateTagRequestSchema#name=undefined",
+      "schema": "FinanceUpdateTagRequestSchema",
+      "input": {"name":{"$undefined":true}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["name"],"expected":"string"}],
+      "details": {"de":[{"path":"name","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}],"en":[{"path":"name","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceUpdateTagRequestSchema#name=empty",
+      "schema": "FinanceUpdateTagRequestSchema",
+      "input": {"name":""},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["name"],"origin":"string","minimum":1}],
+      "details": {"de":[{"path":"name","code":"too_small","message":"Name fehlt","i18n":{"key":"server.zod.field.name.too_small.1","values":{"field":"name","facet":"string","bound":1}}}],"en":[{"path":"name","code":"too_small","message":"Name is required","i18n":{"key":"server.zod.field.name.too_small.1","values":{"field":"name","facet":"string","bound":1}}}]}
+    },
+    {
+      "id": "FinanceUpdateTagRequestSchema#name=blank",
+      "schema": "FinanceUpdateTagRequestSchema",
+      "input": {"name":"   "},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["name"],"origin":"string","minimum":1}],
+      "details": {"de":[{"path":"name","code":"too_small","message":"Name fehlt","i18n":{"key":"server.zod.field.name.too_small.1","values":{"field":"name","facet":"string","bound":1}}}],"en":[{"path":"name","code":"too_small","message":"Name is required","i18n":{"key":"server.zod.field.name.too_small.1","values":{"field":"name","facet":"string","bound":1}}}]}
+    },
+    {
+      "id": "FinanceUpdateTagRequestSchema#name=padded",
+      "schema": "FinanceUpdateTagRequestSchema",
+      "input": {"name":"  bio  "},
+      "ok": true,
+      "output": {"name":"bio"}
+    },
+    {
+      "id": "FinanceUpdateTagRequestSchema#name=len39",
+      "schema": "FinanceUpdateTagRequestSchema",
+      "input": {"name":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+      "ok": true,
+      "output": {"name":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+    },
+    {
+      "id": "FinanceUpdateTagRequestSchema#name=len40",
+      "schema": "FinanceUpdateTagRequestSchema",
+      "input": {"name":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+      "ok": true,
+      "output": {"name":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+    },
+    {
+      "id": "FinanceUpdateTagRequestSchema#name=len41",
+      "schema": "FinanceUpdateTagRequestSchema",
+      "input": {"name":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+      "ok": false,
+      "issues": [{"code":"too_big","path":["name"],"origin":"string","maximum":40}],
+      "details": {"de":[{"path":"name","code":"too_big","message":"Darf höchstens 40 Zeichen lang sein","i18n":{"key":"server.zod.too_big.string","values":{"field":"name","facet":"string","bound":40}}}],"en":[{"path":"name","code":"too_big","message":"Must be at most 40 characters long","i18n":{"key":"server.zod.too_big.string","values":{"field":"name","facet":"string","bound":40}}}]}
+    },
+    {
+      "id": "TagQuerySchema#valid",
+      "schema": "TagQuerySchema",
+      "input": {"q":"bi","limit":"20"},
+      "ok": true,
+      "output": {"q":"bi","limit":20}
+    },
+    {
+      "id": "TagQuerySchema#minimal",
+      "schema": "TagQuerySchema",
+      "input": {},
+      "ok": true,
+      "output": {"limit":20}
+    },
+    {
+      "id": "TagQuerySchema#limit-0",
+      "schema": "TagQuerySchema",
+      "input": {"limit":"0"},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["limit"],"origin":"number","minimum":1}],
+      "details": {"de":[{"path":"limit","code":"too_small","message":"Muss mindestens 1 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}],"en":[{"path":"limit","code":"too_small","message":"Must be at least 1","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}]}
+    },
+    {
+      "id": "TagQuerySchema#limit-1",
+      "schema": "TagQuerySchema",
+      "input": {"limit":"1"},
+      "ok": true,
+      "output": {"limit":1}
+    },
+    {
+      "id": "TagQuerySchema#limit-2",
+      "schema": "TagQuerySchema",
+      "input": {"limit":"1.5"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["limit"],"expected":"int"}],
+      "details": {"de":[{"path":"limit","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"int"}}}],"en":[{"path":"limit","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"int"}}}]}
+    },
+    {
+      "id": "TagQuerySchema#limit-3",
+      "schema": "TagQuerySchema",
+      "input": {"limit":"-1"},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["limit"],"origin":"number","minimum":1}],
+      "details": {"de":[{"path":"limit","code":"too_small","message":"Muss mindestens 1 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}],"en":[{"path":"limit","code":"too_small","message":"Must be at least 1","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}]}
+    },
+    {
+      "id": "TagQuerySchema#limit-4",
+      "schema": "TagQuerySchema",
+      "input": {"limit":"0"},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["limit"],"origin":"number","minimum":1}],
+      "details": {"de":[{"path":"limit","code":"too_small","message":"Muss mindestens 1 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}],"en":[{"path":"limit","code":"too_small","message":"Must be at least 1","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}]}
+    },
+    {
+      "id": "TagQuerySchema#limit-5",
+      "schema": "TagQuerySchema",
+      "input": {"limit":"24"},
+      "ok": true,
+      "output": {"limit":24}
+    },
+    {
+      "id": "TagQuerySchema#limit-6",
+      "schema": "TagQuerySchema",
+      "input": {"limit":" 12 "},
+      "ok": true,
+      "output": {"limit":12}
+    },
+    {
+      "id": "TagQuerySchema#limit-7",
+      "schema": "TagQuerySchema",
+      "input": {"limit":"1e2"},
+      "ok": true,
+      "output": {"limit":100}
+    },
+    {
+      "id": "TagQuerySchema#limit-8",
+      "schema": "TagQuerySchema",
+      "input": {"limit":"Infinity"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["limit"],"expected":"number"}],
+      "details": {"de":[{"path":"limit","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}],"en":[{"path":"limit","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}]}
+    },
+    {
+      "id": "TagQuerySchema#limit-9",
+      "schema": "TagQuerySchema",
+      "input": {"limit":"-Infinity"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["limit"],"expected":"number"}],
+      "details": {"de":[{"path":"limit","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}],"en":[{"path":"limit","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}]}
+    },
+    {
+      "id": "TagQuerySchema#limit-10",
+      "schema": "TagQuerySchema",
+      "input": {"limit":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["limit"],"expected":"number"}],
+      "details": {"de":[{"path":"limit","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}],"en":[{"path":"limit","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}]}
+    },
+    {
+      "id": "TagQuerySchema#limit-11",
+      "schema": "TagQuerySchema",
+      "input": {"limit":"0x10"},
+      "ok": true,
+      "output": {"limit":16}
+    },
+    {
+      "id": "TagQuerySchema#limit-12",
+      "schema": "TagQuerySchema",
+      "input": {"limit":"1_000"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["limit"],"expected":"number"}],
+      "details": {"de":[{"path":"limit","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}],"en":[{"path":"limit","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}]}
+    },
+    {
+      "id": "TagQuerySchema#limit-13",
+      "schema": "TagQuerySchema",
+      "input": {"limit":["1","2"]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["limit"],"expected":"number"}],
+      "details": {"de":[{"path":"limit","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}],"en":[{"path":"limit","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}]}
+    },
+    {
+      "id": "TagQuerySchema#limit-14",
+      "schema": "TagQuerySchema",
+      "input": {"limit":1},
+      "ok": true,
+      "output": {"limit":1}
+    },
+    {
+      "id": "TagQuerySchema#limit-15",
+      "schema": "TagQuerySchema",
+      "input": {"limit":24},
+      "ok": true,
+      "output": {"limit":24}
+    },
+    {
+      "id": "TagQuerySchema#limit-16",
+      "schema": "TagQuerySchema",
+      "input": {"limit":0},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["limit"],"origin":"number","minimum":1}],
+      "details": {"de":[{"path":"limit","code":"too_small","message":"Muss mindestens 1 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}],"en":[{"path":"limit","code":"too_small","message":"Must be at least 1","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}]}
+    },
+    {
+      "id": "TagQuerySchema#limit-17",
+      "schema": "TagQuerySchema",
+      "input": {"limit":-1},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["limit"],"origin":"number","minimum":1}],
+      "details": {"de":[{"path":"limit","code":"too_small","message":"Muss mindestens 1 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}],"en":[{"path":"limit","code":"too_small","message":"Must be at least 1","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}]}
+    },
+    {
+      "id": "TagQuerySchema#limit-18",
+      "schema": "TagQuerySchema",
+      "input": {"limit":1.5},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["limit"],"expected":"int"}],
+      "details": {"de":[{"path":"limit","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"int"}}}],"en":[{"path":"limit","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"int"}}}]}
+    },
+    {
+      "id": "TagQuerySchema#limit-19",
+      "schema": "TagQuerySchema",
+      "input": {"limit":101},
+      "ok": false,
+      "issues": [{"code":"too_big","path":["limit"],"origin":"number","maximum":100}],
+      "details": {"de":[{"path":"limit","code":"too_big","message":"Darf höchstens 100 sein","i18n":{"key":"server.zod.too_big.number","values":{"field":"limit","facet":"number","bound":100}}}],"en":[{"path":"limit","code":"too_big","message":"Must be at most 100","i18n":{"key":"server.zod.too_big.number","values":{"field":"limit","facet":"number","bound":100}}}]}
+    },
+    {
+      "id": "TagQuerySchema#limit-20",
+      "schema": "TagQuerySchema",
+      "input": {"limit":{"$number":"NaN"}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["limit"],"expected":"number"}],
+      "details": {"de":[{"path":"limit","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}],"en":[{"path":"limit","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}]}
+    },
+    {
+      "id": "TagQuerySchema#limit-21",
+      "schema": "TagQuerySchema",
+      "input": {"limit":{"$number":"Infinity"}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["limit"],"expected":"number"}],
+      "details": {"de":[{"path":"limit","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}],"en":[{"path":"limit","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}]}
+    },
+    {
+      "id": "TagQuerySchema#limit-22",
+      "schema": "TagQuerySchema",
+      "input": {"limit":{"$number":"-Infinity"}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["limit"],"expected":"number"}],
+      "details": {"de":[{"path":"limit","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}],"en":[{"path":"limit","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}]}
+    },
+    {
+      "id": "TagQuerySchema#limit-23",
+      "schema": "TagQuerySchema",
+      "input": {"limit":null},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["limit"],"origin":"number","minimum":1}],
+      "details": {"de":[{"path":"limit","code":"too_small","message":"Muss mindestens 1 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}],"en":[{"path":"limit","code":"too_small","message":"Must be at least 1","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}]}
+    },
+    {
+      "id": "TagQuerySchema#limit-24",
+      "schema": "TagQuerySchema",
+      "input": {"limit":true},
+      "ok": true,
+      "output": {"limit":1}
+    },
+    {
+      "id": "TagQuerySchema#limit-25",
+      "schema": "TagQuerySchema",
+      "input": {"limit":[]},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["limit"],"origin":"number","minimum":1}],
+      "details": {"de":[{"path":"limit","code":"too_small","message":"Muss mindestens 1 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}],"en":[{"path":"limit","code":"too_small","message":"Must be at least 1","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}]}
+    },
+    {
+      "id": "TagQuerySchema#limit-26",
+      "schema": "TagQuerySchema",
+      "input": {"limit":{}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["limit"],"expected":"number"}],
+      "details": {"de":[{"path":"limit","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}],"en":[{"path":"limit","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}]}
+    },
+    {
+      "id": "TagQuerySchema#limit-100",
+      "schema": "TagQuerySchema",
+      "input": {"limit":"100"},
+      "ok": true,
+      "output": {"limit":100}
+    },
+    {
+      "id": "TagQuerySchema#limit-101",
+      "schema": "TagQuerySchema",
+      "input": {"limit":"101"},
+      "ok": false,
+      "issues": [{"code":"too_big","path":["limit"],"origin":"number","maximum":100}],
+      "details": {"de":[{"path":"limit","code":"too_big","message":"Darf höchstens 100 sein","i18n":{"key":"server.zod.too_big.number","values":{"field":"limit","facet":"number","bound":100}}}],"en":[{"path":"limit","code":"too_big","message":"Must be at most 100","i18n":{"key":"server.zod.too_big.number","values":{"field":"limit","facet":"number","bound":100}}}]}
+    },
+    {
+      "id": "TagQuerySchema#q-empty",
+      "schema": "TagQuerySchema",
+      "input": {"q":""},
+      "ok": true,
+      "output": {"q":"","limit":20}
+    },
+    {
+      "id": "TagQuerySchema#q-number",
+      "schema": "TagQuerySchema",
+      "input": {"q":5},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["q"],"expected":"string"}],
+      "details": {"de":[{"path":"q","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"q","facet":"string"}}}],"en":[{"path":"q","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"q","facet":"string"}}}]}
+    },
+    {
+      "id": "TagQuerySchema#q-array",
+      "schema": "TagQuerySchema",
+      "input": {"q":["a","b"]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["q"],"expected":"string"}],
+      "details": {"de":[{"path":"q","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"q","facet":"string"}}}],"en":[{"path":"q","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"q","facet":"string"}}}]}
+    },
+    {
+      "id": "TagQuerySchema#both-bad",
+      "schema": "TagQuerySchema",
+      "input": {"q":"qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq","limit":"0"},
+      "ok": false,
+      "issues": [{"code":"too_big","path":["q"],"origin":"string","maximum":100},{"code":"too_small","path":["limit"],"origin":"number","minimum":1}],
+      "details": {"de":[{"path":"q","code":"too_big","message":"Darf höchstens 100 Zeichen lang sein","i18n":{"key":"server.zod.too_big.string","values":{"field":"q","facet":"string","bound":100}}},{"path":"limit","code":"too_small","message":"Muss mindestens 1 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}],"en":[{"path":"q","code":"too_big","message":"Must be at most 100 characters long","i18n":{"key":"server.zod.too_big.string","values":{"field":"q","facet":"string","bound":100}}},{"path":"limit","code":"too_small","message":"Must be at least 1","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}]}
+    },
+    {
+      "id": "TagQuerySchema#root-null",
+      "schema": "TagQuerySchema",
+      "input": null,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "TagQuerySchema#root-undefined",
+      "schema": "TagQuerySchema",
+      "input": {"$undefined":true},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "TagQuerySchema#root-string",
+      "schema": "TagQuerySchema",
+      "input": "x",
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "TagQuerySchema#root-array",
+      "schema": "TagQuerySchema",
+      "input": [],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "TagQuerySchema#root-number",
+      "schema": "TagQuerySchema",
+      "input": 1,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "TagQuerySchema#root-nan",
+      "schema": "TagQuerySchema",
+      "input": {"$number":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "TagQuerySchema#root-true",
+      "schema": "TagQuerySchema",
+      "input": true,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "TagQuerySchema#root-empty-object",
+      "schema": "TagQuerySchema",
+      "input": {},
+      "ok": true,
+      "output": {"limit":20}
+    },
+    {
+      "id": "TagQuerySchema#unknown-key",
+      "schema": "TagQuerySchema",
+      "input": {"q":"bi","limit":"20","unknownKey":1},
+      "ok": true,
+      "output": {"q":"bi","limit":20}
+    },
+    {
+      "id": "TagQuerySchema#q=num",
+      "schema": "TagQuerySchema",
+      "input": {"q":1,"limit":"20"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["q"],"expected":"string"}],
+      "details": {"de":[{"path":"q","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"q","facet":"string"}}}],"en":[{"path":"q","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"q","facet":"string"}}}]}
+    },
+    {
+      "id": "TagQuerySchema#q=missing",
+      "schema": "TagQuerySchema",
+      "input": {"limit":"20"},
+      "ok": true,
+      "output": {"limit":20}
+    },
+    {
+      "id": "TagQuerySchema#q=null",
+      "schema": "TagQuerySchema",
+      "input": {"q":null,"limit":"20"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["q"],"expected":"string"}],
+      "details": {"de":[{"path":"q","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"q","facet":"string"}}}],"en":[{"path":"q","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"q","facet":"string"}}}]}
+    },
+    {
+      "id": "TagQuerySchema#q=undefined",
+      "schema": "TagQuerySchema",
+      "input": {"q":{"$undefined":true},"limit":"20"},
+      "ok": true,
+      "output": {"q":{"$undefined":true},"limit":20}
+    },
+    {
+      "id": "TagQuerySchema#q=empty",
+      "schema": "TagQuerySchema",
+      "input": {"q":"","limit":"20"},
+      "ok": true,
+      "output": {"q":"","limit":20}
+    },
+    {
+      "id": "TagQuerySchema#q=blank",
+      "schema": "TagQuerySchema",
+      "input": {"q":"   ","limit":"20"},
+      "ok": true,
+      "output": {"q":"   ","limit":20}
+    },
+    {
+      "id": "TagQuerySchema#q=padded",
+      "schema": "TagQuerySchema",
+      "input": {"q":"  bi  ","limit":"20"},
+      "ok": true,
+      "output": {"q":"  bi  ","limit":20}
+    },
+    {
+      "id": "TagQuerySchema#q=len99",
+      "schema": "TagQuerySchema",
+      "input": {"q":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","limit":"20"},
+      "ok": true,
+      "output": {"q":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","limit":20}
+    },
+    {
+      "id": "TagQuerySchema#q=len100",
+      "schema": "TagQuerySchema",
+      "input": {"q":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","limit":"20"},
+      "ok": true,
+      "output": {"q":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","limit":20}
+    },
+    {
+      "id": "TagQuerySchema#q=len101",
+      "schema": "TagQuerySchema",
+      "input": {"q":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","limit":"20"},
+      "ok": false,
+      "issues": [{"code":"too_big","path":["q"],"origin":"string","maximum":100}],
+      "details": {"de":[{"path":"q","code":"too_big","message":"Darf höchstens 100 Zeichen lang sein","i18n":{"key":"server.zod.too_big.string","values":{"field":"q","facet":"string","bound":100}}}],"en":[{"path":"q","code":"too_big","message":"Must be at most 100 characters long","i18n":{"key":"server.zod.too_big.string","values":{"field":"q","facet":"string","bound":100}}}]}
+    },
+    {
+      "id": "TagQuerySchema#limit=num",
+      "schema": "TagQuerySchema",
+      "input": {"q":"bi","limit":1},
+      "ok": true,
+      "output": {"q":"bi","limit":1}
+    },
+    {
+      "id": "TagQuerySchema#limit=missing",
+      "schema": "TagQuerySchema",
+      "input": {"q":"bi"},
+      "ok": true,
+      "output": {"q":"bi","limit":20}
+    },
+    {
+      "id": "TagQuerySchema#limit=null",
+      "schema": "TagQuerySchema",
+      "input": {"q":"bi","limit":null},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["limit"],"origin":"number","minimum":1}],
+      "details": {"de":[{"path":"limit","code":"too_small","message":"Muss mindestens 1 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}],"en":[{"path":"limit","code":"too_small","message":"Must be at least 1","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}]}
+    },
+    {
+      "id": "TagQuerySchema#limit=undefined",
+      "schema": "TagQuerySchema",
+      "input": {"q":"bi","limit":{"$undefined":true}},
+      "ok": true,
+      "output": {"q":"bi","limit":20}
+    },
+    {
+      "id": "TagQuerySchema#limit=empty",
+      "schema": "TagQuerySchema",
+      "input": {"q":"bi","limit":""},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["limit"],"origin":"number","minimum":1}],
+      "details": {"de":[{"path":"limit","code":"too_small","message":"Muss mindestens 1 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}],"en":[{"path":"limit","code":"too_small","message":"Must be at least 1","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}]}
+    },
+    {
+      "id": "TagQuerySchema#limit=blank",
+      "schema": "TagQuerySchema",
+      "input": {"q":"bi","limit":"   "},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["limit"],"origin":"number","minimum":1}],
+      "details": {"de":[{"path":"limit","code":"too_small","message":"Muss mindestens 1 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}],"en":[{"path":"limit","code":"too_small","message":"Must be at least 1","i18n":{"key":"server.zod.too_small.number","values":{"field":"limit","facet":"number","bound":1}}}]}
+    },
+    {
+      "id": "TagQuerySchema#limit=padded",
+      "schema": "TagQuerySchema",
+      "input": {"q":"bi","limit":"  20  "},
+      "ok": true,
+      "output": {"q":"bi","limit":20}
+    }
+  ]
+}

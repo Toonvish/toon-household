@@ -1,0 +1,2135 @@
+{
+  "source": "packages/shared/src/modules/finance/schemas/participants.ts",
+  "zod": "4.5.4",
+  "cases": [
+    {
+      "id": "FinanceDisplayNameSchema#type-undefined",
+      "schema": "FinanceDisplayNameSchema",
+      "input": {"$undefined":true},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceDisplayNameSchema#type-null",
+      "schema": "FinanceDisplayNameSchema",
+      "input": null,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceDisplayNameSchema#type-s()",
+      "schema": "FinanceDisplayNameSchema",
+      "input": "",
+      "ok": false,
+      "issues": [{"code":"too_small","path":[],"origin":"string","minimum":1}],
+      "details": {"de":[{"path":"","code":"too_small","message":"Muss mindestens 1 Zeichen lang sein","i18n":{"key":"server.zod.too_small.string","values":{"field":"","facet":"string","bound":1}}}],"en":[{"path":"","code":"too_small","message":"Must be at least 1 characters long","i18n":{"key":"server.zod.too_small.string","values":{"field":"","facet":"string","bound":1}}}]}
+    },
+    {
+      "id": "FinanceDisplayNameSchema#type-0",
+      "schema": "FinanceDisplayNameSchema",
+      "input": 0,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceDisplayNameSchema#type-1",
+      "schema": "FinanceDisplayNameSchema",
+      "input": 1,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceDisplayNameSchema#type-true",
+      "schema": "FinanceDisplayNameSchema",
+      "input": true,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceDisplayNameSchema#type-false",
+      "schema": "FinanceDisplayNameSchema",
+      "input": false,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceDisplayNameSchema#type-[]",
+      "schema": "FinanceDisplayNameSchema",
+      "input": [],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"},{"code":"too_small","path":[],"origin":"array","minimum":1}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}},{"path":"","code":"too_small","message":"Es müssen mindestens 1 Einträge angegeben werden","i18n":{"key":"server.zod.too_small.array","values":{"field":"","facet":"array","bound":1}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}},{"path":"","code":"too_small","message":"At least 1 entries are required","i18n":{"key":"server.zod.too_small.array","values":{"field":"","facet":"array","bound":1}}}]}
+    },
+    {
+      "id": "FinanceDisplayNameSchema#type-{}",
+      "schema": "FinanceDisplayNameSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceDisplayNameSchema#type-NaN",
+      "schema": "FinanceDisplayNameSchema",
+      "input": {"$number":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceDisplayNameSchema#type-Infinity",
+      "schema": "FinanceDisplayNameSchema",
+      "input": {"$number":"Infinity"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceDisplayNameSchema#type--Infinity",
+      "schema": "FinanceDisplayNameSchema",
+      "input": {"$number":"-Infinity"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceDisplayNameSchema#s(Anna)",
+      "schema": "FinanceDisplayNameSchema",
+      "input": "Anna",
+      "ok": true,
+      "output": "Anna"
+    },
+    {
+      "id": "FinanceDisplayNameSchema#s(  Anna  )",
+      "schema": "FinanceDisplayNameSchema",
+      "input": "  Anna  ",
+      "ok": true,
+      "output": "Anna"
+    },
+    {
+      "id": "FinanceDisplayNameSchema#s(A)",
+      "schema": "FinanceDisplayNameSchema",
+      "input": "A",
+      "ok": true,
+      "output": "A"
+    },
+    {
+      "id": "FinanceDisplayNameSchema#s()",
+      "schema": "FinanceDisplayNameSchema",
+      "input": "",
+      "ok": false,
+      "issues": [{"code":"too_small","path":[],"origin":"string","minimum":1}],
+      "details": {"de":[{"path":"","code":"too_small","message":"Muss mindestens 1 Zeichen lang sein","i18n":{"key":"server.zod.too_small.string","values":{"field":"","facet":"string","bound":1}}}],"en":[{"path":"","code":"too_small","message":"Must be at least 1 characters long","i18n":{"key":"server.zod.too_small.string","values":{"field":"","facet":"string","bound":1}}}]}
+    },
+    {
+      "id": "FinanceDisplayNameSchema#s( )",
+      "schema": "FinanceDisplayNameSchema",
+      "input": " ",
+      "ok": false,
+      "issues": [{"code":"too_small","path":[],"origin":"string","minimum":1}],
+      "details": {"de":[{"path":"","code":"too_small","message":"Muss mindestens 1 Zeichen lang sein","i18n":{"key":"server.zod.too_small.string","values":{"field":"","facet":"string","bound":1}}}],"en":[{"path":"","code":"too_small","message":"Must be at least 1 characters long","i18n":{"key":"server.zod.too_small.string","values":{"field":"","facet":"string","bound":1}}}]}
+    },
+    {
+      "id": "FinanceDisplayNameSchema#s(\\t)",
+      "schema": "FinanceDisplayNameSchema",
+      "input": "\t",
+      "ok": false,
+      "issues": [{"code":"too_small","path":[],"origin":"string","minimum":1}],
+      "details": {"de":[{"path":"","code":"too_small","message":"Muss mindestens 1 Zeichen lang sein","i18n":{"key":"server.zod.too_small.string","values":{"field":"","facet":"string","bound":1}}}],"en":[{"path":"","code":"too_small","message":"Must be at least 1 characters long","i18n":{"key":"server.zod.too_small.string","values":{"field":"","facet":"string","bound":1}}}]}
+    },
+    {
+      "id": "FinanceDisplayNameSchema#s(a\\u0000b)",
+      "schema": "FinanceDisplayNameSchema",
+      "input": "a\u0000b",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.noControlChars"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Der Name darf keine Steuerzeichen oder Zeilenumbrüche enthalten.","i18n":{"key":"server.validation.noControlChars","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"The name must not contain control characters or line breaks.","i18n":{"key":"server.validation.noControlChars","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceDisplayNameSchema#s(a\\nb)",
+      "schema": "FinanceDisplayNameSchema",
+      "input": "a\nb",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.noControlChars"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Der Name darf keine Steuerzeichen oder Zeilenumbrüche enthalten.","i18n":{"key":"server.validation.noControlChars","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"The name must not contain control characters or line breaks.","i18n":{"key":"server.validation.noControlChars","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceDisplayNameSchema#s(a\\u007fb)",
+      "schema": "FinanceDisplayNameSchema",
+      "input": "ab",
+      "ok": false,
+      "issues": [{"code":"custom","path":[],"params":{"i18n":"server.validation.noControlChars"}}],
+      "details": {"de":[{"path":"","code":"custom","message":"Der Name darf keine Steuerzeichen oder Zeilenumbrüche enthalten.","i18n":{"key":"server.validation.noControlChars","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"custom","message":"The name must not contain control characters or line breaks.","i18n":{"key":"server.validation.noControlChars","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceDisplayNameSchema#s(aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa~len80)",
+      "schema": "FinanceDisplayNameSchema",
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ok": true,
+      "output": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "id": "FinanceDisplayNameSchema#s(aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa~len81)",
+      "schema": "FinanceDisplayNameSchema",
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ok": false,
+      "issues": [{"code":"too_big","path":[],"origin":"string","maximum":80}],
+      "details": {"de":[{"path":"","code":"too_big","message":"Darf höchstens 80 Zeichen lang sein","i18n":{"key":"server.zod.too_big.string","values":{"field":"","facet":"string","bound":80}}}],"en":[{"path":"","code":"too_big","message":"Must be at most 80 characters long","i18n":{"key":"server.zod.too_big.string","values":{"field":"","facet":"string","bound":80}}}]}
+    },
+    {
+      "id": "FinanceDisplayNameSchema#s(  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa~len84)",
+      "schema": "FinanceDisplayNameSchema",
+      "input": "  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  ",
+      "ok": true,
+      "output": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "id": "FinanceDisplayNameSchema#s(aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa~len82)",
+      "schema": "FinanceDisplayNameSchema",
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u0000",
+      "ok": false,
+      "issues": [{"code":"too_big","path":[],"origin":"string","maximum":80},{"code":"custom","path":[],"params":{"i18n":"server.validation.noControlChars"}}],
+      "details": {"de":[{"path":"","code":"too_big","message":"Darf höchstens 80 Zeichen lang sein","i18n":{"key":"server.zod.too_big.string","values":{"field":"","facet":"string","bound":80}}},{"path":"","code":"custom","message":"Der Name darf keine Steuerzeichen oder Zeilenumbrüche enthalten.","i18n":{"key":"server.validation.noControlChars","values":{"field":"","facet":"_"}}}],"en":[{"path":"","code":"too_big","message":"Must be at most 80 characters long","i18n":{"key":"server.zod.too_big.string","values":{"field":"","facet":"string","bound":80}}},{"path":"","code":"custom","message":"The name must not contain control characters or line breaks.","i18n":{"key":"server.validation.noControlChars","values":{"field":"","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceDisplayNameSchema#s(\\u00c7elik)",
+      "schema": "FinanceDisplayNameSchema",
+      "input": "Çelik",
+      "ok": true,
+      "output": "Çelik"
+    },
+    {
+      "id": "FinanceDisplayNameSchema#s(\\ud83d\\ude00)",
+      "schema": "FinanceDisplayNameSchema",
+      "input": "😀",
+      "ok": true,
+      "output": "😀"
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#valid",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": true,
+      "output": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#all-null",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":null,"hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": true,
+      "output": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":null,"hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#slot-0",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":0,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["memberSlot"]}],
+      "details": {"de":[{"path":"memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#slot-3",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":3,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["memberSlot"]}],
+      "details": {"de":[{"path":"memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#slot-string",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":"1","displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["memberSlot"]}],
+      "details": {"de":[{"path":"memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#slot-2",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":2,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": true,
+      "output": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":2,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#root-null",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": null,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#root-undefined",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"$undefined":true},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#root-string",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": "x",
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#root-array",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": [],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#root-number",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": 1,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#root-nan",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"$number":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#root-true",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": true,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#root-empty-object",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["userId"],"expected":"string"},{"code":"invalid_union","path":["memberSlot"]},{"code":"invalid_type","path":["displayName"],"expected":"string"},{"code":"invalid_type","path":["name"],"expected":"string"},{"code":"invalid_type","path":["email"],"expected":"string"},{"code":"invalid_type","path":["hasAccount"],"expected":"boolean"},{"code":"invalid_type","path":["joinedAt"],"expected":"string"}],
+      "details": {"de":[{"path":"userId","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}},{"path":"memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}},{"path":"displayName","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"displayName","facet":"string"}}},{"path":"name","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}},{"path":"email","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"email","facet":"string"}}},{"path":"hasAccount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"hasAccount","facet":"boolean"}}},{"path":"joinedAt","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"joinedAt","facet":"string"}}}],"en":[{"path":"userId","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}},{"path":"memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}},{"path":"displayName","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"displayName","facet":"string"}}},{"path":"name","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}},{"path":"email","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"email","facet":"string"}}},{"path":"hasAccount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"hasAccount","facet":"boolean"}}},{"path":"joinedAt","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"joinedAt","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#unknown-key",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z","unknownKey":1},
+      "ok": true,
+      "output": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#userId=num",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":1,"memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["userId"],"expected":"string"}],
+      "details": {"de":[{"path":"userId","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}],"en":[{"path":"userId","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#userId=missing",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["userId"],"expected":"string"}],
+      "details": {"de":[{"path":"userId","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}],"en":[{"path":"userId","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#userId=null",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":null,"memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["userId"],"expected":"string"}],
+      "details": {"de":[{"path":"userId","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}],"en":[{"path":"userId","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#memberSlot=nan",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":{"$number":"NaN"},"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["memberSlot"]}],
+      "details": {"de":[{"path":"memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#memberSlot=inf",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":{"$number":"Infinity"},"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["memberSlot"]}],
+      "details": {"de":[{"path":"memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#memberSlot=neg-inf",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":{"$number":"-Infinity"},"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["memberSlot"]}],
+      "details": {"de":[{"path":"memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#memberSlot=str-x",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":"x","displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["memberSlot"]}],
+      "details": {"de":[{"path":"memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#memberSlot=missing",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["memberSlot"]}],
+      "details": {"de":[{"path":"memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#memberSlot=null",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":null,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["memberSlot"]}],
+      "details": {"de":[{"path":"memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#memberSlot=neg1",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":-1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["memberSlot"]}],
+      "details": {"de":[{"path":"memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#memberSlot=frac",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1.5,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["memberSlot"]}],
+      "details": {"de":[{"path":"memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#displayName=num",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":1,"name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["displayName"],"expected":"string"}],
+      "details": {"de":[{"path":"displayName","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"displayName","facet":"string"}}}],"en":[{"path":"displayName","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"displayName","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#displayName=missing",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["displayName"],"expected":"string"}],
+      "details": {"de":[{"path":"displayName","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"displayName","facet":"string"}}}],"en":[{"path":"displayName","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"displayName","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#displayName=null",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":null,"name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["displayName"],"expected":"string"}],
+      "details": {"de":[{"path":"displayName","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"displayName","facet":"string"}}}],"en":[{"path":"displayName","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"displayName","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#name=num",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":1,"email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["name"],"expected":"string"}],
+      "details": {"de":[{"path":"name","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}],"en":[{"path":"name","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#name=missing",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["name"],"expected":"string"}],
+      "details": {"de":[{"path":"name","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}],"en":[{"path":"name","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#name=null",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":null,"email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["name"],"expected":"string"}],
+      "details": {"de":[{"path":"name","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}],"en":[{"path":"name","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#email=num",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":1,"hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["email"],"expected":"string"}],
+      "details": {"de":[{"path":"email","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"email","facet":"string"}}}],"en":[{"path":"email","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"email","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#email=missing",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["email"],"expected":"string"}],
+      "details": {"de":[{"path":"email","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"email","facet":"string"}}}],"en":[{"path":"email","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"email","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#email=null",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":null,"hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": true,
+      "output": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":null,"hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#hasAccount=str-x",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":"x","joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["hasAccount"],"expected":"boolean"}],
+      "details": {"de":[{"path":"hasAccount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"hasAccount","facet":"boolean"}}}],"en":[{"path":"hasAccount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"hasAccount","facet":"boolean"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#hasAccount=missing",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["hasAccount"],"expected":"boolean"}],
+      "details": {"de":[{"path":"hasAccount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"hasAccount","facet":"boolean"}}}],"en":[{"path":"hasAccount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"hasAccount","facet":"boolean"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#hasAccount=null",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":null,"joinedAt":"2026-10-16T12:00:00.000Z"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["hasAccount"],"expected":"boolean"}],
+      "details": {"de":[{"path":"hasAccount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"hasAccount","facet":"boolean"}}}],"en":[{"path":"hasAccount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"hasAccount","facet":"boolean"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#joinedAt=num",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":1},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["joinedAt"],"expected":"string"}],
+      "details": {"de":[{"path":"joinedAt","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"joinedAt","facet":"string"}}}],"en":[{"path":"joinedAt","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"joinedAt","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#joinedAt=missing",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["joinedAt"],"expected":"string"}],
+      "details": {"de":[{"path":"joinedAt","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"joinedAt","facet":"string"}}}],"en":[{"path":"joinedAt","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"joinedAt","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceParticipantResponseSchema#joinedAt=null",
+      "schema": "FinanceParticipantResponseSchema",
+      "input": {"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":null},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["joinedAt"],"expected":"string"}],
+      "details": {"de":[{"path":"joinedAt","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"joinedAt","facet":"string"}}}],"en":[{"path":"joinedAt","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"joinedAt","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#valid",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}],"viewerSlot":1},
+      "ok": true,
+      "output": {"items":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}],"viewerSlot":1}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#minimal",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":[],"viewerSlot":null},
+      "ok": true,
+      "output": {"items":[],"viewerSlot":null}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#viewer-2",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}],"viewerSlot":2},
+      "ok": true,
+      "output": {"items":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}],"viewerSlot":2}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#viewer-3",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}],"viewerSlot":3},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["viewerSlot"]}],
+      "details": {"de":[{"path":"viewerSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"viewerSlot","facet":"_"}}}],"en":[{"path":"viewerSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"viewerSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#viewer-undefined",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}],"viewerSlot":{"$undefined":true}},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["viewerSlot"]}],
+      "details": {"de":[{"path":"viewerSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"viewerSlot","facet":"_"}}}],"en":[{"path":"viewerSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"viewerSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#viewer-absent",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["viewerSlot"]}],
+      "details": {"de":[{"path":"viewerSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"viewerSlot","facet":"_"}}}],"en":[{"path":"viewerSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"viewerSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#second-bad",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"},{"userId":"x"}],"viewerSlot":null},
+      "ok": false,
+      "issues": [{"code":"invalid_format","path":["items",1,"userId"],"format":"uuid"},{"code":"invalid_union","path":["items",1,"memberSlot"]},{"code":"invalid_type","path":["items",1,"displayName"],"expected":"string"},{"code":"invalid_type","path":["items",1,"name"],"expected":"string"},{"code":"invalid_type","path":["items",1,"email"],"expected":"string"},{"code":"invalid_type","path":["items",1,"hasAccount"],"expected":"boolean"},{"code":"invalid_type","path":["items",1,"joinedAt"],"expected":"string"}],
+      "details": {"de":[{"path":"items.1.userId","code":"invalid_format","message":"Ungültiges Format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}},{"path":"items.1.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}},{"path":"items.1.displayName","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"displayName","facet":"string"}}},{"path":"items.1.name","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}},{"path":"items.1.email","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"email","facet":"string"}}},{"path":"items.1.hasAccount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"hasAccount","facet":"boolean"}}},{"path":"items.1.joinedAt","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"joinedAt","facet":"string"}}}],"en":[{"path":"items.1.userId","code":"invalid_format","message":"Invalid format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}},{"path":"items.1.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}},{"path":"items.1.displayName","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"displayName","facet":"string"}}},{"path":"items.1.name","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}},{"path":"items.1.email","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"email","facet":"string"}}},{"path":"items.1.hasAccount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"hasAccount","facet":"boolean"}}},{"path":"items.1.joinedAt","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"joinedAt","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#root-null",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": null,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#root-undefined",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"$undefined":true},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#root-string",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": "x",
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#root-array",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": [],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#root-number",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": 1,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#root-nan",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"$number":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#root-true",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": true,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#root-empty-object",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items"],"expected":"array"},{"code":"invalid_union","path":["viewerSlot"]}],
+      "details": {"de":[{"path":"items","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"array"}}},{"path":"viewerSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"viewerSlot","facet":"_"}}}],"en":[{"path":"items","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"array"}}},{"path":"viewerSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"viewerSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#unknown-key",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}],"viewerSlot":1,"unknownKey":1},
+      "ok": true,
+      "output": {"items":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}],"viewerSlot":1}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#items=str-x",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":"x","viewerSlot":1},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items"],"expected":"array"}],
+      "details": {"de":[{"path":"items","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"array"}}}],"en":[{"path":"items","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"array"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#items=missing",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"viewerSlot":1},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items"],"expected":"array"}],
+      "details": {"de":[{"path":"items","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"array"}}}],"en":[{"path":"items","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"array"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#items=null",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":null,"viewerSlot":1},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items"],"expected":"array"}],
+      "details": {"de":[{"path":"items","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"array"}}}],"en":[{"path":"items","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"array"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#items.0=str-x",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":["x"],"viewerSlot":1},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0],"expected":"object"}],
+      "details": {"de":[{"path":"items.0","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"object"}}}],"en":[{"path":"items.0","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#items.0.userId=num",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":[{"userId":1,"memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}],"viewerSlot":1},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"userId"],"expected":"string"}],
+      "details": {"de":[{"path":"items.0.userId","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}],"en":[{"path":"items.0.userId","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#items.0.memberSlot=nan",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":{"$number":"NaN"},"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}],"viewerSlot":1},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["items",0,"memberSlot"]}],
+      "details": {"de":[{"path":"items.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"items.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#items.0.memberSlot=inf",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":{"$number":"Infinity"},"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}],"viewerSlot":1},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["items",0,"memberSlot"]}],
+      "details": {"de":[{"path":"items.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"items.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#items.0.memberSlot=neg-inf",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":{"$number":"-Infinity"},"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}],"viewerSlot":1},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["items",0,"memberSlot"]}],
+      "details": {"de":[{"path":"items.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"items.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#items.0.memberSlot=str-x",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":"x","displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}],"viewerSlot":1},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["items",0,"memberSlot"]}],
+      "details": {"de":[{"path":"items.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"items.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#items.0.displayName=num",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":1,"name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}],"viewerSlot":1},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"displayName"],"expected":"string"}],
+      "details": {"de":[{"path":"items.0.displayName","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"displayName","facet":"string"}}}],"en":[{"path":"items.0.displayName","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"displayName","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#items.0.name=num",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":1,"email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}],"viewerSlot":1},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"name"],"expected":"string"}],
+      "details": {"de":[{"path":"items.0.name","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}],"en":[{"path":"items.0.name","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#items.0.email=num",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":1,"hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}],"viewerSlot":1},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"email"],"expected":"string"}],
+      "details": {"de":[{"path":"items.0.email","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"email","facet":"string"}}}],"en":[{"path":"items.0.email","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"email","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#items.0.hasAccount=str-x",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":"x","joinedAt":"2026-10-16T12:00:00.000Z"}],"viewerSlot":1},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"hasAccount"],"expected":"boolean"}],
+      "details": {"de":[{"path":"items.0.hasAccount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"hasAccount","facet":"boolean"}}}],"en":[{"path":"items.0.hasAccount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"hasAccount","facet":"boolean"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#items.0.joinedAt=num",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":1}],"viewerSlot":1},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"joinedAt"],"expected":"string"}],
+      "details": {"de":[{"path":"items.0.joinedAt","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"joinedAt","facet":"string"}}}],"en":[{"path":"items.0.joinedAt","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"joinedAt","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#viewerSlot=nan",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}],"viewerSlot":{"$number":"NaN"}},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["viewerSlot"]}],
+      "details": {"de":[{"path":"viewerSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"viewerSlot","facet":"_"}}}],"en":[{"path":"viewerSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"viewerSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#viewerSlot=inf",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}],"viewerSlot":{"$number":"Infinity"}},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["viewerSlot"]}],
+      "details": {"de":[{"path":"viewerSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"viewerSlot","facet":"_"}}}],"en":[{"path":"viewerSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"viewerSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#viewerSlot=neg-inf",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}],"viewerSlot":{"$number":"-Infinity"}},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["viewerSlot"]}],
+      "details": {"de":[{"path":"viewerSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"viewerSlot","facet":"_"}}}],"en":[{"path":"viewerSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"viewerSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#viewerSlot=str-x",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}],"viewerSlot":"x"},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["viewerSlot"]}],
+      "details": {"de":[{"path":"viewerSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"viewerSlot","facet":"_"}}}],"en":[{"path":"viewerSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"viewerSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#viewerSlot=missing",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["viewerSlot"]}],
+      "details": {"de":[{"path":"viewerSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"viewerSlot","facet":"_"}}}],"en":[{"path":"viewerSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"viewerSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#viewerSlot=null",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}],"viewerSlot":null},
+      "ok": true,
+      "output": {"items":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}],"viewerSlot":null}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#viewerSlot=neg1",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}],"viewerSlot":-1},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["viewerSlot"]}],
+      "details": {"de":[{"path":"viewerSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"viewerSlot","facet":"_"}}}],"en":[{"path":"viewerSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"viewerSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantListResponseSchema#viewerSlot=frac",
+      "schema": "FinanceParticipantListResponseSchema",
+      "input": {"items":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"displayName":"Anna","name":"Anna Muster","email":"anna@example.de","hasAccount":true,"joinedAt":"2026-10-16T12:00:00.000Z"}],"viewerSlot":1.5},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["viewerSlot"]}],
+      "details": {"de":[{"path":"viewerSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"viewerSlot","facet":"_"}}}],"en":[{"path":"viewerSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"viewerSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#valid",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": true,
+      "output": [{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#slots-swapped",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":2},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":1}],
+      "ok": true,
+      "output": [{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":2},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":1}]
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#same-slot",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":1}],
+      "ok": true,
+      "output": [{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":1}]
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#same-user",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1},{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":2}],
+      "ok": true,
+      "output": [{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1},{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":2}]
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#empty",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [],
+      "ok": false,
+      "issues": [{"code":"too_small","path":[],"origin":"array","minimum":2}],
+      "details": {"de":[{"path":"","code":"too_small","message":"Es müssen mindestens 2 Einträge angegeben werden","i18n":{"key":"server.zod.too_small.array","values":{"field":"","facet":"array","bound":2}}}],"en":[{"path":"","code":"too_small","message":"At least 2 entries are required","i18n":{"key":"server.zod.too_small.array","values":{"field":"","facet":"array","bound":2}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#one",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1}],
+      "ok": false,
+      "issues": [{"code":"too_small","path":[],"origin":"array","minimum":2}],
+      "details": {"de":[{"path":"","code":"too_small","message":"Es müssen mindestens 2 Einträge angegeben werden","i18n":{"key":"server.zod.too_small.array","values":{"field":"","facet":"array","bound":2}}}],"en":[{"path":"","code":"too_small","message":"At least 2 entries are required","i18n":{"key":"server.zod.too_small.array","values":{"field":"","facet":"array","bound":2}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#three",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2},{"userId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","memberSlot":1}],
+      "ok": false,
+      "issues": [{"code":"too_big","path":[],"origin":"array","maximum":2}],
+      "details": {"de":[{"path":"","code":"too_big","message":"Es dürfen höchstens 2 Einträge angegeben werden","i18n":{"key":"server.zod.too_big.array","values":{"field":"","facet":"array","bound":2}}}],"en":[{"path":"","code":"too_big","message":"At most 2 entries are allowed","i18n":{"key":"server.zod.too_big.array","values":{"field":"","facet":"array","bound":2}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#four",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2},{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": false,
+      "issues": [{"code":"too_big","path":[],"origin":"array","maximum":2}],
+      "details": {"de":[{"path":"","code":"too_big","message":"Es dürfen höchstens 2 Einträge angegeben werden","i18n":{"key":"server.zod.too_big.array","values":{"field":"","facet":"array","bound":2}}}],"en":[{"path":"","code":"too_big","message":"At most 2 entries are allowed","i18n":{"key":"server.zod.too_big.array","values":{"field":"","facet":"array","bound":2}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#first-bad",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"x","memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": false,
+      "issues": [{"code":"invalid_format","path":[0,"userId"],"format":"uuid"}],
+      "details": {"de":[{"path":"0.userId","code":"invalid_format","message":"Ungültiges Format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}}],"en":[{"path":"0.userId","code":"invalid_format","message":"Invalid format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#both-bad",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"x","memberSlot":3},{"userId":1,"memberSlot":"2"}],
+      "ok": false,
+      "issues": [{"code":"invalid_format","path":[0,"userId"],"format":"uuid"},{"code":"invalid_union","path":[0,"memberSlot"]},{"code":"invalid_type","path":[1,"userId"],"expected":"string"},{"code":"invalid_union","path":[1,"memberSlot"]}],
+      "details": {"de":[{"path":"0.userId","code":"invalid_format","message":"Ungültiges Format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}},{"path":"0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}},{"path":"1.userId","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}},{"path":"1.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"0.userId","code":"invalid_format","message":"Invalid format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}},{"path":"0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}},{"path":"1.userId","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}},{"path":"1.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#one-bad",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"x","memberSlot":3}],
+      "ok": false,
+      "issues": [{"code":"invalid_format","path":[0,"userId"],"format":"uuid"},{"code":"invalid_union","path":[0,"memberSlot"]},{"code":"too_small","path":[],"origin":"array","minimum":2}],
+      "details": {"de":[{"path":"0.userId","code":"invalid_format","message":"Ungültiges Format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}},{"path":"0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}},{"path":"","code":"too_small","message":"Es müssen mindestens 2 Einträge angegeben werden","i18n":{"key":"server.zod.too_small.array","values":{"field":"","facet":"array","bound":2}}}],"en":[{"path":"0.userId","code":"invalid_format","message":"Invalid format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}},{"path":"0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}},{"path":"","code":"too_small","message":"At least 2 entries are required","i18n":{"key":"server.zod.too_small.array","values":{"field":"","facet":"array","bound":2}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#three-bad",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"x","memberSlot":3},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2},{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1}],
+      "ok": false,
+      "issues": [{"code":"invalid_format","path":[0,"userId"],"format":"uuid"},{"code":"invalid_union","path":[0,"memberSlot"]},{"code":"too_big","path":[],"origin":"array","maximum":2}],
+      "details": {"de":[{"path":"0.userId","code":"invalid_format","message":"Ungültiges Format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}},{"path":"0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}},{"path":"","code":"too_big","message":"Es dürfen höchstens 2 Einträge angegeben werden","i18n":{"key":"server.zod.too_big.array","values":{"field":"","facet":"array","bound":2}}}],"en":[{"path":"0.userId","code":"invalid_format","message":"Invalid format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}},{"path":"0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}},{"path":"","code":"too_big","message":"At most 2 entries are allowed","i18n":{"key":"server.zod.too_big.array","values":{"field":"","facet":"array","bound":2}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#elements-null",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [null,null],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[0],"expected":"object"},{"code":"invalid_type","path":[1],"expected":"object"}],
+      "details": {"de":[{"path":"0","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}},{"path":"1","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"0","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}},{"path":"1","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#elements-empty",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{},{}],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[0,"userId"],"expected":"string"},{"code":"invalid_union","path":[0,"memberSlot"]},{"code":"invalid_type","path":[1,"userId"],"expected":"string"},{"code":"invalid_union","path":[1,"memberSlot"]}],
+      "details": {"de":[{"path":"0.userId","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}},{"path":"0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}},{"path":"1.userId","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}},{"path":"1.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"0.userId","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}},{"path":"0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}},{"path":"1.userId","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}},{"path":"1.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#extra-key",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1,"extra":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": true,
+      "output": [{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#object-not-array",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": {"0":{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1},"1":{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2},"length":2},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"array"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"array"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"array"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#root-null",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": null,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"array"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"array"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"array"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#root-undefined",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": {"$undefined":true},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"array"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"array"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"array"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#root-string",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": "x",
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"array"},{"code":"too_small","path":[],"origin":"string","minimum":2}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"array"}}},{"path":"","code":"too_small","message":"Muss mindestens 2 Zeichen lang sein","i18n":{"key":"server.zod.too_small.string","values":{"field":"","facet":"string","bound":2}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"array"}}},{"path":"","code":"too_small","message":"Must be at least 2 characters long","i18n":{"key":"server.zod.too_small.string","values":{"field":"","facet":"string","bound":2}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#root-array",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [],
+      "ok": false,
+      "issues": [{"code":"too_small","path":[],"origin":"array","minimum":2}],
+      "details": {"de":[{"path":"","code":"too_small","message":"Es müssen mindestens 2 Einträge angegeben werden","i18n":{"key":"server.zod.too_small.array","values":{"field":"","facet":"array","bound":2}}}],"en":[{"path":"","code":"too_small","message":"At least 2 entries are required","i18n":{"key":"server.zod.too_small.array","values":{"field":"","facet":"array","bound":2}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#root-number",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": 1,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"array"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"array"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"array"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#root-nan",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": {"$number":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"array"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"array"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"array"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#root-true",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": true,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"array"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"array"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"array"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#root-empty-object",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"array"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"array"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"array"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#0=str-x",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": ["x",{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[0],"expected":"object"}],
+      "details": {"de":[{"path":"0","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"0","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#0=missing",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": false,
+      "issues": [{"code":"too_small","path":[],"origin":"array","minimum":2}],
+      "details": {"de":[{"path":"","code":"too_small","message":"Es müssen mindestens 2 Einträge angegeben werden","i18n":{"key":"server.zod.too_small.array","values":{"field":"","facet":"array","bound":2}}}],"en":[{"path":"","code":"too_small","message":"At least 2 entries are required","i18n":{"key":"server.zod.too_small.array","values":{"field":"","facet":"array","bound":2}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#0=null",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [null,{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[0],"expected":"object"}],
+      "details": {"de":[{"path":"0","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"0","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#0=undefined",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"$undefined":true},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[0],"expected":"object"}],
+      "details": {"de":[{"path":"0","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"0","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#0=array",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [[],{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[0],"expected":"object"}],
+      "details": {"de":[{"path":"0","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"0","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#0.userId=num",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":1,"memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[0,"userId"],"expected":"string"}],
+      "details": {"de":[{"path":"0.userId","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}],"en":[{"path":"0.userId","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#0.userId=missing",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[0,"userId"],"expected":"string"}],
+      "details": {"de":[{"path":"0.userId","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}],"en":[{"path":"0.userId","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#0.userId=null",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":null,"memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[0,"userId"],"expected":"string"}],
+      "details": {"de":[{"path":"0.userId","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}],"en":[{"path":"0.userId","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#0.userId=undefined",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":{"$undefined":true},"memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[0,"userId"],"expected":"string"}],
+      "details": {"de":[{"path":"0.userId","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}],"en":[{"path":"0.userId","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#0.userId=empty",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"","memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": false,
+      "issues": [{"code":"invalid_format","path":[0,"userId"],"format":"uuid"}],
+      "details": {"de":[{"path":"0.userId","code":"invalid_format","message":"Ungültiges Format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}}],"en":[{"path":"0.userId","code":"invalid_format","message":"Invalid format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#0.userId=blank",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"   ","memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": false,
+      "issues": [{"code":"invalid_format","path":[0,"userId"],"format":"uuid"}],
+      "details": {"de":[{"path":"0.userId","code":"invalid_format","message":"Ungültiges Format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}}],"en":[{"path":"0.userId","code":"invalid_format","message":"Invalid format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#0.userId=padded",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"  0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b  ","memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": false,
+      "issues": [{"code":"invalid_format","path":[0,"userId"],"format":"uuid"}],
+      "details": {"de":[{"path":"0.userId","code":"invalid_format","message":"Ungültiges Format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}}],"en":[{"path":"0.userId","code":"invalid_format","message":"Invalid format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#0.memberSlot=nan",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":{"$number":"NaN"}},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[0,"memberSlot"]}],
+      "details": {"de":[{"path":"0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#0.memberSlot=inf",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":{"$number":"Infinity"}},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[0,"memberSlot"]}],
+      "details": {"de":[{"path":"0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#0.memberSlot=neg-inf",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":{"$number":"-Infinity"}},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[0,"memberSlot"]}],
+      "details": {"de":[{"path":"0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#0.memberSlot=str-x",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":"x"},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[0,"memberSlot"]}],
+      "details": {"de":[{"path":"0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#0.memberSlot=missing",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b"},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[0,"memberSlot"]}],
+      "details": {"de":[{"path":"0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#0.memberSlot=null",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":null},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[0,"memberSlot"]}],
+      "details": {"de":[{"path":"0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#0.memberSlot=neg1",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":-1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[0,"memberSlot"]}],
+      "details": {"de":[{"path":"0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#0.memberSlot=frac",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1.5},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[0,"memberSlot"]}],
+      "details": {"de":[{"path":"0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#0.memberSlot=undefined",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":{"$undefined":true}},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[0,"memberSlot"]}],
+      "details": {"de":[{"path":"0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#0.memberSlot=str-1",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":"1"},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[0,"memberSlot"]}],
+      "details": {"de":[{"path":"0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#0.memberSlot=zero",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":0},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[0,"memberSlot"]}],
+      "details": {"de":[{"path":"0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#0.memberSlot=big",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":100000000000000000000},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[0,"memberSlot"]}],
+      "details": {"de":[{"path":"0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#0.memberSlot=neg-big",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":-100000000000000000000},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[0,"memberSlot"]}],
+      "details": {"de":[{"path":"0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceParticipantAssignmentSchema#0.memberSlot=max-safe-plus-1",
+      "schema": "FinanceParticipantAssignmentSchema",
+      "input": [{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":9007199254740992},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":[0,"memberSlot"]}],
+      "details": {"de":[{"path":"0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#valid",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": true,
+      "output": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#empty",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[]},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["participants"],"origin":"array","minimum":2}],
+      "details": {"de":[{"path":"participants","code":"too_small","message":"Es müssen mindestens 2 Einträge angegeben werden","i18n":{"key":"server.zod.too_small.array","values":{"field":"participants","facet":"array","bound":2}}}],"en":[{"path":"participants","code":"too_small","message":"At least 2 entries are required","i18n":{"key":"server.zod.too_small.array","values":{"field":"participants","facet":"array","bound":2}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#one",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1}]},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["participants"],"origin":"array","minimum":2}],
+      "details": {"de":[{"path":"participants","code":"too_small","message":"Es müssen mindestens 2 Einträge angegeben werden","i18n":{"key":"server.zod.too_small.array","values":{"field":"participants","facet":"array","bound":2}}}],"en":[{"path":"participants","code":"too_small","message":"At least 2 entries are required","i18n":{"key":"server.zod.too_small.array","values":{"field":"participants","facet":"array","bound":2}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#three",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2},{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1}]},
+      "ok": false,
+      "issues": [{"code":"too_big","path":["participants"],"origin":"array","maximum":2}],
+      "details": {"de":[{"path":"participants","code":"too_big","message":"Es dürfen höchstens 2 Einträge angegeben werden","i18n":{"key":"server.zod.too_big.array","values":{"field":"participants","facet":"array","bound":2}}}],"en":[{"path":"participants","code":"too_big","message":"At most 2 entries are allowed","i18n":{"key":"server.zod.too_big.array","values":{"field":"participants","facet":"array","bound":2}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#bad-and-length",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[{"userId":"x","memberSlot":3}]},
+      "ok": false,
+      "issues": [{"code":"invalid_format","path":["participants",0,"userId"],"format":"uuid"},{"code":"invalid_union","path":["participants",0,"memberSlot"]},{"code":"too_small","path":["participants"],"origin":"array","minimum":2}],
+      "details": {"de":[{"path":"participants.0.userId","code":"invalid_format","message":"Ungültiges Format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}},{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}},{"path":"participants","code":"too_small","message":"Es müssen mindestens 2 Einträge angegeben werden","i18n":{"key":"server.zod.too_small.array","values":{"field":"participants","facet":"array","bound":2}}}],"en":[{"path":"participants.0.userId","code":"invalid_format","message":"Invalid format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}},{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}},{"path":"participants","code":"too_small","message":"At least 2 entries are required","i18n":{"key":"server.zod.too_small.array","values":{"field":"participants","facet":"array","bound":2}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants-null",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":null},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants"],"expected":"array"}],
+      "details": {"de":[{"path":"participants","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"array"}}}],"en":[{"path":"participants","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"array"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#root-null",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": null,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#root-undefined",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"$undefined":true},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#root-string",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": "x",
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#root-array",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": [],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#root-number",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": 1,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#root-nan",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"$number":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#root-true",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": true,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#root-empty-object",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants"],"expected":"array"}],
+      "details": {"de":[{"path":"participants","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"array"}}}],"en":[{"path":"participants","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"array"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#unknown-key",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],"unknownKey":1},
+      "ok": true,
+      "output": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants=str-x",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":"x"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants"],"expected":"array"},{"code":"too_small","path":["participants"],"origin":"string","minimum":2}],
+      "details": {"de":[{"path":"participants","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"array"}}},{"path":"participants","code":"too_small","message":"Muss mindestens 2 Zeichen lang sein","i18n":{"key":"server.zod.too_small.string","values":{"field":"participants","facet":"string","bound":2}}}],"en":[{"path":"participants","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"array"}}},{"path":"participants","code":"too_small","message":"Must be at least 2 characters long","i18n":{"key":"server.zod.too_small.string","values":{"field":"participants","facet":"string","bound":2}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants=missing",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants"],"expected":"array"}],
+      "details": {"de":[{"path":"participants","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"array"}}}],"en":[{"path":"participants","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"array"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants=null",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":null},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants"],"expected":"array"}],
+      "details": {"de":[{"path":"participants","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"array"}}}],"en":[{"path":"participants","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"array"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants=undefined",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":{"$undefined":true}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants"],"expected":"array"}],
+      "details": {"de":[{"path":"participants","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"array"}}}],"en":[{"path":"participants","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"array"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants=with-null",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[null]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants",0],"expected":"object"},{"code":"too_small","path":["participants"],"origin":"array","minimum":2}],
+      "details": {"de":[{"path":"participants.0","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"object"}}},{"path":"participants","code":"too_small","message":"Es müssen mindestens 2 Einträge angegeben werden","i18n":{"key":"server.zod.too_small.array","values":{"field":"participants","facet":"array","bound":2}}}],"en":[{"path":"participants.0","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"object"}}},{"path":"participants","code":"too_small","message":"At least 2 entries are required","i18n":{"key":"server.zod.too_small.array","values":{"field":"participants","facet":"array","bound":2}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants=empty",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[]},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["participants"],"origin":"array","minimum":2}],
+      "details": {"de":[{"path":"participants","code":"too_small","message":"Es müssen mindestens 2 Einträge angegeben werden","i18n":{"key":"server.zod.too_small.array","values":{"field":"participants","facet":"array","bound":2}}}],"en":[{"path":"participants","code":"too_small","message":"At least 2 entries are required","i18n":{"key":"server.zod.too_small.array","values":{"field":"participants","facet":"array","bound":2}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants.0=str-x",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":["x",{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants",0],"expected":"object"}],
+      "details": {"de":[{"path":"participants.0","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"object"}}}],"en":[{"path":"participants.0","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"object"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants.0=missing",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["participants"],"origin":"array","minimum":2}],
+      "details": {"de":[{"path":"participants","code":"too_small","message":"Es müssen mindestens 2 Einträge angegeben werden","i18n":{"key":"server.zod.too_small.array","values":{"field":"participants","facet":"array","bound":2}}}],"en":[{"path":"participants","code":"too_small","message":"At least 2 entries are required","i18n":{"key":"server.zod.too_small.array","values":{"field":"participants","facet":"array","bound":2}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants.0=null",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[null,{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants",0],"expected":"object"}],
+      "details": {"de":[{"path":"participants.0","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"object"}}}],"en":[{"path":"participants.0","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"object"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants.0=undefined",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[{"$undefined":true},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants",0],"expected":"object"}],
+      "details": {"de":[{"path":"participants.0","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"object"}}}],"en":[{"path":"participants.0","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"object"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants.0=array",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[[],{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants",0],"expected":"object"}],
+      "details": {"de":[{"path":"participants.0","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"object"}}}],"en":[{"path":"participants.0","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"object"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants.0.userId=num",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[{"userId":1,"memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants",0,"userId"],"expected":"string"}],
+      "details": {"de":[{"path":"participants.0.userId","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}],"en":[{"path":"participants.0.userId","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants.0.userId=missing",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[{"memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants",0,"userId"],"expected":"string"}],
+      "details": {"de":[{"path":"participants.0.userId","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}],"en":[{"path":"participants.0.userId","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants.0.userId=null",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[{"userId":null,"memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants",0,"userId"],"expected":"string"}],
+      "details": {"de":[{"path":"participants.0.userId","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}],"en":[{"path":"participants.0.userId","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants.0.userId=undefined",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[{"userId":{"$undefined":true},"memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants",0,"userId"],"expected":"string"}],
+      "details": {"de":[{"path":"participants.0.userId","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}],"en":[{"path":"participants.0.userId","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants.0.userId=empty",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[{"userId":"","memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_format","path":["participants",0,"userId"],"format":"uuid"}],
+      "details": {"de":[{"path":"participants.0.userId","code":"invalid_format","message":"Ungültiges Format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}}],"en":[{"path":"participants.0.userId","code":"invalid_format","message":"Invalid format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants.0.userId=blank",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[{"userId":"   ","memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_format","path":["participants",0,"userId"],"format":"uuid"}],
+      "details": {"de":[{"path":"participants.0.userId","code":"invalid_format","message":"Ungültiges Format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}}],"en":[{"path":"participants.0.userId","code":"invalid_format","message":"Invalid format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants.0.userId=padded",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[{"userId":"  0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b  ","memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_format","path":["participants",0,"userId"],"format":"uuid"}],
+      "details": {"de":[{"path":"participants.0.userId","code":"invalid_format","message":"Ungültiges Format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}}],"en":[{"path":"participants.0.userId","code":"invalid_format","message":"Invalid format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants.0.memberSlot=nan",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":{"$number":"NaN"}},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants.0.memberSlot=inf",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":{"$number":"Infinity"}},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants.0.memberSlot=neg-inf",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":{"$number":"-Infinity"}},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants.0.memberSlot=str-x",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":"x"},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants.0.memberSlot=missing",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b"},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants.0.memberSlot=null",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":null},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants.0.memberSlot=neg1",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":-1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants.0.memberSlot=frac",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1.5},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants.0.memberSlot=undefined",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":{"$undefined":true}},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants.0.memberSlot=str-1",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":"1"},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants.0.memberSlot=zero",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":0},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants.0.memberSlot=big",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":100000000000000000000},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants.0.memberSlot=neg-big",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":-100000000000000000000},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "UpdateFinanceParticipantsRequestSchema#participants.0.memberSlot=max-safe-plus-1",
+      "schema": "UpdateFinanceParticipantsRequestSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":9007199254740992},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#valid",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": true,
+      "output": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#empty",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[]},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["participants"],"origin":"array","minimum":2}],
+      "details": {"de":[{"path":"participants","code":"too_small","message":"Es müssen mindestens 2 Einträge angegeben werden","i18n":{"key":"server.zod.too_small.array","values":{"field":"participants","facet":"array","bound":2}}}],"en":[{"path":"participants","code":"too_small","message":"At least 2 entries are required","i18n":{"key":"server.zod.too_small.array","values":{"field":"participants","facet":"array","bound":2}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#one",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1}]},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["participants"],"origin":"array","minimum":2}],
+      "details": {"de":[{"path":"participants","code":"too_small","message":"Es müssen mindestens 2 Einträge angegeben werden","i18n":{"key":"server.zod.too_small.array","values":{"field":"participants","facet":"array","bound":2}}}],"en":[{"path":"participants","code":"too_small","message":"At least 2 entries are required","i18n":{"key":"server.zod.too_small.array","values":{"field":"participants","facet":"array","bound":2}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#bad-slot",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":0},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#root-null",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": null,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#root-undefined",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"$undefined":true},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#root-string",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": "x",
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#root-array",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": [],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#root-number",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": 1,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#root-nan",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"$number":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#root-true",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": true,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#root-empty-object",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants"],"expected":"array"}],
+      "details": {"de":[{"path":"participants","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"array"}}}],"en":[{"path":"participants","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"array"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#unknown-key",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}],"unknownKey":1},
+      "ok": true,
+      "output": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants=str-x",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":"x"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants"],"expected":"array"},{"code":"too_small","path":["participants"],"origin":"string","minimum":2}],
+      "details": {"de":[{"path":"participants","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"array"}}},{"path":"participants","code":"too_small","message":"Muss mindestens 2 Zeichen lang sein","i18n":{"key":"server.zod.too_small.string","values":{"field":"participants","facet":"string","bound":2}}}],"en":[{"path":"participants","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"array"}}},{"path":"participants","code":"too_small","message":"Must be at least 2 characters long","i18n":{"key":"server.zod.too_small.string","values":{"field":"participants","facet":"string","bound":2}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants=missing",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants"],"expected":"array"}],
+      "details": {"de":[{"path":"participants","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"array"}}}],"en":[{"path":"participants","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"array"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants=null",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":null},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants"],"expected":"array"}],
+      "details": {"de":[{"path":"participants","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"array"}}}],"en":[{"path":"participants","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"array"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants=undefined",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":{"$undefined":true}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants"],"expected":"array"}],
+      "details": {"de":[{"path":"participants","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"array"}}}],"en":[{"path":"participants","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"array"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants=with-null",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[null]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants",0],"expected":"object"},{"code":"too_small","path":["participants"],"origin":"array","minimum":2}],
+      "details": {"de":[{"path":"participants.0","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"object"}}},{"path":"participants","code":"too_small","message":"Es müssen mindestens 2 Einträge angegeben werden","i18n":{"key":"server.zod.too_small.array","values":{"field":"participants","facet":"array","bound":2}}}],"en":[{"path":"participants.0","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"object"}}},{"path":"participants","code":"too_small","message":"At least 2 entries are required","i18n":{"key":"server.zod.too_small.array","values":{"field":"participants","facet":"array","bound":2}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants=empty",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[]},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["participants"],"origin":"array","minimum":2}],
+      "details": {"de":[{"path":"participants","code":"too_small","message":"Es müssen mindestens 2 Einträge angegeben werden","i18n":{"key":"server.zod.too_small.array","values":{"field":"participants","facet":"array","bound":2}}}],"en":[{"path":"participants","code":"too_small","message":"At least 2 entries are required","i18n":{"key":"server.zod.too_small.array","values":{"field":"participants","facet":"array","bound":2}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants.0=str-x",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":["x",{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants",0],"expected":"object"}],
+      "details": {"de":[{"path":"participants.0","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"object"}}}],"en":[{"path":"participants.0","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants.0=missing",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["participants"],"origin":"array","minimum":2}],
+      "details": {"de":[{"path":"participants","code":"too_small","message":"Es müssen mindestens 2 Einträge angegeben werden","i18n":{"key":"server.zod.too_small.array","values":{"field":"participants","facet":"array","bound":2}}}],"en":[{"path":"participants","code":"too_small","message":"At least 2 entries are required","i18n":{"key":"server.zod.too_small.array","values":{"field":"participants","facet":"array","bound":2}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants.0=null",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[null,{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants",0],"expected":"object"}],
+      "details": {"de":[{"path":"participants.0","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"object"}}}],"en":[{"path":"participants.0","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants.0=undefined",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[{"$undefined":true},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants",0],"expected":"object"}],
+      "details": {"de":[{"path":"participants.0","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"object"}}}],"en":[{"path":"participants.0","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants.0=array",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[[],{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants",0],"expected":"object"}],
+      "details": {"de":[{"path":"participants.0","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"object"}}}],"en":[{"path":"participants.0","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"participants","facet":"object"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants.0.userId=num",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[{"userId":1,"memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants",0,"userId"],"expected":"string"}],
+      "details": {"de":[{"path":"participants.0.userId","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}],"en":[{"path":"participants.0.userId","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants.0.userId=missing",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[{"memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants",0,"userId"],"expected":"string"}],
+      "details": {"de":[{"path":"participants.0.userId","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}],"en":[{"path":"participants.0.userId","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants.0.userId=null",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[{"userId":null,"memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants",0,"userId"],"expected":"string"}],
+      "details": {"de":[{"path":"participants.0.userId","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}],"en":[{"path":"participants.0.userId","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants.0.userId=undefined",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[{"userId":{"$undefined":true},"memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["participants",0,"userId"],"expected":"string"}],
+      "details": {"de":[{"path":"participants.0.userId","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}],"en":[{"path":"participants.0.userId","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"userId","facet":"string"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants.0.userId=empty",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[{"userId":"","memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_format","path":["participants",0,"userId"],"format":"uuid"}],
+      "details": {"de":[{"path":"participants.0.userId","code":"invalid_format","message":"Ungültiges Format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}}],"en":[{"path":"participants.0.userId","code":"invalid_format","message":"Invalid format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants.0.userId=blank",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[{"userId":"   ","memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_format","path":["participants",0,"userId"],"format":"uuid"}],
+      "details": {"de":[{"path":"participants.0.userId","code":"invalid_format","message":"Ungültiges Format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}}],"en":[{"path":"participants.0.userId","code":"invalid_format","message":"Invalid format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants.0.userId=padded",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[{"userId":"  0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b  ","memberSlot":1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_format","path":["participants",0,"userId"],"format":"uuid"}],
+      "details": {"de":[{"path":"participants.0.userId","code":"invalid_format","message":"Ungültiges Format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}}],"en":[{"path":"participants.0.userId","code":"invalid_format","message":"Invalid format","i18n":{"key":"server.zod.invalid_format","values":{"field":"userId","facet":"uuid"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants.0.memberSlot=nan",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":{"$number":"NaN"}},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants.0.memberSlot=inf",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":{"$number":"Infinity"}},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants.0.memberSlot=neg-inf",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":{"$number":"-Infinity"}},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants.0.memberSlot=str-x",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":"x"},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants.0.memberSlot=missing",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b"},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants.0.memberSlot=null",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":null},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants.0.memberSlot=neg1",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":-1},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants.0.memberSlot=frac",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":1.5},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants.0.memberSlot=undefined",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":{"$undefined":true}},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants.0.memberSlot=str-1",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":"1"},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants.0.memberSlot=zero",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":0},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants.0.memberSlot=big",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":100000000000000000000},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants.0.memberSlot=neg-big",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":-100000000000000000000},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "FinanceEnableSettingsSchema#participants.0.memberSlot=max-safe-plus-1",
+      "schema": "FinanceEnableSettingsSchema",
+      "input": {"participants":[{"userId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","memberSlot":9007199254740992},{"userId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","memberSlot":2}]},
+      "ok": false,
+      "issues": [{"code":"invalid_union","path":["participants",0,"memberSlot"]}],
+      "details": {"de":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}],"en":[{"path":"participants.0.memberSlot","code":"invalid_union","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"memberSlot","facet":"_"}}}]}
+    },
+    {
+      "id": "UpdateFinanceDisplayNameRequestSchema#valid",
+      "schema": "UpdateFinanceDisplayNameRequestSchema",
+      "input": {"displayName":"Anna"},
+      "ok": true,
+      "output": {"displayName":"Anna"}
+    },
+    {
+      "id": "UpdateFinanceDisplayNameRequestSchema#padded",
+      "schema": "UpdateFinanceDisplayNameRequestSchema",
+      "input": {"displayName":"  Anna  "},
+      "ok": true,
+      "output": {"displayName":"Anna"}
+    },
+    {
+      "id": "UpdateFinanceDisplayNameRequestSchema#control",
+      "schema": "UpdateFinanceDisplayNameRequestSchema",
+      "input": {"displayName":"a\u0000b"},
+      "ok": false,
+      "issues": [{"code":"custom","path":["displayName"],"params":{"i18n":"server.validation.noControlChars"}}],
+      "details": {"de":[{"path":"displayName","code":"custom","message":"Der Name darf keine Steuerzeichen oder Zeilenumbrüche enthalten.","i18n":{"key":"server.validation.noControlChars","values":{"field":"displayName","facet":"_"}}}],"en":[{"path":"displayName","code":"custom","message":"The name must not contain control characters or line breaks.","i18n":{"key":"server.validation.noControlChars","values":{"field":"displayName","facet":"_"}}}]}
+    },
+    {
+      "id": "UpdateFinanceDisplayNameRequestSchema#name-instead",
+      "schema": "UpdateFinanceDisplayNameRequestSchema",
+      "input": {"name":"Anna"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["displayName"],"expected":"string"}],
+      "details": {"de":[{"path":"displayName","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"displayName","facet":"string"}}}],"en":[{"path":"displayName","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"displayName","facet":"string"}}}]}
+    },
+    {
+      "id": "UpdateFinanceDisplayNameRequestSchema#root-null",
+      "schema": "UpdateFinanceDisplayNameRequestSchema",
+      "input": null,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "UpdateFinanceDisplayNameRequestSchema#root-undefined",
+      "schema": "UpdateFinanceDisplayNameRequestSchema",
+      "input": {"$undefined":true},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "UpdateFinanceDisplayNameRequestSchema#root-string",
+      "schema": "UpdateFinanceDisplayNameRequestSchema",
+      "input": "x",
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "UpdateFinanceDisplayNameRequestSchema#root-array",
+      "schema": "UpdateFinanceDisplayNameRequestSchema",
+      "input": [],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "UpdateFinanceDisplayNameRequestSchema#root-number",
+      "schema": "UpdateFinanceDisplayNameRequestSchema",
+      "input": 1,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "UpdateFinanceDisplayNameRequestSchema#root-nan",
+      "schema": "UpdateFinanceDisplayNameRequestSchema",
+      "input": {"$number":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "UpdateFinanceDisplayNameRequestSchema#root-true",
+      "schema": "UpdateFinanceDisplayNameRequestSchema",
+      "input": true,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "UpdateFinanceDisplayNameRequestSchema#root-empty-object",
+      "schema": "UpdateFinanceDisplayNameRequestSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["displayName"],"expected":"string"}],
+      "details": {"de":[{"path":"displayName","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"displayName","facet":"string"}}}],"en":[{"path":"displayName","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"displayName","facet":"string"}}}]}
+    },
+    {
+      "id": "UpdateFinanceDisplayNameRequestSchema#unknown-key",
+      "schema": "UpdateFinanceDisplayNameRequestSchema",
+      "input": {"displayName":"Anna","unknownKey":1},
+      "ok": true,
+      "output": {"displayName":"Anna"}
+    },
+    {
+      "id": "UpdateFinanceDisplayNameRequestSchema#displayName=num",
+      "schema": "UpdateFinanceDisplayNameRequestSchema",
+      "input": {"displayName":1},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["displayName"],"expected":"string"}],
+      "details": {"de":[{"path":"displayName","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"displayName","facet":"string"}}}],"en":[{"path":"displayName","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"displayName","facet":"string"}}}]}
+    },
+    {
+      "id": "UpdateFinanceDisplayNameRequestSchema#displayName=missing",
+      "schema": "UpdateFinanceDisplayNameRequestSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["displayName"],"expected":"string"}],
+      "details": {"de":[{"path":"displayName","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"displayName","facet":"string"}}}],"en":[{"path":"displayName","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"displayName","facet":"string"}}}]}
+    },
+    {
+      "id": "UpdateFinanceDisplayNameRequestSchema#displayName=null",
+      "schema": "UpdateFinanceDisplayNameRequestSchema",
+      "input": {"displayName":null},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["displayName"],"expected":"string"}],
+      "details": {"de":[{"path":"displayName","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"displayName","facet":"string"}}}],"en":[{"path":"displayName","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"displayName","facet":"string"}}}]}
+    },
+    {
+      "id": "UpdateFinanceDisplayNameRequestSchema#displayName=undefined",
+      "schema": "UpdateFinanceDisplayNameRequestSchema",
+      "input": {"displayName":{"$undefined":true}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["displayName"],"expected":"string"}],
+      "details": {"de":[{"path":"displayName","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"displayName","facet":"string"}}}],"en":[{"path":"displayName","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"displayName","facet":"string"}}}]}
+    },
+    {
+      "id": "UpdateFinanceDisplayNameRequestSchema#displayName=empty",
+      "schema": "UpdateFinanceDisplayNameRequestSchema",
+      "input": {"displayName":""},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["displayName"],"origin":"string","minimum":1}],
+      "details": {"de":[{"path":"displayName","code":"too_small","message":"Muss mindestens 1 Zeichen lang sein","i18n":{"key":"server.zod.too_small.string","values":{"field":"displayName","facet":"string","bound":1}}}],"en":[{"path":"displayName","code":"too_small","message":"Must be at least 1 characters long","i18n":{"key":"server.zod.too_small.string","values":{"field":"displayName","facet":"string","bound":1}}}]}
+    },
+    {
+      "id": "UpdateFinanceDisplayNameRequestSchema#displayName=blank",
+      "schema": "UpdateFinanceDisplayNameRequestSchema",
+      "input": {"displayName":"   "},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["displayName"],"origin":"string","minimum":1}],
+      "details": {"de":[{"path":"displayName","code":"too_small","message":"Muss mindestens 1 Zeichen lang sein","i18n":{"key":"server.zod.too_small.string","values":{"field":"displayName","facet":"string","bound":1}}}],"en":[{"path":"displayName","code":"too_small","message":"Must be at least 1 characters long","i18n":{"key":"server.zod.too_small.string","values":{"field":"displayName","facet":"string","bound":1}}}]}
+    },
+    {
+      "id": "UpdateFinanceDisplayNameRequestSchema#displayName=padded",
+      "schema": "UpdateFinanceDisplayNameRequestSchema",
+      "input": {"displayName":"  Anna  "},
+      "ok": true,
+      "output": {"displayName":"Anna"}
+    },
+    {
+      "id": "UpdateFinanceDisplayNameRequestSchema#displayName=len80",
+      "schema": "UpdateFinanceDisplayNameRequestSchema",
+      "input": {"displayName":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+      "ok": true,
+      "output": {"displayName":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+    },
+    {
+      "id": "UpdateFinanceDisplayNameRequestSchema#displayName=len81",
+      "schema": "UpdateFinanceDisplayNameRequestSchema",
+      "input": {"displayName":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+      "ok": false,
+      "issues": [{"code":"too_big","path":["displayName"],"origin":"string","maximum":80}],
+      "details": {"de":[{"path":"displayName","code":"too_big","message":"Darf höchstens 80 Zeichen lang sein","i18n":{"key":"server.zod.too_big.string","values":{"field":"displayName","facet":"string","bound":80}}}],"en":[{"path":"displayName","code":"too_big","message":"Must be at most 80 characters long","i18n":{"key":"server.zod.too_big.string","values":{"field":"displayName","facet":"string","bound":80}}}]}
+    }
+  ]
+}
