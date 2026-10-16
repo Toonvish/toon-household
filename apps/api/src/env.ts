@@ -1,5 +1,5 @@
 /**
- * Zod-validated environment. Import `env` anywhere in the API — it is parsed
+ * Schema-validated environment. Import `env` anywhere in the API — it is parsed
  * exactly once at module load and fails fast with a readable message.
  *
  * Every variable is documented in /.env.example.
@@ -8,7 +8,17 @@ import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { LOCALES } from "@toon/shared";
-import { z } from "zod";
+import {
+  Cause,
+  Effect,
+  Exit,
+  Option,
+  Schema,
+  SchemaGetter,
+  SchemaIssue,
+  SchemaTransformation,
+  Struct,
+} from "effect";
 
 /** Monorepo root (apps/api/src/env.ts -> ../../..). */
 export const REPO_ROOT = resolve(import.meta.dir, "../../..");
@@ -53,42 +63,76 @@ function resolveDatabaseUrl(url: string): string {
   return `file:${resolve(REPO_ROOT, path)}`;
 }
 
-const BooleanishSchema = z
-  .string()
-  .transform((value) => value === "1" || value.toLowerCase() === "true")
-  .optional();
+/** `"1"` / `"true"` (any case) is true, every other string false; an unset variable stays `undefined`. */
+const BooleanishSchema = Schema.optional(
+  Schema.String.pipe(
+    Schema.decodeTo(
+      Schema.Boolean,
+      SchemaTransformation.transform({
+        decode: (value) => value === "1" || value.toLowerCase() === "true",
+        encode: (value) => (value ? "1" : "0"),
+      }),
+    ),
+  ),
+);
 
-const EnvSchema = z
-  .object({
-    NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+/**
+ * z.coerce.number().int().min().max(): `Number(input)` first, then ONE filter, so a bad value
+ * is one line (NaN, a fraction and an out-of-range number all fail the same check).
+ */
+function coercedInt(minimum: number, maximum: number) {
+  return Schema.String.pipe(
+    Schema.decodeTo(
+      Schema.Number.check(
+        Schema.makeFilter((value) => Number.isInteger(value) && value >= minimum && value <= maximum, {
+          expected: `an integer between ${minimum} and ${maximum}`,
+        }),
+      ),
+      SchemaTransformation.transform({ decode: Number, encode: String }),
+    ),
+  );
+}
+
+const EnvFields = Schema.Struct({
+    NODE_ENV: Schema.Literals(["development", "production", "test"]).pipe(
+      Schema.withDecodingDefaultType(Effect.succeed("development" as const)),
+    ),
 
     /** "file:./data/local.db" (self-hosted) or "libsql://xxx.turso.io" (Turso cloud). */
-    DATABASE_URL: z.string().min(1, "DATABASE_URL fehlt (z. B. file:./data/local.db)"),
+    DATABASE_URL: Schema.String.check(
+      Schema.isMinLength(1, { message: "DATABASE_URL fehlt (z. B. file:./data/local.db)" }),
+    ),
     /** Only needed for remote libsql:// / https:// URLs. */
-    DATABASE_AUTH_TOKEN: z.string().optional(),
+    DATABASE_AUTH_TOKEN: Schema.optional(Schema.String),
 
-    API_PORT: z.coerce.number().int().min(1).max(65535).default(3001),
+    API_PORT: coercedInt(1, 65535).pipe(Schema.withDecodingDefaultType(Effect.succeed(3001))),
     /**
      * The interface locale a request/mail falls back to when nothing more
      * specific is known: an unrecognised/absent `Accept-Language`, or a
      * recipient whose `users.locale` is null. NOT the CONTENT language of a
      * recipe (`recipes.language`) — see CLAUDE.md's interface/content gotcha.
      */
-    DEFAULT_LOCALE: z.enum(LOCALES).default("de"),
+    DEFAULT_LOCALE: Schema.Literals(LOCALES).pipe(Schema.withDecodingDefaultType(Effect.succeed("de" as const))),
     /** Comma-separated list of allowed browser origins (CORS, credentials: true). */
-    WEB_ORIGIN: z.string().min(1).default("http://localhost:5173"),
-    SESSION_SECRET: z.string().min(16, "SESSION_SECRET muss mindestens 16 Zeichen haben"),
+    WEB_ORIGIN: Schema.String.check(Schema.isMinLength(1)).pipe(
+      Schema.withDecodingDefaultType(Effect.succeed("http://localhost:5173")),
+    ),
+    SESSION_SECRET: Schema.String.check(
+      Schema.isMinLength(16, { message: "SESSION_SECRET muss mindestens 16 Zeichen haben" }),
+    ),
 
-    PUBLIC_API_URL: z.string().optional(),
+    PUBLIC_API_URL: Schema.optional(Schema.String),
 
-    GOOGLE_CLIENT_ID: z.string().optional(),
-    GOOGLE_CLIENT_SECRET: z.string().optional(),
-    GITHUB_CLIENT_ID: z.string().optional(),
-    GITHUB_CLIENT_SECRET: z.string().optional(),
+    GOOGLE_CLIENT_ID: Schema.optional(Schema.String),
+    GOOGLE_CLIENT_SECRET: Schema.optional(Schema.String),
+    GITHUB_CLIENT_ID: Schema.optional(Schema.String),
+    GITHUB_CLIENT_SECRET: Schema.optional(Schema.String),
     /** Public base URL of the API; OAuth redirect URIs are built from it. */
-    OAUTH_REDIRECT_BASE: z.string().default("http://localhost:3001"),
+    OAUTH_REDIRECT_BASE: Schema.String.pipe(
+      Schema.withDecodingDefaultType(Effect.succeed("http://localhost:3001")),
+    ),
 
-    UPLOAD_DIR: z.string().default("./data/uploads"),
+    UPLOAD_DIR: Schema.String.pipe(Schema.withDecodingDefaultType(Effect.succeed("./data/uploads"))),
 
     /**
      * FEATURE FLAG for PHOTO import. **Off unless set**, which is the whole
@@ -127,9 +171,9 @@ const EnvSchema = z
      * two parallel photo imports. A request that finds every slot taken now WAITS
      * (bounded) instead of failing immediately.
      */
-    IMPORT_OCR_CONCURRENCY: z.coerce.number().int().min(1).max(8).default(1),
+    IMPORT_OCR_CONCURRENCY: coercedInt(1, 8).pipe(Schema.withDecodingDefaultType(Effect.succeed(1))),
 
-    TESSERACT_LANGS: z.string().default("deu+eng"),
+    TESSERACT_LANGS: Schema.String.pipe(Schema.withDecodingDefaultType(Effect.succeed("deu+eng"))),
     /**
      * OCR and PDF rasterization run as NATIVE SUBPROCESSES, so both binaries have
      * to be on the host. The Docker image installs them (`tesseract-ocr`,
@@ -138,8 +182,8 @@ const EnvSchema = z
      * path. Each language in TESSERACT_LANGS needs its own `tesseract-ocr-<lang>`
      * package — a missing one fails at recognise time with a 422 naming it.
      */
-    TESSERACT_BIN: z.string().default("tesseract"),
-    PDFTOPPM_BIN: z.string().default("pdftoppm"),
+    TESSERACT_BIN: Schema.String.pipe(Schema.withDecodingDefaultType(Effect.succeed("tesseract"))),
+    PDFTOPPM_BIN: Schema.String.pipe(Schema.withDecodingDefaultType(Effect.succeed("pdftoppm"))),
 
     /**
      * Directory of the built web app (`apps/web/dist`). When set, the API also
@@ -147,7 +191,7 @@ const EnvSchema = z
      * the reason a container needs no CORS, no second origin and no API URL baked
      * into the bundle at build time. Unset in dev, where vite serves it.
      */
-    WEB_DIST_DIR: z.string().optional(),
+    WEB_DIST_DIR: Schema.optional(Schema.String),
 
     /**
      * Outgoing mail. ALL OPTIONAL: with nothing configured the API uses the
@@ -162,19 +206,19 @@ const EnvSchema = z
      * leaves this UNSET, so a deployment that never configures mail logs its links
      * rather than pretending to send them.
      */
-    MAIL_TRANSPORT: z.enum(["console", "smtp", "resend"]).optional(),
+    MAIL_TRANSPORT: Schema.optional(Schema.Literals(["console", "smtp", "resend"])),
     /** Sender, "Name <address>" or a bare address. Required for a real transport. */
-    MAIL_FROM: z.string().optional(),
+    MAIL_FROM: Schema.optional(Schema.String),
     /** Resend API key (re_…). Required when MAIL_TRANSPORT=resend. */
-    MAIL_API_KEY: z.string().optional(),
+    MAIL_API_KEY: Schema.optional(Schema.String),
 
     /** SMTP relay host, e.g. "smtp.resend.com". Required when MAIL_TRANSPORT=smtp. */
-    MAIL_HOST: z.string().optional(),
+    MAIL_HOST: Schema.optional(Schema.String),
     /** Defaults to 465 for MAIL_SECURITY=tls, otherwise 587. */
-    MAIL_PORT: z.coerce.number().int().min(1).max(65535).optional(),
+    MAIL_PORT: Schema.optional(coercedInt(1, 65535)),
     /** Omit both for a relay that does not authenticate. */
-    MAIL_USER: z.string().optional(),
-    MAIL_PASSWORD: z.string().optional(),
+    MAIL_USER: Schema.optional(Schema.String),
+    MAIL_PASSWORD: Schema.optional(Schema.String),
     /**
      * "starttls" (default) — plaintext greeting then a MANDATORY upgrade, port 587,
      * "tls"                — TLS from the first byte, port 465,
@@ -182,7 +226,7 @@ const EnvSchema = z
      *                        private network, and env.ts refuses to combine it
      *                        with credentials.
      */
-    MAIL_SECURITY: z.enum(["starttls", "tls", "none"]).optional(),
+    MAIL_SECURITY: Schema.optional(Schema.Literals(["starttls", "tls", "none"])),
     /** Accept a self-signed relay certificate. Off unless you know why you need it. */
     MAIL_TLS_INSECURE: BooleanishSchema,
 
@@ -203,110 +247,158 @@ const EnvSchema = z
      * their own login/register bucket by sending a fresh X-Forwarded-For header.
      */
     TRUST_PROXY: BooleanishSchema,
-  })
-  .transform((value) => {
-    const isRemoteDb = /^(libsql|https|http|wss|ws):/i.test(value.DATABASE_URL);
-    return {
-      ...value,
-      isProduction: value.NODE_ENV === "production",
-      isTest: value.NODE_ENV === "test",
-      /** Origins allowed by CORS, already split and trimmed. */
-      webOrigins: value.WEB_ORIGIN.split(",")
-        .map((origin) => origin.trim())
-        .filter((origin) => origin.length > 0),
-      /** "remote" for Turso cloud, "file" for a local libSQL file / memory DB. */
-      databaseKind: (isRemoteDb ? "remote" : "file") as "remote" | "file",
-      /** DATABASE_URL with relative file: paths resolved against the repo root. */
-      databaseUrl: resolveDatabaseUrl(value.DATABASE_URL),
-      /** Absolute upload directory (relative paths resolve from the repo root). */
-      uploadDir: resolve(REPO_ROOT, value.UPLOAD_DIR),
-      googleOAuthConfigured:
-        typeof value.GOOGLE_CLIENT_ID === "string" &&
-        value.GOOGLE_CLIENT_ID.length > 0 &&
-        typeof value.GOOGLE_CLIENT_SECRET === "string" &&
-        value.GOOGLE_CLIENT_SECRET.length > 0,
-      githubOAuthConfigured:
-        typeof value.GITHUB_CLIENT_ID === "string" &&
-        value.GITHUB_CLIENT_ID.length > 0 &&
-        typeof value.GITHUB_CLIENT_SECRET === "string" &&
-        value.GITHUB_CLIENT_SECRET.length > 0,
-      /** Whether X-Forwarded-For / X-Real-IP may be believed (see TRUST_PROXY). */
-      trustProxy: value.TRUST_PROXY === true,
-      /** SSRF guard escape hatch — can never be enabled in production. */
-      allowPrivateImportHosts:
-        value.IMPORT_ALLOW_PRIVATE_HOSTS === true && value.NODE_ENV !== "production",
-      /**
-       * Whether PHOTO import is offered at all (see IMPORT_OCR_ENABLED).
-       * Read through `isOcrImportEnabled()` in services/import/capabilities.ts,
-       * never directly, so tests can flip it.
-       */
-      ocrImportEnabled: value.IMPORT_OCR_ENABLED === true,
-      /**
-       * Whether PDF import is offered (see IMPORT_PDF_ENABLED). Unset FOLLOWS the
-       * photo flag, so `IMPORT_OCR_ENABLED=1` alone keeps the pre-split behaviour
-       * and only an explicit `IMPORT_PDF_ENABLED=0` splits them apart.
-       */
-      pdfImportEnabled: (value.IMPORT_PDF_ENABLED ?? value.IMPORT_OCR_ENABLED) === true,
-      /** Peak concurrent OCR pipelines; see IMPORT_OCR_CONCURRENCY. */
-      ocrConcurrency: value.IMPORT_OCR_CONCURRENCY,
-      /** Which mail adapter services/mail/index.ts builds. Always "console" in tests. */
-      mailTransport: (value.NODE_ENV === "test" ? "console" : value.MAIL_TRANSPORT ?? "console") as
-        | "console"
-        | "smtp"
-        | "resend",
-      /** Sender address; the ConsoleMailer is happy with the placeholder. */
-      mailFrom: value.MAIL_FROM ?? "Rezepte <noreply@localhost>",
-      /** How the SMTP session is encrypted; see MAIL_SECURITY. */
-      mailSecurity: (value.MAIL_SECURITY ?? "starttls") as "starttls" | "tls" | "none",
-      /** Submission port, defaulted from the chosen security rather than guessed. */
-      mailPort: value.MAIL_PORT ?? (value.MAIL_SECURITY === "tls" ? 465 : 587),
-      /** Absolute path of the built web app, or null when the API serves no UI. */
-      webDistDir:
-        value.WEB_DIST_DIR === undefined ? null : resolve(REPO_ROOT, value.WEB_DIST_DIR),
-      /** The locale `requestLocale(c)` and mail fall back to. See DEFAULT_LOCALE above. */
-      defaultLocale: value.DEFAULT_LOCALE,
-    };
-  })
-  // The `.env.example` placeholder passes the length check (toon-finance 1715207,
-  // gotcha 74). A public secret makes every value derived from it predictable (the
-  // signatures of the /uploads URLs, the session handles) — and a copied template is exactly
-  // how it would end up on a real host.
-  .refine(
-    (value) => value.NODE_ENV !== "production" || !/^change-me/i.test(value.SESSION_SECRET),
-    "SESSION_SECRET is still the .env.example placeholder — generate one: openssl rand -hex 32",
-  )
-  .refine(
-    (value) => value.databaseKind === "file" || (value.DATABASE_AUTH_TOKEN ?? "").length > 0,
-    "DATABASE_AUTH_TOKEN is required for a remote libsql:// database",
-  )
-  // Fail at boot rather than at the first invite: a deployment that asked for a
-  // real transport but forgot the key would otherwise look fine and silently
-  // never deliver anything.
-  .refine(
-    (value) => value.mailTransport !== "resend" || (value.MAIL_API_KEY ?? "").length > 0,
-    "MAIL_API_KEY is required for MAIL_TRANSPORT=resend",
-  )
-  .refine(
-    (value) => value.mailTransport === "console" || (value.MAIL_FROM ?? "").length > 0,
-    "MAIL_FROM is required for a real MAIL_TRANSPORT (a verified sender domain)",
-  )
-  .refine(
-    (value) => value.mailTransport !== "smtp" || (value.MAIL_HOST ?? "").length > 0,
-    "MAIL_HOST is required for MAIL_TRANSPORT=smtp (your mail provider's submission host)",
-  )
-  // Credentials over an unencrypted session would be readable by anything on the
-  // path. The only setup that legitimately uses MAIL_SECURITY=none is a relay on
-  // the same private network, and that one needs no login — so this combination is
-  // always a mistake, and it is one that looks like it works.
-  .refine(
-    (value) =>
-      value.mailTransport !== "smtp" ||
-      (value.MAIL_SECURITY ?? "starttls") !== "none" ||
-      (value.MAIL_USER ?? "").length === 0,
-    "MAIL_USER/MAIL_PASSWORD must not be combined with MAIL_SECURITY=none — the credentials would cross the network in cleartext (use MAIL_SECURITY=starttls or =tls)",
-  );
+});
 
-export type Env = z.infer<typeof EnvSchema>;
+/** The derived fields, computed once after the variables decoded. */
+function deriveEnv(value: typeof EnvFields.Type) {
+  const isRemoteDb = /^(libsql|https|http|wss|ws):/i.test(value.DATABASE_URL);
+  return {
+    ...value,
+    isProduction: value.NODE_ENV === "production",
+    isTest: value.NODE_ENV === "test",
+    /** Origins allowed by CORS, already split and trimmed. */
+    webOrigins: value.WEB_ORIGIN.split(",")
+      .map((origin) => origin.trim())
+      .filter((origin) => origin.length > 0),
+    /** "remote" for Turso cloud, "file" for a local libSQL file / memory DB. */
+    databaseKind: (isRemoteDb ? "remote" : "file") as "remote" | "file",
+    /** DATABASE_URL with relative file: paths resolved against the repo root. */
+    databaseUrl: resolveDatabaseUrl(value.DATABASE_URL),
+    /** Absolute upload directory (relative paths resolve from the repo root). */
+    uploadDir: resolve(REPO_ROOT, value.UPLOAD_DIR),
+    googleOAuthConfigured:
+      typeof value.GOOGLE_CLIENT_ID === "string" &&
+      value.GOOGLE_CLIENT_ID.length > 0 &&
+      typeof value.GOOGLE_CLIENT_SECRET === "string" &&
+      value.GOOGLE_CLIENT_SECRET.length > 0,
+    githubOAuthConfigured:
+      typeof value.GITHUB_CLIENT_ID === "string" &&
+      value.GITHUB_CLIENT_ID.length > 0 &&
+      typeof value.GITHUB_CLIENT_SECRET === "string" &&
+      value.GITHUB_CLIENT_SECRET.length > 0,
+    /** Whether X-Forwarded-For / X-Real-IP may be believed (see TRUST_PROXY). */
+    trustProxy: value.TRUST_PROXY === true,
+    /** SSRF guard escape hatch — can never be enabled in production. */
+    allowPrivateImportHosts:
+      value.IMPORT_ALLOW_PRIVATE_HOSTS === true && value.NODE_ENV !== "production",
+    /**
+     * Whether PHOTO import is offered at all (see IMPORT_OCR_ENABLED).
+     * Read through `isOcrImportEnabled()` in services/import/capabilities.ts,
+     * never directly, so tests can flip it.
+     */
+    ocrImportEnabled: value.IMPORT_OCR_ENABLED === true,
+    /**
+     * Whether PDF import is offered (see IMPORT_PDF_ENABLED). Unset FOLLOWS the
+     * photo flag, so `IMPORT_OCR_ENABLED=1` alone keeps the pre-split behaviour
+     * and only an explicit `IMPORT_PDF_ENABLED=0` splits them apart.
+     */
+    pdfImportEnabled: (value.IMPORT_PDF_ENABLED ?? value.IMPORT_OCR_ENABLED) === true,
+    /** Peak concurrent OCR pipelines; see IMPORT_OCR_CONCURRENCY. */
+    ocrConcurrency: value.IMPORT_OCR_CONCURRENCY,
+    /** Which mail adapter services/mail/index.ts builds. Always "console" in tests. */
+    mailTransport: (value.NODE_ENV === "test" ? "console" : value.MAIL_TRANSPORT ?? "console") as
+      | "console"
+      | "smtp"
+      | "resend",
+    /** Sender address; the ConsoleMailer is happy with the placeholder. */
+    mailFrom: value.MAIL_FROM ?? "Rezepte <noreply@localhost>",
+    /** How the SMTP session is encrypted; see MAIL_SECURITY. */
+    mailSecurity: (value.MAIL_SECURITY ?? "starttls") as "starttls" | "tls" | "none",
+    /** Submission port, defaulted from the chosen security rather than guessed. */
+    mailPort: value.MAIL_PORT ?? (value.MAIL_SECURITY === "tls" ? 465 : 587),
+    /** Absolute path of the built web app, or null when the API serves no UI. */
+    webDistDir:
+      value.WEB_DIST_DIR === undefined ? null : resolve(REPO_ROOT, value.WEB_DIST_DIR),
+    /** The locale `requestLocale(c)` and mail fall back to. See DEFAULT_LOCALE above. */
+    defaultLocale: value.DEFAULT_LOCALE,
+  };
+}
+
+/**
+ * The decoded variables plus the derived fields as a schema: the type side of `EnvFields`
+ * (defaults applied, booleans decoded) with the derived fields added, so the cross-field
+ * refinements below read the finished object.
+ */
+const EnvValue = EnvFields.mapFields(Struct.map(Schema.toType)).pipe(
+  Schema.fieldsAssign({
+    isProduction: Schema.Boolean,
+    isTest: Schema.Boolean,
+    webOrigins: Schema.Array(Schema.String),
+    databaseKind: Schema.Literals(["remote", "file"]),
+    databaseUrl: Schema.String,
+    uploadDir: Schema.String,
+    googleOAuthConfigured: Schema.Boolean,
+    githubOAuthConfigured: Schema.Boolean,
+    trustProxy: Schema.Boolean,
+    allowPrivateImportHosts: Schema.Boolean,
+    ocrImportEnabled: Schema.Boolean,
+    pdfImportEnabled: Schema.Boolean,
+    ocrConcurrency: Schema.Number,
+    mailTransport: Schema.Literals(["console", "smtp", "resend"]),
+    mailFrom: Schema.String,
+    mailSecurity: Schema.Literals(["starttls", "tls", "none"]),
+    mailPort: Schema.Number,
+    webDistDir: Schema.NullOr(Schema.String),
+    defaultLocale: Schema.Literals(LOCALES),
+  }),
+);
+
+/** One cross-field rule: `undefined` passes, the message is the whole failure text. */
+function refinement(holds: (value: typeof EnvValue.Type) => boolean, message: string) {
+  return Schema.makeFilter<typeof EnvValue.Type>((value) => (holds(value) ? undefined : message));
+}
+
+const EnvSchema = EnvFields.pipe(
+  Schema.decodeTo(
+    EnvValue.check(
+      // The `.env.example` placeholder passes the length check (toon-finance 1715207,
+      // gotcha 74). A public secret makes every value derived from it predictable (the
+      // signatures of the /uploads URLs, the session handles) — and a copied template is exactly
+      // how it would end up on a real host.
+      refinement(
+        (value) => value.NODE_ENV !== "production" || !/^change-me/i.test(value.SESSION_SECRET),
+        "SESSION_SECRET is still the .env.example placeholder — generate one: openssl rand -hex 32",
+      ),
+      refinement(
+        (value) => value.databaseKind === "file" || (value.DATABASE_AUTH_TOKEN ?? "").length > 0,
+        "DATABASE_AUTH_TOKEN is required for a remote libsql:// database",
+      ),
+      // Fail at boot rather than at the first invite: a deployment that asked for a
+      // real transport but forgot the key would otherwise look fine and silently
+      // never deliver anything.
+      refinement(
+        (value) => value.mailTransport !== "resend" || (value.MAIL_API_KEY ?? "").length > 0,
+        "MAIL_API_KEY is required for MAIL_TRANSPORT=resend",
+      ),
+      refinement(
+        (value) => value.mailTransport === "console" || (value.MAIL_FROM ?? "").length > 0,
+        "MAIL_FROM is required for a real MAIL_TRANSPORT (a verified sender domain)",
+      ),
+      refinement(
+        (value) => value.mailTransport !== "smtp" || (value.MAIL_HOST ?? "").length > 0,
+        "MAIL_HOST is required for MAIL_TRANSPORT=smtp (your mail provider's submission host)",
+      ),
+      // Credentials over an unencrypted session would be readable by anything on the
+      // path. The only setup that legitimately uses MAIL_SECURITY=none is a relay on
+      // the same private network, and that one needs no login — so this combination is
+      // always a mistake, and it is one that looks like it works.
+      refinement(
+        (value) =>
+          value.mailTransport !== "smtp" ||
+          (value.MAIL_SECURITY ?? "starttls") !== "none" ||
+          (value.MAIL_USER ?? "").length === 0,
+        "MAIL_USER/MAIL_PASSWORD must not be combined with MAIL_SECURITY=none — the credentials would cross the network in cleartext (use MAIL_SECURITY=starttls or =tls)",
+      ),
+    ),
+    {
+      decode: SchemaGetter.transform(deriveEnv),
+      // The environment is only ever read; there is nothing to write back.
+      encode: SchemaGetter.forbidden(() => "the environment is read-only"),
+    },
+  ),
+);
+
+export type Env = typeof EnvSchema.Type;
 
 /** `toon-household-test-<pid>-<uuid>.db`: the pid lets a later run tell a dead run's file. */
 const TEST_DB_PREFIX = "toon-household-test-";
@@ -406,22 +498,45 @@ function rawEnv(): Record<string, string | undefined> {
   return source;
 }
 
+/** Result of {@link parseEnv}: the env object, or one `  - KEY: message` line per issue. */
+export type ParsedEnv = { ok: true; env: Env } | { ok: false; lines: string[] };
+
+/**
+ * Pure: validates a raw variable map (no `process.env`, no exit). `rawEnv()` is the
+ * production source; the tests feed their own maps.
+ */
+const decodeEnv = Schema.decodeUnknownExit(EnvSchema, { errors: "all" });
+const formatIssues = SchemaIssue.makeFormatterStandardSchemaV1();
+
+export function parseEnv(source: Record<string, string | undefined>): ParsedEnv {
+  return Exit.match(decodeEnv(source), {
+    onSuccess: (env): ParsedEnv => ({ ok: true, env }),
+    onFailure: (cause): ParsedEnv => ({
+      ok: false,
+      // Only a SchemaError is expected; anything else (a defect) is still reported, never swallowed.
+      lines: Option.match(Cause.findErrorOption(cause), {
+        onNone: () => [`  - (env): ${Cause.pretty(cause)}`],
+        onSome: (error) =>
+          formatIssues(error.issue).issues.map(
+            (issue) => `  - ${(issue.path ?? []).map(String).join(".") || "(env)"}: ${issue.message}`,
+          ),
+      }),
+    }),
+  });
+}
+
 function loadEnv(): Env {
-  const result = EnvSchema.safeParse(rawEnv());
-  if (!result.success) {
-    const lines = result.error.issues.map((issue) => {
-      const key = issue.path.join(".") || "(env)";
-      return `  - ${key}: ${issue.message}`;
-    });
+  const result = parseEnv(rawEnv());
+  if (!result.ok) {
     const message = [
       "Invalid environment variables — check your .env (template: .env.example):",
-      ...lines,
+      ...result.lines,
     ].join("\n");
     // Fail fast, no stack trace noise.
     console.error(message);
     process.exit(1);
   }
-  return result.data;
+  return result.env;
 }
 
 export const env: Env = loadEnv();

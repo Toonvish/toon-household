@@ -10,7 +10,7 @@
  */
 import type { OAuthProvider } from "@toon/shared";
 import { GitHub, Google, decodeIdToken, generateCodeVerifier, generateState } from "arctic";
-import { z } from "zod";
+import { Option, Schema } from "effect";
 import { env } from "../env.ts";
 import { ApiError } from "./errors.ts";
 
@@ -90,30 +90,48 @@ export function createAuthorization(provider: OAuthProvider): OAuthStart {
 
 /* --------------------------- provider responses --------------------------- */
 
-const GoogleClaimsSchema = z.object({
-  sub: z.string().min(1),
-  email: z.string().optional(),
-  email_verified: z.union([z.boolean(), z.string()]).optional(),
-  name: z.string().optional(),
-  given_name: z.string().optional(),
-  picture: z.string().optional(),
+const GoogleClaimsSchema = Schema.Struct({
+  sub: Schema.String.check(Schema.isMinLength(1)),
+  email: Schema.optional(Schema.String),
+  email_verified: Schema.optional(Schema.Union([Schema.Boolean, Schema.String])),
+  name: Schema.optional(Schema.String),
+  given_name: Schema.optional(Schema.String),
+  picture: Schema.optional(Schema.String),
 });
 
-const GitHubUserSchema = z.object({
-  id: z.union([z.number(), z.string()]),
-  login: z.string(),
-  name: z.string().nullish(),
-  email: z.string().nullish(),
-  avatar_url: z.string().nullish(),
+const GitHubUserSchema = Schema.Struct({
+  // Finite: JSON has no NaN or Infinity, and z.number() refused them too.
+  id: Schema.Union([Schema.Finite, Schema.String]),
+  login: Schema.String,
+  name: Schema.optional(Schema.NullOr(Schema.String)),
+  email: Schema.optional(Schema.NullOr(Schema.String)),
+  avatar_url: Schema.optional(Schema.NullOr(Schema.String)),
 });
 
-const GitHubEmailsSchema = z.array(
-  z.object({
-    email: z.string(),
-    primary: z.boolean().optional(),
-    verified: z.boolean().optional(),
+const GitHubEmailsSchema = Schema.Array(
+  Schema.Struct({
+    email: Schema.String,
+    primary: Schema.optional(Schema.Boolean),
+    verified: Schema.optional(Schema.Boolean),
   }),
 );
+
+const decodeGoogleClaims = Schema.decodeUnknownOption(GoogleClaimsSchema);
+const decodeGitHubUser = Schema.decodeUnknownOption(GitHubUserSchema);
+const decodeGitHubEmails = Schema.decodeUnknownOption(GitHubEmailsSchema);
+
+/** The provider payloads, parsed once at the edge: the value, or `undefined` when it is not that shape. */
+export function parseGoogleClaims(raw: unknown): typeof GoogleClaimsSchema.Type | undefined {
+  return Option.getOrUndefined(decodeGoogleClaims(raw));
+}
+
+export function parseGitHubUser(raw: unknown): typeof GitHubUserSchema.Type | undefined {
+  return Option.getOrUndefined(decodeGitHubUser(raw));
+}
+
+export function parseGitHubEmails(raw: unknown): typeof GitHubEmailsSchema.Type | undefined {
+  return Option.getOrUndefined(decodeGitHubEmails(raw));
+}
 
 function truthy(value: boolean | string | undefined): boolean {
   return value === true || value === "true";
@@ -179,11 +197,10 @@ async function googleProfile(idToken: string | undefined, accessToken: string): 
     claims = await response.json();
   }
 
-  const parsed = GoogleClaimsSchema.safeParse(claims);
-  if (!parsed.success) {
+  const data = parseGoogleClaims(claims);
+  if (data === undefined) {
     throw new ApiError(400, "oauth_failed", "server.auth.googleProfileIncomplete");
   }
-  const data = parsed.data;
   return {
     provider: "google",
     providerUserId: data.sub,
@@ -206,22 +223,22 @@ async function githubProfile(accessToken: string): Promise<OAuthProfile> {
   if (!userResponse.ok) {
     throw new ApiError(400, "oauth_failed", "server.auth.githubProfileUnavailable");
   }
-  const user = GitHubUserSchema.safeParse(await userResponse.json());
-  if (!user.success) {
+  const user = parseGitHubUser(await userResponse.json());
+  if (user === undefined) {
     throw new ApiError(400, "oauth_failed", "server.auth.githubProfileIncomplete");
   }
 
-  let email = user.data.email?.trim().toLowerCase() ?? null;
+  let email = user.email?.trim().toLowerCase() ?? null;
   let emailVerified = false;
 
   // The public profile e-mail may be hidden; /user/emails needs `user:email`.
   const emailsResponse = await fetch("https://api.github.com/user/emails", { headers });
   if (emailsResponse.ok) {
-    const emails = GitHubEmailsSchema.safeParse(await emailsResponse.json());
-    if (emails.success) {
+    const emails = parseGitHubEmails(await emailsResponse.json());
+    if (emails !== undefined) {
       const primary =
-        emails.data.find((entry) => entry.primary === true && entry.verified === true) ??
-        emails.data.find((entry) => entry.verified === true);
+        emails.find((entry) => entry.primary === true && entry.verified === true) ??
+        emails.find((entry) => entry.verified === true);
       if (primary) {
         email = primary.email.trim().toLowerCase();
         emailVerified = true;
@@ -231,11 +248,11 @@ async function githubProfile(accessToken: string): Promise<OAuthProfile> {
 
   return {
     provider: "github",
-    providerUserId: String(user.data.id),
+    providerUserId: String(user.id),
     email,
     emailVerified,
-    name: user.data.name ?? user.data.login,
-    avatarUrl: user.data.avatar_url ?? null,
+    name: user.name ?? user.login,
+    avatarUrl: user.avatar_url ?? null,
   };
 }
 
