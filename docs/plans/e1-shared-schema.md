@@ -1042,3 +1042,10 @@ Everything the plan expected (section 7) happened as written; nothing else moved
     gained an "As built (E1)" example each from the code just written (`Option` / `Result` decoders, the `SchemaError`
     branch of `toApiError`, `Decodable` and why E1 adds no service, the golden parity runner and the wire pin);
     `effect-schema.md` had its corrections and section 7 from E1-T12.
+17. **`BooleanQuerySchema` rejects `"constructor"` and `"__proto__"` (E1 review, medium).** The lookup map
+    `BOOLEAN_QUERY_VALUES` in `packages/shared/src/modules/finance/schemas/common.ts` is a plain object in both
+    versions, so `"constructor"` resolves to `Object.prototype.constructor`. Zod's `transform` returned that
+    function as the decoded "boolean" (a latent bug nothing relied on); Effect's `decodeTo(Bool, …)` validates the
+    output and answers `422 validation_failed` instead. The divergence is kept on purpose (the only correct
+    answer) and is not in the golden corpus, which never generated those inputs; a case may be added to
+    `primitives.json` as an addition.
