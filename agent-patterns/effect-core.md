@@ -205,3 +205,11 @@ per-symbol list in `migration/v3-to-v4.md`.)
   `Effect.catchTag(s)` instead of `instanceof`, Predicate instead of hand-written guards), pinned by
   `apps/api/test/effect-idioms.test.ts`; and E6 (typed `Schema.TaggedError` failures, defects logged and answered
   as `500 internal_error`).
+
+**As built (E0):** `apps/api/src/core/health.ts` is the first Effect code of the repo: `healthResponse` is a plain
+`Effect.gen(function* () { ... })` constant (no service dependency yet, so no `Effect.fn`), it reads the module
+registry and the feature flags INSIDE the generator (never at module scope, the API import cycle) and takes its time
+from `DateTime.formatIso(yield* DateTime.now)`. `DateTime.formatIso` is `Date#toISOString` of the UTC instant
+(`repos/effect/packages/effect/src/DateTime.ts`, `Internal.formatIso`), so moving from `new Date().toISOString()` kept
+the wire format. The route is `c.json(await runtime.runPromise(healthResponse))` in `apps/api/src/index.ts`; the
+`async` shutdown handler there is plain `await`, since only `runtime.dispose()` is Effect-owned at E0.

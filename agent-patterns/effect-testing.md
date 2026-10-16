@@ -204,3 +204,11 @@ Sources: `migration/v3-to-v4.md` ("effect/TestClock", "effect/TestContext", "eff
 - Rule served: E9 (no vitest, tests through layers, pass count never below the previous milestone's record) with
   E12 (services read `Clock`, so time is testable). `apps/api/test/effect-idioms.test.ts` forbids `repos/`
   imports, v3 paths and `effect/unstable/*`; `effect/testing` is allowed.
+
+**As built (E0):** `apps/api/test/runtime.test.ts` is the first Effect test and stays on `bun:test`. It runs the
+real app through `app.request`, spies the shared runtime with `spyOn(runtime, "runPromise")` to prove the health route
+goes through it, and proves disposal on a THROWAWAY runtime (`ManagedRuntime.make(AppLayer)`, its own memo map) because
+every test file shares one process and one `runtime`: never `dispose()` the shared one in a test. Failures are
+asserted with `runPromiseExit` + `Exit.isFailure` + `Cause.hasDies`, a rejection with
+`await expect(...).rejects.toBe(...)`. `apps/api/test/effect-idioms.test.ts` is the grep gate (one `describe` per
+rule, a pinned allow list, failures as `file:line: code`).

@@ -180,7 +180,8 @@ Package names are `@toon/shared`, `@toon/api`, `@toon/web`; the root is `toon-ho
   `docker/{Caddyfile,entrypoint.sh,env.example,toon-deploy.sh}`; nothing of it is built by `bun run build`.
 - Effect tooling (E0): `bunfig.toml` (test discovery skips `repos/**`), `.vscode/settings.json` (editor excludes for
   `repos/`), `repos/effect/` (the vendored Effect source, read-only; "Vendored reference code") and `agent-patterns/`
-  (the `effect-<topic>.md` pattern files); the gate is `apps/api/test/effect-idioms.test.ts`.
+  (the `effect-<topic>.md` pattern files); the gate is `apps/api/test/effect-idioms.test.ts`, and
+  `apps/api/test/runtime.test.ts` pins the runtime and the health route served through it.
 - Docs: see "Read order"; plus `docs/plans/screenshots/` and `docs/design/recipe-redesign/` (design record, D5).
 - Core DB tables (unprefixed): `users`, `oauth_accounts`, `sessions`, `password_reset_tokens`,
   `email_verification_tokens`, `households`, `household_members`, `household_invites`, `household_modules`,

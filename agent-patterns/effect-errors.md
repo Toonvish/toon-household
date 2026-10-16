@@ -175,3 +175,10 @@ Source: `migration/error-handling.md`, `migration/cause.md`.
 
 Rule served: **E6** ("Errors are tagged, typed and mapped once"; defects logged in English and answered as the same `500 internal_error`;
 handlers `Effect.catchTag(s)`, never `instanceof`), with **E12** for the idioms (`Schema.TaggedError`, `return yield*`).
+
+**As built (E0):** there is no tagged error in the repo yet (`ApiError` is untouched until E2). What E0 proves is the
+defect side: after `ManagedRuntime.dispose`, `runPromise` REJECTS with the plain string `"ManagedRuntime disposed"`
+(the squashed `Effect.die`, not an `Error`, so `instanceof Error` is false), while `runPromiseExit` resolves to
+`Exit.isFailure(exit)` with `Cause.hasDies(exit.cause)` and `Cause.squash(exit.cause) === "ManagedRuntime disposed"`
+(`apps/api/test/runtime.test.ts`, test d). The E6 boundary mapper must therefore treat a non-`Error` rejection as a
+defect and answer `500 internal_error`, never read `.message` off it.

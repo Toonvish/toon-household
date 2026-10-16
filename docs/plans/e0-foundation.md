@@ -613,3 +613,22 @@ deviation from SPEC D1-D15 or `docs/EFFECT.md` E1-E12. Differences between the p
 7. **Process note.** The first launch of the full-suite script wrote its uptime line to an unset variable
    (`/uptime.txt: Permission denied`); the run itself was unaffected and the load figures above come from the two
    `uptime` calls in the log.
+8. **The shutdown handler became `async`** (`apps/api/src/index.ts`): it awaits each module's `shutdown()`, then
+   `runtime.dispose()`, and keeps the log lines `[api] <signal> — stopping modules …` and `[api] runtime disposed`
+   and exit code 0 in every case (a failed dispose logs `[api] runtime dispose failed:` and still exits 0). A
+   synchronous handler could not wait for the disposal. No E-decision is touched.
+9. **The idioms test is wider than the plan's rules.** Its dependency rule scans every dependency section of every
+   `package.json` (not only `dependencies`) and a coverage `describe` ("the scan covers the plan's files") fails when
+   the scan stops seeing the files it must (`apps/api/src/runtime.ts`, the four fences). More tests than the plan
+   counted, no rule relaxed.
+10. **The commit trailer** is the harness's `Co-Authored-By` line (CLAUDE.md "Docs in English; ... Commit messages
+    end with the harness's `Co-Authored-By` line"), not the literal line the task text named; the trailer is not a
+    behaviour or a decision.
+11. **No new ADR.** None of items 1 to 10 deviates from SPEC D1-D15 or `docs/EFFECT.md` E1-E12; ADR 0012
+    (`docs/adr/0012-effect-application-framework.md`) already records E1-E12 and amends D10's wording, and
+    SPEC §2's Hono interface text stays until E7 as the ADR says.
+12. **Documentation sync (after review).** CLAUDE.md "Status", "Layout" (`apps/api/test/runtime.test.ts`) and
+    the E0 gotchas are current; no existing gotcha was made obsolete by E0, so "Retired gotchas" is unchanged. The
+    five pattern files each carry an "As built (E0)" example in their section 7 from `apps/api/src/runtime.ts`,
+    `apps/api/src/core/health.ts` and `apps/api/test/runtime.test.ts`; `agent-patterns/effect-services.md` had
+    already been corrected by E0-T05 (the plain-string "ManagedRuntime disposed" rejection).

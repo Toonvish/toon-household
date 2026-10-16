@@ -224,3 +224,9 @@ Source: `repos/effect/migration/schema.md` summary table and notes.
   `{ error: { code: "validation_error", message, details: [{ path, message, code }] } }` envelope, wording from the
   catalog (ADR 0002), never Effect's default messages), with **E12** (`Schema` instead of manual parsing,
   `Schema.TaggedError` for errors, `Predicate` instead of hand-written guards).
+
+**As built (E0):** no `Schema` code exists in the repo yet; E0 touches no schema file and the health payload is still
+checked by the Zod `HealthResponseSchema` (`packages/shared/src/core/schemas/common.ts`), which
+`apps/api/test/runtime.test.ts` uses to prove the Effect-built body keeps its shape. That test is the parity
+check E1 must keep green when `HealthResponseSchema` becomes a `Schema.Struct` (same accepted input, same key order
+on the wire: the order comes from the object `healthResponse` builds, not from the schema).
