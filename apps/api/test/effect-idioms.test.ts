@@ -9,7 +9,6 @@
 //
 // PENDING_RULES (switched on by the milestone named; each is a new `describe` in the same commit as the
 // migration that makes it true):
-//   E1  (shared-schema)  No `zod` import or dependency anywhere (packages/shared, apps/api, apps/web, root).
 //   E2  (api-core-services) No `throw new ApiError` in services; no `Date.now()` / `new Date()` in services
 //        (DateTime / Clock instead).
 //   E7  (http-api)       No `hono` import or dependency (the HttpApi server replaces it; docs/EFFECT.md E7).
@@ -142,6 +141,7 @@ const ALLOW_VENDORED_IMPORT: Record<string, string> = {};
 const ALLOW_UNSTABLE_IMPORT: Record<string, string> = {};
 const ALLOW_V3_PACKAGE: Record<string, string> = {};
 const ALLOW_V3_CONSTRUCTOR: Record<string, string> = {};
+const ALLOW_ZOD: Record<string, string> = {};
 
 const allowed = (allow: Record<string, string>) => (line: Line) => rel(line.file) in allow;
 
@@ -320,5 +320,38 @@ describe("(8) the vendored Effect tree matches the installed version and stays f
       if (!Array.isArray(auto) || !auto.includes("repos/**")) problems.push('.vscode/settings.json: typescript.preferences.autoImportFileExcludePatterns lacks "repos/**"');
     }
     expectNoProblems("the editor never indexes or imports from repos/ (P2)", problems);
+  });
+});
+
+// --- (9) no zod (plan e1 P15) ---------------------------------------------------------------------
+
+const isZodPackage = (spec: string) =>
+  spec === "zod" || spec.startsWith("zod/") || spec === "@hono/zod-validator" || spec.startsWith("@hono/zod-validator/");
+
+describe("(9) no zod (E1, E4)", () => {
+  test("no zod, zod/* or @hono/zod-validator specifier in a scanned file", () => {
+    expectNone(
+      "validation is Effect Schema; zod and @hono/zod-validator are gone (docs/EFFECT.md E1, E4)",
+      scan(ALL_FILES, (l) => hasSpecifier(l, isZodPackage) && !allowed(ALLOW_ZOD)(l)),
+    );
+  });
+
+  test("zod and @hono/zod-validator are in no dependency section of a package.json", () => {
+    const problems: string[] = [];
+    for (const path of PACKAGE_JSONS) {
+      const json = readJson(path);
+      for (const section of DEP_SECTIONS) {
+        for (const name of Object.keys(json[section] ?? {})) {
+          if (isZodPackage(name) && !(path in ALLOW_ZOD)) problems.push(`${path}: ${section}.${name}`);
+        }
+      }
+    }
+    expectNoProblems("no zod dependency in any workspace (docs/EFFECT.md E1, E4)", problems);
+  });
+
+  test('bun.lock has no "zod" or "@hono/zod-validator" key', () => {
+    const lock = readFileSync(join(ROOT, "bun.lock"), "utf8");
+    const problems = [...lock.matchAll(/"(zod|@hono\/zod-validator)(?:@[^"]*)?"\s*:/g)].map((m) => `bun.lock: "${m[1]}"`);
+    expectNoProblems("no zod entry in the lockfile (docs/EFFECT.md E1, E4)", problems);
   });
 });

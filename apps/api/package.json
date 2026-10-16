@@ -21,7 +21,6 @@
   },
   "dependencies": {
     "@effect/platform-bun": "4.0.5",
-    "@hono/zod-validator": "^0.9.1",
     "@libsql/client": "^0.18.0",
     "@toon/shared": "workspace:*",
     "arctic": "^3.7.0",
@@ -29,7 +28,6 @@
     "effect": "4.0.5",
     "hono": "^4.13.7",
     "sharp": "^0.35.4",
-    "unpdf": "^1.8.1",
-    "zod": "^4.5.4"
+    "unpdf": "^1.8.1"
   }
 }
