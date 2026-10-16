@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { refineKey } from "../../../core/i18n/zod.ts";
-import { IdSchema, IsoDateSchema } from "../../../core/schemas/common.ts";
+import { IdSchema, IsoDateSchema } from "../../../core/schemas/zod-legacy.ts";
 import { MemberSlotSchema } from "./common.ts";
 
 /**

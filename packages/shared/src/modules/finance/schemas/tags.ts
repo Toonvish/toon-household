@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TAG_MAX_LENGTH } from "../tags.ts";
-import { IdSchema } from "../../../core/schemas/common.ts";
+import { IdSchema } from "../../../core/schemas/zod-legacy.ts";
 
 export const TagNameSchema = z.string().trim().min(1).max(TAG_MAX_LENGTH);
 

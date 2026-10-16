@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { HttpUrlSchema, IdSchema, IsoDateSchema, listResponse } from "../../../core/schemas/common.ts";
+import { HttpUrlSchema, IdSchema, IsoDateSchema, listResponse } from "../../../core/schemas/zod-legacy.ts";
 import {
   DifficultySchema,
   RecipeDetailSchema,

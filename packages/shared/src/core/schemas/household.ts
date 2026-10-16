@@ -1,5 +1,5 @@
-import { z } from "zod";
-import { refineKey } from "../i18n/zod.ts";
+import { Effect, Schema, type Types } from "effect";
+import { Bool, Enum, Int, Str, UnknownRecord, keyed, maxLength, minLength, nonnegative, trim } from "./checks.ts";
 import { IdSchema, IsoDateSchema, MailDeliverySchema, listResponse } from "./common.ts";
 import { DisplayNameSchema, EmailSchema, HouseholdNameSchema, PublicUserSchema } from "./user.ts";
 
@@ -8,12 +8,12 @@ import { DisplayNameSchema, EmailSchema, HouseholdNameSchema, PublicUserSchema }
  */
 
 /** owner > admin > member. Exactly one owner per household at any time. */
-export const HouseholdRoleSchema = z.enum(["owner", "admin", "member"]);
-export type HouseholdRole = z.infer<typeof HouseholdRoleSchema>;
+export const HouseholdRoleSchema = Enum(["owner", "admin", "member"]);
+export type HouseholdRole = Types.DeepMutable<typeof HouseholdRoleSchema.Type>;
 
 /** Roles that can be handed out in an invite (never "owner"). */
-export const InvitableRoleSchema = z.enum(["admin", "member"]);
-export type InvitableRole = z.infer<typeof InvitableRoleSchema>;
+export const InvitableRoleSchema = Enum(["admin", "member"]);
+export type InvitableRole = Types.DeepMutable<typeof InvitableRoleSchema.Type>;
 
 export const ROLE_RANK: Record<HouseholdRole, number> = { member: 1, admin: 2, owner: 3 };
 
@@ -22,31 +22,32 @@ export function roleAtLeast(role: HouseholdRole, required: HouseholdRole): boole
   return ROLE_RANK[role] >= ROLE_RANK[required];
 }
 
-export const HouseholdSchema = z.object({
+export const HouseholdSchema = Schema.Struct({
   id: IdSchema,
-  name: z.string(),
-  description: z.string().nullish(),
-  imageUrl: z.string().nullish(),
+  name: Str,
+  description: Schema.optional(Schema.NullOr(Str)),
+  imageUrl: Schema.optional(Schema.NullOr(Str)),
   createdBy: IdSchema,
   createdAt: IsoDateSchema,
   updatedAt: IsoDateSchema,
 });
-export type Household = z.infer<typeof HouseholdSchema>;
+export type Household = Types.DeepMutable<typeof HouseholdSchema.Type>;
 
 /** A household plus the calling user's relationship to it — what the switcher renders. */
-export const HouseholdWithRoleSchema = HouseholdSchema.extend({
+export const HouseholdWithRoleSchema = Schema.Struct({
+  ...HouseholdSchema.fields,
   role: HouseholdRoleSchema,
-  memberCount: z.number().int().nonnegative(),
+  memberCount: Int.check(nonnegative()),
   /**
    * `modules`: ids of the household's enabled modules this codebase knows (MODULE_IDS order).
    * Strings, not ModuleId, so an old client tolerates a newer server; the web treats an id
    * without a WebModule as disabled (SPEC §2). The core never counts a module's rows.
    */
-  modules: z.array(z.string()),
+  modules: Schema.Array(Str),
 });
-export type HouseholdWithRole = z.infer<typeof HouseholdWithRoleSchema>;
+export type HouseholdWithRole = Types.DeepMutable<typeof HouseholdWithRoleSchema.Type>;
 
-export const HouseholdMemberSchema = z.object({
+export const HouseholdMemberSchema = Schema.Struct({
   id: IdSchema,
   householdId: IdSchema,
   userId: IdSchema,
@@ -57,52 +58,50 @@ export const HouseholdMemberSchema = z.object({
    * `false` for a PLACEHOLDER member (ADR 0006): a person added by name, without e-mail or
    * password, who cannot sign in until a claim invite is redeemed by registration.
    */
-  hasAccount: z.boolean(),
+  hasAccount: Bool,
 });
-export type HouseholdMember = z.infer<typeof HouseholdMemberSchema>;
+export type HouseholdMember = Types.DeepMutable<typeof HouseholdMemberSchema.Type>;
 
-export const InviteStatusSchema = z.enum(["pending", "accepted", "revoked", "expired"]);
-export type InviteStatus = z.infer<typeof InviteStatusSchema>;
+export const InviteStatusSchema = Enum(["pending", "accepted", "revoked", "expired"]);
+export type InviteStatus = Types.DeepMutable<typeof InviteStatusSchema.Type>;
 
-export const HouseholdInviteSchema = z.object({
+export const HouseholdInviteSchema = Schema.Struct({
   id: IdSchema,
   householdId: IdSchema,
   /** `null` for a claim invite created without an address (ADR 0006). */
-  email: z.string().nullable(),
+  email: Schema.NullOr(Str),
   role: InvitableRoleSchema,
   /** Shareable token; only ever returned to admins/owners of the household. */
-  token: z.string(),
+  token: Str,
   status: InviteStatusSchema,
   invitedBy: IdSchema,
-  invitedByName: z.string(),
+  invitedByName: Str,
   expiresAt: IsoDateSchema,
   createdAt: IsoDateSchema,
-  acceptedAt: IsoDateSchema.nullish(),
+  acceptedAt: Schema.optional(Schema.NullOr(IsoDateSchema)),
   /**
    * Set on a CLAIM invite: the placeholder member this link turns into an account (redeemed
    * only by registration, ADR 0006). `null` for a plain invite.
    */
-  claimsUserId: IdSchema.nullable(),
+  claimsUserId: Schema.NullOr(IdSchema),
 });
-export type HouseholdInvite = z.infer<typeof HouseholdInviteSchema>;
+export type HouseholdInvite = Types.DeepMutable<typeof HouseholdInviteSchema.Type>;
 
 /* ------------------------------- requests -------------------------------- */
 
-export const CreateHouseholdRequestSchema = z.object({
+export const CreateHouseholdRequestSchema = Schema.Struct({
   /** 1–80 chars, no control characters (toon-finance 1715207; see `HouseholdNameSchema`). */
   name: HouseholdNameSchema,
-  description: z.string().trim().max(500).optional(),
+  description: Schema.optional(Str.pipe(trim).check(maxLength(500))),
 });
-export type CreateHouseholdRequest = z.infer<typeof CreateHouseholdRequestSchema>;
+export type CreateHouseholdRequest = Types.DeepMutable<typeof CreateHouseholdRequestSchema.Type>;
 
-export const UpdateHouseholdRequestSchema = z
-  .object({
-    name: HouseholdNameSchema.optional(),
-    description: z.string().trim().max(500).nullish(),
-    imageUrl: z.string().max(1000).nullish(),
-  })
-  .refine((value) => Object.keys(value).length > 0, refineKey("server.validation.noChanges"));
-export type UpdateHouseholdRequest = z.infer<typeof UpdateHouseholdRequestSchema>;
+export const UpdateHouseholdRequestSchema = Schema.Struct({
+  name: Schema.optional(HouseholdNameSchema),
+  description: Schema.optional(Schema.NullOr(Str.pipe(trim).check(maxLength(500)))),
+  imageUrl: Schema.optional(Schema.NullOr(Str.check(maxLength(1000)))),
+}).check(keyed((value) => Object.keys(value).length > 0, "server.validation.noChanges"));
+export type UpdateHouseholdRequest = Types.DeepMutable<typeof UpdateHouseholdRequestSchema.Type>;
 
 /**
  * `POST /api/households/:householdId/invites` (admin+). A plain invite needs `email`. A CLAIM
@@ -110,73 +109,74 @@ export type UpdateHouseholdRequest = z.infer<typeof UpdateHouseholdRequestSchema
  * `email` is optional (the link is only mailed when one is given) and its role is always
  * `member`, whatever `role` says. Hence `email` is required unless `claimsUserId` is present.
  */
-export const CreateInviteRequestSchema = z
-  .object({
-    email: EmailSchema.optional(),
-    role: InvitableRoleSchema.default("member"),
-    claimsUserId: IdSchema.optional(),
-  })
-  .refine((value) => value.email !== undefined || value.claimsUserId !== undefined, {
-    ...refineKey("server.zod.field.email.invalid_format"),
-    path: ["email"],
-  });
-export type CreateInviteRequest = z.infer<typeof CreateInviteRequestSchema>;
+export const CreateInviteRequestSchema = Schema.Struct({
+  email: Schema.optional(EmailSchema),
+  role: InvitableRoleSchema.pipe(Schema.withDecodingDefault(Effect.succeed("member" as const))),
+  claimsUserId: Schema.optional(IdSchema),
+}).check(
+  keyed(
+    (value) => value.email !== undefined || value.claimsUserId !== undefined,
+    "server.zod.field.email.invalid_format",
+    { path: ["email"] },
+  ),
+);
+export type CreateInviteRequest = Types.DeepMutable<typeof CreateInviteRequestSchema.Type>;
 
 /**
  * `POST /api/households/:householdId/members` (admin+): adds a PLACEHOLDER member, a person
  * without an account, by display name (ADR 0006; toon-finance's request name).
  */
-export const CreatePlaceholderMemberRequestSchema = z.object({ displayName: DisplayNameSchema });
-export type CreatePlaceholderMemberRequest = z.infer<typeof CreatePlaceholderMemberRequestSchema>;
+export const CreatePlaceholderMemberRequestSchema = Schema.Struct({ displayName: DisplayNameSchema });
+export type CreatePlaceholderMemberRequest = Types.DeepMutable<typeof CreatePlaceholderMemberRequestSchema.Type>;
 
 /** `PATCH /api/households/:householdId/members/:userId/placeholder` (admin+): renames a placeholder. */
-export const UpdatePlaceholderMemberRequestSchema = z.object({ name: DisplayNameSchema });
-export type UpdatePlaceholderMemberRequest = z.infer<typeof UpdatePlaceholderMemberRequestSchema>;
+export const UpdatePlaceholderMemberRequestSchema = Schema.Struct({ name: DisplayNameSchema });
+export type UpdatePlaceholderMemberRequest = Types.DeepMutable<typeof UpdatePlaceholderMemberRequestSchema.Type>;
 
-export const UpdateMemberRoleRequestSchema = z.object({
+export const UpdateMemberRoleRequestSchema = Schema.Struct({
   role: HouseholdRoleSchema,
 });
-export type UpdateMemberRoleRequest = z.infer<typeof UpdateMemberRoleRequestSchema>;
+export type UpdateMemberRoleRequest = Types.DeepMutable<typeof UpdateMemberRoleRequestSchema.Type>;
 
-export const AcceptInviteRequestSchema = z.object({
-  token: z.string().min(10).max(200),
+export const AcceptInviteRequestSchema = Schema.Struct({
+  token: Str.check(minLength(10), maxLength(200)),
 });
-export type AcceptInviteRequest = z.infer<typeof AcceptInviteRequestSchema>;
+export type AcceptInviteRequest = Types.DeepMutable<typeof AcceptInviteRequestSchema.Type>;
 
 /**
  * POST /api/households/:householdId/modules/:moduleId — body optional; settings are module-owned JSON.
  */
-export const EnableModuleRequestSchema = z.object({ settings: z.record(z.string(), z.unknown()).optional() });
-export type EnableModuleRequest = z.infer<typeof EnableModuleRequestSchema>;
+export const EnableModuleRequestSchema = Schema.Struct({ settings: Schema.optional(UnknownRecord) });
+export type EnableModuleRequest = Types.DeepMutable<typeof EnableModuleRequestSchema.Type>;
 
 /* ------------------------------- responses ------------------------------- */
 
-export const HouseholdResponseSchema = z.object({ household: HouseholdWithRoleSchema });
-export type HouseholdResponse = z.infer<typeof HouseholdResponseSchema>;
+export const HouseholdResponseSchema = Schema.Struct({ household: HouseholdWithRoleSchema });
+export type HouseholdResponse = Types.DeepMutable<typeof HouseholdResponseSchema.Type>;
 
-export const HouseholdListResponseSchema = z.object({ items: z.array(HouseholdWithRoleSchema) });
-export type HouseholdListResponse = z.infer<typeof HouseholdListResponseSchema>;
+export const HouseholdListResponseSchema = Schema.Struct({ items: Schema.Array(HouseholdWithRoleSchema) });
+export type HouseholdListResponse = Types.DeepMutable<typeof HouseholdListResponseSchema.Type>;
 
-export const HouseholdDetailResponseSchema = z.object({
+export const HouseholdDetailResponseSchema = Schema.Struct({
   household: HouseholdWithRoleSchema,
-  members: z.array(HouseholdMemberSchema),
+  members: Schema.Array(HouseholdMemberSchema),
 });
-export type HouseholdDetailResponse = z.infer<typeof HouseholdDetailResponseSchema>;
+export type HouseholdDetailResponse = Types.DeepMutable<typeof HouseholdDetailResponseSchema.Type>;
 
-export const HouseholdMemberResponseSchema = z.object({ member: HouseholdMemberSchema });
-export type HouseholdMemberResponse = z.infer<typeof HouseholdMemberResponseSchema>;
+export const HouseholdMemberResponseSchema = Schema.Struct({ member: HouseholdMemberSchema });
+export type HouseholdMemberResponse = Types.DeepMutable<typeof HouseholdMemberResponseSchema.Type>;
 
-export const HouseholdMemberListResponseSchema = z.object({ items: z.array(HouseholdMemberSchema) });
-export type HouseholdMemberListResponse = z.infer<typeof HouseholdMemberListResponseSchema>;
+export const HouseholdMemberListResponseSchema = Schema.Struct({ items: Schema.Array(HouseholdMemberSchema) });
+export type HouseholdMemberListResponse = Types.DeepMutable<typeof HouseholdMemberListResponseSchema.Type>;
 
-export const HouseholdInviteResponseSchema = z.object({
+export const HouseholdInviteResponseSchema = Schema.Struct({
   invite: HouseholdInviteSchema,
   /**
    * Ready-to-share link built from WEB_ORIGIN. THE SOURCE OF TRUTH — the invite is
    * valid because this row exists, whether or not a mail went out, so the UI always
    * shows the copyable link.
    */
-  inviteUrl: z.string(),
+  inviteUrl: Str,
   /**
    * Whether an invite e-mail really went out — i.e. `mailDelivery === "sent"`.
    *
@@ -185,36 +185,36 @@ export const HouseholdInviteResponseSchema = z.object({
    * MAIL_TRANSPORT: the ConsoleMailer logging the link is not a delivery, and
    * reporting it as one is what made the UI promise a mail nobody would get.
    */
-  emailSent: z.boolean().optional(),
+  emailSent: Schema.optional(Bool),
   /**
    * Why no mail arrived, when none did. Optional so an older client keeps working
    * and a newer client can treat a server that predates the field as "unknown"
    * (fall back to `emailSent`). Creating the invite succeeded either way — the
    * `inviteUrl` above is the source of truth.
    */
-  mailDelivery: MailDeliverySchema.optional(),
+  mailDelivery: Schema.optional(MailDeliverySchema),
 });
-export type HouseholdInviteResponse = z.infer<typeof HouseholdInviteResponseSchema>;
+export type HouseholdInviteResponse = Types.DeepMutable<typeof HouseholdInviteResponseSchema.Type>;
 
 export const HouseholdInviteListResponseSchema = listResponse(HouseholdInviteSchema);
-export type HouseholdInviteListResponse = z.infer<typeof HouseholdInviteListResponseSchema>;
+export type HouseholdInviteListResponse = Types.DeepMutable<typeof HouseholdInviteListResponseSchema.Type>;
 
 /** Public preview shown on the "Du wurdest eingeladen" landing page. */
-export const InvitePreviewResponseSchema = z.object({
-  householdName: z.string(),
-  invitedByName: z.string(),
+export const InvitePreviewResponseSchema = Schema.Struct({
+  householdName: Str,
+  invitedByName: Str,
   /** `null` for a claim invite created without an address (ADR 0006). */
-  email: z.string().nullable(),
+  email: Schema.NullOr(Str),
   role: InvitableRoleSchema,
   status: InviteStatusSchema,
   expiresAt: IsoDateSchema,
   /** Display name of the placeholder this CLAIM invite hands over; `null` for a plain invite. */
-  claimsDisplayName: z.string().nullable(),
+  claimsDisplayName: Schema.NullOr(Str),
 });
-export type InvitePreviewResponse = z.infer<typeof InvitePreviewResponseSchema>;
+export type InvitePreviewResponse = Types.DeepMutable<typeof InvitePreviewResponseSchema.Type>;
 
-export const AcceptInviteResponseSchema = z.object({
+export const AcceptInviteResponseSchema = Schema.Struct({
   household: HouseholdWithRoleSchema,
   member: HouseholdMemberSchema,
 });
-export type AcceptInviteResponse = z.infer<typeof AcceptInviteResponseSchema>;
+export type AcceptInviteResponse = Types.DeepMutable<typeof AcceptInviteResponseSchema.Type>;

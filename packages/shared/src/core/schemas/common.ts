@@ -1,13 +1,30 @@
-import { z } from "zod";
-import { refineKey } from "../i18n/zod.ts";
+import { Effect, Schema, type Types } from "effect";
+import {
+  Bool,
+  CoercedInt,
+  Enum,
+  Int,
+  IsoDateTime,
+  Lit,
+  Num,
+  OneOf,
+  Str,
+  Uuid,
+  keyed,
+  max,
+  maxLength,
+  min,
+  nonnegative,
+  positive,
+} from "./checks.ts";
 
 /** All ids are crypto.randomUUID() strings. */
-export const IdSchema = z.uuid();
-export type Id = z.infer<typeof IdSchema>;
+export const IdSchema = Uuid;
+export type Id = Types.DeepMutable<typeof IdSchema.Type>;
 
 /** All timestamps travel over the wire as ISO-8601 strings (stored as unix ms). */
-export const IsoDateSchema = z.iso.datetime({ offset: true });
-export type IsoDate = z.infer<typeof IsoDateSchema>;
+export const IsoDateSchema = IsoDateTime;
+export type IsoDate = Types.DeepMutable<typeof IsoDateSchema.Type>;
 
 /** True for `http:`/`https:` URLs and nothing else. */
 export function isHttpUrl(value: string): boolean {
@@ -28,10 +45,7 @@ export function isHttpUrl(value: string): boolean {
  * Response schemas stay a plain string on purpose so a legacy row can still be
  * read — the UI defends itself with `safeHttpUrl()` in apps/web/src/lib/format.ts.
  */
-export const HttpUrlSchema = z
-  .string()
-  .max(2000)
-  .refine(isHttpUrl, refineKey("server.validation.httpUrlOnly"));
+export const HttpUrlSchema = Str.check(maxLength(2000), keyed(isHttpUrl, "server.validation.httpUrlOnly"));
 
 /** Machine-readable error codes. `ApiError.code` is a plain string for forward compat. */
 export const ERROR_CODES = [
@@ -141,14 +155,17 @@ export const ERROR_CODES = [
 export type ErrorCode = (typeof ERROR_CODES)[number];
 
 /** The one and only error envelope every endpoint uses. */
-export const ApiErrorSchema = z.object({
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
-    details: z.unknown().optional(),
+export const ApiErrorSchema = Schema.Struct({
+  error: Schema.Struct({
+    code: Str,
+    message: Str,
+    details: Schema.optional(Schema.Unknown),
   }),
 });
-export type ApiError = z.infer<typeof ApiErrorSchema>;
+// `details` stays `unknown` as zod inferred it: `Types.DeepMutable<unknown>` is `{}`, which refuses `null`.
+export type ApiError = {
+  error: Types.DeepMutable<Omit<(typeof ApiErrorSchema.Type)["error"], "details">> & { details?: unknown };
+};
 
 /**
  * One entry of a `validation_failed` error's `details` array.
@@ -164,35 +181,35 @@ export type ApiError = z.infer<typeof ApiErrorSchema>;
  * older server-side branch used to send an array and some code still tests for
  * it; see docs/i18n.md §4 for why that matters for where a field error lands.
  */
-export const ValidationIssueSchema = z.object({
-  path: z.string(),
-  code: z.string(),
-  message: z.string(),
-  i18n: z
-    .object({
-      key: z.string(),
-      values: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
-    })
-    .optional(),
+export const ValidationIssueSchema = Schema.Struct({
+  path: Str,
+  code: Str,
+  message: Str,
+  i18n: Schema.optional(
+    Schema.Struct({
+      key: Str,
+      values: Schema.optional(Schema.Record(Schema.String, OneOf([Str, Num]))),
+    }),
+  ),
 });
-export type ValidationIssue = z.infer<typeof ValidationIssueSchema>;
+export type ValidationIssue = Types.DeepMutable<typeof ValidationIssueSchema.Type>;
 
 /** Shared list envelope: `{ items, total, limit, offset }`. */
-export function listResponse<T extends z.ZodTypeAny>(item: T) {
-  return z.object({
-    items: z.array(item),
-    total: z.number().int().nonnegative(),
-    limit: z.number().int().positive(),
-    offset: z.number().int().nonnegative(),
+export function listResponse<T extends Schema.Constraint>(item: T) {
+  return Schema.Struct({
+    items: Schema.Array(item),
+    total: Int.check(nonnegative()),
+    limit: Int.check(positive()),
+    offset: Int.check(nonnegative()),
   });
 }
 
 /** Query params for every paginated list endpoint (strings are coerced). */
-export const PaginationQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(100).default(24),
-  offset: z.coerce.number().int().min(0).default(0),
+export const PaginationQuerySchema = Schema.Struct({
+  limit: CoercedInt.check(min(1), max(100)).pipe(Schema.withDecodingDefault(Effect.succeed(24))),
+  offset: CoercedInt.check(min(0)).pipe(Schema.withDecodingDefault(Effect.succeed(0))),
 });
-export type PaginationQuery = z.infer<typeof PaginationQuerySchema>;
+export type PaginationQuery = Types.DeepMutable<typeof PaginationQuerySchema.Type>;
 
 /**
  * Optional parts of the app a deployment can be built or configured without.
@@ -206,34 +223,38 @@ export type PaginationQuery = z.infer<typeof PaginationQuerySchema>;
  * by the service worker — so the answer is always the running server's, and a
  * self-hoster debugging a missing button finds it in the same place ops does.
  */
-export const ServerFeaturesSchema = z.object({
-  /**
-   * This deployment makes an account with an UNCONFIRMED address read-only:
-   * every write answers 403 `email_unverified` until the address is confirmed.
-   * It follows whether mail is configured at all — a server that cannot send a
-   * confirmation link must not gate anything on clicking one.
-   *
-   * UNKNOWN READS AS `false`, which is the opposite bias from `ocrImport`, and
-   * deliberately so. Guessing "off" for a capability hides one button until the
-   * probe lands; guessing "on" for this would grey out every write in the app
-   * and tell the user to confirm an address a server of that vintage never asks
-   * about. The 403 remains the enforcement either way — this field only decides
-   * what the UI offers, never what the server allows.
-   */
-  verifiedEmailRequired: z.boolean().optional(),
-}).catchall(z.boolean());
-export type ServerFeatures = z.infer<typeof ServerFeaturesSchema>;
+export const ServerFeaturesSchema = Schema.StructWithRest(
+  Schema.Struct({
+    /**
+     * This deployment makes an account with an UNCONFIRMED address read-only:
+     * every write answers 403 `email_unverified` until the address is confirmed.
+     * It follows whether mail is configured at all — a server that cannot send a
+     * confirmation link must not gate anything on clicking one.
+     *
+     * UNKNOWN READS AS `false`, which is the opposite bias from `ocrImport`, and
+     * deliberately so. Guessing "off" for a capability hides one button until the
+     * probe lands; guessing "on" for this would grey out every write in the app
+     * and tell the user to confirm an address a server of that vintage never asks
+     * about. The 403 remains the enforcement either way — this field only decides
+     * what the UI offers, never what the server allows.
+     */
+    verifiedEmailRequired: Schema.optional(Bool),
+  }),
+  // `.catchall(z.boolean())`: the rest record covers only the keys the struct does not declare.
+  [Schema.Record(Str.check(Schema.makeFilter((key: string) => key !== "verifiedEmailRequired")), Bool)],
+);
+export type ServerFeatures = Types.DeepMutable<typeof ServerFeaturesSchema.Type>;
 
 /** GET /api/health */
-export const HealthResponseSchema = z.object({
+export const HealthResponseSchema = Schema.Struct({
   /** Always true on a healthy answer; what uptime probes and the M0 exit check read. */
-  ok: z.literal(true),
-  status: z.literal("ok"),
-  version: z.string(),
+  ok: Lit(true),
+  status: Lit("ok"),
+  version: Str,
   time: IsoDateSchema,
-  database: z.enum(["file", "remote"]),
+  database: Enum(["file", "remote"]),
   /** The modules this BUILD contains (SPEC §2), not what a household enabled. Strings, not `ModuleId`, so an old client tolerates a newer server. */
-  modules: z.array(z.string()),
+  modules: Schema.Array(Str),
   /**
    * Optional so an OLD client can still read a NEW server's health, and — more
    * to the point — so a new client treats a server that predates the field as
@@ -241,9 +262,9 @@ export const HealthResponseSchema = z.object({
    * "hide it": briefly hiding an available button is self-correcting, offering a
    * missing one is not.
    */
-  features: ServerFeaturesSchema.optional(),
+  features: Schema.optional(ServerFeaturesSchema),
 });
-export type HealthResponse = z.infer<typeof HealthResponseSchema>;
+export type HealthResponse = Types.DeepMutable<typeof HealthResponseSchema.Type>;
 
 /**
  * What became of a mail the request tried to send.
@@ -264,21 +285,21 @@ export type HealthResponse = z.infer<typeof HealthResponseSchema>;
  * success. Collapsing them into one boolean is how the invite panel came to greet
  * an install with no mail configured with "Eine E-Mail ist unterwegs".
  */
-export const MailDeliverySchema = z.enum(["sent", "not_configured", "failed"]);
-export type MailDelivery = z.infer<typeof MailDeliverySchema>;
+export const MailDeliverySchema = Enum(["sent", "not_configured", "failed"]);
+export type MailDelivery = Types.DeepMutable<typeof MailDeliverySchema.Type>;
 
 /** Response of every "no body needed but say something" mutation. */
-export const OkResponseSchema = z.object({ ok: z.literal(true) });
-export type OkResponse = z.infer<typeof OkResponseSchema>;
+export const OkResponseSchema = Schema.Struct({ ok: Lit(true) });
+export type OkResponse = Types.DeepMutable<typeof OkResponseSchema.Type>;
 
 /** Result of an upload endpoint (recipe image, avatar). */
-export const UploadResponseSchema = z.object({
-  url: z.string(),
-  filename: z.string(),
-  mimeType: z.string(),
-  size: z.number().int().nonnegative(),
+export const UploadResponseSchema = Schema.Struct({
+  url: Str,
+  filename: Str,
+  mimeType: Str,
+  size: Int.check(nonnegative()),
 });
-export type UploadResponse = z.infer<typeof UploadResponseSchema>;
+export type UploadResponse = Types.DeepMutable<typeof UploadResponseSchema.Type>;
 
 /** Hard limit for every upload (bytes). Enforced by the API, mirrored in the UI. */
 export const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;

@@ -10,6 +10,7 @@ import {
   roleAtLeast,
 } from "../src/index.ts";
 import { MODULE_IDS, isModuleId } from "../src/modules/registry.ts";
+import { parse, safeParse } from "./support/schema.ts";
 
 describe("module registry", () => {
   test("MODULE_IDS lists the modules in display order", () => {
@@ -34,12 +35,12 @@ describe("HealthResponseSchema", () => {
   };
 
   test("accepts a healthy answer with ok and modules", () => {
-    expect(HealthResponseSchema.parse(healthy)).toMatchObject({ ok: true, modules: [] });
+    expect(parse(HealthResponseSchema, healthy)).toMatchObject({ ok: true, modules: [] });
   });
 
   test("rejects the same object without ok", () => {
     const { ok: _ok, ...withoutOk } = healthy;
-    expect(HealthResponseSchema.safeParse(withoutOk).success).toBe(false);
+    expect(safeParse(HealthResponseSchema, withoutOk).success).toBe(false);
   });
 });
 
@@ -100,18 +101,18 @@ describe("resolveWireKey", () => {
 describe("ApiErrorSchema", () => {
   test("accepts the standard envelope", () => {
     expect(
-      ApiErrorSchema.parse({ error: { code: "not_found", message: "Rezept nicht gefunden" } }),
+      parse(ApiErrorSchema, { error: { code: "not_found", message: "Rezept nicht gefunden" } }),
     ).toBeTruthy();
   });
 
   test("rejects a bare message", () => {
-    expect(ApiErrorSchema.safeParse({ message: "nope" }).success).toBe(false);
+    expect(safeParse(ApiErrorSchema, { message: "nope" }).success).toBe(false);
   });
 });
 
 describe("RegisterRequestSchema", () => {
   test("lowercases and trims the e-mail", () => {
-    const parsed = RegisterRequestSchema.parse({
+    const parsed = parse(RegisterRequestSchema, {
       email: "  Test@Example.COM ",
       name: "Erik",
       password: "supersicher1",
@@ -121,7 +122,7 @@ describe("RegisterRequestSchema", () => {
 
   test("rejects short passwords", () => {
     expect(
-      RegisterRequestSchema.safeParse({ email: "a@b.de", name: "A", password: "kurz" }).success,
+      safeParse(RegisterRequestSchema, { email: "a@b.de", name: "A", password: "kurz" }).success,
     ).toBe(false);
   });
 });

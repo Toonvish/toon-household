@@ -32,7 +32,7 @@ import {
   type BarcodeValueReason,
 } from "../barcode.ts";
 import type { ServerKey } from "../../../core/i18n/catalogs/index.ts";
-import { IdSchema, IsoDateSchema } from "../../../core/schemas/common.ts";
+import { IdSchema, IsoDateSchema } from "../../../core/schemas/zod-legacy.ts";
 
 /** Upper bounds, mirrored by the UI so a phone never sends a doomed request. */
 export const CARD_LIMITS = {

@@ -1,19 +1,19 @@
-import { z } from "zod";
+import { Schema, type Types } from "effect";
 import { IdSchema, MailDeliverySchema } from "./common.ts";
 import { HouseholdWithRoleSchema } from "./household.ts";
 import { UserSchema } from "./user.ts";
 
 /** Returned by register + login. The session cookie is set by the response headers. */
-export const AuthSessionResponseSchema = z.object({
+export const AuthSessionResponseSchema = Schema.Struct({
   user: UserSchema,
-  households: z.array(HouseholdWithRoleSchema),
-  activeHouseholdId: IdSchema.nullish(),
+  households: Schema.Array(HouseholdWithRoleSchema),
+  activeHouseholdId: Schema.optional(Schema.NullOr(IdSchema)),
 });
-export type AuthSessionResponse = z.infer<typeof AuthSessionResponseSchema>;
+export type AuthSessionResponse = Types.DeepMutable<typeof AuthSessionResponseSchema.Type>;
 
 /** GET /api/auth/me — identical payload, so the web app has one bootstrap shape. */
 export const MeResponseSchema = AuthSessionResponseSchema;
-export type MeResponse = z.infer<typeof MeResponseSchema>;
+export type MeResponse = Types.DeepMutable<typeof MeResponseSchema.Type>;
 
 /**
  * POST /api/auth/email/verify/request.
@@ -24,9 +24,7 @@ export type MeResponse = z.infer<typeof MeResponseSchema>;
  * only ever mails the session's OWN address, so the answer reveals nothing about
  * whether some other address has an account. Do not copy this onto the reset flow.
  */
-export const EmailVerificationRequestResponseSchema = z.object({
+export const EmailVerificationRequestResponseSchema = Schema.Struct({
   mailDelivery: MailDeliverySchema,
 });
-export type EmailVerificationRequestResponse = z.infer<
-  typeof EmailVerificationRequestResponseSchema
->;
+export type EmailVerificationRequestResponse = Types.DeepMutable<typeof EmailVerificationRequestResponseSchema.Type>;

@@ -8,7 +8,7 @@
  */
 import { HealthResponseSchema } from "@toon/shared";
 import { describe, expect, spyOn, test } from "bun:test";
-import { Cause, Exit, ManagedRuntime } from "effect";
+import { Cause, Exit, ManagedRuntime, Schema } from "effect";
 import { healthResponse } from "../src/core/health.ts";
 import { app } from "../src/index.ts";
 import { AppLayer, appMemoMap, runtime } from "../src/runtime.ts";
@@ -42,7 +42,7 @@ describe("src/runtime.ts", () => {
       expect(typeof body.features.verifiedEmailRequired).toBe("boolean");
       expect(body.features.ocrImport).toBe(false);
       expect(body.features.pdfImport).toBe(false);
-      expect(() => HealthResponseSchema.parse(body)).not.toThrow();
+      expect(() => Schema.decodeUnknownSync(HealthResponseSchema)(body)).not.toThrow();
       // DateTime.formatIso is Date#toISOString of the UTC instant: the format the route always sent.
       expect(new Date(body.time).toISOString()).toBe(body.time);
     } finally {

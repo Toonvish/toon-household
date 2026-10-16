@@ -9,6 +9,7 @@ import {
   ModuleIdSchema,
   MODULE_IDS,
 } from "../src/index.ts";
+import { safeParse } from "./support/schema.ts";
 
 const UUID = "11111111-1111-4111-8111-111111111111";
 const ISO = "2026-10-13T10:00:00.000Z";
@@ -34,12 +35,12 @@ const household = {
 
 describe("household contract", () => {
   test("(a) HouseholdWithRoleSchema requires modules and rejects recipeCount without it", () => {
-    expect(HouseholdWithRoleSchema.safeParse({ ...household, modules: ["recipe"] }).success).toBe(
+    expect(safeParse(HouseholdWithRoleSchema, { ...household, modules: ["recipe"] }).success).toBe(
       true,
     );
     const { modules: _modules, ...withoutModules } = { ...household, modules: ["recipe"] };
     expect(
-      HouseholdWithRoleSchema.safeParse({ ...withoutModules, recipeCount: 3 }).success,
+      safeParse(HouseholdWithRoleSchema, { ...withoutModules, recipeCount: 3 }).success,
     ).toBe(false);
   });
 
@@ -52,17 +53,17 @@ describe("household contract", () => {
       expiresAt: ISO,
       claimsDisplayName: null,
     };
-    expect(InvitePreviewResponseSchema.safeParse({ ...preview, householdName: "X" }).success).toBe(
+    expect(safeParse(InvitePreviewResponseSchema, { ...preview, householdName: "X" }).success).toBe(
       true,
     );
-    expect(InvitePreviewResponseSchema.safeParse({ ...preview, groupName: "X" }).success).toBe(
+    expect(safeParse(InvitePreviewResponseSchema, { ...preview, groupName: "X" }).success).toBe(
       false,
     );
   });
 
   test("(c) AuthSessionResponseSchema parses an empty session", () => {
     expect(
-      AuthSessionResponseSchema.safeParse({
+      safeParse(AuthSessionResponseSchema, {
         user: { ...USER, activeHouseholdId: null },
         households: [],
         activeHouseholdId: null,
@@ -74,14 +75,14 @@ describe("household contract", () => {
     for (const id of DEFAULT_ENABLED_MODULES) {
       expect((MODULE_IDS as readonly string[]).includes(id)).toBe(true);
     }
-    expect(ModuleIdSchema.safeParse("recipe").success).toBe(true);
-    expect(ModuleIdSchema.safeParse("nope").success).toBe(false);
+    expect(safeParse(ModuleIdSchema, "recipe").success).toBe(true);
+    expect(safeParse(ModuleIdSchema, "nope").success).toBe(false);
   });
 
   test("(e) EnableModuleRequestSchema accepts {} and object settings, rejects non-object settings", () => {
-    expect(EnableModuleRequestSchema.safeParse({}).success).toBe(true);
-    expect(EnableModuleRequestSchema.safeParse({ settings: { a: 1 } }).success).toBe(true);
-    expect(EnableModuleRequestSchema.safeParse({ settings: 1 }).success).toBe(false);
+    expect(safeParse(EnableModuleRequestSchema, {}).success).toBe(true);
+    expect(safeParse(EnableModuleRequestSchema, { settings: { a: 1 } }).success).toBe(true);
+    expect(safeParse(EnableModuleRequestSchema, { settings: 1 }).success).toBe(false);
   });
 
   test("(f) HouseholdMemberSchema has householdId, not groupId", () => {
@@ -93,7 +94,7 @@ describe("household contract", () => {
       user: { id: UUID, name: "Eric", email: "eric@example.com" },
       hasAccount: true,
     };
-    expect(HouseholdMemberSchema.safeParse({ ...member, householdId: UUID }).success).toBe(true);
-    expect(HouseholdMemberSchema.safeParse({ ...member, groupId: UUID }).success).toBe(false);
+    expect(safeParse(HouseholdMemberSchema, { ...member, householdId: UUID }).success).toBe(true);
+    expect(safeParse(HouseholdMemberSchema, { ...member, groupId: UUID }).success).toBe(false);
   });
 });

@@ -18,7 +18,7 @@
  */
 import { z } from "zod";
 import { refineKey } from "../../../core/i18n/zod.ts";
-import { IdSchema, IsoDateSchema, listResponse, PaginationQuerySchema } from "../../../core/schemas/common.ts";
+import { IdSchema, IsoDateSchema, listResponse, PaginationQuerySchema } from "../../../core/schemas/zod-legacy.ts";
 
 /** Upper bounds, mirrored by the UI so a phone never sends a doomed request. */
 export const SHOPPING_LIMITS = {

@@ -15,7 +15,7 @@
 import { z } from "zod";
 import { refineKey } from "../../../core/i18n/zod.ts";
 import { isPlanDate, planDaysBetween } from "../../../core/calendar.ts";
-import { IdSchema, IsoDateSchema } from "../../../core/schemas/common.ts";
+import { IdSchema, IsoDateSchema } from "../../../core/schemas/zod-legacy.ts";
 
 export const PLAN_LIMITS = {
   /** Recipes on ONE day. A cap because rows are unbounded otherwise. */

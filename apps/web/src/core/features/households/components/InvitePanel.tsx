@@ -13,7 +13,7 @@
  */
 import { useState } from "react";
 import { Copy, Link2, MailPlus, Share2, Undo2 } from "lucide-react";
-import { z } from "zod";
+import { Effect, Schema } from "effect";
 import {
   EmailSchema,
   type HouseholdInvite,
@@ -51,9 +51,9 @@ import {
  * invite (ADR 0006), which this form never creates. The request schema's plain-invite half,
  * with `email` required, keeps `result.data.email` a string for the toasts.
  */
-const InviteFormSchema = z.object({
+const InviteFormSchema = Schema.Struct({
   email: EmailSchema,
-  role: InvitableRoleSchema.default("member"),
+  role: InvitableRoleSchema.pipe(Schema.withDecodingDefault(Effect.succeed("member" as const))),
 });
 
 export interface InvitePanelProps {

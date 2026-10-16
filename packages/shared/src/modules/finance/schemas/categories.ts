@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { IdSchema } from "../../../core/schemas/common.ts";
+import { IdSchema } from "../../../core/schemas/zod-legacy.ts";
 
 export const CategoryLabelSchema = z.string().trim().min(1).max(80);
 

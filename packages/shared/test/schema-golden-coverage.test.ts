@@ -71,9 +71,9 @@ for (const entry of allCases) {
   casesBySchema.set(entry.schema, list);
 }
 
-/** Every export whose name ends in `Schema` and whose value is an object. */
+/** Every export whose name ends in `Schema` and whose value is an object (a zod schema) or a function (an Effect schema). */
 const schemaExports = Object.keys(shared)
-  .filter((name) => name.endsWith("Schema") && typeof shared[name] === "object" && shared[name] !== null)
+  .filter((name) => name.endsWith("Schema") && (typeof shared[name] === "object" || typeof shared[name] === "function") && shared[name] !== null)
   .sort();
 
 const NUMBER_LEAVES = ["CentsSchema", "PositiveCentsSchema", "ConfidenceSchema", "MemberSlotSchema"] as const;

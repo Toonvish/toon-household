@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { IdSchema, IsoDateSchema, listResponse } from "../../../core/schemas/common.ts";
+import { IdSchema, IsoDateSchema, listResponse } from "../../../core/schemas/zod-legacy.ts";
 import { BooleanQuerySchema, CentsSchema, FinancePaginationQuerySchema, PeriodSchema } from "./common.ts";
 import { TagNameSchema } from "./tags.ts";
 

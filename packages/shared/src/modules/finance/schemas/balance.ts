@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { IdSchema, IsoDateSchema } from "../../../core/schemas/common.ts";
+import { IdSchema, IsoDateSchema } from "../../../core/schemas/zod-legacy.ts";
 import { BooleanQuerySchema, CentsSchema, PeriodSchema } from "./common.ts";
 
 /** Mirrors `BalanceBreakdown` from `ledger.ts` — same field names, same sign convention. */

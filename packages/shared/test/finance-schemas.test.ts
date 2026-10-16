@@ -19,7 +19,8 @@ import {
   TxKindSchema,
   listResponse,
 } from "../src/index.ts";
-import { z } from "zod";
+import { Schema } from "effect";
+import { parse } from "./support/schema.ts";
 
 test("ERROR_CODES is the exact, stable wire contract from docs/spec.md §3.2", () => {
   expect(ERROR_CODES).toContain("transaction_amount_zero");
@@ -149,8 +150,8 @@ describe("PaginationQuerySchema", () => {
 });
 
 test("listResponse() produces { items, total, limit, offset }", () => {
-  const schema = listResponse(z.object({ id: z.string() }));
-  const parsed = schema.parse({ items: [{ id: "a" }], total: 1, limit: 50, offset: 0 });
+  const schema = listResponse(Schema.Struct({ id: Schema.String }));
+  const parsed = parse(schema, { items: [{ id: "a" }], total: 1, limit: 50, offset: 0 });
   expect(parsed.items).toEqual([{ id: "a" }]);
 });
 

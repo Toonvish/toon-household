@@ -8,6 +8,7 @@
  */
 import { HealthResponseSchema } from "@toon/shared";
 import { afterAll, describe, expect, test } from "bun:test";
+import { Schema } from "effect";
 import { createDatabase } from "../src/db/client.ts";
 import { runMigrations } from "../src/db/migrate.ts";
 import {
@@ -74,7 +75,7 @@ describe("GET /api/health", () => {
     // IMPORT_PDF_ENABLED are set (toon-recipe "TWO FEATURE FLAGS").
     expect(body.features.ocrImport).toBe(false);
     expect(body.features.pdfImport).toBe(false);
-    expect(() => HealthResponseSchema.parse(body)).not.toThrow();
+    expect(() => Schema.decodeUnknownSync(HealthResponseSchema)(body)).not.toThrow();
   });
 });
 

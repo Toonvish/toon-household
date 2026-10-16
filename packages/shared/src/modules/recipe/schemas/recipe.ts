@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { refineKey } from "../../../core/i18n/zod.ts";
-import { HttpUrlSchema, IdSchema, IsoDateSchema, listResponse } from "../../../core/schemas/common.ts";
-import { PublicUserSchema } from "../../../core/schemas/user.ts";
+import { HttpUrlSchema, IdSchema, IsoDateSchema, listResponse } from "../../../core/schemas/zod-legacy.ts";
+import { PublicUserSchema } from "../../../core/schemas/zod-legacy.ts";
 
 export const DifficultySchema = z.enum(["einfach", "mittel", "schwer"]);
 export type Difficulty = z.infer<typeof DifficultySchema>;
