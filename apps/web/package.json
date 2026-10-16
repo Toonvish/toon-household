@@ -15,6 +15,7 @@
     "@tanstack/react-router": "^1.170.33",
     "@toon/shared": "workspace:*",
     "clsx": "^2.1.1",
+    "effect": "4.0.5",
     "lucide-react": "^1.41.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
