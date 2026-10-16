@@ -22,7 +22,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { z } from "zod";
 import * as sharedModule from "../../../src/index.ts";
-import { toValidationIssues } from "../../../src/core/i18n/zod.ts";
+import { toValidationIssues } from "../../../src/core/i18n/issues.ts";
 import type { Case } from "./cases/_lib.ts";
 import { flatIssue, stringifyGolden, type FlatIssue } from "./serialize.ts";
 
