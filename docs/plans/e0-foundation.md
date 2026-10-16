@@ -1,6 +1,6 @@
 # E0 — foundation: plan
 
-**Status: PLANNED (2026-10-16), revised after the plan review the same day.** Base commit `d88de1d73` (the Learn
+**Status: DONE (2026-10-16).** Planned and revised after the plan review the same day. Base commit `d88de1d73` (the Learn
 phase's last pattern file); the first plan commit is `669ef34b1`. Section 9 is the integration record and section
 10 is what changed vs plan (both written by E0-T08). The revision spells out the lockfile diff `bun add` really
 produces (E0-T02, P3), makes E0-T08's record checks read section 9 only and look for measured values (P13), writes
@@ -458,8 +458,158 @@ bump; widening `docs-paths.test.ts`.
 
 ## 9. Integration record
 
-(written by E0-T08)
+Written by E0-T08 on 2026-10-16 on the merged tree of `main` (E0-T01 to E0-T07 merged, HEAD `c82efa5f1` plus this
+record), Bun 1.4.3 on this machine, `.bun-version` 1.4.2. Logs were kept in the session scratchpad, none in the repo.
+Order as P12 asks: every `bun test` finished and its log was saved before the first docker command.
+
+### 9.1 Gates
+
+| Command | Result |
+| --- | --- |
+| `bun install --frozen-lockfile` | `Checked 441 installs across 630 packages (no changes)`, exit 0 |
+| `bun run typecheck` | `[typecheck] OK`, exit 0 |
+| `bun run build` | `@toon/web build: Exited with code 0`, exit 0 (`dist/sw.js`, `dist/workbox-8b1f5376.js`) |
+| `bun run i18n:check` | exit 1 by design: `[i18n:check] 1/2 German catalog parity…` / `[i18n:check] OK`, then `FAILED — 146 possible German literal(s)`: the same 146 as M7's record. The hits are doc comments quoting German ("Häufig gekauft", "Verfügbare Module") and recipe vocabulary, the count equals the known 146; none in `apps/api/src/runtime.ts`, `apps/api/src/core/health.ts`, `apps/api/test/effect-idioms.test.ts` or anything under `repos/`, so no new hit and no finding. |
+| `bun test apps/api/test/effect-idioms.test.ts apps/api/test/docs-paths.test.ts` | `19 pass`, `0 fail`, `41 expect() calls`, `Ran 19 tests across 2 files. [129.00ms]` |
+| `git status --porcelain repos/` | empty (0 lines) |
+
+### 9.2 The full suite and the baseline
+
+`uptime` before the run: `11:15:17 up  4:24,  1 user,  load average: 11.10, 15.07, 17.51`; after it:
+`11:16:01 … load average: 14.64, 15.51, 17.55`. The run passed outright (no thumbnail timeout, so the P12 flake
+rule was not exercised and `thumbnails.test.ts` was not re-run alone for it):
+
+```
+ 2463 pass
+ 0 fail
+ 13036 expect() calls
+Ran 2463 tests across 141 files. [43.98s]
+full_exit=0 pass=2463 fail_lines=0 thumbnail_fail_lines=0 summary_fail=0
+```
+
+Against the baseline of section 1.2 (2440 pass and 2 load-induced thumbnail failures, 2442 tests in 139 files):
+2463 is 21 more tests than 2442 (the floor was 2450) and 2 more files (139 to 141: `apps/api/test/runtime.test.ts`
+and `apps/api/test/effect-idioms.test.ts`).
+
+### 9.3 Discovery proof (P1)
+
+- `grep -c '^repos/'` on the saved full log: `0`.
+- The file count of the run, 141, equals `git ls-files '*.test.ts' '*.test.tsx' | grep -v '^repos/' | wc -l`: `141`.
+- `bun test repos` on Bun 1.4.3:
+
+```
+bun test v1.4.3 (c6da4a4d3)
+The following filters did not match any test files in --cwd="/home/erics/software/toon-household":
+ repos
+1269 files were searched [3.00ms]
+```
+
+- The same on Bun 1.4.2, the version CI and `release.yml` use
+  (`docker run --rm -v "$PWD":/w:ro -w /w oven/bun:1.4.2-debian bun test repos`, exit 1 as expected):
+
+```
+bun test v1.4.2 (744846f84)
+The following filters did not match any test files:
+ repos
+1269 files were searched [3.00ms]
+```
+
+- The control tree on Bun 1.4.2 (a failing `repos/x/b.test.ts`, a passing `apps/a.test.ts`, the same two-line
+  `bunfig.toml`; `docker run … oven/bun:1.4.2-debian bun test`, exit 0):
+
+```
+bun test v1.4.2 (744846f84)
+
+apps/a.test.ts:
+(pass) a [0.02ms]
+
+ 1 pass
+ 0 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [2.00ms]
+```
+
+So Bun 1.4.2 honours `pathIgnorePatterns`; there is no finding and no `.bun-version` change.
+
+### 9.4 Docker context and image (P2)
+
+The probe Dockerfile (`FROM oven/bun:1.4.2-debian`, `COPY . /ctx`, `RUN test ! -e /ctx/repos && test ! -e /ctx/.git &&
+echo "repos excluded"`) built with `docker build --no-cache --progress=plain -f <probe> .` from the repo root,
+exit 0:
+
+```
+#5 transferring context: 580.76kB 0.0s done
+#7 [3/3] RUN test ! -e /ctx/repos && test ! -e /ctx/.git && echo "repos excluded"
+#7 0.307 repos excluded
+```
+
+The real image, `docker build -t toon-household:e0 .`, ended `exit=0` (`#34 naming to docker.io/library/toon-household:e0
+0.0s done`); the `deps` stage's frozen production install carried the two packages: the container held
+`/app/apps/api/node_modules/effect`, `/app/apps/api/node_modules/@effect/platform-bun` and
+`/app/node_modules/.bun/effect@4.0.5`. `docker image ls` showed 409MB disk usage. The image was removed afterwards
+(`Untagged: toon-household:e0`, `Deleted: sha256:0891f0c9ef9e…`).
+
+### 9.5 The subtree (P8)
+
+`git log --format='%h %s' -3 -- repos/effect`:
+
+```
+60828f2e6 Merge commit 'e54b8022a8c86445ed2f8bfd4c87fe9da61c770a' as 'repos/effect'
+```
+
+(one commit touches the path: the subtree is one squash plus its merge). The squash commit `e54b8022a`:
+
+```
+Squashed 'repos/effect/' content from commit 7f524e25c
+
+git-subtree-dir: repos/effect
+git-subtree-split: 7f524e25cfb49a71ac39b0f44278d08d40dda5de
+```
+
+### 9.6 Boot and shutdown (P4, P5, P6)
+
+A migrated temp DB (`bun run db:migrate`, exit 0), then `NODE_ENV=development … API_PORT=3901 bun
+apps/api/src/index.ts` in the background, `curl -sf http://127.0.0.1:3901/api/health` until it answered, `kill -TERM`
+on the server's pid, `wait`:
+
+```
+{"ok":true,"status":"ok","version":"0.1.0","time":"2026-10-16T09:18:05.384Z","database":"file","modules":["recipe","finance"],"features":{"verifiedEmailRequired":false,"ocrImport":false,"pdfImport":false}}
+server_exit=0
+--- boot.log
+[api] toon-household API on http://localhost:3901 (db: file, origins: http://localhost:5173, mail: console, web: extern)
+Started development server: http://localhost:3901
+<-- GET /api/health
+--> GET /api/health 200 2ms
+[api] SIGTERM — stopping modules …
+[api] runtime disposed
+```
+
+The body is served through `runtime.runPromise(healthResponse)` with the key order of before and an ISO `time`
+from `DateTime.now`; the shutdown path ran the module hooks, disposed the runtime and exited 0. The temp
+directory was removed.
+
+### 9.7 Bundle baseline for E6
+
+Gzipped total of `apps/web/dist/assets/*.js` (84 files; the loop of step 7): **399812 bytes**. E0 imports
+`effect` nowhere in `apps/web`, so this is the pre-Effect baseline E6 compares with.
 
 ## 10. What changed vs plan
 
-(written by E0-T08)
+**Status: DONE (2026-10-16).** Every exit criterion of `docs/EFFECT.md` §4 E0 holds on the merged tree. No
+deviation from SPEC D1-D15 or `docs/EFFECT.md` E1-E12. Differences between the plan text and what was measured:
+
+1. **The thumbnail flake did not occur.** The full run passed (2463 pass, 0 fail, load average 11 to 15), so the
+   P12 tolerance was not used; nothing was raised or edited in `apps/api/test/thumbnails.test.ts`.
+2. **The count is higher than the plan's floor.** 2463 pass in 141 files against the floor of 2450 (baseline 2442
+   in 139 files): E0 added 21 tests and 2 files, not the 8 or more the plan counted (T01 1, T05 4 plus 2 import-order entries, T06 at least 1).
+3. **`git log -3 -- repos/effect` shows one commit,** the subtree merge `60828f2e6`, not three: the squash commit
+   `e54b8022a` is its second parent and is recorded through its message (section 9.5).
+4. **The probe's context size is 580.76kB** because the context is the repo minus `.dockerignore`; the plan fixed
+   no number, only that it be recorded and that `repos` and `.git` be absent.
+5. **No `.bun-version` change** and no bunfig workaround were needed: Bun 1.4.2 ignores `repos/**` exactly as 1.4.3
+   does (section 9.3).
+6. **The CLAUDE.md "Status"** paragraph now names 2463 pass in 141 files and that E0 is done; the other E0 edits of
+   CLAUDE.md were E0-T07's.
+7. **Process note.** The first launch of the full-suite script wrote its uptime line to an unset variable
+   (`/uptime.txt: Permission denied`); the run itself was unaffected and the load figures above come from the two
+   `uptime` calls in the log.
