@@ -26,6 +26,9 @@ describe("import order does not matter", () => {
   for (const entry of [
     // the server, then the first import of each script (seed, uploads:gc, reset-password, migrate)
     "./src/index.ts",
+    // E0: the runtime and the health effect
+    "./src/runtime.ts",
+    "./src/core/health.ts",
     "./src/middleware/session.ts",
     "./src/modules/index.ts",
     "./src/db/migrate.ts",

@@ -208,6 +208,12 @@ Where it will be applied:
   SIGTERM/SIGINT handlers), the module manifests (`layer` field), `apps/api/scripts/*.ts` (`BunRuntime.runMain`), and
   `apps/api/test/support/effect.ts` (`runTest` = `Effect.provide` of the test `AppLayer`, `Layer.mock` for fakes).
 - `apps/web/src/lib/runtime.ts`: the web's single `ManagedRuntime` behind `queryFn` / `mutationFn` (E11).
+- In this repo (since E0-T05): `apps/api/src/runtime.ts` exports `AppLayer` (`Layer.empty`, typed `Layer.Layer<never>`
+  until E2 widens it), `appMemoMap` and the one `runtime`; `apps/api/src/core/health.ts` `healthResponse` is the
+  first effect run through it (`GET /api/health`), and the SIGTERM/SIGINT handler of `apps/api/src/index.ts` awaits
+  `runtime.dispose()` after the modules' `shutdown()`. A run after `dispose` rejects with the plain string
+  `"ManagedRuntime disposed"` (the squashed `Effect.die` defect, not an `Error`); `apps/api/test/runtime.test.ts`
+  pins it on a throwaway runtime and never disposes the shared one.
 
 Rule it serves: **E7**, "Every service module is a `Context.Service` class with a static `layer`, one
 `ManagedRuntime` per process, handlers call `runtime.runPromise(...)` until E7 replaces Hono", with **E5** (the

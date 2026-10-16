@@ -13,8 +13,8 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { authRoutes } from "./core/routes/auth.ts";
+import { healthResponse } from "./core/health.ts";
 import { householdRoutes } from "./core/routes/households.ts";
-import { isVerifiedEmailRequired } from "./core/services/auth/verifiedEmail.ts";
 import { resolveThumbnail } from "./core/services/media/thumbnails.ts";
 import { dbReady } from "./db/client.ts";
 import { env } from "./env.ts";
@@ -31,6 +31,7 @@ import { securityHeaders } from "./middleware/securityHeaders.ts";
 import { webAppMiddleware } from "./middleware/staticWeb.ts";
 import { API_MODULES } from "./modules/index.ts";
 import { mountModules } from "./modules/mount.ts";
+import { runtime } from "./runtime.ts";
 
 export const app = new Hono<AppEnv>();
 
@@ -72,32 +73,9 @@ app.use("*", localeMiddleware);
 // (the dev web app on :5173 is same-site, not same-origin, with the API on :3001).
 app.use("/api/*", originGuard(env.webOrigins));
 
-/**
- * Liveness/readiness probe, and the one place a client can ask what this
- * deployment can actually do. `modules` is the BUILD's modules (SPEC §2), not
- * what a household enabled; `features` merges what each module's
- * `healthFeatures()` reports (e.g. recipe's OCR import flags), so the web app
- * knows not to offer a capability the server was built without. It needs no
- * session and the service worker never caches `/api`, so the answer is always
- * the running server's.
- */
-app.get("/api/health", (c) =>
-  c.json({
-    ok: true as const,
-    status: "ok" as const,
-    version: process.env.npm_package_version ?? "0.1.0",
-    time: new Date().toISOString(),
-    database: env.databaseKind,
-    modules: API_MODULES.map((module) => module.id),
-    features: {
-      verifiedEmailRequired: isVerifiedEmailRequired(),
-      ...(Object.assign(
-        {},
-        ...API_MODULES.map((module) => module.healthFeatures?.() ?? {}),
-      ) as Record<string, boolean>),
-    },
-  }),
-);
+// Liveness/readiness probe: the payload is an Effect run through the one runtime
+// (core/health.ts, runtime.ts; docs/EFFECT.md E7).
+app.get("/api/health", async (c) => c.json(await runtime.runPromise(healthResponse)));
 
 // --- uploads ----------------------------------------------------------------
 /**
@@ -188,15 +166,17 @@ if (env.webDistDir !== null) {
  *
  * Registered once, guarded so a repeated signal cannot start a second teardown,
  * and never in tests — bun's test runner owns the process there. A module whose
- * shutdown rejects is logged and the others still run.
+ * shutdown rejects is logged and the others still run. After every module, the one
+ * Effect runtime is disposed (runtime.ts, docs/EFFECT.md E7): that closes its layer
+ * scope; a failed dispose is logged and the process still exits 0.
  */
 if (!env.isTest) {
   let shuttingDown = false;
-  const shutdown = (signal: string): void => {
+  const shutdown = async (signal: string): Promise<void> => {
     if (shuttingDown) return;
     shuttingDown = true;
     console.log(`[api] ${signal} — stopping modules …`);
-    void Promise.allSettled(
+    await Promise.allSettled(
       API_MODULES.map(async (module) => {
         try {
           await module.shutdown?.();
@@ -204,10 +184,17 @@ if (!env.isTest) {
           console.warn(`[api] shutdown of module ${module.id} failed:`, error);
         }
       }),
-    ).finally(() => process.exit(0));
+    );
+    try {
+      await runtime.dispose();
+      console.log("[api] runtime disposed");
+    } catch (error: unknown) {
+      console.error("[api] runtime dispose failed:", error);
+    }
+    process.exit(0);
   };
-  process.on("SIGTERM", () => shutdown("SIGTERM"));
-  process.on("SIGINT", () => shutdown("SIGINT"));
+  process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  process.on("SIGINT", () => void shutdown("SIGINT"));
 }
 
 if (!env.isTest) {
