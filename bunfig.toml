@@ -1,0 +1,4 @@
+# bun test never discovers the vendored Effect source (docs/EFFECT.md E2): repos/effect
+# carries about 580 vitest files of its own, which are reference material, not this repo's tests.
+[test]
+pathIgnorePatterns = ["repos/**"]
