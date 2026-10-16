@@ -406,22 +406,37 @@ function rawEnv(): Record<string, string | undefined> {
   return source;
 }
 
-function loadEnv(): Env {
-  const result = EnvSchema.safeParse(rawEnv());
-  if (!result.success) {
-    const lines = result.error.issues.map((issue) => {
+/** Result of {@link parseEnv}: the env object, or one `  - KEY: message` line per issue. */
+export type ParsedEnv = { ok: true; env: Env } | { ok: false; lines: string[] };
+
+/**
+ * Pure: validates a raw variable map (no `process.env`, no exit). `rawEnv()` is the
+ * production source; the tests feed their own maps.
+ */
+export function parseEnv(source: Record<string, string | undefined>): ParsedEnv {
+  const result = EnvSchema.safeParse(source);
+  if (result.success) return { ok: true, env: result.data };
+  return {
+    ok: false,
+    lines: result.error.issues.map((issue) => {
       const key = issue.path.join(".") || "(env)";
       return `  - ${key}: ${issue.message}`;
-    });
+    }),
+  };
+}
+
+function loadEnv(): Env {
+  const result = parseEnv(rawEnv());
+  if (!result.ok) {
     const message = [
       "Invalid environment variables — check your .env (template: .env.example):",
-      ...lines,
+      ...result.lines,
     ].join("\n");
     // Fail fast, no stack trace noise.
     console.error(message);
     process.exit(1);
   }
-  return result.data;
+  return result.env;
 }
 
 export const env: Env = loadEnv();

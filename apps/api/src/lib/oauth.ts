@@ -115,6 +115,22 @@ const GitHubEmailsSchema = z.array(
   }),
 );
 
+/** The provider payloads, parsed once at the edge: the value, or `undefined` when it is not that shape. */
+export function parseGoogleClaims(raw: unknown): z.infer<typeof GoogleClaimsSchema> | undefined {
+  const parsed = GoogleClaimsSchema.safeParse(raw);
+  return parsed.success ? parsed.data : undefined;
+}
+
+export function parseGitHubUser(raw: unknown): z.infer<typeof GitHubUserSchema> | undefined {
+  const parsed = GitHubUserSchema.safeParse(raw);
+  return parsed.success ? parsed.data : undefined;
+}
+
+export function parseGitHubEmails(raw: unknown): z.infer<typeof GitHubEmailsSchema> | undefined {
+  const parsed = GitHubEmailsSchema.safeParse(raw);
+  return parsed.success ? parsed.data : undefined;
+}
+
 function truthy(value: boolean | string | undefined): boolean {
   return value === true || value === "true";
 }
@@ -179,11 +195,10 @@ async function googleProfile(idToken: string | undefined, accessToken: string): 
     claims = await response.json();
   }
 
-  const parsed = GoogleClaimsSchema.safeParse(claims);
-  if (!parsed.success) {
+  const data = parseGoogleClaims(claims);
+  if (data === undefined) {
     throw new ApiError(400, "oauth_failed", "server.auth.googleProfileIncomplete");
   }
-  const data = parsed.data;
   return {
     provider: "google",
     providerUserId: data.sub,
@@ -206,22 +221,22 @@ async function githubProfile(accessToken: string): Promise<OAuthProfile> {
   if (!userResponse.ok) {
     throw new ApiError(400, "oauth_failed", "server.auth.githubProfileUnavailable");
   }
-  const user = GitHubUserSchema.safeParse(await userResponse.json());
-  if (!user.success) {
+  const user = parseGitHubUser(await userResponse.json());
+  if (user === undefined) {
     throw new ApiError(400, "oauth_failed", "server.auth.githubProfileIncomplete");
   }
 
-  let email = user.data.email?.trim().toLowerCase() ?? null;
+  let email = user.email?.trim().toLowerCase() ?? null;
   let emailVerified = false;
 
   // The public profile e-mail may be hidden; /user/emails needs `user:email`.
   const emailsResponse = await fetch("https://api.github.com/user/emails", { headers });
   if (emailsResponse.ok) {
-    const emails = GitHubEmailsSchema.safeParse(await emailsResponse.json());
-    if (emails.success) {
+    const emails = parseGitHubEmails(await emailsResponse.json());
+    if (emails !== undefined) {
       const primary =
-        emails.data.find((entry) => entry.primary === true && entry.verified === true) ??
-        emails.data.find((entry) => entry.verified === true);
+        emails.find((entry) => entry.primary === true && entry.verified === true) ??
+        emails.find((entry) => entry.verified === true);
       if (primary) {
         email = primary.email.trim().toLowerCase();
         emailVerified = true;
@@ -231,11 +246,11 @@ async function githubProfile(accessToken: string): Promise<OAuthProfile> {
 
   return {
     provider: "github",
-    providerUserId: String(user.data.id),
+    providerUserId: String(user.id),
     email,
     emailVerified,
-    name: user.data.name ?? user.data.login,
-    avatarUrl: user.data.avatar_url ?? null,
+    name: user.name ?? user.login,
+    avatarUrl: user.avatar_url ?? null,
   };
 }
 
