@@ -36,8 +36,9 @@ ever meant to (M6 plan section 8). The guide for all of it is [`deployment.md`](
 
 ## Owner decisions
 
-Each one changes copy or drawn screens that the sources shipped, so an agent does not take it
-unprompted. Where an ADR is needed it is said, because SPEC §1 changes only through one.
+Each one changes copy or drawn screens that the sources shipped, or a fixed decision of
+`docs/EFFECT.md`, so an agent does not take it unprompted. Where an ADR is needed it is said,
+because SPEC §1 changes only through one.
 
 | # | Decision | What it would touch | Source | Done when |
 | --- | --- | --- | --- | --- |
@@ -45,6 +46,8 @@ unprompted. Where an ADR is needed it is said, because SPEC §1 changes only thr
 | D-2 | Convert toon-recipe's pinned design exceptions: the 34 arbitrary `text-[…]` sizes in 17 files, the four uppercase labels, the two `←` back links, and the `-mx-4` bars in `RecipeForm` and `ImportReviewPage`. | Drawn recipe screens. Pinned in `apps/web/src/styles/design-system.test.ts`, so a conversion edits that record in the same commit. toon-recipe's `/home/erics/software/toon-recipe/docs/redesign/PR.md` keeps them open too. | M4 plan section 7; CLAUDE.md "The design-system test is the Table D gate" | The pinned lists in `design-system.test.ts` are shorter by what was converted, and the screens are re-checked at 390 and 1440. |
 | D-3 | Print styles for the finance screens. Neither source had any; only the recipe detail prints (M4-T09, M7-T01). | A new `print.css` for `modules/finance`. | M4 plan section 7 ("Print styles for finance screens") | Printing a finance screen to PDF at 390 and 1440 (`page.emulateMedia({media:"print"})` plus `page.pdf()`) shows content and no chrome. |
 | D-4 | A per-household PWA name or icon. The manifest is static per build. | `pwa-manifest.ts`, the build, or a served manifest. | M4 plan section 7 | The decision is recorded in an ADR, then the manifest follows the active household. |
+| D-5 | Raw SQL through `@effect/sql-libsql` (Effect's SQL client, `Model.Class` repositories) beside or instead of drizzle's query builder. `docs/EFFECT.md` E5 keeps drizzle as the schema, migration and query source, and E1 installs no `@effect/sql-*` package. | The `Database` service of milestone E2 (`apps/api/src/db/client.ts`), the queries of every service, the D7 pragmas on a second client. Needs an ADR (EFFECT E1 and E5, SPEC D7). | `docs/EFFECT.md` E1, E5 and §6 | The ADR exists, the package is pinned at the `effect` version, and `apps/api/test/db-pragmas.test.ts` passes on the new client. |
+| D-6 | `@effect/atom-react` for web state in place of, or beside, TanStack Query. `docs/EFFECT.md` E11 keeps TanStack Query and the router, because the persisted TanStack cache is the offline ledger and the outbox (SPEC D9). | `apps/web/src/lib/query-client.ts`, `apps/web/src/lib/persist.ts`, every `queries.ts`, the offline outboxes of both modules, `PERSIST_BUSTER`. Needs an ADR (EFFECT E11, SPEC D9). | `docs/EFFECT.md` E11 and §6 | The ADR exists and says how the offline outbox and the persisted cache survive; the headless offline replays of CLAUDE.md pass. |
 
 ## Deferred by design
 
