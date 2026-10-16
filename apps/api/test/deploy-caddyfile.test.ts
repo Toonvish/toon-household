@@ -4,8 +4,8 @@
 // Where each old path goes is pinned by apps/web/src/legacy-redirects.test.ts against the route tree.
 import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 const CADDYFILE_PATH = join(import.meta.dir, "../../../docker/Caddyfile");
 const CADDYFILE = readFileSync(CADDYFILE_PATH, "utf8");
@@ -17,7 +17,8 @@ const LINES = CADDYFILE.split("\n");
  *   sed -n '/^(hardening) {$/,/^}$/p' Caddyfile | sha256sum
  *   sed -n '/^(fwd) {$/,/^}$/p' Caddyfile | sha256sum
  * i.e. over the lines from `(name) {` to the next line that is exactly `}`, each ending in "\n".
- * SPEC D11 takes them VERBATIM: a changed byte here is a change to toon-edge's hardening.
+ * SPEC D11 takes them VERBATIM: a changed byte here is a change to toon-edge's hardening. The digests are
+ * the whole check: toon-edge is retired and this repo reads nothing outside itself.
  */
 const SNIPPET_SHA256 = {
   hardening: "0468ebf3f07d113aee4c9d13e5e2fbb31d6652042e0c32b76f44164f42ddd3fd",
@@ -60,21 +61,10 @@ function directives(lines: readonly string[]): string[] {
   return lines.filter((line) => !line.trim().startsWith("#"));
 }
 
-/** toon-edge's Caddyfile next to the MAIN checkout (as scripts/i18n-check.ts resolves the sources). */
-function toonEdgeCaddyfile(): string | null {
-  const git = Bun.spawnSync(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"], {
-    cwd: import.meta.dir,
-  });
-  const common = git.exitCode === 0 ? git.stdout.toString().trim() : "";
-  if (common === "") return null;
-  const candidate = join(dirname(dirname(common)), "toon-edge", "Caddyfile");
-  return existsSync(candidate) ? candidate : null;
-}
-
 /**
  * The one sanctioned edit to the verbatim snippets: the `(fwd)` comment block spells the option
  * `trusted-proxies` here, so that no `trusted_proxies` string occurs anywhere in docker/Caddyfile (the
- * deploy gate greps for it). Undo the spelling before comparing with toon-edge or hashing.
+ * deploy gate greps for it). Undo the spelling before hashing.
  */
 function unhyphenated(lines: string[]): string[] {
   return lines.map((line) => (line.trim().startsWith("#") ? line.replaceAll("trusted-proxies", "trusted_proxies") : line));
@@ -87,19 +77,6 @@ describe("the toon-edge snippets, verbatim (SPEC D11)", () => {
     });
   }
 
-  test("and equals toon-edge's Caddyfile when that checkout is next to this one", () => {
-    const edge = toonEdgeCaddyfile();
-    if (edge === null) {
-      // CI has no sibling checkout: the pinned digests above are the check there.
-      console.info("[deploy-caddyfile] toon-edge/Caddyfile not found next to the main checkout; digests only");
-      return;
-    }
-    const edgeLines = readFileSync(edge, "utf8").split("\n");
-    for (const name of ["hardening", "fwd"] as const) {
-      expect(unhyphenated(topLevelBlock(LINES, `(${name})`))).toEqual(topLevelBlock(edgeLines, `(${name})`));
-      expect(sha256(topLevelBlock(edgeLines, `(${name})`))).toBe(SNIPPET_SHA256[name]);
-    }
-  });
 });
 
 describe("global options", () => {

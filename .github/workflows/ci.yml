@@ -1,9 +1,9 @@
 # The verification gates from CLAUDE.md, on every push and pull request.
 # Nothing is published from here.
 #
-# `bun run i18n:check` is deliberately NOT a step: it proves German parity against the two
-# source repos (toon-recipe, toon-finance), which must sit next to the checkout, so it is a
-# local gate. docker-build (pull requests only, no push) builds the image release.yml publishes.
+# `bun run i18n:check` is deliberately NOT a step: it exits 1 by design (its leftover-German half
+# reports the classified false positives), so it is a local gate whose output is read, not a
+# pass/fail. docker-build (pull requests only, no push) builds the image release.yml publishes.
 #
 # Every action is pinned to a commit SHA (toon-finance 1715207, gotcha 74): a moved tag
 # cannot change what runs here. The comment names the release the SHA belongs to.

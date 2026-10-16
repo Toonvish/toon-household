@@ -3,17 +3,16 @@
  * toon-recipe's scripts/i18n-check.ts, docs/i18n.md §11):
  *
  *   1. Every German catalog value existed before, byte-for-byte (a rework, not
- *      a rewrite). "Before" is this repo's base commit OR HEAD of one of the two
- *      source repos (toon-recipe, toon-finance) — the household's own history has
- *      none of the ported strings.
+ *      a rewrite). "Before" is the commit this branch forked from on main. The
+ *      repo is self-contained: since the port (M0-M7, M3b) every ported string
+ *      is in its own history, so the source repos are no longer consulted.
  *   2. No German is left behind in a ported source tree.
  *
  * Both are deliberately grep-shaped — no AST, no parser to maintain. Run via
- * `bun run i18n:check`. Sources: env I18N_CHECK_SOURCES (colon-separated absolute
- * paths), default the sibling toon-recipe and toon-finance checkouts.
+ * `bun run i18n:check`. Override the base with env I18N_CHECK_BASE=<sha>.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { join, relative } from "node:path";
 
 const ROOT = new URL("../", import.meta.url).pathname;
 
@@ -37,35 +36,6 @@ function baseCommit(): string {
   throw new Error(
     "i18n-check: could not resolve a base commit (tried origin/main and main). Set I18N_CHECK_BASE=<sha>.",
   );
-}
-
-/**
- * The source repos check 1 may find a fragment in. From env I18N_CHECK_SOURCES
- * (colon-separated), else the siblings of the MAIN checkout: the git common dir
- * is `<main>/.git` even from `.worktrees/<task>`, so its parent is the main
- * checkout and the parent of that holds toon-recipe and toon-finance.
- */
-function resolveSources(): string[] {
-  const envSources = process.env.I18N_CHECK_SOURCES;
-  const candidates: string[] = [];
-  if (envSources !== undefined && envSources.trim() !== "") {
-    candidates.push(...envSources.split(":").filter((p) => p.trim() !== ""));
-  } else {
-    const common = sh(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"]);
-    const mainCheckout = common.code === 0 && common.stdout.trim() ? dirname(common.stdout.trim()) : ROOT;
-    const siblings = dirname(mainCheckout);
-    candidates.push(join(siblings, "toon-recipe"), join(siblings, "toon-finance"));
-  }
-  const resolved: string[] = [];
-  for (const source of candidates) {
-    const isRepo = existsSync(source) && sh(["git", "rev-parse", "--git-dir"], source).code === 0;
-    if (isRepo) {
-      resolved.push(source);
-    } else {
-      console.warn(`[i18n:check] WARNING: source repo not found, skipped: ${source}`);
-    }
-  }
-  return resolved;
 }
 
 /**
@@ -208,25 +178,21 @@ function fragmentsOf(value: string): string[] {
     .filter((fragment) => fragment.length >= 3);
 }
 
-/** True when `fragment` is in the base commit, or at HEAD of any source repo. Cached per fragment. */
-function makeFragmentFinder(base: string, sources: string[]): (fragment: string) => boolean {
+/** True when `fragment` is in the base commit. Cached per fragment. */
+function makeFragmentFinder(base: string): (fragment: string) => boolean {
   const cache = new Map<string, boolean>();
   return (fragment) => {
     const cached = cache.get(fragment);
     if (cached !== undefined) return cached;
-    let found = sh(["git", "grep", "-F", "-q", "-e", fragment, base]).code === 0;
-    for (const source of sources) {
-      if (found) break;
-      found = sh(["git", "-C", source, "grep", "-F", "-q", "-e", fragment, "HEAD"]).code === 0;
-    }
+    const found = sh(["git", "grep", "-F", "-q", "-e", fragment, base]).code === 0;
     cache.set(fragment, found);
     return found;
   };
 }
 
-function checkGermanParity(base: string, sources: string[]): string[] {
+function checkGermanParity(base: string): string[] {
   const failures: string[] = [];
-  const exists = makeFragmentFinder(base, sources);
+  const exists = makeFragmentFinder(base);
   for (const file of findDeCatalogFiles()) {
     const source = readFileSync(file, "utf8");
     const rel = relative(ROOT, file);
@@ -344,14 +310,12 @@ function checkNoGermanLeft(): string[] {
 
 async function main() {
   const base = baseCommit();
-  const sources = resolveSources();
-  console.log(`[i18n:check] sources: ${sources.length > 0 ? sources.join(", ") : "(none)"}`);
   console.log(`[i18n:check] base commit: ${base}`);
 
   console.log("[i18n:check] 1/2 German catalog parity…");
-  const parityFailures = checkGermanParity(base, sources);
+  const parityFailures = checkGermanParity(base);
   if (parityFailures.length > 0) {
-    console.error(`[i18n:check] FAILED — ${parityFailures.length} value(s) not found in the base tree or the source repos:`);
+    console.error(`[i18n:check] FAILED — ${parityFailures.length} value(s) not found in the base tree:`);
     for (const failure of parityFailures) console.error(`  - ${failure}`);
   } else {
     console.log("[i18n:check] OK");

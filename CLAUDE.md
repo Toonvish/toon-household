@@ -11,9 +11,9 @@ the cross-cutting rules; each module's knowledge lives in its own doc (`docs/mod
 2. This file.
 3. Before touching a module, its doc: `docs/modules/recipe.md` or `docs/modules/finance.md` (what the module owns,
    its source's locked decisions with their status here, its gotchas, the source's gotchas mapped one by one).
-4. The two source repos' `CLAUDE.md` files, read-only: `/home/erics/software/toon-recipe/CLAUDE.md` and
-   `/home/erics/software/toon-finance/CLAUDE.md`. Their locked decisions and gotchas stay binding inside the
-   module that inherits them (SPEC D13). The source trees are never modified.
+4. The two source repos are archived on GitHub (`Toonvish/toon-recipe`, `Toonvish/toon-finance`) and this repo
+   no longer reads them: their locked decisions and gotchas are mapped one by one in the module docs (step 3)
+   and stay binding inside the module that inherits them (SPEC D13). Consult an archive only as history.
 5. `docs/API.md` — the HTTP contract: conventions, error codes, middleware chain and mount order, security, every
    core endpoint, then the sections "Recipe module" and "Finance module" (one table row per served route).
 6. `docs/migration.md` — the operator's guide to `migrate:legacy` (inputs, rules, report, cutover order).
@@ -440,8 +440,9 @@ ones; the module gotchas are indexed below and live in the module docs.
   measures 390/390); check no-overflow as `scrollWidth <= clientWidth` plus no element's right edge beyond
   `innerWidth` + 0.5, and when the two numbers differ show once that `documentElement.style.scrollbarGutter =
   "auto"` makes them equal. A bar that bleeds to the viewport edge ends at 375 beside the gutter, 390 without.
-- **i18n-check from worktrees** resolves the source repos via the git common dir; it needs `toon-recipe` and
-  `toon-finance` next to the main checkout (or `I18N_CHECK_SOURCES`).
+- **i18n-check is self-contained.** Its parity half greps the commit the branch forked from on main
+  (`I18N_CHECK_BASE=<sha>` overrides it) and nothing outside this repo: since the port every source string is in
+  the repo's own history. A genuinely new German string still goes to `NEW_GERMAN`.
 - **Long commands** (cold `bun install`, docker build, headless browser) go to the background with one log
   ending in `exit=$?`. A `docker build` is judged by `$?` written to its log, never through a pipe (`docker build
   ... | tail` reports tail's status); the repo-root `build.log` is ignored by `*.log` and removed after the check.
