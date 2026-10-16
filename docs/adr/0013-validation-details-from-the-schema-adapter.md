@@ -75,3 +75,11 @@ difference on inputs that are already rejected.
   envelope and codes are untouched.
 - `apps/api/test/validate.test.ts` pins both arms of the decode path until E1-T11, with the Zod cases in one
   delimited `describe` that E1-T11 deletes (plan P20).
+- **Owner note: a deliberate wire change, pinned.** The `details` items of the 58 former `zValidator` routes and of
+  `POST /api/households/:householdId/modules/:moduleId` changed on the wire: `{ path, code, message }` with Zod's
+  English sentence became `{ path, code, message, i18n: { key, values } }` with the catalog text in the negotiated
+  locale. It is the one intentional departure from "behaviour is frozen" in E1; `path`, `code`, the status and the
+  envelope are unchanged and every `docs/API.md` row already described this shape. `apps/api/test/validation-wire.test.ts`
+  pins it on real routes (a JSON body, the enable-module body, a query) in `de` and `en`, so the shape cannot drift
+  back or apart unnoticed. A client that matched the old English sentence would break; the web forms read `i18n.key`
+  first, and no other consumer is known.
