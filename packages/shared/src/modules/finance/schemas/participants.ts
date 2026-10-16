@@ -1,6 +1,6 @@
-import { z } from "zod";
-import { refineKey } from "../../../core/i18n/zod.ts";
-import { IdSchema, IsoDateSchema } from "../../../core/schemas/zod-legacy.ts";
+import { Schema, type Types } from "effect";
+import { IdSchema, IsoDateSchema } from "../../../core/schemas/common.ts";
+import { Bool, Str, itemsExactly, keyed, maxLength, minLength, trim } from "../../../core/schemas/checks.ts";
 import { MemberSlotSchema } from "./common.ts";
 
 /**
@@ -17,52 +17,51 @@ import { MemberSlotSchema } from "./common.ts";
  * characters (a `\n` in a name would reach a mail Subject).
  */
 const NO_CONTROL_CHARS = /^[^\p{Cc}]*$/u;
-export const FinanceDisplayNameSchema = z
-  .string()
-  .trim()
-  .min(1)
-  .max(80)
-  .refine((value) => NO_CONTROL_CHARS.test(value), refineKey("server.validation.noControlChars"));
+export const FinanceDisplayNameSchema = Str.pipe(trim).check(
+  minLength(1),
+  maxLength(80),
+  keyed((value: string) => NO_CONTROL_CHARS.test(value), "server.validation.noControlChars"),
+);
 
 /** GET …/finance/participants: one row per seat, ordered by slot. */
-export const FinanceParticipantResponseSchema = z.object({
+export const FinanceParticipantResponseSchema = Schema.Struct({
   userId: IdSchema,
   memberSlot: MemberSlotSchema,
-  displayName: z.string(),
-  name: z.string(),
+  displayName: Str,
+  name: Str,
   /** `null` for a placeholder: there is no account behind this seat (yet) (ADR 0006). */
-  email: z.string().nullable(),
+  email: Schema.NullOr(Str),
   /** `false` for a placeholder member (core `isPlaceholderUser`, ADR 0006). */
-  hasAccount: z.boolean(),
+  hasAccount: Bool,
   joinedAt: IsoDateSchema,
 });
-export type FinanceParticipantResponse = z.infer<typeof FinanceParticipantResponseSchema>;
+export type FinanceParticipantResponse = Types.DeepMutable<typeof FinanceParticipantResponseSchema.Type>;
 
 /** `viewerSlot` is the caller's seat, or null for a household member who is not a participant. */
-export const FinanceParticipantListResponseSchema = z.object({
-  items: z.array(FinanceParticipantResponseSchema),
-  viewerSlot: MemberSlotSchema.nullable(),
+export const FinanceParticipantListResponseSchema = Schema.Struct({
+  items: Schema.Array(FinanceParticipantResponseSchema),
+  viewerSlot: Schema.NullOr(MemberSlotSchema),
 });
-export type FinanceParticipantListResponse = z.infer<typeof FinanceParticipantListResponseSchema>;
+export type FinanceParticipantListResponse = Types.DeepMutable<typeof FinanceParticipantListResponseSchema.Type>;
 
 /** Exactly two entries; slots {1, 2} and distinct users are checked by the service, not here. */
-export const FinanceParticipantAssignmentSchema = z
-  .array(z.object({ userId: IdSchema, memberSlot: MemberSlotSchema }))
-  .length(2);
-export type FinanceParticipantAssignment = z.infer<typeof FinanceParticipantAssignmentSchema>;
+export const FinanceParticipantAssignmentSchema = Schema.Array(
+  Schema.Struct({ userId: IdSchema, memberSlot: MemberSlotSchema }),
+).check(itemsExactly(2));
+export type FinanceParticipantAssignment = Types.DeepMutable<typeof FinanceParticipantAssignmentSchema.Type>;
 
 /** PUT …/finance/participants */
-export const UpdateFinanceParticipantsRequestSchema = z.object({
+export const UpdateFinanceParticipantsRequestSchema = Schema.Struct({
   participants: FinanceParticipantAssignmentSchema,
 });
-export type UpdateFinanceParticipantsRequest = z.infer<typeof UpdateFinanceParticipantsRequestSchema>;
+export type UpdateFinanceParticipantsRequest = Types.DeepMutable<typeof UpdateFinanceParticipantsRequestSchema.Type>;
 
 /** The `settings` body of POST …/modules/finance (core `household_modules.settings`). */
 export const FinanceEnableSettingsSchema = UpdateFinanceParticipantsRequestSchema;
-export type FinanceEnableSettings = z.infer<typeof FinanceEnableSettingsSchema>;
+export type FinanceEnableSettings = Types.DeepMutable<typeof FinanceEnableSettingsSchema.Type>;
 
 /** PATCH …/finance/participants/me */
-export const UpdateFinanceDisplayNameRequestSchema = z.object({
+export const UpdateFinanceDisplayNameRequestSchema = Schema.Struct({
   displayName: FinanceDisplayNameSchema,
 });
-export type UpdateFinanceDisplayNameRequest = z.infer<typeof UpdateFinanceDisplayNameRequestSchema>;
+export type UpdateFinanceDisplayNameRequest = Types.DeepMutable<typeof UpdateFinanceDisplayNameRequestSchema.Type>;

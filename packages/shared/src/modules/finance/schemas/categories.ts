@@ -1,33 +1,34 @@
-import { z } from "zod";
-import { IdSchema } from "../../../core/schemas/zod-legacy.ts";
+import { Schema, type Types } from "effect";
+import { IdSchema } from "../../../core/schemas/common.ts";
+import { Bool, Int, Str, maxLength, minLength, nonnegative, trim } from "../../../core/schemas/checks.ts";
 
-export const CategoryLabelSchema = z.string().trim().min(1).max(80);
+export const CategoryLabelSchema = Str.pipe(trim).check(minLength(1), maxLength(80));
 
-export const CategoryResponseSchema = z.object({
+export const CategoryResponseSchema = Schema.Struct({
   id: IdSchema,
-  slug: z.string(),
+  slug: Str,
   /** Fully rendered: `customLabel ?? t(categories.name.<slug>)` in the negotiated locale. */
-  label: z.string(),
-  customLabel: z.string().nullable(),
-  isSystem: z.boolean(),
-  isHidden: z.boolean(),
-  position: z.number().int(),
-  usageCount: z.number().int().nonnegative(),
+  label: Str,
+  customLabel: Schema.NullOr(Str),
+  isSystem: Bool,
+  isHidden: Bool,
+  position: Int,
+  usageCount: Int.check(nonnegative()),
 });
-export type CategoryResponse = z.infer<typeof CategoryResponseSchema>;
+export type CategoryResponse = Types.DeepMutable<typeof CategoryResponseSchema.Type>;
 
-export const CategoryListResponseSchema = z.object({ items: z.array(CategoryResponseSchema) });
-export type CategoryListResponse = z.infer<typeof CategoryListResponseSchema>;
+export const CategoryListResponseSchema = Schema.Struct({ items: Schema.Array(CategoryResponseSchema) });
+export type CategoryListResponse = Types.DeepMutable<typeof CategoryListResponseSchema.Type>;
 
-export const CreateCategoryRequestSchema = z.object({
+export const CreateCategoryRequestSchema = Schema.Struct({
   label: CategoryLabelSchema,
-  position: z.number().int().optional(),
+  position: Schema.optional(Int),
 });
-export type CreateCategoryRequest = z.infer<typeof CreateCategoryRequestSchema>;
+export type CreateCategoryRequest = Types.DeepMutable<typeof CreateCategoryRequestSchema.Type>;
 
-export const UpdateCategoryRequestSchema = z.object({
-  label: CategoryLabelSchema.optional(),
-  isHidden: z.boolean().optional(),
-  position: z.number().int().optional(),
+export const UpdateCategoryRequestSchema = Schema.Struct({
+  label: Schema.optional(CategoryLabelSchema),
+  isHidden: Schema.optional(Bool),
+  position: Schema.optional(Int),
 });
-export type UpdateCategoryRequest = z.infer<typeof UpdateCategoryRequestSchema>;
+export type UpdateCategoryRequest = Types.DeepMutable<typeof UpdateCategoryRequestSchema.Type>;

@@ -1,22 +1,23 @@
-import { z } from "zod";
-import { IdSchema, IsoDateSchema } from "../../../core/schemas/zod-legacy.ts";
+import { Schema, type Types } from "effect";
+import { IdSchema, IsoDateSchema } from "../../../core/schemas/common.ts";
+import { Str, maxLength, positive, trim } from "../../../core/schemas/checks.ts";
 import { CentsSchema } from "./common.ts";
 import { BalanceResponseSchema } from "./balance.ts";
 import { TransactionResponseSchema } from "./transactions.ts";
 
-export const CreateSettlementRequestSchema = z.object({
+export const CreateSettlementRequestSchema = Schema.Struct({
   /** REQUIRED — the balance the client displayed. A mismatch answers `409 balance_stale`. */
   expectedBalanceCents: CentsSchema,
   /** Defaults to `Math.abs(balance)` server-side; must be > 0 when given. */
-  amountCents: z.number().int().positive().optional(),
-  note: z.string().trim().max(200).optional(),
-  bookedAt: IsoDateSchema.optional(),
-  mutationId: IdSchema.optional(),
+  amountCents: Schema.optional(CentsSchema.check(positive())),
+  note: Schema.optional(Str.pipe(trim).check(maxLength(200))),
+  bookedAt: Schema.optional(IsoDateSchema),
+  mutationId: Schema.optional(IdSchema),
 });
-export type CreateSettlementRequest = z.infer<typeof CreateSettlementRequestSchema>;
+export type CreateSettlementRequest = Types.DeepMutable<typeof CreateSettlementRequestSchema.Type>;
 
-export const SettlementResponseSchema = z.object({
+export const SettlementResponseSchema = Schema.Struct({
   transaction: TransactionResponseSchema,
   balance: BalanceResponseSchema,
 });
-export type SettlementResponse = z.infer<typeof SettlementResponseSchema>;
+export type SettlementResponse = Types.DeepMutable<typeof SettlementResponseSchema.Type>;
