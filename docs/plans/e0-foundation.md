@@ -1,7 +1,11 @@
 # E0 — foundation: plan
 
-**Status: PLANNED (2026-10-16).** Base commit `d88de1d73` (the Learn phase's last pattern file). Section 9 is
-the integration record and section 10 is what changed vs plan (both written by E0-T08).
+**Status: PLANNED (2026-10-16), revised after the plan review the same day.** Base commit `d88de1d73` (the Learn
+phase's last pattern file); the first plan commit is `669ef34b1`. Section 9 is the integration record and section
+10 is what changed vs plan (both written by E0-T08). The revision spells out the lockfile diff `bun add` really
+produces (E0-T02, P3), makes E0-T08's record checks read section 9 only and look for measured values (P13), writes
+the thumbnail-timeout rule into E0-T08's verify (P12) and proves the `repos/` fence on Bun 1.4.2, the version CI
+and the image use (P1).
 
 E0 is the first milestone of the Effect migration (`docs/EFFECT.md` §4): it vendors and fences off the Effect
 source (E2), installs the two Effect packages pinned (E1), builds the one `ManagedRuntime` and proves it boots,
@@ -39,11 +43,26 @@ the record.
   `bunfig.toml` `[test] pathIgnorePatterns = ["repos/**"]` ran 1 pass / 0 fail under Bun 1.4.3;
   `bun test repos` there printed "The following filters did not match any test files" and exited 1. Without
   the bunfig the same command ran and failed the `repos/` test. That message is the cheap proof the verify
-  commands use.
+  commands use (`bun test repos` exits 1 either way, so a verify pipes it into `grep -q`). The planner
+  repeated the probe on **Bun 1.4.2** (`oven/bun:1.4.2-debian`, banner `bun test v1.4.2 (744846f84)`) at
+  revision time: the control tree ran 1 pass / 0 fail, and `bun test repos` printed "The following filters did
+  not match any test files: repos" and exited 1. So the key holds on the CI version; E0-T08 re-proves it on the
+  real repo.
 - **No Effect installed.** None of the four `package.json` names `effect` or `@effect/*`; no source file
   imports either (grep over `apps`, `packages`, `scripts` for `repos/`, `effect/unstable`, `@effect/`,
   `Context.Tag`, `from "effect`: empty). npm at plan time: `effect@4.0.5` and `@effect/platform-bun@4.0.5`
   exist (`latest` = `4.0.5`); `@effect/platform-bun@4.0.5` depends on `@effect/platform-node-shared ^4.0.5`.
+- **Lockfile probe (the review's, repeated by the planner).** The three `bun add --exact --lockfile-only` of
+  E0-T02 on a scratch copy of the four `package.json` and `bun.lock` (Bun 1.4.3) change exactly the three
+  workspace `package.json` and `bun.lock` (+18/-2). Besides the four workspace dependency lines and the new
+  entries `effect`, `@effect/platform-bun` and `@effect/platform-node-shared`, Bun re-hoists two existing
+  packages, because `@effect/platform-node-shared@4.0.5` wants `ws ^8.22.0` and `@types/ws ^8.18.2`: the
+  top-level `"ws": ["ws@8.21.3", …]` becomes `ws@8.22.0` and `"@types/ws": ["@types/ws@8.18.1", …]` becomes
+  `@types/ws@8.18.2`, and the old versions move to the new nested keys `"@libsql/isomorphic-ws/ws":
+  ["ws@8.21.3", …]` and `"@libsql/isomorphic-ws/@types/ws": ["@types/ws@8.18.1", …]`. `@libsql/isomorphic-ws` is
+  the only package in `bun.lock` that depends on `ws` or `@types/ws`, so no existing consumer resolves a
+  different version: the two `-` lines are expected (P3) and anything else is not. `bun.lock` at `669ef34b1`
+  equals `d88de1d73`'s.
 - **`/api/health`** is an inline Hono handler in `apps/api/src/index.ts` building
   `{ ok, status, version, time: new Date().toISOString(), database, modules, features }`; tests that read it:
   `apps/api/test/smoke.test.ts` ("GET /api/health"), `apps/api/test/finance-module.test.ts` ("(f) health"),
@@ -81,9 +100,9 @@ E0 imports `effect` nowhere in `apps/web`, so the bundle cannot change. E0-T08 r
 
 | # | Decision | Serves |
 | --- | --- | --- |
-| P1 | The one test-discovery fence is the root `bunfig.toml` `[test] pathIgnorePatterns = ["repos/**"]`. Proof per task: `bun test repos` prints "did not match any test files"; proof at the end: the full `bun test` log has no line starting with `repos/` and its file count equals the repo's own test files. | E2 |
+| P1 | The one test-discovery fence is the root `bunfig.toml` `[test] pathIgnorePatterns = ["repos/**"]`. Proof per task: `bun test repos` prints "did not match any test files"; proof at the end: the full `bun test` log has no line starting with `repos/` and its file count equals the repo's own test files; and, because CI and `release.yml` run Bun **1.4.2** (`.bun-version`) while this machine runs 1.4.3, E0-T08 repeats the proof on 1.4.2 inside `oven/bun:1.4.2-debian` (the image the Dockerfile builds on): `docker run --rm -v "$PWD":/w:ro -w /w oven/bun:1.4.2-debian bun test repos` prints "did not match any test files", plus a control tree (a failing `repos/x/b.test.ts`, a passing `apps/a.test.ts`, the same bunfig) that runs 1 pass / 0 fail on 1.4.2. | E2 |
 | P2 | `.dockerignore` gains the line `repos`; `.vscode/settings.json` is created and committed (`search.exclude` and `typescript.preferences.autoImportFileExcludePatterns` with `repos/**`, `files.watcherExclude` with `**/repos/**`); `apps/web/vite.config.ts` gets `server.watch.ignored: ["**/repos/**"]`. The `Dockerfile` is not touched (it never `COPY`s the root). | E2 |
-| P3 | `effect` is added with `bun add --exact effect@4.0.5` in `packages/shared`, `apps/api` and `apps/web`; `@effect/platform-bun` with `bun add --exact @effect/platform-bun@4.0.5` in `apps/api` only, as a runtime `dependency` (E7 and E10 need it in the image). No root dependency. `packages/shared` and `apps/web` import nothing from `effect` in E0 (E1, E6 do). | E1 |
+| P3 | `effect` is added with `bun add --exact effect@4.0.5` in `packages/shared`, `apps/api` and `apps/web`; `@effect/platform-bun` with `bun add --exact @effect/platform-bun@4.0.5` in `apps/api` only, as a runtime `dependency` (E7 and E10 need it in the image). No root dependency. `packages/shared` and `apps/web` import nothing from `effect` in E0 (E1, E6 do). The expected `bun.lock` diff is the one of section 1.1 "Lockfile probe": `+` lines only for the four workspace dependency lines, blank separator lines and the keys `effect`, `@effect/platform-bun`, `@effect/platform-node-shared`, `ws`, `@types/ws`, `@libsql/isomorphic-ws/ws`, `@libsql/isomorphic-ws/@types/ws`; exactly two `-` lines, the old top-level `"ws": ["ws@8.21.3"` and `"@types/ws": ["@types/ws@8.18.1"`; the nested `@libsql/isomorphic-ws/*` keys keep 8.21.3 and 8.18.1. That re-hoist is ALLOWED (no existing consumer moves); any other `-` line, or a `+` line under another key, is a stop. | E1 |
 | P4 | `apps/api/src/runtime.ts` exports `AppLayer` (`Layer.empty`, the slot E2 fills with the core layers and each module's `layer`), `appMemoMap = Layer.makeMemoMapUnsafe()` and `runtime = ManagedRuntime.make(AppLayer, { memoMap: appMemoMap })`. It imports only `effect`. Nothing runs at module scope (`ManagedRuntime.make` builds lazily on the first run); no other application file calls `ManagedRuntime.make`. | E7, E12 |
 | P5 | The health payload moves to `apps/api/src/core/health.ts` as one constant `export const healthResponse: Effect.Effect<HealthResponse> = Effect.gen(function* () { … })` (inline `Effect.gen`, no wrapper function), `time` from `DateTime.formatIso(yield* DateTime.now)` (`repos/effect/packages/effect/src/internal/dateTime.ts:1261`: `toDateUtc(self).toISOString()`, the same format as today), the registry and the feature flags read INSIDE the generator body (CLAUDE.md "API import cycle"). The key order of the object stays `ok, status, version, time, database, modules, features`, every value computed exactly as today. The route becomes `app.get("/api/health", async (c) => c.json(await runtime.runPromise(healthResponse)))`, same position in the mount order. | E7, E12, D8 |
 | P6 | Shutdown (still `if (!env.isTest)` in `apps/api/src/index.ts`): the existing guard, the existing line `[api] ${signal} — stopping modules …`, every module's `shutdown()` as now, THEN `await runtime.dispose()` and the new English line `[api] runtime disposed`; a rejected dispose logs `[api] runtime dispose failed:` with the error; `process.exit(0)` last in every case. Proved once by a real boot in the record (E0-T08), not by an in-process test (bun's runner owns the process). | E7, E5 (the scope that will close the DB) |
@@ -92,6 +111,8 @@ E0 imports `effect` nowhere in `apps/web`, so the bundle cannot change. E0-T08 r
 | P9 | ADR 0012 amends SPEC wording only where a D-decision names Zod or Hono: D10's ADR 0002 sentence, plus one sentence after the §1 preamble. D4, D7, D8 and D9 are recorded as unchanged with the E-decision that implements each. SPEC §2's `Hono` interface and the intro's "Bun.serve + Hono" stay until E7, which rewrites §2 in its own commit (`docs/EFFECT.md` E8); the ADR says so. Catalog key names (`server.zod.*`, `server.validation.*`) are identifiers and keep their names. | E1–E12 vs D4, D7–D10 |
 | P10 | `apps/api/test/docs-paths.test.ts` is not widened: `repos/`, `agent-patterns/` and `.vscode/` are outside its `PATH_PREFIXES`; `bunfig.toml` is already one of its `ROOT_FILES`, so CLAUDE.md may name it only once E0-T01 has created it. | M7 decision 5 |
 | P11 | Commits: one or more per task, message `E0-Tnn: …`, body naming the EFFECT.md decision or the file served, ending with the harness's `Co-Authored-By` line (CLAUDE.md "Conventions"). `git status --porcelain repos/` is empty after every task. No push. | CLAUDE.md |
+| P12 | The full-suite verify of E0-T08 tolerates exactly one known flake and nothing else: when `bun test` exits non-zero, it passes only if every `(fail)` line is a test of `describe("GET /uploads/<name>.thumb.webp")` in `apps/api/test/thumbnails.test.ts` (a sharp timeout under load, section 1.2), the summary's fail count equals the number of those lines, no "Unhandled error" appears, and `bun test apps/api/test/thumbnails.test.ts` alone then passes; the load average is printed with it. A thumbnail timeout under load is NOT a defect: no fix round raises a timeout or edits `thumbnails.test.ts`. The full test log is captured before any `docker build` starts, and no docker command runs while a `bun test` runs. | §1.2, CLAUDE.md "Long commands" |
+| P13 | E0-T08's record checks read section 9 alone (`sed -n '/^## 9[.]/,/^## 10[.]/p'`) and look for measured values that no other part of this plan contains: the "transferring context: <size>" line of the probe build, the health body with a real `"time":"20…"`, the boot log's `[api] runtime disposed` and `server_exit=0`, `git-subtree-split: 7f524e25c…`, a `Ran N tests across M files` summary, the Bun 1.4.2 banner `bun test v1.4.2`, and the status line `**Status: DONE`. | §5 exit criteria |
 
 ## 3. Waves
 
@@ -143,11 +164,31 @@ scratchpad ending in `exit=$?` (CLAUDE.md "Long commands"; a cold cache download
 | 3 | `apps/web` | `bun add --exact effect@4.0.5` | `"dependencies"` gains `"effect": "4.0.5"` |
 | 4 | root | `bun install --frozen-lockfile` | none (must exit 0) |
 
-Then check `git diff --stat`: only the three `package.json` and `bun.lock` change. If `bun.lock` changes any
-existing package's resolved version (`git diff bun.lock` shows a `-` line for a package other than the
-workspace entries), stop and report blocked with the diff: no other dependency may move. Do NOT edit any source
-file, do NOT add an import. Commit: `E0-T02: effect and @effect/platform-bun 4.0.5, pinned exactly` (body:
-"docs/EFFECT.md E1").
+Then check `git diff --stat`: only the three `package.json` and `bun.lock` change (bun.lock about +18/-2).
+
+**Expected `bun.lock` diff (P3, section 1.1 "Lockfile probe"), ALLOWED:**
+
+| Lines | What |
+| --- | --- |
+| `+        "@effect/platform-bun": "4.0.5",` and three `+        "effect": "4.0.5",` | the workspace entries of `apps/api`, `apps/web`, `packages/shared` |
+| `+    "effect": ["effect@4.0.5", …]`, `+    "@effect/platform-bun": ["@effect/platform-bun@4.0.5", …]`, `+    "@effect/platform-node-shared": ["@effect/platform-node-shared@4.0.5", …]` and blank `+` lines | the new packages |
+| `-    "ws": ["ws@8.21.3", …]` → `+    "ws": ["ws@8.22.0", …]` | re-hoist: node-shared wants `ws ^8.22.0` |
+| `-    "@types/ws": ["@types/ws@8.18.1", …]` → `+    "@types/ws": ["@types/ws@8.18.2", …]` | re-hoist: node-shared wants `@types/ws ^8.18.2` |
+| `+    "@libsql/isomorphic-ws/ws": ["ws@8.21.3", …]`, `+    "@libsql/isomorphic-ws/@types/ws": ["@types/ws@8.18.1", …]` | libsql's only consumer keeps its versions as nested keys |
+
+**Stop and report blocked with the diff** if there is any other `-` line, a `+` line under any other key, or
+the two nested `@libsql/isomorphic-ws/*` keys are missing or name other versions. The check, from the worktree
+root (prints `0` twice and `nested-ok`):
+
+```
+git diff 669ef34b1 -- bun.lock | grep '^-' | grep -v '^---' | grep -vE '^-    "(ws": \["ws@8\.21\.3"|@types/ws": \["@types/ws@8\.18\.1")' | wc -l
+git diff 669ef34b1 -- bun.lock | grep '^+' | grep -v '^+++' | grep -vE '^\+$|^\+ +"(effect|@effect/platform-bun|@effect/platform-node-shared|ws|@types/ws|@libsql/isomorphic-ws/ws|@libsql/isomorphic-ws/@types/ws)": ' | wc -l
+grep -qF '"@libsql/isomorphic-ws/ws": ["ws@8.21.3"' bun.lock && grep -qF '"@libsql/isomorphic-ws/@types/ws": ["@types/ws@8.18.1"' bun.lock && echo nested-ok
+```
+
+Do NOT edit `bun.lock` by hand, do NOT edit any source file, do NOT add an import. Commit: `E0-T02: effect and
+@effect/platform-bun 4.0.5, pinned exactly` (body: "docs/EFFECT.md E1; bun.lock re-hoists ws 8.22.0 and
+@types/ws 8.18.2 for @effect/platform-node-shared, libsql keeps 8.21.3 and 8.18.1 nested").
 
 ### E0-T03 — `docs/open-work.md`: two owner decisions (rewrite)
 
@@ -318,18 +359,32 @@ read order, layout and the E0 gotchas` (body: "docs/EFFECT.md E2, §2").
 ### E0-T08 — Integration: gates, proofs, record (build)
 
 Depends on every task. If this plan file has uncommitted changes on main, commit them first. Run each long
-command in the background with one log under the scratchpad ending in `exit=$?`, then read it.
+command in the background with one log under the scratchpad ending in `exit=$?`, then read it. Order matters
+(P12): steps 1-3 (everything that runs `bun test`) finish and their logs are saved BEFORE step 4 starts any
+`docker build`; never run a docker command and a `bun test` at the same time.
 
-1. Gates: `bun install --frozen-lockfile`; `bun run typecheck`; `bun test` (full, log kept); `bun run build`;
-   `bun run i18n:check` (exit 1 by design: parity OK and the leftover-German hits classified against the 146
-   known false positives; a new hit is a finding); `bun test apps/api/test/effect-idioms.test.ts
-   apps/api/test/docs-paths.test.ts`; `git status --porcelain repos/` empty.
-2. Pass count vs baseline: record pass/fail/files; must be ≥ 2442 + the tests E0 added (section 1.2). A
-   `thumbnails.test.ts` timeout under load: re-run the file alone and record both outputs and the load
-   average.
+1. Gates: `bun install --frozen-lockfile`; `bun run typecheck`; `bun test` (full, log kept, `uptime` printed
+   before it); `bun run build`; `bun run i18n:check` (exit 1 by design: parity OK and the leftover-German hits
+   classified against the 146 known false positives; a new hit is a finding); `bun test
+   apps/api/test/effect-idioms.test.ts apps/api/test/docs-paths.test.ts`; `git status --porcelain repos/` empty.
+2. Pass count vs baseline: record pass/fail/files; pass + tolerated thumbnail timeouts must be ≥ 2442 + the tests
+   E0 added (section 1.2; at least 2450: T01 adds 1, T05 adds 4 runtime tests and 2 import-order entries, T06 at
+   least 1). The flake rule (P12): if the full run fails, every `(fail)` line must be under
+   `GET /uploads/<name>.thumb.webp >`, the summary's fail count must equal their number, no "Unhandled error"
+   may appear, and `bun test apps/api/test/thumbnails.test.ts` alone must then pass; record both outputs and the
+   load average. Any other failure is a defect. A thumbnail timeout under load is not: never raise a timeout,
+   never edit `thumbnails.test.ts`. The verify command implementing exactly this is the second one in the task's
+   verify list.
 3. Discovery proof: `grep -c '^repos/' <bun-test-log>` is 0; the file count in "Ran N tests across M files"
    equals `git ls-files '*.test.ts' '*.test.tsx' | grep -v '^repos/' | wc -l`; `bun test repos` prints "did not
-   match any test files".
+   match any test files". Then the same on Bun **1.4.2**, the version CI and `release.yml` use (P1):
+   `docker run --rm -v "$PWD":/w:ro -w /w oven/bun:1.4.2-debian bun test repos 2>&1` (expect the banner
+   `bun test v1.4.2` and "did not match any test files"), and the control tree: `P=$(mktemp -d)`, a
+   `$P/bunfig.toml` with the two bunfig lines `[test]` / `pathIgnorePatterns = ["repos/**"]`, a failing
+   `$P/repos/x/b.test.ts` (`expect(1).toBe(2)`), a passing `$P/apps/a.test.ts`, then `docker run --rm -v
+   "$P":/w:ro -w /w oven/bun:1.4.2-debian bun test 2>&1` (expect `1 pass`, `0 fail`); remove `$P`. Record both
+   outputs. If 1.4.2 ignores the key, stop and report it as a finding (no `.bun-version` bump in E0). This step
+   runs no `docker build` and comes after the full `bun test` log is saved.
 4. Docker context proof: a probe Dockerfile in the scratchpad: `FROM oven/bun:1.4.2-debian` / `COPY . /ctx` /
    `RUN test ! -e /ctx/repos && test ! -e /ctx/.git && echo "repos excluded"`, built with `docker build
    --no-cache --progress=plain -f <probe> .` from the repo root; the log shows "repos excluded" and the
@@ -348,24 +403,42 @@ command in the background with one log under the scratchpad ending in `exit=$?`,
 7. Bundle: gzipped total of `apps/web/dist/assets/*.js` (`for f in apps/web/dist/assets/*.js; do gzip -c "$f" |
    wc -c; done | awk '{s+=$1} END {print s}'`) as the pre-Effect baseline for E6.
 8. Write section 9 (integration record: commands, outputs, numbers) and section 10 (what changed vs plan, every
-   deviation) of this plan, set the status line to DONE, and update CLAUDE.md "Status" with the new pass count
-   and file count and one sentence that E0 is done (`docs/plans/e0-foundation.md`). `bun test
-   apps/api/test/docs-paths.test.ts` after the edit. Commit: `E0-T08: integration record (plan e0-foundation
-   sections 9 and 10), status DONE`.
+   deviation) of this plan, set the status line to `**Status: DONE (<date>).**`, and update CLAUDE.md "Status"
+   with the new pass count and file count and one sentence that E0 is done (`docs/plans/e0-foundation.md`).
+   Section 9 quotes VERBATIM (P13): the probe build's `transferring context: <size>` line and its `repos
+   excluded` line; the saved health body (with its real `"time":"20…"`); the boot log's
+   `[api] SIGTERM — stopping modules …` and `[api] runtime disposed` lines and `server_exit=0`; the
+   `git-subtree-split: 7f524e25c…` line; the full run's `Ran N tests across M files` line and pass/fail lines;
+   the Bun 1.4.2 output of step 3 (banner `bun test v1.4.2` and "did not match any test files"); the gzipped
+   bundle total in bytes. `bun test apps/api/test/docs-paths.test.ts` after the edit. Commit: `E0-T08:
+   integration record (plan e0-foundation sections 9 and 10), status DONE`.
 
 ## 5. Acceptance per task
 
 See the structured task list (same ids): every task lists its acceptance checks and verify commands; a verify
-command exits 0 or the task is not done.
+command exits 0 or the task is not done. Two verify commands carry plan rules and are spelled out here:
+
+- E0-T02's lockfile check is the three commands at the end of its section (P3): `0`, `0`, `nested-ok`.
+- E0-T08's full suite (P12), run before any docker command, from the repo root:
+
+```
+bash -c 'L=$(mktemp); uptime; bun test > "$L" 2>&1; s=$?; tail -6 "$L"; p=$(grep -Eo "^ *[0-9]+ pass" "$L" | tail -1 | grep -Eo "[0-9]+"); n=$(grep -c "^(fail) " "$L"); t=$(grep -cF "(fail) GET /uploads/<name>.thumb.webp > " "$L"); sf=$(grep -Eo "^ *[0-9]+ fail" "$L" | tail -1 | grep -Eo "[0-9]+"); echo "full_exit=$s pass=$p fail_lines=$n thumbnail_fail_lines=$t summary_fail=$sf"; [ "$((p + t))" -ge 2450 ] || exit 1; ! grep -q "^repos/" "$L" || exit 1; [ $s -eq 0 ] && exit 0; [ "$n" -gt 0 ] && [ "$n" -eq "$t" ] && [ "$sf" = "$n" ] && ! grep -q "Unhandled error" "$L" && bun test apps/api/test/thumbnails.test.ts'
+```
+
+- E0-T08's record check (P13) reads section 9 only:
+
+```
+bash -c 'X=$(sed -n "/^## 9[.]/,/^## 10[.]/p" docs/plans/e0-foundation.md); for re in "repos excluded" "transferring context: [0-9.]+ ?[kMG]?B" "time.:.20[0-9]{2}-[0-9]{2}-[0-9]{2}T" "[[]api[]] runtime disposed" "server_exit=0" "git-subtree-split: 7f524e25c" "Ran [0-9]+ tests across [0-9]+ files" "bun test v1[.]4[.]2" "did not match any test files"; do printf "%s\n" "$X" | grep -qE -- "$re" || { echo "missing in section 9: $re"; exit 1; }; done'
+```
 
 ## 6. Risks
 
 | Risk | Mitigation |
 | --- | --- |
-| CI and the Dockerfile run Bun **1.4.2** (`.bun-version`); the bunfig key was proved on 1.4.3. If 1.4.2 ignored `pathIgnorePatterns`, CI's `bun test` would run 582 vitest files and fail loudly on the first push. | E0-T08 notes the version it proved on; the record lists "first CI run on `main` shows the file count" as an owner check in section 9. No `.bun-version` change in E0 (a toolchain bump is not this milestone's). |
+| CI and the Dockerfile run Bun **1.4.2** (`.bun-version`); the bunfig key was proved on 1.4.3. If 1.4.2 ignored `pathIgnorePatterns`, CI's `bun test` would run 582 vitest files and fail the release job on the first push. | E0-T08 step 3 proves the fence on 1.4.2 inside `oven/bun:1.4.2-debian` (the real repo and a control tree, P1) and its verify list runs the real-repo probe. A 1.4.2 that ignores the key is a finding reported by E0-T08, not worked around; no `.bun-version` change in E0. |
 | TypeScript 7 with Effect 4's types (heavy generics): typecheck time or a type error inside `effect`'s declarations. | `skipLibCheck: true` already; E0-T05 is the first file that type-checks Effect; a failure is reported verbatim, never worked around with `any`. |
-| `bun add` moves other lockfile entries. | E0-T02 checks the lockfile diff and stops if any other package moves. |
-| Thumbnail tests time out under high load (seen at plan time). | Re-run alone and record; never raise the timeout in E0. |
+| `bun add` moves other lockfile entries. | Measured (section 1.1): it re-hoists `ws` 8.22.0 and `@types/ws` 8.18.2 and keeps libsql's 8.21.3 / 8.18.1 nested; P3 allows exactly that. E0-T02 checks the diff line by line and stops on anything else. |
+| Thumbnail tests time out under high load (seen at plan time); a verifier's full `bun test` under the same load would start a fix round. | P12: E0-T08's full-suite verify tolerates only `thumbnails.test.ts` timeouts that pass alone, prints the load; the docker builds run after the test log is saved. Never raise the timeout or edit the test in E0. |
 | The image grows by the two packages. | Recorded (image size before/after if `docker image ls` shows it); E1/E7 remove `zod`, `@hono/zod-validator`, `hono`. |
 | `runtime.ts` is imported by `index.ts`, which tests import: a run at module scope would serialise every test file. | P4: nothing runs at module scope; `ManagedRuntime.make` is lazy (`ManagedRuntime.ts` `make`). |
 
