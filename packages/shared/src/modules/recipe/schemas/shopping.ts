@@ -18,7 +18,7 @@
  */
 import { z } from "zod";
 import { refineKey } from "../../../core/i18n/zod.ts";
-import { IdSchema, IsoDateSchema, listResponse } from "../../../core/schemas/common.ts";
+import { IdSchema, IsoDateSchema, listResponse, PaginationQuerySchema } from "../../../core/schemas/common.ts";
 
 /** Upper bounds, mirrored by the UI so a phone never sends a doomed request. */
 export const SHOPPING_LIMITS = {
@@ -233,6 +233,23 @@ export const UpdateShoppingCatalogEntryRequestSchema = z.object({
 export type UpdateShoppingCatalogEntryRequest = z.infer<
   typeof UpdateShoppingCatalogEntryRequestSchema
 >;
+
+/** `GET …/shopping-lists/bought` query — the household-wide archive, `listId` optional. */
+export const ShoppingBoughtListQuerySchema = PaginationQuerySchema.extend({ listId: IdSchema.optional() });
+export type ShoppingBoughtListQuery = z.infer<typeof ShoppingBoughtListQuerySchema>;
+
+/**
+ * `GET …/shopping-lists/:listId/catalog` query. `includeHidden` is deliberately
+ * NOT `z.coerce.boolean()` — that turns the string "0" into `true`, a live trap
+ * for a query param (see `RecipeListQuerySchema.hasCooked` for the same rule).
+ */
+export const ShoppingCatalogListQuerySchema = PaginationQuerySchema.extend({
+  includeHidden: z
+    .enum(["0", "1"])
+    .optional()
+    .transform((value) => value === "1"),
+});
+export type ShoppingCatalogListQuery = z.infer<typeof ShoppingCatalogListQuerySchema>;
 
 /* -------------------------------- responses ------------------------------- */
 

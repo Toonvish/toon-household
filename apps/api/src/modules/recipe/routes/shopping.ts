@@ -24,28 +24,27 @@
  *
  * Endpoint contract: docs/API.md ("Shopping lists").
  */
-import { zValidator } from "@hono/zod-validator";
+import { Option } from "effect";
 import {
   AddRecipeToShoppingListRequestSchema,
   AddShoppingItemsRequestSchema,
   CheckShoppingItemRequestSchema,
   CreateShoppingListRequestSchema,
-  IdSchema,
   IsoDateSchema,
   MealPlanRangeQuerySchema,
-  PaginationQuerySchema,
+  ShoppingBoughtListQuerySchema,
+  ShoppingCatalogListQuerySchema,
   UpdateShoppingCatalogEntryRequestSchema,
   UpdateShoppingItemRequestSchema,
   UpdateShoppingListRequestSchema,
 } from "@toon/shared";
 import { Hono } from "hono";
-import { z } from "zod";
 import { db } from "../../../db/client.ts";
 import { created, json, noContent } from "../../../lib/http.ts";
 import type { AppEnv } from "../../../lib/types.ts";
 import { requireMembership, requireUser } from "../../../lib/types.ts";
 import { requireVerifiedEmail } from "../../../middleware/verifiedEmail.ts";
-import { onValidationError } from "../../../core/services/households/validation.ts";
+import { decodeOption, validate } from "../../../lib/validate.ts";
 import {
   clearBoughtSection,
   listBoughtItems,
@@ -83,29 +82,14 @@ import {
  */
 function parseSinceQuery(raw: string | undefined): number | undefined {
   if (!raw) return undefined;
-  const parsed = IsoDateSchema.safeParse(raw);
-  if (!parsed.success) return undefined;
-  const value = Date.parse(parsed.data);
+  const parsed = decodeOption(IsoDateSchema, raw);
+  if (Option.isNone(parsed)) return undefined;
+  const value = Date.parse(parsed.value);
   if (Number.isNaN(value)) return undefined;
   const now = Date.now();
   const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
   return Math.min(Math.max(value, now - sevenDaysMs), now);
 }
-
-/** `GET …/shopping-lists/bought` query — the household-wide archive, `listId` optional. */
-const BoughtListQuerySchema = PaginationQuerySchema.extend({ listId: IdSchema.optional() });
-
-/**
- * `GET …/shopping-lists/:listId/catalog` query. `includeHidden` is deliberately
- * NOT `z.coerce.boolean()` — that turns the string "0" into `true`, a live trap
- * for a query param (see `RecipeListQuerySchema.hasCooked` for the same rule).
- */
-const CatalogListQuerySchema = PaginationQuerySchema.extend({
-  includeHidden: z
-    .enum(["0", "1"])
-    .optional()
-    .transform((value) => value === "1"),
-});
 
 export const shoppingRoutes = new Hono<AppEnv>();
 
@@ -139,7 +123,7 @@ shoppingRoutes.get("/", async (c) => {
  */
 shoppingRoutes.get(
   "/bought",
-  zValidator("query", BoughtListQuerySchema, onValidationError),
+  validate("query", ShoppingBoughtListQuerySchema),
   async (c) => {
     const membership = requireMembership(c);
     const { listId, limit, offset } = c.req.valid("query");
@@ -150,7 +134,7 @@ shoppingRoutes.get(
 /** POST / — create a named list. */
 shoppingRoutes.post(
   "/",
-  zValidator("json", CreateShoppingListRequestSchema, onValidationError),
+  validate("json", CreateShoppingListRequestSchema),
   async (c) => {
     const membership = requireMembership(c);
     const user = requireUser(c);
@@ -172,7 +156,7 @@ shoppingRoutes.get("/:listId", async (c) => {
 /** PATCH /:listId — rename. Any member: the list is shared property. */
 shoppingRoutes.patch(
   "/:listId",
-  zValidator("json", UpdateShoppingListRequestSchema, onValidationError),
+  validate("json", UpdateShoppingListRequestSchema),
   async (c) => {
     const membership = requireMembership(c);
     const list = await updateShoppingList(
@@ -203,7 +187,7 @@ shoppingRoutes.delete("/:listId", async (c) => {
  */
 shoppingRoutes.post(
   "/:listId/items",
-  zValidator("json", AddShoppingItemsRequestSchema, onValidationError),
+  validate("json", AddShoppingItemsRequestSchema),
   async (c) => {
     const membership = requireMembership(c);
     return json(
@@ -222,7 +206,7 @@ shoppingRoutes.delete("/:listId/items", async (c) => {
 /** PATCH /:listId/items/:itemId — edit amount/unit/name/note. */
 shoppingRoutes.patch(
   "/:listId/items/:itemId",
-  zValidator("json", UpdateShoppingItemRequestSchema, onValidationError),
+  validate("json", UpdateShoppingItemRequestSchema),
   async (c) => {
     const membership = requireMembership(c);
     return json(
@@ -263,7 +247,7 @@ shoppingRoutes.delete("/:listId/items/:itemId", async (c) => {
  */
 shoppingRoutes.post(
   "/:listId/items/:itemId/check",
-  zValidator("json", CheckShoppingItemRequestSchema.optional(), onValidationError),
+  validate("json", CheckShoppingItemRequestSchema),
   async (c) => {
     const membership = requireMembership(c);
     const user = requireUser(c);
@@ -306,7 +290,7 @@ shoppingRoutes.post("/:listId/bought/clear", async (c) => {
  */
 shoppingRoutes.post(
   "/:listId/bought/:boughtId/undo",
-  zValidator("json", CheckShoppingItemRequestSchema.optional(), onValidationError),
+  validate("json", CheckShoppingItemRequestSchema),
   async (c) => {
     const membership = requireMembership(c);
     return json(
@@ -336,7 +320,7 @@ shoppingRoutes.post(
  */
 shoppingRoutes.post(
   "/:listId/recipes",
-  zValidator("json", AddRecipeToShoppingListRequestSchema, onValidationError),
+  validate("json", AddRecipeToShoppingListRequestSchema),
   async (c) => {
     const membership = requireMembership(c);
     const user = requireUser(c);
@@ -384,7 +368,7 @@ shoppingRoutes.delete("/:listId/recipes/:recipeId", async (c) => {
  */
 shoppingRoutes.get(
   "/:listId/from-plan",
-  zValidator("query", MealPlanRangeQuerySchema, onValidationError),
+  validate("query", MealPlanRangeQuerySchema),
   async (c) => {
     const membership = requireMembership(c);
     const { from, to } = c.req.valid("query");
@@ -407,7 +391,7 @@ shoppingRoutes.get(
  */
 shoppingRoutes.get(
   "/:listId/catalog",
-  zValidator("query", CatalogListQuerySchema, onValidationError),
+  validate("query", ShoppingCatalogListQuerySchema),
   async (c) => {
     const membership = requireMembership(c);
     const { includeHidden, limit, offset } = c.req.valid("query");
@@ -430,7 +414,7 @@ shoppingRoutes.get(
  */
 shoppingRoutes.patch(
   "/:listId/catalog/:entryId",
-  zValidator("json", UpdateShoppingCatalogEntryRequestSchema, onValidationError),
+  validate("json", UpdateShoppingCatalogEntryRequestSchema),
   async (c) => {
     const membership = requireMembership(c);
     return json(
@@ -449,7 +433,7 @@ shoppingRoutes.patch(
 /** POST /:listId/catalog/:entryId — re-add a suggestion, without an amount. */
 shoppingRoutes.post(
   "/:listId/catalog/:entryId",
-  zValidator("json", CheckShoppingItemRequestSchema.optional(), onValidationError),
+  validate("json", CheckShoppingItemRequestSchema),
   async (c) => {
     const membership = requireMembership(c);
     return json(

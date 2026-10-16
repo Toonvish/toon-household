@@ -20,18 +20,19 @@ import {
   emptyParsedRecipe,
 } from "@toon/shared";
 import { and, count, desc, eq } from "drizzle-orm";
+import { Option } from "effect";
 import type { Database } from "../../../../db/client.ts";
 import { type ImportDraftRow, importDrafts } from "../../../../db/schema.ts";
 import { ApiError } from "../../../../lib/errors.ts";
+import { decodeOption } from "../../../../lib/validate.ts";
 import { toIso } from "../../../../lib/http.ts";
 import { normalizeStoredUploadUrl, signUploadUrl } from "../../../../lib/uploadUrls.ts";
 
 /** Row -> contract shape. Never throws on malformed JSON columns. */
 export function toDraftWire(row: ImportDraftRow): ImportDraft {
-  const parsedResult = ParsedRecipeSchema.safeParse(row.parsed);
-  const stored: ParsedRecipe = parsedResult.success
-    ? parsedResult.data
-    : emptyParsedRecipe({ confidence: { overall: 0 } });
+  const stored: ParsedRecipe = Option.getOrElse(decodeOption(ParsedRecipeSchema, row.parsed), () =>
+    emptyParsedRecipe({ confidence: { overall: 0 } }),
+  );
 
   // The URL importer downloads a hero image into UPLOAD_DIR and puts the bare
   // `/uploads/<uuid>` into parsed.imageUrl, so the review screen needs it signed
@@ -40,8 +41,8 @@ export function toDraftWire(row: ImportDraftRow): ImportDraft {
   // /imports/:draftId/source route (see lib/uploadUrls.ts).
   const parsed: ParsedRecipe = { ...stored, imageUrl: signUploadUrl(stored.imageUrl) };
 
-  const metaResult = row.sourceMeta === null ? undefined : ImportSourceMetaSchema.safeParse(row.sourceMeta);
-  const sourceMeta: ImportSourceMeta | null = metaResult?.success === true ? metaResult.data : null;
+  const sourceMeta: ImportSourceMeta | null =
+    row.sourceMeta === null ? null : Option.getOrNull(decodeOption(ImportSourceMetaSchema, row.sourceMeta));
 
   return {
     id: row.id,
