@@ -30,9 +30,9 @@ import {
   type CardResponse,
 } from "@toon/shared";
 import { Hono } from "hono";
-import type { z } from "zod";
 import { db } from "../../../db/client.ts";
 import { ApiError } from "../../../lib/errors.ts";
+import { decodeOrThrow, type Decodable, type Decoded } from "../../../lib/validate.ts";
 import { created, json, noContent } from "../../../lib/http.ts";
 import { type AppContext, type AppEnv, requireUser } from "../../../lib/types.ts";
 import { requireSession } from "../../../middleware/session.ts";
@@ -46,24 +46,23 @@ import {
 } from "../services/cards/cards.service.ts";
 
 /**
- * Parses the body with the schema and lets the RAW `ZodError` escape.
+ * Parses the body with the schema and lets the decode failure escape to `onErrorHandler`.
  *
- * Deliberately not `zValidator(..., onValidationError)` like the household routers:
- * that hook flattens an issue to `{ path, code, message }` and DROPS `i18n`,
- * while `onErrorHandler` renders a thrown `ZodError` through
- * `toValidationIssues` — which keeps the catalog key. The card value's issues
+ * Every validator renders its issues through `toValidationIssues` since E1 (ADR 0013),
+ * so the catalog key survives on every route; the card routes read the body themselves
+ * because they need the raw JSON. The card value's issues
  * are exactly the ones a client wants to re-render in its own language
  * ("Prüfziffer passt nicht"), so they have to keep their keys. Same shape as
  * `readJson` in routes/auth.ts, which is private to that file.
  */
-async function readJson<S extends z.ZodType>(c: AppContext, schema: S): Promise<z.output<S>> {
+async function readJson<S extends Decodable>(c: AppContext, schema: S): Promise<Decoded<S>> {
   let raw: unknown;
   try {
     raw = await c.req.json();
   } catch {
     throw ApiError.badRequest("server.auth.invalidJsonBody");
   }
-  return schema.parse(raw) as z.output<S>;
+  return decodeOrThrow(schema, raw);
 }
 
 export const cardRoutes = new Hono<AppEnv>();

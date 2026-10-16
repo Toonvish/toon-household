@@ -43,8 +43,8 @@ import {
   UpdateImportDraftRequestSchema,
 } from "@toon/shared";
 import { Hono, type Context } from "hono";
-import type { z } from "zod";
 import { ApiError } from "../../../lib/errors.ts";
+import { decodeOrThrow, type Decodable, type Decoded } from "../../../lib/validate.ts";
 import { created, json, noContent } from "../../../lib/http.ts";
 import { type AppEnv, requireMembership, requireUser } from "../../../lib/types.ts";
 import { IMPORT_RULE, enforceRateLimit } from "../../../core/services/auth/rateLimit.ts";
@@ -85,16 +85,16 @@ importRoutes.use("*", requireVerifiedEmail());
 
 /* -------------------------------- helpers --------------------------------- */
 
-/** Parses a JSON body with a Zod schema, mapping malformed JSON to 400. */
-async function readJson<T>(request: Request, schema: z.ZodType<T>): Promise<T> {
+/** Parses a JSON body with a shared schema, mapping malformed JSON to 400. */
+async function readJson<S extends Decodable>(request: Request, schema: S): Promise<Decoded<S>> {
   let body: unknown;
   try {
     body = await request.json();
   } catch {
     throw ApiError.badRequest("server.import.invalidJsonBody");
   }
-  // A ZodError becomes 422 validation_failed in the global error handler.
-  return schema.parse(body);
+  // A decode failure becomes 422 validation_failed in the global error handler.
+  return decodeOrThrow(schema, body);
 }
 
 /* ------------------------------ URL import -------------------------------- */
@@ -223,7 +223,7 @@ importRoutes.post("/text", async (c) => {
 /** GET /api/households/:householdId/recipe/imports?status=pending */
 importRoutes.get("/", async (c) => {
   const { householdId } = requireMembership(c);
-  const query = ImportDraftListQuerySchema.parse(c.req.query());
+  const query = decodeOrThrow(ImportDraftListQuerySchema, c.req.query());
   const list = await listDrafts(importDb(), householdId, query);
   return json<ImportDraftListResponse>(c, list);
 });
@@ -294,7 +294,7 @@ importRoutes.post("/:draftId/commit", async (c) => {
 
   const body = await readJson(c.req.raw, CommitImportDraftRequestSchema);
   // The client may send the edited payload; otherwise the stored draft is used.
-  const parsed = body.parsed ?? ParsedRecipeSchema.parse(row.parsed);
+  const parsed = body.parsed ?? decodeOrThrow(ParsedRecipeSchema, row.parsed);
 
   const result = await commitDraft(importDb(), {
     householdId,

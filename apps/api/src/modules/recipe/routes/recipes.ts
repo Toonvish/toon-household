@@ -10,7 +10,6 @@
  *
  * Endpoint contract: docs/API.md (sections "Recipes", "Tags", "Collections").
  */
-import { zValidator } from "@hono/zod-validator";
 import {
   CreateCollectionRequestSchema,
   CreateRecipeRequestSchema,
@@ -29,7 +28,8 @@ import type { AppEnv } from "../../../lib/types.ts";
 import { requireMembership, requireUser } from "../../../lib/types.ts";
 import { requireHouseholdRole } from "../../../middleware/household.ts";
 import { requireVerifiedEmail } from "../../../middleware/verifiedEmail.ts";
-import { keepOnlySentKeys, onValidationError } from "../../../core/services/households/validation.ts";
+import { keepOnlySentKeys } from "../../../core/services/households/validation.ts";
+import { validate } from "../../../lib/validate.ts";
 import {
   addRecipeToCollection,
   createCollection,
@@ -69,7 +69,7 @@ recipeRoutes.use("*", requireVerifiedEmail());
  */
 recipeRoutes.get(
   "/recipes",
-  zValidator("query", RecipeListQuerySchema, onValidationError),
+  validate("query", RecipeListQuerySchema),
   async (c) => {
     const membership = requireMembership(c);
     const query = c.req.valid("query");
@@ -80,7 +80,7 @@ recipeRoutes.get(
 /** POST /recipes — create with nested ingredients/steps/tag names/collections. */
 recipeRoutes.post(
   "/recipes",
-  zValidator("json", CreateRecipeRequestSchema, onValidationError),
+  validate("json", CreateRecipeRequestSchema),
   async (c) => {
     const membership = requireMembership(c);
     const user = requireUser(c);
@@ -100,7 +100,7 @@ recipeRoutes.get("/recipes/:recipeId", async (c) => {
 /** PATCH /recipes/:recipeId — author or admin; child arrays are replace-all. */
 recipeRoutes.patch(
   "/recipes/:recipeId",
-  zValidator("json", UpdateRecipeRequestSchema, onValidationError),
+  validate("json", UpdateRecipeRequestSchema),
   async (c) => {
     const membership = requireMembership(c);
     // Absent child arrays must stay untouched — see keepOnlySentKeys().
@@ -138,7 +138,7 @@ recipeRoutes.post("/recipes/:recipeId/image", async (c) => {
  */
 recipeRoutes.post(
   "/recipes/:recipeId/cooked",
-  zValidator("json", MarkCookedRequestSchema, onValidationError),
+  validate("json", MarkCookedRequestSchema),
   async (c) => {
     const membership = requireMembership(c);
     const user = requireUser(c);
@@ -168,7 +168,7 @@ recipeRoutes.delete("/recipes/:recipeId/cooked", async (c) => {
  */
 recipeRoutes.get(
   "/recipes/:recipeId/scale",
-  zValidator("query", ScaleRecipeQuerySchema, onValidationError),
+  validate("query", ScaleRecipeQuerySchema),
   async (c) => {
     const membership = requireMembership(c);
     const { servings } = c.req.valid("query");
@@ -190,7 +190,7 @@ recipeRoutes.get("/tags", async (c) => {
 });
 
 /** POST /tags */
-recipeRoutes.post("/tags", zValidator("json", CreateTagRequestSchema, onValidationError), async (c) => {
+recipeRoutes.post("/tags", validate("json", CreateTagRequestSchema), async (c) => {
   const membership = requireMembership(c);
   const tag = await createTag(db, membership.householdId, c.req.valid("json"));
   return created(c, { tag });
@@ -199,7 +199,7 @@ recipeRoutes.post("/tags", zValidator("json", CreateTagRequestSchema, onValidati
 /** PATCH /tags/:tagId — rename/recolor. */
 recipeRoutes.patch(
   "/tags/:tagId",
-  zValidator("json", UpdateTagRequestSchema, onValidationError),
+  validate("json", UpdateTagRequestSchema),
   async (c) => {
     const membership = requireMembership(c);
     const tag = await updateTag(db, membership.householdId, c.req.param("tagId"), c.req.valid("json"));
@@ -227,7 +227,7 @@ recipeRoutes.get("/collections", async (c) => {
 /** POST /collections — optionally pre-filled with recipeIds (array order). */
 recipeRoutes.post(
   "/collections",
-  zValidator("json", CreateCollectionRequestSchema, onValidationError),
+  validate("json", CreateCollectionRequestSchema),
   async (c) => {
     const membership = requireMembership(c);
     const user = requireUser(c);
@@ -254,7 +254,7 @@ recipeRoutes.get("/collections/:collectionId", async (c) => {
  */
 recipeRoutes.patch(
   "/collections/:collectionId",
-  zValidator("json", UpdateCollectionRequestSchema, onValidationError),
+  validate("json", UpdateCollectionRequestSchema),
   async (c) => {
     const membership = requireMembership(c);
     // `recipeIds` only replaces the membership when it was actually sent.

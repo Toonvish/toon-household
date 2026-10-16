@@ -14,7 +14,6 @@
  *
  * Endpoint contract: docs/API.md (section "Meal plan").
  */
-import { zValidator } from "@hono/zod-validator";
 import {
   CreateMealPlanEntryRequestSchema,
   LastPlannedQuerySchema,
@@ -27,7 +26,7 @@ import { created, json, noContent } from "../../../lib/http.ts";
 import type { AppEnv } from "../../../lib/types.ts";
 import { requireMembership, requireUser } from "../../../lib/types.ts";
 import { requireVerifiedEmail } from "../../../middleware/verifiedEmail.ts";
-import { onValidationError } from "../../../core/services/households/validation.ts";
+import { validate } from "../../../lib/validate.ts";
 import {
   createPlanEntry,
   deletePlanEntry,
@@ -50,7 +49,7 @@ planRoutes.use("*", requireVerifiedEmail());
  */
 planRoutes.get(
   "/",
-  zValidator("query", MealPlanRangeQuerySchema, onValidationError),
+  validate("query", MealPlanRangeQuerySchema),
   async (c) => {
     const membership = requireMembership(c);
     const { from, to } = c.req.valid("query");
@@ -66,7 +65,7 @@ planRoutes.get(
  */
 planRoutes.get(
   "/last-planned",
-  zValidator("query", LastPlannedQuerySchema, onValidationError),
+  validate("query", LastPlannedQuerySchema),
   async (c) => {
     const membership = requireMembership(c);
     const { before } = c.req.valid("query");
@@ -81,7 +80,7 @@ planRoutes.get(
  */
 planRoutes.post(
   "/",
-  zValidator("json", CreateMealPlanEntryRequestSchema, onValidationError),
+  validate("json", CreateMealPlanEntryRequestSchema),
   async (c) => {
     const membership = requireMembership(c);
     const user = requireUser(c);
@@ -103,7 +102,7 @@ planRoutes.post(
  */
 planRoutes.patch(
   "/:entryId",
-  zValidator("json", UpdateMealPlanEntryRequestSchema, onValidationError),
+  validate("json", UpdateMealPlanEntryRequestSchema),
   async (c) => {
     const membership = requireMembership(c);
     const entry = await updatePlanEntry(

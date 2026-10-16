@@ -223,8 +223,8 @@ describe("the golden files", () => {
 });
 
 describe("coverage of the exported schemas", () => {
-  test("there are 215 exported schemas, in 17 source files", () => {
-    expect(schemaExports).toHaveLength(215);
+  test("there are 217 exported schemas, in 17 source files", () => {
+    expect(schemaExports).toHaveLength(217);
   });
 
   test("every exported *Schema appears as `schema` in some case", () => {
