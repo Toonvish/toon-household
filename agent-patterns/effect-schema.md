@@ -237,3 +237,51 @@ checked by the Zod `HealthResponseSchema` (`packages/shared/src/core/schemas/com
 `apps/api/test/runtime.test.ts` uses to prove the Effect-built body keeps its shape. That test is the parity
 check E1 must keep green when `HealthResponseSchema` becomes a `Schema.Struct` (same accepted input, same key order
 on the wire: the order comes from the object `healthResponse` builds, not from the schema).
+
+**As built (E1):** every shared schema is an Effect `Schema`; `zod` and `@hono/zod-validator` are gone (rule (9) of
+`apps/api/test/effect-idioms.test.ts`). The three moving parts, each with the real code:
+
+- **The vocabulary, `packages/shared/src/core/schemas/checks.ts`.** A failure that reaches the wire carries a
+  `WIRE_ISSUE` annotation (the Zod issue it replaces: `code` plus `origin`, `expected`, `format`, bounds), never an
+  Effect message. A string bound is a filter that annotates itself:
+  ```ts
+  export function minLength(n: number): SchemaAST.Filter<string> {
+    return Schema.isMinCodePoints(n, wire({ code: "too_small", origin: "string", minimum: n }));
+  }
+  ```
+  A catalog-keyed rule (Zod's `.refine(p, refineKey(key))`) is `keyed(predicate, key)`; a rule that reports at a
+  path is `Schema.makeFilter` returning `keyedIssue(key, path)`.
+- **The adapter, `packages/shared/src/core/i18n/issues.ts`.** `flattenIssue` walks the `SchemaIssue` tree and
+  reads the annotations back; `toValidationIssues` resolves each flat issue through the catalog ladder (unchanged
+  since the Zod era, keys still `server.zod.*`):
+  ```ts
+  export function toValidationIssues(source: SchemaIssue.Issue, locale: Locale = DEFAULT_LOCALE) {
+    return flattenIssue(source).map((issue) => {
+      const resolved = resolveIssue(issue, locale);
+      return { path: issue.path.join("."), code: issue.code, message: resolved.message,
+        i18n: { key: resolved.key, values: resolved.values } };
+    });
+  }
+  ```
+- **A flipped schema, `packages/shared/src/core/schemas/user.ts`.** The Zod chain `z.string().trim().min(1).max(80)
+  .refine(noControlChars, refineKey(...))` is a `pipe` and `check`:
+  ```ts
+  export const DisplayNameSchema = Str.pipe(trim).check(
+    minLength(1),
+    maxLength(80),
+    keyed(hasNoControlChars, "server.validation.noControlChars"),
+  );
+  export type OAuthProvider = Types.DeepMutable<typeof OAuthProviderSchema.Type>;
+  ```
+  Exported types are `Types.DeepMutable<typeof X.Type>` (Effect's `Type` is readonly, Zod's output was not).
+
+Rules learned in E1: decode with `ALL_ISSUES` (`{ errors: "all" }`) wherever `details` or a form field error is
+rendered, or only the first issue survives; `Schema.withDecodingDefault` validates the ENCODED side first, so a
+default over items that transform or carry checks is `Schema.withDecodingDefaultType` (it hides every item check
+behind one `invalid_type` otherwise); a struct's own checks and an array or string length check do not run while a
+child failed (Zod's did), which the parity tests list as P7 allow-map entries; plain `Schema.Number` accepts `NaN`
+and `±Infinity`, so a wire number is `Num` (finite filter that aborts). The oracle is the golden JSON in
+`packages/shared/test/fixtures/schema-golden/`, run by `packages/shared/test/parity/*.parity.test.ts` through
+`packages/shared/test/support/schema.ts`; a new vocabulary construct gets a `primitives.json` case first. The API
+decodes through `apps/api/src/lib/validate.ts` (`validate`, `decodeOrThrow`, `decodeOption`), which throws
+`Schema.SchemaError`; `toApiError` maps it once to `422 validation_failed`.

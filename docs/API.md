@@ -95,7 +95,7 @@ means that module's routes (the module section lists which).
 | Code | Status | Raised by | Meaning |
 | --- | --- | --- | --- |
 | `bad_request` | 400 | core, recipe | Malformed or non-JSON body, a route without a usable id, or a framework error mapped to 400. |
-| `validation_failed` | 422 | core, recipe, finance | A Zod schema refused the body or query; `details` lists the issues. |
+| `validation_failed` | 422 | core, recipe, finance | The shared schema refused the body or query; `details` lists the issues. |
 | `unauthorized` | 401 | core | No session cookie, or it is expired, revoked or unknown (the stale cookie is cleared). |
 | `invalid_credentials` | 401 | core | Wrong e-mail or password at login, a wrong or missing `currentPassword` at `POST /api/auth/password`. The answer and its timing are identical for an unknown address. |
 | `forbidden` | 403 | core, recipe, finance | The role is too low, the caller is not a member, or the origin guard refused a foreign-origin write (message `server.error.originMismatch`). |
@@ -1034,8 +1034,9 @@ Notes
   body. The stored value is always the normalised one.
 - **The check digit is validated** for `ean13`/`ean8`/`upca`. A mistyped digit answers 422 with
   `details[0].path = "value"` and `details[0].i18n.key = "server.card.valueCheckDigit"`. This router
-  throws the raw `ZodError` (rather than using `zValidator`'s hook, which drops `i18n`) precisely so
-  a client can re-render that issue in its own language.
+  decodes with `decodeOrThrow` (`apps/api/src/lib/validate.ts`); every route of the API renders a refused
+  input through the one adapter (`toValidationIssues`, ADR 0013), so the issue carries `i18n` and a client
+  can re-render it in its own language.
 - **`format` and `value` travel together or not at all** in a PATCH: a value cannot be check-digit
   validated without its symbology. `{ "value": … }` alone is 422 `server.card.formatAndValue`.
 - **`(userId, format, value)` is unique.** Saving the same number twice is 409 `card_already_saved` —

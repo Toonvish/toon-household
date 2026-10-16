@@ -42,7 +42,9 @@ migration may write (D2, D3, SPEC §6); 0006 placeholder members and claim invit
 old hostnames map their own paths and retire their service workers (D11); 0009 the whole test suite on a temp file
 DB (restores toon-finance gotcha 2); 0010 a header row per shell screen instead of a global top bar (D1, D6); 0011
 the service worker's runtime rules are the union of both sources' (D9, D13); 0012 Effect is the application
-framework (E1–E12; amends D10's wording).
+framework (E1–E12; amends D10's wording); 0013 validation details come from the one schema adapter (E4; plan
+`docs/plans/e1-shared-schema.md` P7, P9, P10: every route's `details` carry the catalog message and `i18n`, a
+struct's own checks do not run while one of its fields fails).
 
 `docs/EFFECT.md` §1 (E1–E12) is fixed in the same way as D1–D15: it changes only through an ADR, and a task that
 forces a deviation makes the smallest one and records it (ADR 0012, `docs/adr/0012-effect-application-framework.md`).
@@ -115,12 +117,16 @@ module (`docs/plans/m2-recipe-module.md`), M3 finance module (`docs/plans/m3-fin
 and M7 harden (`docs/plans/m7-harden.md`), 2026-10-13 to 2026-10-15; each plan's last sections are its
 integration record and "what changed vs plan". Two modules are built (`API_MODULES` and `WEB_MODULES` are
 `[recipe, finance]`, `/api/health` reports `modules: ["recipe","finance"]`). The tree typechecks, builds and tests
-green (`bun test`: 2463 pass in 141 files, 43.98 s on the temp file DB at the end of E0; `i18n:check` exits 1 with
+green (`bun test`: 14504 pass in 149 files, 24.56 s on the temp file DB at the end of E1, where 11357 of them are
+the golden parity cases of `packages/shared/test/parity/`; 2463 pass in 141 files at the end of E0; `i18n:check` exits 1 with
 the 146 classified false positives; M7's integration record, `docs/plans/m7-harden.md` section 9, has the gate logs,
 the walkthrough, the `migrate:legacy` fixture run and the print-to-PDF proof). Milestone E0 of the Effect migration
 (foundation: the vendored source fenced off, the pinned Effect packages, the one `ManagedRuntime` serving
 `/api/health`, the idioms test, ADR 0012) is done; its integration record is `docs/plans/e0-foundation.md` sections
-9 and 10. What is left is the owner's (see "Open work").
+9 and 10. Milestone E1 (shared-schema: every Zod schema of `packages/shared` is an Effect `Schema` with the same
+accepted and rejected inputs, the API validates through `apps/api/src/lib/validate.ts`, the web forms through the
+same shared schemas, and `zod` and `@hono/zod-validator` are gone from the tree and `bun.lock`; ADR 0013) is
+done; its integration record is `docs/plans/e1-shared-schema.md` sections 9 and 10. What is left is the owner's (see "Open work").
 
 ## Layout (as built)
 
@@ -128,15 +134,19 @@ Package names are `@toon/shared`, `@toon/api`, `@toon/web`; the root is `toon-ho
 
 - `packages/shared/src/index.ts` is the ONLY entry (the vite alias maps exactly `"@toon/shared"`; never import a
   subpath). `packages/shared/src/core/` holds `i18n/` (runtime plus
-  `packages/shared/src/core/i18n/catalogs/server.{de,en}.ts`), `schemas/{common,household,user,auth}.ts`,
+  `packages/shared/src/core/i18n/catalogs/server.{de,en}.ts`, and `packages/shared/src/core/i18n/issues.ts`, the
+  `SchemaIssue` adapter `toValidationIssues`), `schemas/{common,household,user,auth}.ts` plus the Effect `Schema`
+  vocabulary `packages/shared/src/core/schemas/checks.ts` (re-exported from the entry, `ALL_ISSUES` included),
   `calendar.ts`, `text.ts`. `packages/shared/src/modules/registry.ts` has `MODULE_IDS`, `ModuleIdSchema`,
   `DEFAULT_ENABLED_MODULES = ["recipe"]`; `packages/shared/src/modules/recipe/` and
   `packages/shared/src/modules/finance/` are the module barrels, re-exported FLAT from the entry (finance's tag
   schemas and 50/200 pagination are therefore `FinanceTag…` / `FinancePaginationQuery…`). Tests flat in
-  `packages/shared/test/`.
+  `packages/shared/test/`, beside `packages/shared/test/support/schema.ts` (the schema test helpers),
+  `packages/shared/test/fixtures/schema-golden/` (the golden JSON corpus, the parity oracle) and
+  `packages/shared/test/parity/` (the three parity tests over it).
 - `apps/api/src/index.ts` wires health, `/uploads/:filename`, `mountModules`, `/api/auth`, `/api/households`,
   SIGTERM/SIGINT calling each module's `shutdown`, the static web LAST. Beside it: `apps/api/src/env.ts`,
-  `apps/api/src/db/{client,migrate,schema}.ts` plus `apps/api/src/db/schema/core.ts`, `apps/api/src/lib/`,
+  `apps/api/src/db/{client,migrate,schema}.ts` plus `apps/api/src/db/schema/core.ts`, `apps/api/src/lib/` (`apps/api/src/lib/validate.ts` is the one decode path),
   `apps/api/src/middleware/{session,household,module,verifiedEmail,staticWeb,originGuard,securityHeaders}.ts`,
   `apps/api/src/modules/{index,types,mount}.ts` (the registry, the contract, the mount chain),
   `apps/api/src/runtime.ts` (`AppLayer`, the shared memo map and the one `ManagedRuntime`, E0) and
@@ -348,6 +358,19 @@ ones; the module gotchas are indexed below and live in the module docs.
   around every module layout's `<Outlet/>`. The query client's `onError` invalidates `["toon","me"]` on
   `404 module_disabled`, so a stale bundle and a live disable take one path. Core query-key segments (`me`,
   `sessions`, `oauth-providers`, `households`, `invite`, `detail`, `members`, `invites`) never equal a module id.
+- **Validation details come from the wire-issue vocabulary (E1, ADR 0013).** A schema that can fail on the wire is
+  built from `packages/shared/src/core/schemas/checks.ts` (or carries the `WIRE_ISSUE` annotation), is decoded with
+  `ALL_ISSUES` (every issue collected, as Zod did) and exports its type as `Types.DeepMutable<typeof X.Type>`;
+  `apps/api/src/lib/validate.ts` (`validate`, `decodeOrThrow`, `decodeOption`) throws `Schema.SchemaError`,
+  `toApiError` maps it once through `toValidationIssues` (`packages/shared/src/core/i18n/issues.ts`), so every
+  route's `details` item is `{ path, code, message, i18n }` in the negotiated locale. Never read an Effect
+  message or write `details` by hand. The golden JSON of `packages/shared/test/fixtures/schema-golden/` (made
+  once from Zod 4.5.4) and the parity tests of `packages/shared/test/parity/` are the oracle: same `ok`, same
+  output, same issues. The P7 allow maps in those tests (and `P7_ALLOW` in `packages/shared/test/schema-checks.test.ts`)
+  are the only tolerated divergence: a struct's own refinement and an array or string length check do not run
+  while a child failed, so an already rejected input may list fewer trailing issues; a listed id that does not
+  diverge fails. Consequence for forms: a struct-level error (the card `value` check) shows one submit later.
+  A construct the vocabulary lacks is added to `checks.ts` with a `primitives.json` case, never worked round.
 - **Uploads are signed, not cookie-checked.** `/uploads/:filename` answers 404 for an unsigned, forged or expired
   URL (`apps/api/src/lib/uploadUrls.ts`); `<name>.thumb.webp` is built with `sharp` on first request and falls
   back to the original (short cache) when sharp cannot convert.
@@ -511,8 +534,8 @@ ones; the module gotchas are indexed below and live in the module docs.
   of `file:line: code`, and a pinned allow list (file to reason, empty at E0) per rule. At E0 it holds: no import from
   `repos/`, no `effect/unstable/` path, no Effect 3 package or service constructor, `ManagedRuntime.make(` only in
   `apps/api/src/runtime.ts`, every `effect` / `@effect/*` dependency and lockfile entry one exact version, and the
-  vendored tree and the four fences matching it. The rules a later milestone switches on (no `zod` at E1, no `throw
-  new ApiError` and no `Date.now()` / `new Date()` in services at E2, no `hono` at E7) are a `PENDING_RULES`
+  vendored tree and the four fences matching it. Rule (9) is "no zod" (E1: no `zod` import, dependency or lockfile entry).
+  The rules a later milestone switches on (no `throw new ApiError` and no `Date.now()` / `new Date()` in services at E2, no `hono` at E7) are a `PENDING_RULES`
   comment in the file, never skipped tests, and each becomes a `describe` in the commit of the migration that
   makes it true. Never relax a rule to get green.
 - **Headless runs.** Install Playwright in a scratch directory outside the repo (a `bun add` log ending in

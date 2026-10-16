@@ -81,8 +81,8 @@ the household, never a person (cards belong to the user and cascade with the use
 
 `packages/shared/src/modules/recipe/` (barrel `index.ts`, re-exported by `packages/shared/src/index.ts`,
 the only entry): the pure content parsers and maths `units.ts`, `ingredients.ts`, `numbers.ts`,
-`duration.ts`, `tags.ts`, `shopping.ts`, the hand-rolled encoders `barcode.ts` and `qr.ts`, and the Zod
-schemas `schemas/{recipe,plan,import,shopping,card}.ts`. `foldText` and the calendar helpers are core
+`duration.ts`, `tags.ts`, `shopping.ts`, the hand-rolled encoders `barcode.ts` and `qr.ts`, and the Effect `Schema`
+definitions `schemas/{recipe,plan,import,shopping,card}.ts`. `foldText` and the calendar helpers are core
 (`packages/shared/src/core/text.ts`, `packages/shared/src/core/calendar.ts`). Tests are flat in
 `packages/shared/test/` under toon-recipe's file names.
 
@@ -381,7 +381,7 @@ touching the area; the row says where its subject lives and whether it still hol
 | R29 | A SAVED CARD IS READ OFFLINE AND WRITTEN ONLINE, i.e. the mirror image … | module | Cards read offline, write online: persist key `["recipe","cards"]` in `apps/web/src/modules/recipe/index.ts`, `cardsQuery` in `apps/web/src/modules/recipe/lib/queries.ts`, screens `apps/web/src/modules/recipe/features/cards/`; SW `NetworkOnly` for `/api/recipe/cards` |
 | R30 | `normalizeBarcodeValue` is forgiving, `checkBarcodeValue` is strict … | module | `normalizeBarcodeValue` and `checkBarcodeValue` in `packages/shared/src/modules/recipe/barcode.ts`, run in `packages/shared/src/modules/recipe/schemas/card.ts`; tests `packages/shared/test/barcode.test.ts`, `packages/shared/test/cards.test.ts` |
 | R31 | The card form's `format` and `value` are one field, contractually. | module | `UpdateCardRequestSchema` in `packages/shared/src/modules/recipe/schemas/card.ts`, `server.card.formatAndValue` in the core server catalogs |
-| R32 | `routes/cards.ts` throws the raw `ZodError` instead of using `zValidator`. | module | `apps/api/src/modules/recipe/routes/cards.ts` throws the raw `ZodError`; test `apps/api/test/cards.test.ts` pins key and message |
+| R32 | `routes/cards.ts` throws the raw `ZodError` instead of using `zValidator`. | module | Kept in substance since E1: `apps/api/src/modules/recipe/routes/cards.ts` decodes with `decodeOrThrow` (`apps/api/src/lib/validate.ts`), the `Schema.SchemaError` ends in `toApiError` and `toValidationIssues`, so the issue keeps its `i18n` (ADR 0013); test `apps/api/test/cards.test.ts` pins key and message |
 | R33 | `clientIp()` ignores `X-Forwarded-For` unless `TRUST_PROXY=1` | core | `apps/api/src/core/services/auth/rateLimit.ts`, `TRUST_PROXY` in `apps/api/src/env.ts`; the Caddy `fwd` snippet in `docker/Caddyfile` overwrites a client `X-Forwarded-For` |
 | R34 | Import endpoints must stay bounded | module | `apps/api/src/modules/recipe/routes/imports.ts` (`enforceRateLimit` with `IMPORT_RULE` in every handler, `withOcrSlot`), `apps/api/src/modules/recipe/services/ocr/index.ts` (`withOcrTimeout` stays a `Promise.race`) |
 | R35 | Recipe list/search filters live in the URL | adapted | SPEC D6: params at `/recipe`, `/recipe/search` still declares the same ones; `useUrlRecipeFilters("/recipe")` in `apps/web/src/modules/recipe/features/recipes/lib/url-filters.ts`, `RECIPE_FILTER_PARAMS` in `apps/web/src/modules/recipe/routes.tsx` |
