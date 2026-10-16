@@ -73,6 +73,11 @@ difference on inputs that are already rejected.
   because it sends every field. `ok` never changes, so no invalid card is ever accepted.
 - The `422 validation_failed` envelope, every route row of `docs/API.md` and every German catalog string stay as
   they are; the API tests pin `path`, `code` and `i18n.key` of `details[0]`, none of which changes.
+- **`docs/EFFECT.md` is corrected in the same commit as this record.** E4 and the E1 row of section 4 named a status and
+  code the contract does not have (`400` / `validation_error`), a `details` item without `i18n`, and "`env.ts` kept on
+  its own parsing until E2", which cannot hold once `zod` leaves the tree (`env.ts` and `lib/oauth.ts` decode with a
+  local `Schema` and the pure `parseEnv`, plan e1 P11; the `AppConfig` service is still E2's). The texts now say 422
+  `validation_failed`, `{ path, code, message, i18n }` and the P11 arrangement. No decision changed.
 - **No SPEC text changes.** D10's sentence on validation wording (as amended by ADR 0012) stays true: the generic
   validation messages come from the core's catalog with the core's wording, now for every route. D8's error
   envelope and codes are untouched.

@@ -219,3 +219,10 @@ Rule it serves: **E7**, "Every service module is a `Context.Service` class with 
 `ManagedRuntime` per process, handlers call `runtime.runPromise(...)` until E7 replaces Hono", with **E5** (the
 `Database` service owns the client and is closed by the runtime's scope) and E12 (`Context.Service` + static `layer`,
 `Effect.fn("Service.method")`, `Effect.catchTag(s)`).
+
+**As built (E1):** E1 adds no service, on purpose: decoding is pure and synchronous, so `apps/api/src/lib/validate.ts` is plain
+functions, not a `Context.Service`. What the milestone pins for later is the type `Decodable = Schema.Decoder<unknown, never>`
+(the `never` is the schema's decoding-services requirement): every wire schema of `@toon/shared` is service-free, so a
+handler can decode without a layer, and a schema that needs a service fails to typecheck at `validate(...)` instead of at
+run time. `validate.ts` imports only `hono/validator`, `effect` and `@toon/shared` (CLAUDE.md "API import cycle": it runs at
+route definition); when E7 replaces Hono the decoding moves into `HttpApi` payload schemas and the helper goes.

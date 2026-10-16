@@ -213,3 +213,19 @@ from `DateTime.formatIso(yield* DateTime.now)`. `DateTime.formatIso` is `Date#to
 (`repos/effect/packages/effect/src/DateTime.ts`, `Internal.formatIso`), so moving from `new Date().toISOString()` kept
 the wire format. The route is `c.json(await runtime.runPromise(healthResponse))` in `apps/api/src/index.ts`; the
 `async` shutdown handler there is plain `await`, since only `runtime.dispose()` is Effect-owned at E0.
+
+**As built (E1):** E1 runs no `Effect` in the API; the core value it uses is `Option` / `Result`, because a decode at an edge
+that ignores or inspects its failure is synchronous. `apps/api/src/lib/oauth.ts` builds the decoder once with
+`Schema.decodeUnknownOption(...)` and unwraps it with `Option.getOrUndefined` (a provider payload that is not that shape is
+`undefined`, never a throw):
+```ts
+const decodeGoogleClaims = Schema.decodeUnknownOption(GoogleClaimsSchema);
+export function parseGoogleClaims(raw: unknown): typeof GoogleClaimsSchema.Type | undefined {
+  return Option.getOrUndefined(decodeGoogleClaims(raw));
+}
+```
+`apps/api/src/modules/recipe/services/import/drafts.ts` does the same with `Option.getOrElse(decodeOption(Schema, row), () => fallback)`.
+The web, which has no throw-and-catch boundary, uses `Schema.decodeUnknownResult` and `Result.isSuccess`
+(`apps/web/src/lib/validation.ts`: `decoded.success` on the happy arm, `decoded.failure.issue` on the other). A
+`Result` has `success` / `failure`, not v3's `right` / `left`. `Effect` itself is touched only where a schema API asks for
+one (`Schema.withDecodingDefault(Effect.succeed("member" as const))`, a default is an `Effect`).

@@ -117,7 +117,7 @@ module (`docs/plans/m2-recipe-module.md`), M3 finance module (`docs/plans/m3-fin
 and M7 harden (`docs/plans/m7-harden.md`), 2026-10-13 to 2026-10-15; each plan's last sections are its
 integration record and "what changed vs plan". Two modules are built (`API_MODULES` and `WEB_MODULES` are
 `[recipe, finance]`, `/api/health` reports `modules: ["recipe","finance"]`). The tree typechecks, builds and tests
-green (`bun test`: 14504 pass in 149 files, 24.56 s on the temp file DB at the end of E1, where 11357 of them are
+green (`bun test`: 14508 pass in 150 files, 24.37 s on the temp file DB after the E1 review, where 11357 of them are
 the golden parity cases of `packages/shared/test/parity/`; 2463 pass in 141 files at the end of E0; `i18n:check` exits 1 with
 the 146 classified false positives; M7's integration record, `docs/plans/m7-harden.md` section 9, has the gate logs,
 the walkthrough, the `migrate:legacy` fixture run and the print-to-PDF proof). Milestone E0 of the Effect migration
@@ -126,7 +126,7 @@ the walkthrough, the `migrate:legacy` fixture run and the print-to-PDF proof). M
 9 and 10. Milestone E1 (shared-schema: every Zod schema of `packages/shared` is an Effect `Schema` with the same
 accepted and rejected inputs, the API validates through `apps/api/src/lib/validate.ts`, the web forms through the
 same shared schemas, and `zod` and `@hono/zod-validator` are gone from the tree and `bun.lock`; ADR 0013) is
-done; its integration record is `docs/plans/e1-shared-schema.md` sections 9 and 10. What is left is the owner's (see "Open work").
+done and reviewed; its integration record is `docs/plans/e1-shared-schema.md` sections 9 and 10 (the one deliberate wire change, the `details` prose of the former `zValidator` routes, awaits the owner: `docs/open-work.md` D-7). What is left is the owner's (see "Open work").
 
 ## Layout (as built)
 
@@ -538,6 +538,10 @@ ones; the module gotchas are indexed below and live in the module docs.
   The rules a later milestone switches on (no `throw new ApiError` and no `Date.now()` / `new Date()` in services at E2, no `hono` at E7) are a `PENDING_RULES`
   comment in the file, never skipped tests, and each becomes a `describe` in the commit of the migration that
   makes it true. Never relax a rule to get green.
+- **A test that runs `sharp` carries an explicit time budget.** `apps/api/test/thumbnails.test.ts` gives its route tests
+  `SHARP_TEST_TIMEOUT_MS` (60 s) as the `test(...)` timeout: under the load of parallel worktrees (354 s for a suite that
+  takes 25 s alone) bun's 5 s default failed four of them. A gate that fails keeps its `(fail)` lines and any `Unhandled
+  error` block in the log; a bare count hides which test it was.
 - **Headless runs.** Install Playwright in a scratch directory outside the repo (a `bun add` log ending in
   `exit=$?`), log in with `fetch("/api/auth/login")` from the page, assert `scrollWidth <= clientWidth`, and never
   match the tab bar by its `aria-label` (`SideNav` carries the same one): the tab bar is `nav.fixed`, the sidebar
@@ -708,11 +712,18 @@ gotchas 62, 63, 65)."; "F gotcha numbers are F's numbering at `1715207`."
   real transaction. What remains: a test going through `app.request` must use the shared `db`;
   `createDatabase({ url: "file::memory:" })` is a separate, empty database, and an `EXPLAIN` against the shared
   client goes through `apps/api/test/support/explain.ts`.
+- **Two validation paths with different `details` (`zValidator` + `onValidationError`, `readJson` + `ZodError`).**
+  Retired by E1 and ADR 0013: every route validates through `apps/api/src/lib/validate.ts` (`validate`,
+  `decodeOrThrow`, `decodeOption`), a refusal is a thrown `Schema.SchemaError`, `toApiError` renders it once with
+  `toValidationIssues`, and `zod` and `@hono/zod-validator` are not dependencies (idioms rule (9)). What remains of the
+  old gotcha: a form-facing 422 carries `i18n` and the catalog text on every route, and `readJson` in
+  `apps/api/src/core/routes/auth.ts` still wants `Content-Type: application/json`.
 
 ## Open work
 
 What is deliberately not done lives in `docs/open-work.md`: owner actions (the real cutover, the first
 `release.yml` / `deploy.yml` runs, GHCR visibility, `DEPLOY_ENABLED`, OAuth callbacks, arm64, the old hostnames
 and volumes, an iOS install check), owner decisions ("Gruppe" vs "Haushalt", toon-recipe's pinned design
-exceptions, finance print styles, a per-household PWA name or icon), items deferred by design (the N-person
+exceptions, finance print styles, a per-household PWA name or icon, D-7: accepting the validation-details wire change of
+E1, ADR 0013), items deferred by design (the N-person
 ledger, D3; the member-leaves veto beyond finance) and recorded observations. New open items go there, not here.

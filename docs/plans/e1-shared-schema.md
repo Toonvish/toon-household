@@ -1,7 +1,7 @@
 # E1 — shared-schema: plan
 
 **Status: DONE (2026-10-16).** Planned and revised once after review the same day. Base commit `f41fb96f3` (E0
-documentation sync). Sections 9 and 10 (the integration record and "what changed vs plan") were written by E1-T12.
+documentation sync). Sections 9 and 10 (the integration record and "what changed vs plan") were written by E1-T12. Reviewed the same day; the review's follow-ups (section 9.7, items 12 to 16 of section 10) were recorded by the documentation sync.
 
 E1 is the second milestone of the Effect migration (`docs/EFFECT.md` §4 E1, decision E4): every Zod schema in
 `packages/shared` becomes an Effect `Schema` with the same accepted and rejected inputs, the validation-error
@@ -959,6 +959,28 @@ every first load, present before E1; no `Content-Security-Policy` violation and 
   **+3168** bytes (+0.8 %) to E0's 399812: zod left the web bundle and `effect`'s `Schema` entered it, almost
   evenly. No gate in E1; E6 owns the 60 kB budget.
 
+### 9.7 After the review (2026-10-16, commits `69a062591`, `068bb486f`, `b7a305406`, then the documentation sync)
+
+- `bun test` on the final tree (`uptime` before it: `load average: 3.45, 13.65, 22.75`):
+  ```
+   14508 pass
+   0 fail
+   382733 expect() calls
+  Ran 14508 tests across 150 files. [24.37s]
+  ```
+  `grep -c '(fail)'` on the log: `0`. Against 9.1 the difference is `apps/api/test/validation-wire.test.ts` (one file, four
+  tests: a JSON body, the enable-module body and a query in `de` and `en`, plus the envelope keys and the ADR 0013 / D-7
+  link). The floor of 2463 holds; without the 11357 golden cases the suite is 3151 tests in 147 files.
+- A loaded gate run (354 s against 25 s) had failed four tests that were never identified; the log had lost its `(fail)`
+  lines. `apps/api/test/thumbnails.test.ts` now gives its sharp-backed route tests `SHARP_TEST_TIMEOUT_MS` (60 s), and
+  the gates prompt of `.claude/workflows/migrate-effect.js` requires the `(fail)` lines and `Unhandled error` blocks
+  of a failing log (P17).
+- The wire change of P10 is pinned on real routes (`validation-wire.test.ts`), recorded in ADR 0013 with a Status line, and
+  is owner decision D-7 in `docs/open-work.md`.
+- `docs/EFFECT.md` E4 and the E1 row of section 4 are corrected (item 15 below); `bun test apps/api/test/docs-paths.test.ts`
+  (every repo path named in `CLAUDE.md`, `docs/API.md`, the module docs and `docs/open-work.md` exists), the idioms test and
+  the API doc test pass; `git status --porcelain repos/` is empty.
+
 ## 10. What changed vs plan
 
 Everything the plan expected (section 7) happened as written; nothing else moved. In order:
@@ -1001,3 +1023,22 @@ Everything the plan expected (section 7) happened as written; nothing else moved
 11. **Left for later milestones** (section 8, unchanged): `AppConfig` (E2), tagged `ApiError` and `Effect.catchTag`
     at the boundary (E2), the web `HttpClient` decoding responses (E6), `HttpApi` replacing `hono/validator` (E7),
     the web bundle budget (E6; E1 added +3168 bytes gzipped).
+12. **The review added a wire test and a timeout budget** (section 9.7): `apps/api/test/validation-wire.test.ts` (new, assertions
+    on `path`, `code`, `message`, `i18n` and the envelope), `SHARP_TEST_TIMEOUT_MS` in `apps/api/test/thumbnails.test.ts`
+    (assertions unchanged), and the gates prompt keeps `(fail)` lines. Pass count 14508 in 150 files.
+13. **D-7** (`docs/open-work.md`): the one intentional wire change of item 2 is an open owner decision, and ADR 0013 carries
+    a Status line saying so. The behaviour stays as shipped until the owner answers.
+14. **Acceptance rows that no longer run as written** (section 5, not recorded before): T01's "reproducible (`build.ts
+    --check`)" ended with T11, which deletes the Zod generators (P1: the JSON is a frozen oracle, made once from Zod
+    4.5.4 and never regenerated; its integrity is the golden coverage test and the parity tests, not a rebuild). T04's and
+    T05's "both arms" (Zod and Effect) and T08's `zod-legacy.ts` bridge were transitional and are gone; `validate.test.ts`
+    and `apps/web/src/lib/validation.test.ts` keep only the Effect arm. T02's "primitives.json parity green (P7 entries
+    only)" grew by one case in T10 (item 6), which is an addition to the corpus, not a change to an existing case.
+15. **`docs/EFFECT.md` was wrong in three places** and is corrected with ADR 0013: E4 and the E1 row said `400` /
+    `validation_error` and a `details` item without `i18n` (the contract is 422 `validation_failed`, section 7 item 1),
+    and the E1 row said `env.ts` stays on "its own parsing" until E2, while P11 moved it (with `lib/oauth.ts`) onto a
+    local `Schema` and a pure `parseEnv`. E2 still owns `AppConfig`. No decision of E1 to E12 changed.
+16. **Pattern files**: `agent-patterns/effect-core.md`, `effect-errors.md`, `effect-services.md` and `effect-testing.md`
+    gained an "As built (E1)" example each from the code just written (`Option` / `Result` decoders, the `SchemaError`
+    branch of `toApiError`, `Decodable` and why E1 adds no service, the golden parity runner and the wire pin);
+    `effect-schema.md` had its corrections and section 7 from E1-T12.

@@ -182,3 +182,17 @@ defect side: after `ManagedRuntime.dispose`, `runPromise` REJECTS with the plain
 `Exit.isFailure(exit)` with `Cause.hasDies(exit.cause)` and `Cause.squash(exit.cause) === "ManagedRuntime disposed"`
 (`apps/api/test/runtime.test.ts`, test d). The E6 boundary mapper must therefore treat a non-`Error` rejection as a
 defect and answer `500 internal_error`, never read `.message` off it.
+
+**As built (E1):** the first Effect error on the wire is a library one, `Schema.SchemaError`, and it is THROWN, not failed: the
+API decodes synchronously (`Schema.decodeUnknownSync(schema, ALL_ISSUES)` in `apps/api/src/lib/validate.ts`) and `toApiError`
+in `apps/api/src/lib/errors.ts` maps it once, with the library's guard instead of `instanceof`:
+```ts
+if (Schema.isSchemaError(error)) {
+  return ApiError.validationFailed(toValidationIssues(error.issue, locale));
+}
+```
+`error.issue` is the `SchemaIssue.Issue` tree; the adapter `packages/shared/src/core/i18n/issues.ts` walks it and never reads an
+Effect message (E4: the wording is the catalog's). `Schema.decodeUnknownResult` returns the same issue as `result.failure.issue`
+for callers that must not throw (tests, web forms). Never log a `SchemaError` built with `reportInput: true` (it can carry
+secrets). E2 puts the tagged `ApiError` family beside this branch and turns the `instanceof ApiError` line into `catchTag`;
+the `SchemaError` branch stays and becomes the `422 validation_failed` arm.

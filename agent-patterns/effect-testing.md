@@ -212,3 +212,17 @@ every test file shares one process and one `runtime`: never `dispose()` the shar
 asserted with `runPromiseExit` + `Exit.isFailure` + `Cause.hasDies`, a rejection with
 `await expect(...).rejects.toBe(...)`. `apps/api/test/effect-idioms.test.ts` is the grep gate (one `describe` per
 rule, a pinned allow list, failures as `file:line: code`).
+
+**As built (E1):** the schema tests stay on `bun:test` and call the decoders synchronously, no `Effect.runSync`. Two shapes:
+- **Golden parity** (`packages/shared/test/parity/{core,finance,recipe}.parity.test.ts`, runner `runGolden` in
+  `packages/shared/test/support/schema.ts`): the JSON under `packages/shared/test/fixtures/schema-golden/` was generated
+  once from Zod 4.5.4 and is never regenerated; each case becomes a `test`, which is why the pass count grew from 2463 to
+  14508. A case compares `ok`, the decoded output with `toStrictEqual`, the flattened issues and the `de` / `en` `details`.
+  A known divergence is an id in an allow map with its reason, and the runner fails a listed id that does NOT diverge
+  (`const P7_USER: Record<string, string> = { "PasswordSchema#type-[]": LENGTH_AFTER_TYPE, ... }`). `undefined` and
+  non-finite numbers survive JSON through the `$undefined` / `$number` markers.
+- **Wire pins** (`apps/api/test/validation-wire.test.ts`): a real route through `app.request` with a session cookie and
+  `Accept-Language`, asserting `path`, `code`, the localized `message` and `i18n` of `details` and the envelope keys.
+A test that runs `sharp` (`apps/api/test/thumbnails.test.ts`) takes an explicit budget, `SHARP_TEST_TIMEOUT_MS = 60_000` as the
+third argument of `test(...)`; bun's 5 s default fails on a loaded host, and a failing gate log must keep its `(fail)` and
+`Unhandled error` lines.
