@@ -1,0 +1,177 @@
+# effect-errors: typed failures, defects, recovery (Effect 4.0.5)
+
+Distilled from the vendored source only (`repos/effect/LLMS.md` "Error handling", `repos/effect/migration/error-handling.md`,
+`repos/effect/migration/cause.md`, `repos/effect/packages/effect/src/Effect.ts`, `Cause.ts`, `Exit.ts`, `Filter.ts`).
+Look a signature up there before using it. Your memory of Effect is v3; section 5 lists what changed.
+
+## 1. What this is for, and the imports
+
+Every `Effect<A, E, R>` has a typed failure channel `E` (expected, recoverable, part of the signature) and, besides it, defects
+(bugs, thrown exceptions, `Effect.die`), which are NOT in `E`. `Cause<E>` is the full record of how an effect ended; `Exit<A, E>` is
+success or a `Cause`. In this repo `E` carries the API's tagged error family (E6); defects become `500 internal_error`.
+
+```ts
+import { Cause, Data, Effect, Exit, Filter, Option, Predicate, Result, Schema } from "effect"
+```
+
+All of these are root exports of `effect` (v4: no `@effect/platform`, no `effect/unstable/*`). `Effect.catch` and `Effect.try` are
+reserved-word exports, written exactly like that (`Effect.catch(...)`).
+
+## 2. Constructors and the call shapes this repo uses
+
+Define errors with `Schema.TaggedError` (class, yieldable, `_tag` filled in; it is what E6 and E12 require):
+
+```ts
+export class ReservedPortError extends Schema.TaggedError<ReservedPortError>()("ReservedPortError", {
+  port: Schema.Int
+}) {}
+```
+(`repos/effect/LLMS.md` "Error handling basics"; signature `Schema.TaggedError` in `packages/effect/src/Schema.ts`.) The first type
+argument is the class itself; omitting it is a type error (`MissingSelfGeneric`). Fields are a struct-fields object or a `Schema.Struct`.
+
+Raise with `return yield*` inside a generator, so TypeScript sees that control stops:
+
+```ts
+export const validateBatchSize = Effect.fnUntraced(function*(size: number): Effect.fn.Return<number, SomeError> {
+  if (!Number.isInteger(size) || size <= 0) {
+    return yield* new SomeError({ message: "Batch size must be a positive integer" })
+  }
+  return size
+})
+```
+(`repos/effect/LLMS.md` "Using Effect.fn and Effect.fnUntraced".) Without a generator: `Effect.fail(new SomeError({ ... }))`.
+
+Wrap code that throws or rejects, mapping the cause into a tagged error (no `catch` means `Cause.UnknownError`):
+
+```ts
+const getTodo = (id: number) =>
+  Effect.tryPromise({
+    try: () => Promise.reject(`Todo ${id} is unavailable`),
+    catch: (cause) => new TodoFetchError({ cause })
+  })
+// Effect.try({ try: () => JSON.parse(input), catch: (cause) => new JsonParsingError({ cause }) }) for sync code
+```
+(`Effect.ts`, docs of `tryPromise` and `try`.) A `cause: unknown` field is declared `Schema.Defect()` in a Schema error
+(`repos/effect/LLMS.md` `DatabaseError`). `Data.TaggedError("X")<{ ... }>` is the schema-less variant; this repo uses `Schema.TaggedError`.
+
+Defects: `Effect.die(defect)` (a bug, never in `E`) and `Effect.orDie(effect)`, which turns every typed failure into a defect and
+returns `Effect<A, never, R>`.
+
+## 3. Composing: recovering, translating, observing
+
+```ts
+export const recovered = loadPort("80").pipe(
+  Effect.catchTag(["ParseError", "ReservedPortError"], (_) => Effect.succeed(3000))   // several tags, one handler
+)
+export const withFinalFallback = loadPort("invalid").pipe(
+  Effect.catchTag("ReservedPortError", (_) => Effect.succeed(3000)),                 // one tag
+  Effect.catch((_) => Effect.succeed(3000))                                          // whatever typed error is left
+)
+```
+(`ai-docs/src/01_effect/04_errors/01_error-handling.ts`.)
+
+```ts
+export const userOrFallback = fetchUser("123").pipe(
+  Effect.catchTags({
+    ValidationError: (error) => Effect.succeed(`Validation failed: ${error.message}`),
+    NetworkError: (error) => Effect.succeed(`Network request failed with status ${error.statusCode}`)
+  })
+)
+```
+(`ai-docs/src/01_effect/04_errors/10_catch-tags.ts`.) `catchTags` keys must be tags present in `E` (extra keys are a type error); an
+optional second argument `orElse` handles every tag you did not list; without it the unlisted ones stay in `E`.
+
+Reasons (a tagged error whose `reason` field is a union of tagged errors):
+
+```ts
+callModel.pipe(Effect.catchReason("AiError", "RateLimitError", (reason) => Effect.succeed(`Retry after ${reason.retryAfter} seconds`)))
+callModel.pipe(Effect.unwrapReason("AiError"), Effect.catchTags({ /* one handler per reason tag */ }))
+```
+(`ai-docs/src/01_effect/04_errors/20_reason-errors.ts`; also `Effect.catchReasons("AiError", { Tag: handler })`.)
+
+Other combinators, each with its source signature in `Effect.ts`:
+
+- `Effect.mapError(effect, (e) => other)`: translate the error type (e.g. a driver error to `DatabaseError`); `Effect.mapBoth` does both channels.
+- `Effect.catchIf(refinementOrPredicate, f, orElse?)` and `Effect.catchFilter(Filter.tagged("NotFound"), f)` for a condition that is not a plain tag.
+- `Effect.tapError(f)` / `Effect.tapCause(f)` / `Effect.tapDefect(f)`: run a side effect (log) and keep the failure unchanged.
+- `Effect.orElseSucceed(f)`: replace any typed failure with a value; `Effect.ignore`: drop the failure, returns `void`.
+- `Effect.flip` swaps success and failure (the usual way to assert an error in a test: `Effect.runPromise(Effect.flip(program))`).
+- `Effect.exit(effect)`, `Effect.result(effect)`, `Effect.option(effect)`: reify the outcome into the success channel (error type `never`).
+
+## 4. Error handling: failures vs defects, and the boundary
+
+- **Typed failure (`E`)**: expected, domain-level, recoverable by the caller: not found, forbidden, conflict, validation, quota. Declare it in
+  the signature (`Effect.Effect<A, NotFound | Forbidden>`) and recover with `Effect.catchTag` / `Effect.catchTags`, never `instanceof` (E6, E12).
+- **Defect**: a bug or a broken invariant (null where the schema promised a value, a failed assertion). Not in `E`; `Effect.catch`,
+  `catchTag` and `catchTags` do NOT see it. Only `Effect.catchCause`, `Effect.catchDefect`, `Effect.tapDefect`, `Effect.exit` and the runners do.
+  Do not recover from a defect to keep going; log it and answer a 500 at the edge.
+- **Cause**: v4 `Cause<E>` is `{ reasons: ReadonlyArray<Fail<E> | Die | Interrupt> }`, flat. Inspect with `Cause.hasFails`, `Cause.hasDies`,
+  `Cause.hasInterruptsOnly`, `Cause.findErrorOption(cause)` (`Option<E>`), `Cause.isFailReason(reason)`, `Cause.isDieReason(reason)`;
+  render for a log with `Cause.pretty(cause)`; `Cause.squash(cause)` gives the one `unknown` value (error or defect) to report.
+- **The boundary** runs the effect with `runtime.runPromiseExit(effect)` (`ManagedRuntime`) or `Effect.runPromiseExit` and reads the `Exit`,
+  instead of letting `runPromise` reject:
+
+```ts
+const exit = await runtime.runPromiseExit(handler)
+return Exit.match(exit, {
+  onSuccess: (value) => ok(value),
+  onFailure: (cause) => {
+    const failure = Cause.findErrorOption(cause)       // typed family: map once to status + code + text (E6)
+    return Option.isSome(failure) ? errorResponse(failure.value) : internalError(Cause.pretty(cause))   // defect: log in English, 500
+  }
+})
+```
+(Adapted from `Exit.match` in `Exit.ts`, `Cause.findErrorOption` in `Cause.ts`, `ManagedRuntime.runPromiseExit`.)
+Inside the program, translate third-party errors at the edge of each service (`mapError`) so the union that reaches the boundary is only the
+tagged family.
+
+## 5. v3 to v4 renames that bite
+
+| v3 | v4 |
+| --- | --- |
+| `Effect.catchAll` | `Effect.catch` |
+| `Effect.catchAllCause` | `Effect.catchCause` |
+| `Effect.catchAllDefect` | `Effect.catchDefect` |
+| `Effect.catchSome` (returned `Option<Effect>`) | `Effect.catchFilter(Filter.fromPredicate(...), f)` |
+| `Effect.catchSomeCause` | `Effect.catchCauseFilter` |
+| `Effect.catchSomeDefect` | removed |
+| `Effect.catchTag`, `catchTags`, `catchIf` | unchanged (`catchTag` also takes an array of tags) |
+| `Cause` as a recursive tree (`Empty`, `Sequential`, `Parallel`) | flat `cause.reasons` of `Fail | Die | Interrupt` |
+| `Cause.isFailure`, `isDie`, `isInterrupted` | `Cause.hasFails`, `hasDies`, `hasInterrupts` |
+| `Cause.isFailType(c)` etc. | `Cause.isFailReason(reason)`, `isDieReason`, `isInterruptReason` |
+| `Cause.failureOption`, `dieOption` | `Cause.findErrorOption`, `Cause.findDefect` (returns `Result`, not `Option`) |
+| `Cause.sequential(a, b)`, `Cause.parallel(a, b)` | `Cause.combine(a, b)` |
+| `Cause.TimeoutException`, `NoSuchElementException`, `UnknownException` | `Cause.TimeoutError`, `NoSuchElementError`, `UnknownError` (all `*Exception` are `*Error`) |
+| `Either` | `Result` (`Effect.result`, `Result.isFailure`) |
+
+New in v4: `Effect.catchReason`, `Effect.catchReasons`, `Effect.unwrapReason`, `Effect.catchEager`, `Cause.fromReasons`, `Cause.annotate`, `Cause.Done`.
+Source: `migration/error-handling.md`, `migration/cause.md`.
+
+## 6. Pitfalls
+
+- **`Effect.catch` does not catch defects** (`Effect.ts` doc: "will not recover from unrecoverable defects"). A thrown exception inside
+  `Effect.sync`, or an `Effect.die`, passes through every `catchTag(s)`. Wrap fallible JS with `Effect.try` / `Effect.tryPromise` so it becomes a typed failure.
+- **Always `return yield* new MyError(...)`**, never a bare `yield*`; otherwise TypeScript thinks the code after it runs (LLMS.md).
+- **`Effect.tryPromise(() => ...)` without `catch` fails with `Cause.UnknownError`**, which is a typed failure but carries no domain meaning: map it.
+- **`catchTags` rejects tags that are not in `E`** at compile time; a handler for a tag the effect cannot raise is a bug, not a no-op.
+- **`catchTag` with no `orElse` leaves the other tags in `E`**; with `orElse` (or a final `Effect.catch`) they are consumed. Do not
+  swallow with a blanket `Effect.catch` where one `catchTags` and the compiler would have shown you the unhandled case.
+- **`tapError` keeps the failure and adds the tap's own failure to `E`**; use it for logging, not recovery.
+- **Do not use `.pipe` on `Effect.fn`**; pass combinators as extra arguments (`Effect.fn("name")(function*(){...}, Effect.catch(...))`) (LLMS.md).
+- **`findError` / `findDefect` return `Result`**, `findErrorOption` returns `Option`; do not mix them up when porting v3 `failureOption`.
+- **`Schema.Defect()` is a function call** (`cause: Schema.Defect()`), a JSON-safe carrier for an unknown cause, not a schema for every JS value.
+- **`Effect.orDie` on a recoverable domain error hides it from the type**; reserve it for failures that really are invariant violations.
+- Never `try`/`catch` around a `yield*` for typed failures, and never compare `_tag` by hand where `catchTag` or `Predicate.isTagged` exists.
+
+## 7. In this repo
+
+- `apps/api/src/lib/errors.ts`: today's `ApiError` (a class with `status`, `code`, `text`, `toBody(locale)`, static helpers, thrown and caught by
+  Hono's `onError`). E2 turns it into a family of `Schema.TaggedError` classes with the same `status`, `code`, `text`, plus one `toApiError` /
+  `errorResponse` mapper at the HTTP boundary (`ERROR_CODES` in `packages/shared` stays the wire contract).
+- `apps/api/src/core/services/**` and `apps/api/src/modules/<id>/services/**`: methods are `Effect.fn("Service.method")` with the failures in
+  the signature; handlers recover with `Effect.catchTag(s)`. `apps/api/src/runtime.ts` (E0, new) is where `runPromiseExit` meets Hono until E7.
+- `apps/api/test/effect-idioms.test.ts` (E0, new) pins "no `throw new ApiError`" after E2 and "no `Context.Tag(`".
+- Tests assert a failure with `Effect.flip` or `Effect.exit` + `Exit.isFailure`; a defect shows up as `Cause.hasDies`.
+
+Rule served: **E6** ("Errors are tagged, typed and mapped once"; defects logged in English and answered as the same `500 internal_error`;
+handlers `Effect.catchTag(s)`, never `instanceof`), with **E12** for the idioms (`Schema.TaggedError`, `return yield*`).
