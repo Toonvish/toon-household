@@ -9448,6 +9448,427 @@
       }
     },
     {
+      "id": "z.object({ tags: z.array(z.string().trim().min(1).max(60)).max(30).default([]) })#absent",
+      "schema": "z.object({ tags: z.array(z.string().trim().min(1).max(60)).max(30).default([]) })",
+      "input": {},
+      "ok": true,
+      "output": {
+        "tags": []
+      }
+    },
+    {
+      "id": "z.object({ tags: z.array(z.string().trim().min(1).max(60)).max(30).default([]) })#undefined",
+      "schema": "z.object({ tags: z.array(z.string().trim().min(1).max(60)).max(30).default([]) })",
+      "input": {
+        "tags": {
+          "$undefined": true
+        }
+      },
+      "ok": true,
+      "output": {
+        "tags": []
+      }
+    },
+    {
+      "id": "z.object({ tags: z.array(z.string().trim().min(1).max(60)).max(30).default([]) })#padded",
+      "schema": "z.object({ tags: z.array(z.string().trim().min(1).max(60)).max(30).default([]) })",
+      "input": {
+        "tags": [
+          " a "
+        ]
+      },
+      "ok": true,
+      "output": {
+        "tags": [
+          "a"
+        ]
+      }
+    },
+    {
+      "id": "z.object({ tags: z.array(z.string().trim().min(1).max(60)).max(30).default([]) })#mixed-bad-items",
+      "schema": "z.object({ tags: z.array(z.string().trim().min(1).max(60)).max(30).default([]) })",
+      "input": {
+        "tags": [
+          "",
+          1,
+          "ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt"
+        ]
+      },
+      "ok": false,
+      "issues": [
+        {
+          "code": "too_small",
+          "path": [
+            "tags",
+            0
+          ],
+          "origin": "string",
+          "minimum": 1
+        },
+        {
+          "code": "invalid_type",
+          "path": [
+            "tags",
+            1
+          ],
+          "expected": "string"
+        },
+        {
+          "code": "too_big",
+          "path": [
+            "tags",
+            2
+          ],
+          "origin": "string",
+          "maximum": 60
+        }
+      ],
+      "details": {
+        "de": [
+          {
+            "path": "tags.0",
+            "code": "too_small",
+            "message": "Muss mindestens 1 Zeichen lang sein",
+            "i18n": {
+              "key": "server.zod.too_small.string",
+              "values": {
+                "field": "tags",
+                "facet": "string",
+                "bound": 1
+              }
+            }
+          },
+          {
+            "path": "tags.1",
+            "code": "invalid_type",
+            "message": "Ungültiger Wert",
+            "i18n": {
+              "key": "server.zod.invalid_type",
+              "values": {
+                "field": "tags",
+                "facet": "string"
+              }
+            }
+          },
+          {
+            "path": "tags.2",
+            "code": "too_big",
+            "message": "Darf höchstens 60 Zeichen lang sein",
+            "i18n": {
+              "key": "server.zod.too_big.string",
+              "values": {
+                "field": "tags",
+                "facet": "string",
+                "bound": 60
+              }
+            }
+          }
+        ],
+        "en": [
+          {
+            "path": "tags.0",
+            "code": "too_small",
+            "message": "Must be at least 1 characters long",
+            "i18n": {
+              "key": "server.zod.too_small.string",
+              "values": {
+                "field": "tags",
+                "facet": "string",
+                "bound": 1
+              }
+            }
+          },
+          {
+            "path": "tags.1",
+            "code": "invalid_type",
+            "message": "Invalid value",
+            "i18n": {
+              "key": "server.zod.invalid_type",
+              "values": {
+                "field": "tags",
+                "facet": "string"
+              }
+            }
+          },
+          {
+            "path": "tags.2",
+            "code": "too_big",
+            "message": "Must be at most 60 characters long",
+            "i18n": {
+              "key": "server.zod.too_big.string",
+              "values": {
+                "field": "tags",
+                "facet": "string",
+                "bound": 60
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "z.object({ tags: z.array(z.string().trim().min(1).max(60)).max(30).default([]) })#blank-and-number",
+      "schema": "z.object({ tags: z.array(z.string().trim().min(1).max(60)).max(30).default([]) })",
+      "input": {
+        "tags": [
+          "  ",
+          2
+        ]
+      },
+      "ok": false,
+      "issues": [
+        {
+          "code": "too_small",
+          "path": [
+            "tags",
+            0
+          ],
+          "origin": "string",
+          "minimum": 1
+        },
+        {
+          "code": "invalid_type",
+          "path": [
+            "tags",
+            1
+          ],
+          "expected": "string"
+        }
+      ],
+      "details": {
+        "de": [
+          {
+            "path": "tags.0",
+            "code": "too_small",
+            "message": "Muss mindestens 1 Zeichen lang sein",
+            "i18n": {
+              "key": "server.zod.too_small.string",
+              "values": {
+                "field": "tags",
+                "facet": "string",
+                "bound": 1
+              }
+            }
+          },
+          {
+            "path": "tags.1",
+            "code": "invalid_type",
+            "message": "Ungültiger Wert",
+            "i18n": {
+              "key": "server.zod.invalid_type",
+              "values": {
+                "field": "tags",
+                "facet": "string"
+              }
+            }
+          }
+        ],
+        "en": [
+          {
+            "path": "tags.0",
+            "code": "too_small",
+            "message": "Must be at least 1 characters long",
+            "i18n": {
+              "key": "server.zod.too_small.string",
+              "values": {
+                "field": "tags",
+                "facet": "string",
+                "bound": 1
+              }
+            }
+          },
+          {
+            "path": "tags.1",
+            "code": "invalid_type",
+            "message": "Invalid value",
+            "i18n": {
+              "key": "server.zod.invalid_type",
+              "values": {
+                "field": "tags",
+                "facet": "string"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "z.object({ tags: z.array(z.string().trim().min(1).max(60)).max(30).default([]) })#too-many",
+      "schema": "z.object({ tags: z.array(z.string().trim().min(1).max(60)).max(30).default([]) })",
+      "input": {
+        "tags": [
+          "t0",
+          "t1",
+          "t2",
+          "t3",
+          "t4",
+          "t5",
+          "t6",
+          "t7",
+          "t8",
+          "t9",
+          "t10",
+          "t11",
+          "t12",
+          "t13",
+          "t14",
+          "t15",
+          "t16",
+          "t17",
+          "t18",
+          "t19",
+          "t20",
+          "t21",
+          "t22",
+          "t23",
+          "t24",
+          "t25",
+          "t26",
+          "t27",
+          "t28",
+          "t29",
+          "t30"
+        ]
+      },
+      "ok": false,
+      "issues": [
+        {
+          "code": "too_big",
+          "path": [
+            "tags"
+          ],
+          "origin": "array",
+          "maximum": 30
+        }
+      ],
+      "details": {
+        "de": [
+          {
+            "path": "tags",
+            "code": "too_big",
+            "message": "Es dürfen höchstens 30 Einträge angegeben werden",
+            "i18n": {
+              "key": "server.zod.too_big.array",
+              "values": {
+                "field": "tags",
+                "facet": "array",
+                "bound": 30
+              }
+            }
+          }
+        ],
+        "en": [
+          {
+            "path": "tags",
+            "code": "too_big",
+            "message": "At most 30 entries are allowed",
+            "i18n": {
+              "key": "server.zod.too_big.array",
+              "values": {
+                "field": "tags",
+                "facet": "array",
+                "bound": 30
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "z.object({ tags: z.array(z.string().trim().min(1).max(60)).max(30).default([]) })#string",
+      "schema": "z.object({ tags: z.array(z.string().trim().min(1).max(60)).max(30).default([]) })",
+      "input": {
+        "tags": "a"
+      },
+      "ok": false,
+      "issues": [
+        {
+          "code": "invalid_type",
+          "path": [
+            "tags"
+          ],
+          "expected": "array"
+        }
+      ],
+      "details": {
+        "de": [
+          {
+            "path": "tags",
+            "code": "invalid_type",
+            "message": "Ungültiger Wert",
+            "i18n": {
+              "key": "server.zod.invalid_type",
+              "values": {
+                "field": "tags",
+                "facet": "array"
+              }
+            }
+          }
+        ],
+        "en": [
+          {
+            "path": "tags",
+            "code": "invalid_type",
+            "message": "Invalid value",
+            "i18n": {
+              "key": "server.zod.invalid_type",
+              "values": {
+                "field": "tags",
+                "facet": "array"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "z.object({ tags: z.array(z.string().trim().min(1).max(60)).max(30).default([]) })#null",
+      "schema": "z.object({ tags: z.array(z.string().trim().min(1).max(60)).max(30).default([]) })",
+      "input": {
+        "tags": null
+      },
+      "ok": false,
+      "issues": [
+        {
+          "code": "invalid_type",
+          "path": [
+            "tags"
+          ],
+          "expected": "array"
+        }
+      ],
+      "details": {
+        "de": [
+          {
+            "path": "tags",
+            "code": "invalid_type",
+            "message": "Ungültiger Wert",
+            "i18n": {
+              "key": "server.zod.invalid_type",
+              "values": {
+                "field": "tags",
+                "facet": "array"
+              }
+            }
+          }
+        ],
+        "en": [
+          {
+            "path": "tags",
+            "code": "invalid_type",
+            "message": "Invalid value",
+            "i18n": {
+              "key": "server.zod.invalid_type",
+              "values": {
+                "field": "tags",
+                "facet": "array"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
       "id": "z.record(z.string(), z.unknown())#empty",
       "schema": "z.record(z.string(), z.unknown())",
       "input": {},

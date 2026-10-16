@@ -23,7 +23,7 @@
  * feature exists to avoid and the check digit is the only evidence available at
  * save time.
  */
-import { z } from "zod";
+import { Schema, SchemaTransformation, type Types } from "effect";
 import {
   BARCODE_FORMATS,
   checkBarcodeValue,
@@ -32,7 +32,8 @@ import {
   type BarcodeValueReason,
 } from "../barcode.ts";
 import type { ServerKey } from "../../../core/i18n/catalogs/index.ts";
-import { IdSchema, IsoDateSchema } from "../../../core/schemas/zod-legacy.ts";
+import { Enum, Str, keyed, keyedIssue, maxLength, minLength, trim } from "../../../core/schemas/checks.ts";
+import { IdSchema, IsoDateSchema } from "../../../core/schemas/common.ts";
 
 /** Upper bounds, mirrored by the UI so a phone never sends a doomed request. */
 export const CARD_LIMITS = {
@@ -45,28 +46,28 @@ export const CARD_LIMITS = {
 } as const;
 
 /** The symbologies a card may be saved as — see ../barcode.ts for why these. */
-export const BarcodeFormatSchema = z.enum(BARCODE_FORMATS);
+export const BarcodeFormatSchema = Enum(BARCODE_FORMATS);
 
 /* --------------------------------- entities ------------------------------- */
 
-export const CardSchema = z.object({
+export const CardSchema = Schema.Struct({
   id: IdSchema,
   /** What the user calls it: "Payback", "Rewe", "Stadtbibliothek". */
-  label: z.string(),
+  label: Str,
   format: BarcodeFormatSchema,
   /** Normalised: digits only for the numeric formats, check digit included. */
-  value: z.string(),
-  note: z.string().nullable(),
+  value: Str,
+  note: Schema.NullOr(Str),
   /**
    * When the card was last SHOWN, which is what the list is ordered by — the
    * card you used yesterday is the one you want at the till today. Null until
    * it has been shown once.
    */
-  lastUsedAt: IsoDateSchema.nullable(),
+  lastUsedAt: Schema.NullOr(IsoDateSchema),
   createdAt: IsoDateSchema,
   updatedAt: IsoDateSchema,
 });
-export type Card = z.infer<typeof CardSchema>;
+export type Card = Types.DeepMutable<typeof CardSchema.Type>;
 
 /* -------------------------------- validation ------------------------------ */
 
@@ -96,16 +97,12 @@ export function cardValueIssueKey(format: BarcodeFormat, value: string): ServerK
  *
  * The issue's path is `["value"]` so the web form marks the field the user has
  * to fix, and `params.i18n` carries the key so BOTH sides can render it in their
- * own language (see `refineKey`/`resolveZodIssue` in ../i18n/zod.ts — a schema
- * never carries a sentence).
+ * own language (see `keyedIssue` in ../../../core/schemas/checks.ts and
+ * `resolveIssue` in ../../../core/i18n/issues.ts — a schema never carries a sentence).
  */
-function checkValue(
-  input: { format: BarcodeFormat; value: string },
-  ctx: z.RefinementCtx,
-): void {
+function checkValue(input: { readonly format: BarcodeFormat; readonly value: string }): Schema.FilterOutput {
   const key = cardValueIssueKey(input.format, input.value);
-  if (key === null) return;
-  ctx.addIssue({ code: "custom", path: ["value"], params: { i18n: key } });
+  return key === null ? undefined : keyedIssue(key, ["value"]);
 }
 
 /**
@@ -114,26 +111,58 @@ function checkValue(
  * so an older client (or a hand-written request) cannot store a value the
  * display path would refuse to encode.
  */
-function normalized<T extends { format: BarcodeFormat; value: string }>(input: T): T {
+function normalized<T extends { readonly format: BarcodeFormat; readonly value: string }>(input: T): T {
   return { ...input, value: normalizeBarcodeValue(input.format, input.value) };
 }
 
 /* --------------------------------- requests ------------------------------- */
 
 const cardFields = {
-  label: z.string().trim().min(1).max(CARD_LIMITS.labelMax),
+  label: Str.pipe(trim).check(minLength(1), maxLength(CARD_LIMITS.labelMax)),
   format: BarcodeFormatSchema,
-  value: z.string().trim().min(1).max(CARD_LIMITS.valueMax),
-  note: z.string().trim().max(CARD_LIMITS.noteMax).nullish(),
+  value: Str.pipe(trim).check(minLength(1), maxLength(CARD_LIMITS.valueMax)),
+  note: Schema.optional(Schema.NullOr(Str.pipe(trim).check(maxLength(CARD_LIMITS.noteMax)))),
 };
 
-export const CreateCardRequestSchema = z
-  .object(cardFields)
-  .transform(normalized)
-  .superRefine(checkValue);
-export type CreateCardRequest = z.input<typeof CreateCardRequestSchema>;
+/**
+ * The decoded side of a card request: types only. The field rules ran on the wire side; running them again on
+ * the normalised value would report a value normalisation emptied (`"- - -"`) as a length issue instead of the
+ * keyed `value` issue zod's `superRefine` reported.
+ */
+const normalizedCardFields = {
+  label: Str,
+  format: BarcodeFormatSchema,
+  value: Str,
+  note: Schema.optional(Schema.NullOr(Str)),
+};
+
+export const CreateCardRequestSchema = Schema.Struct(cardFields)
+  .pipe(
+    Schema.decodeTo(
+      Schema.Struct(normalizedCardFields),
+      SchemaTransformation.transform({ decode: normalized, encode: (input) => input }),
+    ),
+  )
+  .check(Schema.makeFilter(checkValue));
+export type CreateCardRequest = Types.DeepMutable<typeof CreateCardRequestSchema.Encoded>;
 /** What a handler sees AFTER normalisation — the shape written to the row. */
-export type CreateCardInput = z.output<typeof CreateCardRequestSchema>;
+export type CreateCardInput = Types.DeepMutable<typeof CreateCardRequestSchema.Type>;
+
+/** The update's own fields, every one optional. */
+const updateCardFields = {
+  label: Schema.optional(cardFields.label),
+  format: Schema.optional(cardFields.format),
+  value: Schema.optional(cardFields.value),
+  note: cardFields.note,
+};
+
+/** The decoded side of an update: types only (see `normalizedCardFields`). */
+const normalizedUpdateCardFields = {
+  label: Schema.optional(Str),
+  format: Schema.optional(BarcodeFormatSchema),
+  value: Schema.optional(Str),
+  note: Schema.optional(Schema.NullOr(Str)),
+};
 
 /**
  * PATCH. `format` and `value` travel TOGETHER or not at all: a value cannot be
@@ -141,32 +170,38 @@ export type CreateCardInput = z.output<typeof CreateCardRequestSchema>;
  * the other is how a stored value stops matching its format. The web form sends
  * every field anyway; this only closes the door on a hand-written request.
  */
-export const UpdateCardRequestSchema = z
-  .object({
-    label: cardFields.label.optional(),
-    format: cardFields.format.optional(),
-    value: cardFields.value.optional(),
-    note: cardFields.note,
-  })
-  .refine(
-    (input) => (input.format === undefined) === (input.value === undefined),
-    { params: { i18n: "server.card.formatAndValue" satisfies ServerKey }, path: ["value"] },
+export const UpdateCardRequestSchema = Schema.Struct(updateCardFields)
+  .check(
+    keyed(
+      (input) => (input.format === undefined) === (input.value === undefined),
+      "server.card.formatAndValue",
+      { path: ["value"] },
+    ),
+    keyed(
+      (input) => Object.values(input).some((field) => field !== undefined),
+      "server.validation.noChanges",
+    ),
   )
-  .refine(
-    (input) => Object.values(input).some((field) => field !== undefined),
-    { params: { i18n: "server.validation.noChanges" satisfies ServerKey } },
+  .pipe(
+    Schema.decodeTo(
+      Schema.Struct(normalizedUpdateCardFields),
+      SchemaTransformation.transform({
+        decode: (input) =>
+          input.format === undefined || input.value === undefined
+            ? input
+            : { ...input, value: normalizeBarcodeValue(input.format, input.value) },
+        encode: (input) => input,
+      }),
+    ),
   )
-  .transform((input) =>
-    input.format === undefined || input.value === undefined
-      ? input
-      : { ...input, value: normalizeBarcodeValue(input.format, input.value) },
-  )
-  .superRefine((input, ctx) => {
-    if (input.format === undefined || input.value === undefined) return;
-    checkValue({ format: input.format, value: input.value }, ctx);
-  });
-export type UpdateCardRequest = z.input<typeof UpdateCardRequestSchema>;
-export type UpdateCardInput = z.output<typeof UpdateCardRequestSchema>;
+  .check(
+    Schema.makeFilter((input) => {
+      if (input.format === undefined || input.value === undefined) return undefined;
+      return checkValue({ format: input.format, value: input.value });
+    }),
+  );
+export type UpdateCardRequest = Types.DeepMutable<typeof UpdateCardRequestSchema.Encoded>;
+export type UpdateCardInput = Types.DeepMutable<typeof UpdateCardRequestSchema.Type>;
 
 /* -------------------------------- responses ------------------------------- */
 
@@ -175,8 +210,8 @@ export type UpdateCardInput = z.output<typeof UpdateCardRequestSchema>;
  * envelope: `CARD_LIMITS.perUser` is the page size, so a paginated wallet would
  * be a contract nobody could use and a screen nobody could render offline.
  */
-export const CardListResponseSchema = z.object({ items: z.array(CardSchema) });
-export type CardListResponse = z.infer<typeof CardListResponseSchema>;
+export const CardListResponseSchema = Schema.Struct({ items: Schema.Array(CardSchema) });
+export type CardListResponse = Types.DeepMutable<typeof CardListResponseSchema.Type>;
 
-export const CardResponseSchema = z.object({ card: CardSchema });
-export type CardResponse = z.infer<typeof CardResponseSchema>;
+export const CardResponseSchema = Schema.Struct({ card: CardSchema });
+export type CardResponse = Types.DeepMutable<typeof CardResponseSchema.Type>;

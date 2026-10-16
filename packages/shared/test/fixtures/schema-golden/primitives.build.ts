@@ -365,6 +365,21 @@ const SPECS: ReadonlyArray<{ readonly label: string; readonly schema: z.ZodType;
     ],
   },
   {
+    // E1-T10 (plan e1 P21): a default over items that transform and carry checks; every item's issue is reported.
+    label: "z.object({ tags: z.array(z.string().trim().min(1).max(60)).max(30).default([]) })",
+    schema: z.object({ tags: z.array(z.string().trim().min(1).max(60)).max(30).default([]) }),
+    inputs: [
+      ["absent", {}],
+      ["undefined", { tags: undefined }],
+      ["padded", { tags: [" a "] }],
+      ["mixed-bad-items", { tags: ["", 1, "t".repeat(61)] }],
+      ["blank-and-number", { tags: ["  ", 2] }],
+      ["too-many", { tags: Array.from({ length: 31 }, (_, index) => `t${index}`) }],
+      ["string", { tags: "a" }],
+      ["null", { tags: null }],
+    ],
+  },
+  {
     label: "z.record(z.string(), z.unknown())",
     schema: z.record(z.string(), z.unknown()),
     inputs: [

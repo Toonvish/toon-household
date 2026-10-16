@@ -9,6 +9,7 @@ import {
 } from "../src/modules/recipe/ingredients.ts";
 import { RecipeIngredientSchema } from "../src/modules/recipe/schemas/recipe.ts";
 import { formatQuantity } from "../src/modules/recipe/numbers.ts";
+import { safeParse } from "./support/schema.ts";
 
 describe("parseIngredientLine — German basics", () => {
   test("250 g Mehl", () => {
@@ -213,7 +214,7 @@ describe("parseIngredientLine — German basics", () => {
       "½ TL Backpulver",
     ];
     for (const line of lines) {
-      const parsed = RecipeIngredientSchema.safeParse(parseIngredientLine(line));
+      const parsed = safeParse(RecipeIngredientSchema, parseIngredientLine(line));
       expect(parsed.success).toBe(true);
     }
   });

@@ -13,10 +13,11 @@ import {
   isHttpUrl,
   roleAtLeast,
 } from "../src/index.ts";
+import { parse, safeParse } from "./support/schema.ts";
 
 describe("CreateRecipeRequestSchema", () => {
   test("defaults child arrays", () => {
-    const parsed = CreateRecipeRequestSchema.parse({ title: "Pfannkuchen" });
+    const parsed = parse(CreateRecipeRequestSchema, { title: "Pfannkuchen" });
     expect(parsed.ingredients).toEqual([]);
     expect(parsed.steps).toEqual([]);
     expect(parsed.tags).toEqual([]);
@@ -24,7 +25,7 @@ describe("CreateRecipeRequestSchema", () => {
   });
 
   test("accepts ingredient input without position/raw", () => {
-    const parsed = CreateRecipeRequestSchema.parse({
+    const parsed = parse(CreateRecipeRequestSchema, {
       title: "Pfannkuchen",
       ingredients: [{ name: "Mehl", quantity: 250, unit: "g" }],
       steps: [{ text: "Alles verrühren." }],
@@ -34,28 +35,28 @@ describe("CreateRecipeRequestSchema", () => {
   });
 
   test("rejects an empty title", () => {
-    expect(CreateRecipeRequestSchema.safeParse({ title: "  " }).success).toBe(false);
+    expect(safeParse(CreateRecipeRequestSchema, { title: "  " }).success).toBe(false);
   });
 });
 
 describe("RecipeListQuerySchema", () => {
   test("coerces query strings and applies defaults", () => {
-    const parsed = RecipeListQuerySchema.parse({ limit: "10", offset: "20" });
+    const parsed = parse(RecipeListQuerySchema, { limit: "10", offset: "20" });
     expect(parsed).toMatchObject({ limit: 10, offset: 20, sort: "newest" });
   });
 
   test("clamps invalid limits", () => {
-    expect(RecipeListQuerySchema.safeParse({ limit: "1000" }).success).toBe(false);
+    expect(safeParse(RecipeListQuerySchema, { limit: "1000" }).success).toBe(false);
   });
 });
 
 describe("ParsedRecipeSchema", () => {
   test("emptyParsedRecipe is valid", () => {
-    expect(ParsedRecipeSchema.safeParse(emptyParsedRecipe()).success).toBe(true);
+    expect(safeParse(ParsedRecipeSchema, emptyParsedRecipe()).success).toBe(true);
   });
 
   test("carries per-field confidence", () => {
-    const parsed = ParsedRecipeSchema.parse({
+    const parsed = parse(ParsedRecipeSchema, {
       title: "Chefkoch Lasagne",
       ingredients: [{ position: 0, name: "Mehl", quantity: 250, unit: "g", raw: "250 g Mehl" }],
       steps: [{ position: 0, text: "Backofen vorheizen." }],
@@ -66,7 +67,7 @@ describe("ParsedRecipeSchema", () => {
   });
 
   test("rejects confidence out of range", () => {
-    expect(ParsedRecipeSchema.safeParse({ confidence: { overall: 2 } }).success).toBe(false);
+    expect(safeParse(ParsedRecipeSchema, { confidence: { overall: 2 } }).success).toBe(false);
   });
 });
 
@@ -88,7 +89,7 @@ describe("ImportDraftSchema", () => {
       createdAt: now,
       updatedAt: now,
     };
-    const result = ImportDraftSchema.safeParse(draft);
+    const result = safeParse(ImportDraftSchema, draft);
     expect(result.success).toBe(true);
   });
 });
@@ -118,25 +119,25 @@ describe("sourceUrl accepts only http(s)", () => {
   ];
 
   test.each(evil)("CreateRecipeRequest rejects %p", (sourceUrl) => {
-    const result = CreateRecipeRequestSchema.safeParse({ title: "Test", sourceUrl });
+    const result = safeParse(CreateRecipeRequestSchema, { title: "Test", sourceUrl });
     expect(result.success).toBe(false);
   });
 
   test.each(evil)("ParsedRecipe rejects %p", (sourceUrl) => {
-    const result = ParsedRecipeSchema.safeParse({ sourceUrl, confidence: { overall: 0.5 } });
+    const result = safeParse(ParsedRecipeSchema, { sourceUrl, confidence: { overall: 0.5 } });
     expect(result.success).toBe(false);
   });
 
   test.each(["https://www.chefkoch.de/rezepte/1", "http://localhost:8080/fixture.html"])(
     "accepts %p",
     (sourceUrl) => {
-      expect(CreateRecipeRequestSchema.safeParse({ title: "Test", sourceUrl }).success).toBe(true);
+      expect(safeParse(CreateRecipeRequestSchema, { title: "Test", sourceUrl }).success).toBe(true);
     },
   );
 
   test("null/undefined stay allowed (no source)", () => {
-    expect(CreateRecipeRequestSchema.safeParse({ title: "Test" }).success).toBe(true);
-    expect(CreateRecipeRequestSchema.safeParse({ title: "Test", sourceUrl: null }).success).toBe(true);
+    expect(safeParse(CreateRecipeRequestSchema, { title: "Test" }).success).toBe(true);
+    expect(safeParse(CreateRecipeRequestSchema, { title: "Test", sourceUrl: null }).success).toBe(true);
   });
 
   test("isHttpUrl matches the schema", () => {
@@ -160,33 +161,33 @@ describe("ShoppingListDetailResponseSchema", () => {
   const withBoughtAndRecipes = { list, items: [], catalog: [], bought: [], recipes: [] };
 
   test("accepts a full detail response", () => {
-    expect(ShoppingListDetailResponseSchema.safeParse(withBoughtAndRecipes).success).toBe(true);
+    expect(safeParse(ShoppingListDetailResponseSchema, withBoughtAndRecipes).success).toBe(true);
   });
 
   test("rejects a response missing `bought` (the pre-redesign v2 shape)", () => {
     const { bought: _bought, ...withoutBought } = withBoughtAndRecipes;
-    expect(ShoppingListDetailResponseSchema.safeParse(withoutBought).success).toBe(false);
+    expect(safeParse(ShoppingListDetailResponseSchema, withoutBought).success).toBe(false);
   });
 
   test("rejects a response missing `recipes`", () => {
     const { recipes: _recipes, ...withoutRecipes } = withBoughtAndRecipes;
-    expect(ShoppingListDetailResponseSchema.safeParse(withoutRecipes).success).toBe(false);
+    expect(safeParse(ShoppingListDetailResponseSchema, withoutRecipes).success).toBe(false);
   });
 });
 
 describe("PlanDateSchema", () => {
   test.each(["2026-09-08", "2024-02-29", "2026-01-01"])("accepts %p", (value) => {
-    expect(PlanDateSchema.safeParse(value).success).toBe(true);
+    expect(safeParse(PlanDateSchema, value).success).toBe(true);
   });
 
   test.each(["2026-02-31", "2026-13-01", "not-a-date", "2026-9-8", ""])("rejects %p", (value) => {
-    expect(PlanDateSchema.safeParse(value).success).toBe(false);
+    expect(safeParse(PlanDateSchema, value).success).toBe(false);
   });
 });
 
 describe("MealPlanRangeQuerySchema", () => {
   test("rejects to < from", () => {
-    expect(MealPlanRangeQuerySchema.safeParse({ from: "2026-09-10", to: "2026-09-01" }).success).toBe(
+    expect(safeParse(MealPlanRangeQuerySchema, { from: "2026-09-10", to: "2026-09-01" }).success).toBe(
       false,
     );
   });
@@ -195,7 +196,7 @@ describe("MealPlanRangeQuerySchema", () => {
     // planDaysBetween < rangeDays (62), so 61 days between the bounds is the widest
     // range that still passes — a range of EXACTLY rangeDays is rejected below.
     expect(
-      MealPlanRangeQuerySchema.safeParse({ from: "2026-01-01", to: "2026-03-03" }).success,
+      safeParse(MealPlanRangeQuerySchema, { from: "2026-01-01", to: "2026-03-03" }).success,
     ).toBe(true);
   });
 
@@ -203,19 +204,19 @@ describe("MealPlanRangeQuerySchema", () => {
     // 2026-01-01 -> 2026-03-04 is 62 days apart, which is the first value the
     // `< PLAN_LIMITS.rangeDays` refinement rejects.
     expect(
-      MealPlanRangeQuerySchema.safeParse({ from: "2026-01-01", to: "2026-03-04" }).success,
+      safeParse(MealPlanRangeQuerySchema, { from: "2026-01-01", to: "2026-03-04" }).success,
     ).toBe(false);
   });
 });
 
 describe("MarkCookedRequestSchema", () => {
   test("a bare {} succeeds — everything is optional", () => {
-    expect(MarkCookedRequestSchema.safeParse({}).success).toBe(true);
+    expect(safeParse(MarkCookedRequestSchema, {}).success).toBe(true);
   });
 
   test("accepts plannedOn and mealPlanEntryId together", () => {
     expect(
-      MarkCookedRequestSchema.safeParse({
+      safeParse(MarkCookedRequestSchema, {
         plannedOn: "2026-09-08",
         mealPlanEntryId: "11111111-1111-4111-8111-111111111111",
       }).success,

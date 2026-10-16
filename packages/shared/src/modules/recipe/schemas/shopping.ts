@@ -16,9 +16,25 @@
  *    remembers applied ids per list, so a mutation replayed after an offline spell
  *    cannot add the same ingredients twice. See services/shopping/idempotency.ts.
  */
-import { z } from "zod";
-import { refineKey } from "../../../core/i18n/zod.ts";
-import { IdSchema, IsoDateSchema, listResponse, PaginationQuerySchema } from "../../../core/schemas/zod-legacy.ts";
+import { Option, Schema, SchemaGetter, type Types } from "effect";
+import {
+  Bool,
+  Enum,
+  Int,
+  Num,
+  Str,
+  Uuid,
+  keyed,
+  max,
+  maxItems,
+  maxLength,
+  minItems,
+  minLength,
+  nonnegative,
+  positive,
+  trim,
+} from "../../../core/schemas/checks.ts";
+import { IdSchema, IsoDateSchema, listResponse, PaginationQuerySchema } from "../../../core/schemas/common.ts";
 
 /** Upper bounds, mirrored by the UI so a phone never sends a doomed request. */
 export const SHOPPING_LIMITS = {
@@ -38,62 +54,62 @@ export const SHOPPING_LIMITS = {
  * Idempotency token for a mutation the client may have to replay.
  * A uuid so it cannot collide across devices.
  */
-export const MutationIdSchema = z.uuid();
+export const MutationIdSchema = Uuid;
 
 /* --------------------------------- entities ------------------------------- */
 
 /** One item name previewed on an overview card, index-only like `itemCount`. */
-export const ShoppingItemPreviewSchema = z.object({
-  name: z.string(),
-  quantity: z.number().nullable(),
-  unit: z.string().nullable(),
+export const ShoppingItemPreviewSchema = Schema.Struct({
+  name: Str,
+  quantity: Schema.NullOr(Num),
+  unit: Schema.NullOr(Str),
 });
-export type ShoppingItemPreview = z.infer<typeof ShoppingItemPreviewSchema>;
+export type ShoppingItemPreview = Types.DeepMutable<typeof ShoppingItemPreviewSchema.Type>;
 
-export const ShoppingListSchema = z.object({
+export const ShoppingListSchema = Schema.Struct({
   id: IdSchema,
   householdId: IdSchema,
-  name: z.string(),
+  name: Str,
   createdBy: IdSchema,
   createdAt: IsoDateSchema,
   updatedAt: IsoDateSchema,
   /** Present in listings and after a mutation. */
-  itemCount: z.number().int().nonnegative().optional(),
+  itemCount: Schema.optional(Int.check(nonnegative())),
   /** How many rows are in today's "Bought today" log. Index-only, like `itemCount`. */
-  boughtCount: z.number().int().nonnegative().optional(),
+  boughtCount: Schema.optional(Int.check(nonnegative())),
   /** The `Clear bought` watermark — null until the first clear. Index-only. */
-  boughtClearedAt: IsoDateSchema.nullable().optional(),
+  boughtClearedAt: Schema.optional(Schema.NullOr(IsoDateSchema)),
   /** First `SHOPPING_LIMITS.listPreviewItems` items, `position` order. Index-only. */
-  previewItems: z.array(ShoppingItemPreviewSchema).optional(),
+  previewItems: Schema.optional(Schema.Array(ShoppingItemPreviewSchema)),
 });
-export type ShoppingList = z.infer<typeof ShoppingListSchema>;
+export type ShoppingList = Types.DeepMutable<typeof ShoppingListSchema.Type>;
 
 /** A recipe that contributed to an item, resolved for display. */
-export const ShoppingItemSourceSchema = z.object({
+export const ShoppingItemSourceSchema = Schema.Struct({
   id: IdSchema,
-  title: z.string(),
+  title: Str,
 });
-export type ShoppingItemSource = z.infer<typeof ShoppingItemSourceSchema>;
+export type ShoppingItemSource = Types.DeepMutable<typeof ShoppingItemSourceSchema.Type>;
 
-export const ShoppingItemSchema = z.object({
+export const ShoppingItemSchema = Schema.Struct({
   id: IdSchema,
   listId: IdSchema,
-  name: z.string(),
+  name: Str,
   /** null means "no amount given" — never render it as 0. */
-  quantity: z.number().nullable(),
-  unit: z.string().nullable(),
-  note: z.string().nullable(),
-  position: z.number().int().nonnegative(),
+  quantity: Schema.NullOr(Num),
+  unit: Schema.NullOr(Str),
+  note: Schema.NullOr(Str),
+  position: Int.check(nonnegative()),
   /**
    * Recipes this line was merged from. Ids whose recipe was deleted are kept here but
    * absent from `sources`, so provenance survives a deletion without a dangling link.
    */
-  sourceRecipeIds: z.array(IdSchema),
-  sources: z.array(ShoppingItemSourceSchema),
+  sourceRecipeIds: Schema.Array(IdSchema),
+  sources: Schema.Array(ShoppingItemSourceSchema),
   createdAt: IsoDateSchema,
   updatedAt: IsoDateSchema,
 });
-export type ShoppingItem = z.infer<typeof ShoppingItemSchema>;
+export type ShoppingItem = Types.DeepMutable<typeof ShoppingItemSchema.Type>;
 
 /**
  * One row of the check-off log — "Bought today" and the history panel read this,
@@ -101,19 +117,19 @@ export type ShoppingItem = z.infer<typeof ShoppingItemSchema>;
  * whose user has since left the household; the name is kept because the log outlives
  * membership.
  */
-export const ShoppingBoughtItemSchema = z.object({
+export const ShoppingBoughtItemSchema = Schema.Struct({
   id: IdSchema,
   listId: IdSchema,
-  name: z.string(),
-  quantity: z.number().nullable(),
-  unit: z.string().nullable(),
-  note: z.string().nullable(),
-  boughtBy: IdSchema.nullable(),
-  boughtByName: z.string().nullable(),
+  name: Str,
+  quantity: Schema.NullOr(Num),
+  unit: Schema.NullOr(Str),
+  note: Schema.NullOr(Str),
+  boughtBy: Schema.NullOr(IdSchema),
+  boughtByName: Schema.NullOr(Str),
   boughtAt: IsoDateSchema,
-  sourceRecipeIds: z.array(IdSchema),
+  sourceRecipeIds: Schema.Array(IdSchema),
 });
-export type ShoppingBoughtItem = z.infer<typeof ShoppingBoughtItemSchema>;
+export type ShoppingBoughtItem = Types.DeepMutable<typeof ShoppingBoughtItemSchema.Type>;
 
 /**
  * One recipe currently attached to a list (`shopping_list_recipes`), resolved for
@@ -121,18 +137,18 @@ export type ShoppingBoughtItem = z.infer<typeof ShoppingBoughtItemSchema>;
  * it was when added — a recipe that gained a line since reads "5 of 6", which is the
  * prompt to add the missing one, not a bug.
  */
-export const ShoppingListRecipeSchema = z.object({
+export const ShoppingListRecipeSchema = Schema.Struct({
   recipeId: IdSchema,
-  title: z.string(),
-  thumbnailUrl: z.string().nullable(),
-  servings: z.number().nullable(),
-  servingsUnit: z.string().nullable(),
-  ingredientTotal: z.number().int().nonnegative(),
-  onListCount: z.number().int().nonnegative(),
-  sharedCount: z.number().int().nonnegative(),
+  title: Str,
+  thumbnailUrl: Schema.NullOr(Str),
+  servings: Schema.NullOr(Num),
+  servingsUnit: Schema.NullOr(Str),
+  ingredientTotal: Int.check(nonnegative()),
+  onListCount: Int.check(nonnegative()),
+  sharedCount: Int.check(nonnegative()),
   addedAt: IsoDateSchema,
 });
-export type ShoppingListRecipe = z.infer<typeof ShoppingListRecipeSchema>;
+export type ShoppingListRecipe = Types.DeepMutable<typeof ShoppingListRecipeSchema.Type>;
 
 /**
  * One "Häufig gekauft" entry: something that has been on this list before.
@@ -140,62 +156,60 @@ export type ShoppingListRecipe = z.infer<typeof ShoppingListRecipeSchema>;
  * A hidden entry (`hiddenAt` non-null) keeps its `use_count` — hiding removes it from
  * the chip row without losing its rank if it is ever unhidden.
  */
-export const ShoppingCatalogEntrySchema = z.object({
+export const ShoppingCatalogEntrySchema = Schema.Struct({
   id: IdSchema,
   listId: IdSchema,
-  name: z.string(),
-  unit: z.string().nullable(),
-  useCount: z.number().int().nonnegative(),
+  name: Str,
+  unit: Schema.NullOr(Str),
+  useCount: Int.check(nonnegative()),
   lastUsedAt: IsoDateSchema,
-  hiddenAt: IsoDateSchema.nullable(),
+  hiddenAt: Schema.NullOr(IsoDateSchema),
 });
-export type ShoppingCatalogEntry = z.infer<typeof ShoppingCatalogEntrySchema>;
+export type ShoppingCatalogEntry = Types.DeepMutable<typeof ShoppingCatalogEntrySchema.Type>;
 
 /* --------------------------------- requests ------------------------------- */
 
-export const CreateShoppingListRequestSchema = z.object({
-  name: z.string().trim().min(1).max(120),
+export const CreateShoppingListRequestSchema = Schema.Struct({
+  name: Str.pipe(trim).check(minLength(1), maxLength(120)),
 });
-export type CreateShoppingListRequest = z.infer<typeof CreateShoppingListRequestSchema>;
+export type CreateShoppingListRequest = Types.DeepMutable<typeof CreateShoppingListRequestSchema.Type>;
 
-export const UpdateShoppingListRequestSchema = z.object({
-  name: z.string().trim().min(1).max(120),
+export const UpdateShoppingListRequestSchema = Schema.Struct({
+  name: Str.pipe(trim).check(minLength(1), maxLength(120)),
 });
-export type UpdateShoppingListRequest = z.infer<typeof UpdateShoppingListRequestSchema>;
+export type UpdateShoppingListRequest = Types.DeepMutable<typeof UpdateShoppingListRequestSchema.Type>;
 
 /**
  * One line to add. The client parses free text with `parseIngredientLine` from
  * @toon/shared before sending, so "500g Mehl" arrives as
  * `{ name: "Mehl", quantity: 500, unit: "g" }`.
  */
-export const ShoppingItemInputSchema = z.object({
-  name: z.string().trim().min(1).max(300),
-  quantity: z.number().nonnegative().max(1_000_000).nullish(),
-  unit: z.string().trim().max(40).nullish(),
-  note: z.string().trim().max(300).nullish(),
+export const ShoppingItemInputSchema = Schema.Struct({
+  name: Str.pipe(trim).check(minLength(1), maxLength(300)),
+  quantity: Schema.optional(Schema.NullOr(Num.check(nonnegative(), max(1_000_000)))),
+  unit: Schema.optional(Schema.NullOr(Str.pipe(trim).check(maxLength(40)))),
+  note: Schema.optional(Schema.NullOr(Str.pipe(trim).check(maxLength(300)))),
 });
-export type ShoppingItemInput = z.infer<typeof ShoppingItemInputSchema>;
+export type ShoppingItemInput = Types.DeepMutable<typeof ShoppingItemInputSchema.Type>;
 
-export const AddShoppingItemsRequestSchema = z.object({
-  items: z.array(ShoppingItemInputSchema).min(1).max(SHOPPING_LIMITS.itemsPerRequest),
-  mutationId: MutationIdSchema.optional(),
+export const AddShoppingItemsRequestSchema = Schema.Struct({
+  items: Schema.Array(ShoppingItemInputSchema).check(minItems(1), maxItems(SHOPPING_LIMITS.itemsPerRequest)),
+  mutationId: Schema.optional(MutationIdSchema),
 });
-export type AddShoppingItemsRequest = z.infer<typeof AddShoppingItemsRequestSchema>;
+export type AddShoppingItemsRequest = Types.DeepMutable<typeof AddShoppingItemsRequestSchema.Type>;
 
 /**
  * Edit one line. Absent keys stay untouched; an explicit `null` clears the field.
  * Changing `name`/`unit` can move the line into another item's merge bucket — the
  * API then folds them together, so the response may contain FEWER items than before.
  */
-export const UpdateShoppingItemRequestSchema = z
-  .object({
-    name: z.string().trim().min(1).max(300).optional(),
-    quantity: z.number().nonnegative().max(1_000_000).nullish(),
-    unit: z.string().trim().max(40).nullish(),
-    note: z.string().trim().max(300).nullish(),
-  })
-  .refine((value) => Object.keys(value).length > 0, refineKey("server.validation.noChanges"));
-export type UpdateShoppingItemRequest = z.infer<typeof UpdateShoppingItemRequestSchema>;
+export const UpdateShoppingItemRequestSchema = Schema.Struct({
+    name: Schema.optional(Str.pipe(trim).check(minLength(1), maxLength(300))),
+    quantity: Schema.optional(Schema.NullOr(Num.check(nonnegative(), max(1_000_000)))),
+    unit: Schema.optional(Schema.NullOr(Str.pipe(trim).check(maxLength(40)))),
+    note: Schema.optional(Schema.NullOr(Str.pipe(trim).check(maxLength(300)))),
+}).check(keyed((value) => Object.keys(value).length > 0, "server.validation.noChanges"));
+export type UpdateShoppingItemRequest = Types.DeepMutable<typeof UpdateShoppingItemRequestSchema.Type>;
 
 /**
  * Put a recipe on the list, scaled to `servings`.
@@ -210,56 +224,58 @@ export type UpdateShoppingItemRequest = z.infer<typeof UpdateShoppingItemRequest
  * no longer exist are ignored rather than rejected, so a queued offline request still
  * lands after someone else edited the recipe.
  */
-export const AddRecipeToShoppingListRequestSchema = z.object({
+export const AddRecipeToShoppingListRequestSchema = Schema.Struct({
   recipeId: IdSchema,
-  servings: z.number().positive().max(1000).optional(),
-  ingredientIds: z.array(IdSchema).max(500).optional(),
-  mutationId: MutationIdSchema.optional(),
+  servings: Schema.optional(Num.check(positive(), max(1000))),
+  ingredientIds: Schema.optional(Schema.Array(IdSchema).check(maxItems(500))),
+  mutationId: Schema.optional(MutationIdSchema),
 });
-export type AddRecipeToShoppingListRequest = z.infer<
-  typeof AddRecipeToShoppingListRequestSchema
->;
+export type AddRecipeToShoppingListRequest = Types.DeepMutable<typeof AddRecipeToShoppingListRequestSchema.Type>;
 
 /** Check off one item: it leaves the list and lands in "Häufig gekauft". */
-export const CheckShoppingItemRequestSchema = z.object({
-  mutationId: MutationIdSchema.optional(),
+export const CheckShoppingItemRequestSchema = Schema.Struct({
+  mutationId: Schema.optional(MutationIdSchema),
 });
-export type CheckShoppingItemRequest = z.infer<typeof CheckShoppingItemRequestSchema>;
+export type CheckShoppingItemRequest = Types.DeepMutable<typeof CheckShoppingItemRequestSchema.Type>;
 
 /** Hide or unhide one "Häufig gekauft" entry without losing its `useCount`. */
-export const UpdateShoppingCatalogEntryRequestSchema = z.object({
-  hidden: z.boolean(),
+export const UpdateShoppingCatalogEntryRequestSchema = Schema.Struct({
+  hidden: Bool,
 });
-export type UpdateShoppingCatalogEntryRequest = z.infer<
-  typeof UpdateShoppingCatalogEntryRequestSchema
->;
+export type UpdateShoppingCatalogEntryRequest = Types.DeepMutable<typeof UpdateShoppingCatalogEntryRequestSchema.Type>;
 
 /** `GET …/shopping-lists/bought` query — the household-wide archive, `listId` optional. */
-export const ShoppingBoughtListQuerySchema = PaginationQuerySchema.extend({ listId: IdSchema.optional() });
-export type ShoppingBoughtListQuery = z.infer<typeof ShoppingBoughtListQuerySchema>;
+export const ShoppingBoughtListQuerySchema = Schema.Struct({
+  ...PaginationQuerySchema.fields,
+  listId: Schema.optional(IdSchema),
+});
+export type ShoppingBoughtListQuery = Types.DeepMutable<typeof ShoppingBoughtListQuerySchema.Type>;
 
 /**
  * `GET …/shopping-lists/:listId/catalog` query. `includeHidden` is deliberately
  * NOT `z.coerce.boolean()` — that turns the string "0" into `true`, a live trap
  * for a query param (see `RecipeListQuerySchema.hasCooked` for the same rule).
  */
-export const ShoppingCatalogListQuerySchema = PaginationQuerySchema.extend({
-  includeHidden: z
-    .enum(["0", "1"])
-    .optional()
-    .transform((value) => value === "1"),
+export const ShoppingCatalogListQuerySchema = Schema.Struct({
+  ...PaginationQuerySchema.fields,
+  includeHidden: Schema.optional(Enum(["0", "1"])).pipe(
+    Schema.decodeTo(Bool, {
+      decode: SchemaGetter.transformOptional((value) => Option.some(Option.getOrUndefined(value) === "1")),
+      encode: SchemaGetter.transformOptional((value) => Option.map(value, (flag): "0" | "1" => (flag ? "1" : "0"))),
+    }),
+  ),
 });
-export type ShoppingCatalogListQuery = z.infer<typeof ShoppingCatalogListQuerySchema>;
+export type ShoppingCatalogListQuery = Types.DeepMutable<typeof ShoppingCatalogListQuerySchema.Type>;
 
 /* -------------------------------- responses ------------------------------- */
 
-export const ShoppingListResponseSchema = z.object({ list: ShoppingListSchema });
-export type ShoppingListResponse = z.infer<typeof ShoppingListResponseSchema>;
+export const ShoppingListResponseSchema = Schema.Struct({ list: ShoppingListSchema });
+export type ShoppingListResponse = Types.DeepMutable<typeof ShoppingListResponseSchema.Type>;
 
-export const ShoppingListListResponseSchema = z.object({
-  items: z.array(ShoppingListSchema),
+export const ShoppingListListResponseSchema = Schema.Struct({
+  items: Schema.Array(ShoppingListSchema),
 });
-export type ShoppingListListResponse = z.infer<typeof ShoppingListListResponseSchema>;
+export type ShoppingListListResponse = Types.DeepMutable<typeof ShoppingListListResponseSchema.Type>;
 
 /**
  * The whole screen in one payload: the list, its open items in `position` order, the
@@ -272,22 +288,22 @@ export type ShoppingListListResponse = z.infer<typeof ShoppingListListResponseSc
  * "Bought today" section over a list where things were bought. The client-side
  * bump that forces a cold reload past that blob lives in `apps/web/src/lib/persist.ts`.
  */
-export const ShoppingListDetailResponseSchema = z.object({
+export const ShoppingListDetailResponseSchema = Schema.Struct({
   list: ShoppingListSchema,
-  items: z.array(ShoppingItemSchema),
-  catalog: z.array(ShoppingCatalogEntrySchema),
-  bought: z.array(ShoppingBoughtItemSchema),
-  recipes: z.array(ShoppingListRecipeSchema),
+  items: Schema.Array(ShoppingItemSchema),
+  catalog: Schema.Array(ShoppingCatalogEntrySchema),
+  bought: Schema.Array(ShoppingBoughtItemSchema),
+  recipes: Schema.Array(ShoppingListRecipeSchema),
 });
-export type ShoppingListDetailResponse = z.infer<typeof ShoppingListDetailResponseSchema>;
+export type ShoppingListDetailResponse = Types.DeepMutable<typeof ShoppingListDetailResponseSchema.Type>;
 
 /** `GET …/shopping-lists/bought` — the cross-list "Bought today" / history feed. */
 export const ShoppingBoughtListResponseSchema = listResponse(ShoppingBoughtItemSchema);
-export type ShoppingBoughtListResponse = z.infer<typeof ShoppingBoughtListResponseSchema>;
+export type ShoppingBoughtListResponse = Types.DeepMutable<typeof ShoppingBoughtListResponseSchema.Type>;
 
 /** `GET …/shopping-lists/:listId/catalog` — the full "Häufig gekauft" sheet. */
 export const ShoppingCatalogListResponseSchema = listResponse(ShoppingCatalogEntrySchema);
-export type ShoppingCatalogListResponse = z.infer<typeof ShoppingCatalogListResponseSchema>;
+export type ShoppingCatalogListResponse = Types.DeepMutable<typeof ShoppingCatalogListResponseSchema.Type>;
 
 /**
  * One recipe from the current week's plan, previewed for "add missing ingredients"
@@ -299,41 +315,41 @@ export type ShoppingCatalogListResponse = z.infer<typeof ShoppingCatalogListResp
  * the "add everything" picker shows next to its checkbox. `id` is the
  * `recipe_ingredients` id, i.e. exactly what goes back as `ingredientIds`.
  */
-export const PlanShoppingMissingIngredientSchema = z.object({
+export const PlanShoppingMissingIngredientSchema = Schema.Struct({
   id: IdSchema,
-  name: z.string(),
-  quantity: z.number().nullable(),
-  unit: z.string().nullable(),
+  name: Str,
+  quantity: Schema.NullOr(Num),
+  unit: Schema.NullOr(Str),
 });
-export type PlanShoppingMissingIngredient = z.infer<typeof PlanShoppingMissingIngredientSchema>;
+export type PlanShoppingMissingIngredient = Types.DeepMutable<typeof PlanShoppingMissingIngredientSchema.Type>;
 
-export const PlanShoppingPreviewRecipeSchema = z.object({
+export const PlanShoppingPreviewRecipeSchema = Schema.Struct({
   recipeId: IdSchema,
-  title: z.string(),
-  thumbnailUrl: z.string().nullable(),
+  title: Str,
+  thumbnailUrl: Schema.NullOr(Str),
   /** Earliest planned day in the window, YYYY-MM-DD — the row's "Tue" label. */
-  plannedOn: z.string(),
+  plannedOn: Str,
   /** Portions from the plan entry; null = the recipe's own count. */
-  servings: z.number().nullable(),
-  ingredientTotal: z.number().int().nonnegative(),
+  servings: Schema.NullOr(Num),
+  ingredientTotal: Int.check(nonnegative()),
   /** Distinct merge keys not yet on the target list — the row's "9 ingredients". */
-  missingCount: z.number().int().nonnegative(),
-  missingIngredientIds: z.array(IdSchema),
+  missingCount: Int.check(nonnegative()),
+  missingIngredientIds: Schema.Array(IdSchema),
   /**
    * The same rows as `missingIngredientIds`, with name and scaled amount, in recipe
    * order — so the picker can offer each line for unticking without a second fetch.
    */
-  missingIngredients: z.array(PlanShoppingMissingIngredientSchema),
+  missingIngredients: Schema.Array(PlanShoppingMissingIngredientSchema),
 });
-export type PlanShoppingPreviewRecipe = z.infer<typeof PlanShoppingPreviewRecipeSchema>;
+export type PlanShoppingPreviewRecipe = Types.DeepMutable<typeof PlanShoppingPreviewRecipeSchema.Type>;
 
-export const PlanShoppingPreviewResponseSchema = z.object({
+export const PlanShoppingPreviewResponseSchema = Schema.Struct({
   listId: IdSchema,
-  listName: z.string(),
-  from: z.string(),
-  to: z.string(),
+  listName: Str,
+  from: Str,
+  to: Str,
   /** Sum of the per-recipe missingCounts — the panel's "22 ingredients". */
-  totalMissingCount: z.number().int().nonnegative(),
-  recipes: z.array(PlanShoppingPreviewRecipeSchema),
+  totalMissingCount: Int.check(nonnegative()),
+  recipes: Schema.Array(PlanShoppingPreviewRecipeSchema),
 });
-export type PlanShoppingPreviewResponse = z.infer<typeof PlanShoppingPreviewResponseSchema>;
+export type PlanShoppingPreviewResponse = Types.DeepMutable<typeof PlanShoppingPreviewResponseSchema.Type>;
