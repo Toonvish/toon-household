@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { toValidationIssues } from "../src/core/i18n/zod.ts";
+import { toValidationIssues } from "../src/core/i18n/issues.ts";
 import {
   CARD_LIMITS,
   CreateCardRequestSchema,
