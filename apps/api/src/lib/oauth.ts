@@ -10,7 +10,7 @@
  */
 import type { OAuthProvider } from "@toon/shared";
 import { GitHub, Google, decodeIdToken, generateCodeVerifier, generateState } from "arctic";
-import { z } from "zod";
+import { Option, Schema } from "effect";
 import { env } from "../env.ts";
 import { ApiError } from "./errors.ts";
 
@@ -90,45 +90,47 @@ export function createAuthorization(provider: OAuthProvider): OAuthStart {
 
 /* --------------------------- provider responses --------------------------- */
 
-const GoogleClaimsSchema = z.object({
-  sub: z.string().min(1),
-  email: z.string().optional(),
-  email_verified: z.union([z.boolean(), z.string()]).optional(),
-  name: z.string().optional(),
-  given_name: z.string().optional(),
-  picture: z.string().optional(),
+const GoogleClaimsSchema = Schema.Struct({
+  sub: Schema.String.check(Schema.isMinLength(1)),
+  email: Schema.optional(Schema.String),
+  email_verified: Schema.optional(Schema.Union([Schema.Boolean, Schema.String])),
+  name: Schema.optional(Schema.String),
+  given_name: Schema.optional(Schema.String),
+  picture: Schema.optional(Schema.String),
 });
 
-const GitHubUserSchema = z.object({
-  id: z.union([z.number(), z.string()]),
-  login: z.string(),
-  name: z.string().nullish(),
-  email: z.string().nullish(),
-  avatar_url: z.string().nullish(),
+const GitHubUserSchema = Schema.Struct({
+  // Finite: JSON has no NaN or Infinity, and z.number() refused them too.
+  id: Schema.Union([Schema.Finite, Schema.String]),
+  login: Schema.String,
+  name: Schema.optional(Schema.NullOr(Schema.String)),
+  email: Schema.optional(Schema.NullOr(Schema.String)),
+  avatar_url: Schema.optional(Schema.NullOr(Schema.String)),
 });
 
-const GitHubEmailsSchema = z.array(
-  z.object({
-    email: z.string(),
-    primary: z.boolean().optional(),
-    verified: z.boolean().optional(),
+const GitHubEmailsSchema = Schema.Array(
+  Schema.Struct({
+    email: Schema.String,
+    primary: Schema.optional(Schema.Boolean),
+    verified: Schema.optional(Schema.Boolean),
   }),
 );
 
+const decodeGoogleClaims = Schema.decodeUnknownOption(GoogleClaimsSchema);
+const decodeGitHubUser = Schema.decodeUnknownOption(GitHubUserSchema);
+const decodeGitHubEmails = Schema.decodeUnknownOption(GitHubEmailsSchema);
+
 /** The provider payloads, parsed once at the edge: the value, or `undefined` when it is not that shape. */
-export function parseGoogleClaims(raw: unknown): z.infer<typeof GoogleClaimsSchema> | undefined {
-  const parsed = GoogleClaimsSchema.safeParse(raw);
-  return parsed.success ? parsed.data : undefined;
+export function parseGoogleClaims(raw: unknown): typeof GoogleClaimsSchema.Type | undefined {
+  return Option.getOrUndefined(decodeGoogleClaims(raw));
 }
 
-export function parseGitHubUser(raw: unknown): z.infer<typeof GitHubUserSchema> | undefined {
-  const parsed = GitHubUserSchema.safeParse(raw);
-  return parsed.success ? parsed.data : undefined;
+export function parseGitHubUser(raw: unknown): typeof GitHubUserSchema.Type | undefined {
+  return Option.getOrUndefined(decodeGitHubUser(raw));
 }
 
-export function parseGitHubEmails(raw: unknown): z.infer<typeof GitHubEmailsSchema> | undefined {
-  const parsed = GitHubEmailsSchema.safeParse(raw);
-  return parsed.success ? parsed.data : undefined;
+export function parseGitHubEmails(raw: unknown): typeof GitHubEmailsSchema.Type | undefined {
+  return Option.getOrUndefined(decodeGitHubEmails(raw));
 }
 
 function truthy(value: boolean | string | undefined): boolean {
