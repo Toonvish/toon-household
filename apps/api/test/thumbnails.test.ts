@@ -28,6 +28,15 @@ import { removeUpload } from "./support/files.ts";
 
 const written: string[] = [];
 
+/**
+ * Every test below that runs sharp (the route tests, and `storePng` inside them) gets this
+ * budget instead of bun's 5 s default. The conversions take milliseconds on an idle machine,
+ * but the full suite also runs under a loaded host (a gate run measured 354 s against the
+ * usual 25 s, with `GET /uploads/<name>.thumb.webp` among the failures); a wall-clock limit
+ * is the one assertion here that says nothing about the thumbnail logic.
+ */
+const SHARP_TEST_TIMEOUT_MS = 60_000;
+
 afterAll(async () => {
   for (const filename of written) await removeUpload(filename);
 });
@@ -136,7 +145,7 @@ describe("GET /uploads/<name>.thumb.webp", () => {
     const again = await app.request(signedPath(thumbnail));
     expect(again.status).toBe(200);
     expect(new Uint8Array(await again.arrayBuffer()).byteLength).toBe(bytes.byteLength);
-  });
+  }, SHARP_TEST_TIMEOUT_MS);
 
   test("never enlarges: a small original comes back at its own size", async () => {
     const original = await storePng(120, 90);
@@ -148,7 +157,7 @@ describe("GET /uploads/<name>.thumb.webp", () => {
     const sharp = (await import("sharp")).default;
     const meta = await sharp(new Uint8Array(await response.arrayBuffer())).metadata();
     expect(meta.width).toBe(120);
-  });
+  }, SHARP_TEST_TIMEOUT_MS);
 
   test("serves the ORIGINAL when the conversion fails, not a 404", async () => {
     // Not an image at all — the same outcome as a HEIC on a server whose libvips
@@ -162,7 +171,7 @@ describe("GET /uploads/<name>.thumb.webp", () => {
     // Deliberately NOT immutable: this is the wrong answer and has to heal.
     expect(response.headers.get("cache-control")).not.toContain("immutable");
     expect(existsSync(join(env.uploadDir, thumbnail))).toBe(false);
-  });
+  }, SHARP_TEST_TIMEOUT_MS);
 
   test("404 without a valid signature, exactly like any other upload", async () => {
     const original = await storePng(800, 600);
@@ -176,7 +185,7 @@ describe("GET /uploads/<name>.thumb.webp", () => {
     expect(forged.status).toBe(404);
     // Nothing was built for the rejected requests.
     expect(existsSync(join(env.uploadDir, thumbnail))).toBe(false);
-  });
+  }, SHARP_TEST_TIMEOUT_MS);
 
   test("404 when the original is gone — a signature does not conjure one", async () => {
     const thumbnail = `${crypto.randomUUID()}.jpg${THUMBNAIL_SUFFIX}`;
@@ -185,7 +194,7 @@ describe("GET /uploads/<name>.thumb.webp", () => {
       `/uploads/${thumbnail}?exp=${exp}&sig=${uploadSignature(thumbnail, exp)}`,
     );
     expect(response.status).toBe(404);
-  });
+  }, SHARP_TEST_TIMEOUT_MS);
 
   test("concurrent first requests converge on one file", async () => {
     const original = await storePng(1000, 800);
@@ -203,5 +212,5 @@ describe("GET /uploads/<name>.thumb.webp", () => {
     const sharp = (await import("sharp")).default;
     const onDisk = await sharp(join(env.uploadDir, thumbnail)).metadata();
     expect(onDisk.width).toBe(THUMBNAIL_WIDTH);
-  });
+  }, SHARP_TEST_TIMEOUT_MS);
 });

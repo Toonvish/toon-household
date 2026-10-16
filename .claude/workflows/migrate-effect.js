@@ -191,7 +191,7 @@ const VERIFY_SCHEMA = {
 const GATES_SCHEMA = {
   type: 'object',
   properties: {
-    results: { type: 'array', items: { type: 'object', properties: { command: { type: 'string' }, exit_code: { type: 'integer' }, tail: { type: 'string', description: 'the last 40 lines of output, verbatim' } }, required: ['command', 'exit_code', 'tail'] } },
+    results: { type: 'array', items: { type: 'object', properties: { command: { type: 'string' }, exit_code: { type: 'integer' }, tail: { type: 'string', description: 'the last 40 lines of output, verbatim; on a non-zero exit preceded by every (fail) line and Unhandled error block of the log' } }, required: ['command', 'exit_code', 'tail'] } },
     tests_passed: { type: 'integer', description: 'the "N pass" number bun test printed, or -1' },
     git_status: { type: 'string' },
   },
@@ -337,7 +337,7 @@ Fix the root cause (look the API up in ${VENDOR} when the failure is an Effect s
 const gatesPrompt = (n) => `${RULES}
 Run the verification gates of milestone ${n} on ${REPO} and report verbatim; change nothing, fix nothing, judge nothing.
 Commands, each from ${REPO}, each captured to a log in the background when it may run long: \`bun install --frozen-lockfile\`, \`bun run typecheck\`, \`bun test\` (record the "N pass" number as tests_passed and confirm no file path under repos/ appears in its output), \`bun run build\`, \`bun run i18n:check\`, \`bun test apps/api/test/effect-idioms.test.ts\` (exit_code -1 with tail "missing" if the file does not exist yet), \`git status --porcelain repos/\` (must print nothing). Then \`git status --porcelain\` and \`git log --oneline -15\`.
-Return every command with its exit code and the last 40 lines of its output.`
+Return every command with its exit code and the last 40 lines of its output. When a command exits non-zero, also put every \`(fail) \` line and every \`Unhandled error\` block of its log into that command's tail verbatim, ahead of the last 40 lines (the review needs the failing test names, not only the summary).`
 
 const reviewPrompt = (n, m, plan, results, gates) => `${RULES}
 You are the milestone reviewer for milestone ${n} "${m.name}" of the Effect migration.
