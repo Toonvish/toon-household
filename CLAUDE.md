@@ -9,6 +9,9 @@ the cross-cutting rules; each module's knowledge lives in its own doc (`docs/mod
 1. `docs/SPEC.md` — the fixed decisions (§1), the module contract (§2), the target layout (§3), the schema mapping
    (§4), the shell (§5), the migration (§6), the gates (§7), the milestones (§8).
 2. This file.
+2b. `docs/EFFECT.md` — the Effect migration spec: the fixed decisions E1–E12 (on top of D1–D15), how an agent
+   learns Effect here (the vendored source under `repos/effect`, the pattern files under `agent-patterns/`),
+   the target architecture and the milestones E0–E8. Read it before any Effect work.
 3. Before touching a module, its doc: `docs/modules/recipe.md` or `docs/modules/finance.md` (what the module owns,
    its source's locked decisions with their status here, its gotchas, the source's gotchas mapped one by one).
 4. The two source repos are archived on GitHub (`Toonvish/toon-recipe`, `Toonvish/toon-finance`) and this repo
@@ -40,11 +43,21 @@ the service worker's runtime rules are the union of both sources' (D9, D13).
 
 ## Building it
 
-`.claude/workflows/build-household.js` builds the app milestone by milestone (SPEC §8). Run it from this
-directory with `Workflow build-household` and `args: { milestones: ["M0"] }`, one or two milestones per
-invocation, and read the result before the next. Opus plans and reviews, Sonnet implements and verifies, Haiku
-does verbatim ports and runs the gates. The workflow writes the plan to `docs/plans/` and commits per task; it
-never pushes.
+The app itself is built (see "Status"); the build workflow that did it (`build-household.js`, SPEC §8) was
+removed in commit `7788b45` and lives in git history only.
+
+**The Effect migration** is built by `.claude/workflows/migrate-effect.js` from `docs/EFFECT.md`, milestone by
+milestone (E0 foundation … E8 harden, `docs/EFFECT.md` §4). Run it from this directory with `Workflow
+migrate-effect` and `args: { milestones: ["E0"] }`, one or two milestones per invocation, and read the result
+before the next. Phases per milestone: Learn (a Haiku agent makes sure `repos/effect` is vendored, Sonnet
+agents distill the missing `agent-patterns/effect-<topic>.md` files from the vendored source), Plan (Opus
+plans, three Opus critics with the lenses feasibility, behaviour preservation and Effect v4 idioms, one
+revision), Implement (Haiku for spelled-out mechanical rewrites, Sonnet for implementation, Opus for the
+architecture tasks; dependency waves in parallel worktrees, merge, Sonnet verification, bounded fix rounds),
+Review (Haiku runs the gates, Opus judges against the exit criteria and the "behaviour unchanged" rule),
+Harden (Sonnet fixes findings, Opus re-reviews, docs and pattern files synced). It writes the plan to
+`docs/plans/e<N>-<name>.md`, commits per task and never pushes; it stops at the first milestone whose exit
+criteria are not met and resumes with `resumeFromRunId`.
 
 ## Status
 
