@@ -1,0 +1,1554 @@
+{
+  "source": "packages/shared/src/modules/finance/schemas/categories.ts",
+  "zod": "4.5.4",
+  "cases": [
+    {
+      "id": "CategoryLabelSchema#type-undefined",
+      "schema": "CategoryLabelSchema",
+      "input": {"$undefined":true},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "CategoryLabelSchema#type-null",
+      "schema": "CategoryLabelSchema",
+      "input": null,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "CategoryLabelSchema#type-s()",
+      "schema": "CategoryLabelSchema",
+      "input": "",
+      "ok": false,
+      "issues": [{"code":"too_small","path":[],"origin":"string","minimum":1}],
+      "details": {"de":[{"path":"","code":"too_small","message":"Muss mindestens 1 Zeichen lang sein","i18n":{"key":"server.zod.too_small.string","values":{"field":"","facet":"string","bound":1}}}],"en":[{"path":"","code":"too_small","message":"Must be at least 1 characters long","i18n":{"key":"server.zod.too_small.string","values":{"field":"","facet":"string","bound":1}}}]}
+    },
+    {
+      "id": "CategoryLabelSchema#type-0",
+      "schema": "CategoryLabelSchema",
+      "input": 0,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "CategoryLabelSchema#type-1",
+      "schema": "CategoryLabelSchema",
+      "input": 1,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "CategoryLabelSchema#type-true",
+      "schema": "CategoryLabelSchema",
+      "input": true,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "CategoryLabelSchema#type-false",
+      "schema": "CategoryLabelSchema",
+      "input": false,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "CategoryLabelSchema#type-[]",
+      "schema": "CategoryLabelSchema",
+      "input": [],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"},{"code":"too_small","path":[],"origin":"array","minimum":1}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}},{"path":"","code":"too_small","message":"Es müssen mindestens 1 Einträge angegeben werden","i18n":{"key":"server.zod.too_small.array","values":{"field":"","facet":"array","bound":1}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}},{"path":"","code":"too_small","message":"At least 1 entries are required","i18n":{"key":"server.zod.too_small.array","values":{"field":"","facet":"array","bound":1}}}]}
+    },
+    {
+      "id": "CategoryLabelSchema#type-{}",
+      "schema": "CategoryLabelSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "CategoryLabelSchema#type-NaN",
+      "schema": "CategoryLabelSchema",
+      "input": {"$number":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "CategoryLabelSchema#type-Infinity",
+      "schema": "CategoryLabelSchema",
+      "input": {"$number":"Infinity"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "CategoryLabelSchema#type--Infinity",
+      "schema": "CategoryLabelSchema",
+      "input": {"$number":"-Infinity"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"string"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"string"}}}]}
+    },
+    {
+      "id": "CategoryLabelSchema#s(Essen)",
+      "schema": "CategoryLabelSchema",
+      "input": "Essen",
+      "ok": true,
+      "output": "Essen"
+    },
+    {
+      "id": "CategoryLabelSchema#s(  Essen  )",
+      "schema": "CategoryLabelSchema",
+      "input": "  Essen  ",
+      "ok": true,
+      "output": "Essen"
+    },
+    {
+      "id": "CategoryLabelSchema#s( )",
+      "schema": "CategoryLabelSchema",
+      "input": " ",
+      "ok": false,
+      "issues": [{"code":"too_small","path":[],"origin":"string","minimum":1}],
+      "details": {"de":[{"path":"","code":"too_small","message":"Muss mindestens 1 Zeichen lang sein","i18n":{"key":"server.zod.too_small.string","values":{"field":"","facet":"string","bound":1}}}],"en":[{"path":"","code":"too_small","message":"Must be at least 1 characters long","i18n":{"key":"server.zod.too_small.string","values":{"field":"","facet":"string","bound":1}}}]}
+    },
+    {
+      "id": "CategoryLabelSchema#s()",
+      "schema": "CategoryLabelSchema",
+      "input": "",
+      "ok": false,
+      "issues": [{"code":"too_small","path":[],"origin":"string","minimum":1}],
+      "details": {"de":[{"path":"","code":"too_small","message":"Muss mindestens 1 Zeichen lang sein","i18n":{"key":"server.zod.too_small.string","values":{"field":"","facet":"string","bound":1}}}],"en":[{"path":"","code":"too_small","message":"Must be at least 1 characters long","i18n":{"key":"server.zod.too_small.string","values":{"field":"","facet":"string","bound":1}}}]}
+    },
+    {
+      "id": "CategoryLabelSchema#s(a)",
+      "schema": "CategoryLabelSchema",
+      "input": "a",
+      "ok": true,
+      "output": "a"
+    },
+    {
+      "id": "CategoryLabelSchema#s(aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa~len79)",
+      "schema": "CategoryLabelSchema",
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ok": true,
+      "output": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "id": "CategoryLabelSchema#s(aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa~len80)",
+      "schema": "CategoryLabelSchema",
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ok": true,
+      "output": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "id": "CategoryLabelSchema#s(aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa~len81)",
+      "schema": "CategoryLabelSchema",
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ok": false,
+      "issues": [{"code":"too_big","path":[],"origin":"string","maximum":80}],
+      "details": {"de":[{"path":"","code":"too_big","message":"Darf höchstens 80 Zeichen lang sein","i18n":{"key":"server.zod.too_big.string","values":{"field":"","facet":"string","bound":80}}}],"en":[{"path":"","code":"too_big","message":"Must be at most 80 characters long","i18n":{"key":"server.zod.too_big.string","values":{"field":"","facet":"string","bound":80}}}]}
+    },
+    {
+      "id": "CategoryLabelSchema#s(  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa~len84)",
+      "schema": "CategoryLabelSchema",
+      "input": "  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  ",
+      "ok": true,
+      "output": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "id": "CategoryLabelSchema#s(  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa~len85)",
+      "schema": "CategoryLabelSchema",
+      "input": "  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  ",
+      "ok": false,
+      "issues": [{"code":"too_big","path":[],"origin":"string","maximum":80}],
+      "details": {"de":[{"path":"","code":"too_big","message":"Darf höchstens 80 Zeichen lang sein","i18n":{"key":"server.zod.too_big.string","values":{"field":"","facet":"string","bound":80}}}],"en":[{"path":"","code":"too_big","message":"Must be at most 80 characters long","i18n":{"key":"server.zod.too_big.string","values":{"field":"","facet":"string","bound":80}}}]}
+    },
+    {
+      "id": "CategoryLabelSchema#s(\\u0000)",
+      "schema": "CategoryLabelSchema",
+      "input": "\u0000",
+      "ok": true,
+      "output": "\u0000"
+    },
+    {
+      "id": "CategoryLabelSchema#s(a\\u0000b)",
+      "schema": "CategoryLabelSchema",
+      "input": "a\u0000b",
+      "ok": true,
+      "output": "a\u0000b"
+    },
+    {
+      "id": "CategoryLabelSchema#s(Caf\\u00e9)",
+      "schema": "CategoryLabelSchema",
+      "input": "Café",
+      "ok": true,
+      "output": "Café"
+    },
+    {
+      "id": "CategoryLabelSchema#s(\\ud83d\\ude00)",
+      "schema": "CategoryLabelSchema",
+      "input": "😀",
+      "ok": true,
+      "output": "😀"
+    },
+    {
+      "id": "CategoryResponseSchema#valid",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":12},
+      "ok": true,
+      "output": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":12}
+    },
+    {
+      "id": "CategoryResponseSchema#all-null",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":null,"isSystem":true,"isHidden":false,"position":3,"usageCount":12},
+      "ok": true,
+      "output": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":null,"isSystem":true,"isHidden":false,"position":3,"usageCount":12}
+    },
+    {
+      "id": "CategoryResponseSchema#position-negative",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":-1,"usageCount":12},
+      "ok": true,
+      "output": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":-1,"usageCount":12}
+    },
+    {
+      "id": "CategoryResponseSchema#position-fraction",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":0.5,"usageCount":12},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["position"],"expected":"int"}],
+      "details": {"de":[{"path":"position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"int"}}}],"en":[{"path":"position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"int"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#usage-negative",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":-1},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["usageCount"],"origin":"number","minimum":0}],
+      "details": {"de":[{"path":"usageCount","code":"too_small","message":"Muss mindestens 0 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"usageCount","facet":"number","bound":0}}}],"en":[{"path":"usageCount","code":"too_small","message":"Must be at least 0","i18n":{"key":"server.zod.too_small.number","values":{"field":"usageCount","facet":"number","bound":0}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#usage-fraction",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":0.5},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["usageCount"],"expected":"int"}],
+      "details": {"de":[{"path":"usageCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"int"}}}],"en":[{"path":"usageCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"int"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#custom-label-absent",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","isSystem":true,"isHidden":false,"position":3,"usageCount":12},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["customLabel"],"expected":"string"}],
+      "details": {"de":[{"path":"customLabel","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"customLabel","facet":"string"}}}],"en":[{"path":"customLabel","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"customLabel","facet":"string"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#custom-label-undefined",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":{"$undefined":true},"isSystem":true,"isHidden":false,"position":3,"usageCount":12},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["customLabel"],"expected":"string"}],
+      "details": {"de":[{"path":"customLabel","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"customLabel","facet":"string"}}}],"en":[{"path":"customLabel","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"customLabel","facet":"string"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#root-null",
+      "schema": "CategoryResponseSchema",
+      "input": null,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#root-undefined",
+      "schema": "CategoryResponseSchema",
+      "input": {"$undefined":true},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#root-string",
+      "schema": "CategoryResponseSchema",
+      "input": "x",
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#root-array",
+      "schema": "CategoryResponseSchema",
+      "input": [],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#root-number",
+      "schema": "CategoryResponseSchema",
+      "input": 1,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#root-nan",
+      "schema": "CategoryResponseSchema",
+      "input": {"$number":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#root-true",
+      "schema": "CategoryResponseSchema",
+      "input": true,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#root-empty-object",
+      "schema": "CategoryResponseSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["id"],"expected":"string"},{"code":"invalid_type","path":["slug"],"expected":"string"},{"code":"invalid_type","path":["label"],"expected":"string"},{"code":"invalid_type","path":["customLabel"],"expected":"string"},{"code":"invalid_type","path":["isSystem"],"expected":"boolean"},{"code":"invalid_type","path":["isHidden"],"expected":"boolean"},{"code":"invalid_type","path":["position"],"expected":"number"},{"code":"invalid_type","path":["usageCount"],"expected":"number"}],
+      "details": {"de":[{"path":"id","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}},{"path":"slug","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"slug","facet":"string"}}},{"path":"label","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"label","facet":"string"}}},{"path":"customLabel","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"customLabel","facet":"string"}}},{"path":"isSystem","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"isSystem","facet":"boolean"}}},{"path":"isHidden","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"isHidden","facet":"boolean"}}},{"path":"position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}},{"path":"usageCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}],"en":[{"path":"id","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}},{"path":"slug","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"slug","facet":"string"}}},{"path":"label","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"label","facet":"string"}}},{"path":"customLabel","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"customLabel","facet":"string"}}},{"path":"isSystem","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"isSystem","facet":"boolean"}}},{"path":"isHidden","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"isHidden","facet":"boolean"}}},{"path":"position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}},{"path":"usageCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#unknown-key",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":12,"unknownKey":1},
+      "ok": true,
+      "output": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":12}
+    },
+    {
+      "id": "CategoryResponseSchema#id=num",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":1,"slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":12},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["id"],"expected":"string"}],
+      "details": {"de":[{"path":"id","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}}],"en":[{"path":"id","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#id=missing",
+      "schema": "CategoryResponseSchema",
+      "input": {"slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":12},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["id"],"expected":"string"}],
+      "details": {"de":[{"path":"id","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}}],"en":[{"path":"id","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#id=null",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":null,"slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":12},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["id"],"expected":"string"}],
+      "details": {"de":[{"path":"id","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}}],"en":[{"path":"id","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#slug=num",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":1,"label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":12},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["slug"],"expected":"string"}],
+      "details": {"de":[{"path":"slug","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"slug","facet":"string"}}}],"en":[{"path":"slug","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"slug","facet":"string"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#slug=missing",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":12},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["slug"],"expected":"string"}],
+      "details": {"de":[{"path":"slug","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"slug","facet":"string"}}}],"en":[{"path":"slug","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"slug","facet":"string"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#slug=null",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":null,"label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":12},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["slug"],"expected":"string"}],
+      "details": {"de":[{"path":"slug","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"slug","facet":"string"}}}],"en":[{"path":"slug","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"slug","facet":"string"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#label=num",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":1,"customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":12},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["label"],"expected":"string"}],
+      "details": {"de":[{"path":"label","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"label","facet":"string"}}}],"en":[{"path":"label","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"label","facet":"string"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#label=missing",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":12},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["label"],"expected":"string"}],
+      "details": {"de":[{"path":"label","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"label","facet":"string"}}}],"en":[{"path":"label","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"label","facet":"string"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#label=null",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":null,"customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":12},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["label"],"expected":"string"}],
+      "details": {"de":[{"path":"label","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"label","facet":"string"}}}],"en":[{"path":"label","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"label","facet":"string"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#customLabel=num",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":1,"isSystem":true,"isHidden":false,"position":3,"usageCount":12},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["customLabel"],"expected":"string"}],
+      "details": {"de":[{"path":"customLabel","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"customLabel","facet":"string"}}}],"en":[{"path":"customLabel","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"customLabel","facet":"string"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#customLabel=missing",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","isSystem":true,"isHidden":false,"position":3,"usageCount":12},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["customLabel"],"expected":"string"}],
+      "details": {"de":[{"path":"customLabel","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"customLabel","facet":"string"}}}],"en":[{"path":"customLabel","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"customLabel","facet":"string"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#customLabel=null",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":null,"isSystem":true,"isHidden":false,"position":3,"usageCount":12},
+      "ok": true,
+      "output": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":null,"isSystem":true,"isHidden":false,"position":3,"usageCount":12}
+    },
+    {
+      "id": "CategoryResponseSchema#isSystem=str-x",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":"x","isHidden":false,"position":3,"usageCount":12},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["isSystem"],"expected":"boolean"}],
+      "details": {"de":[{"path":"isSystem","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"isSystem","facet":"boolean"}}}],"en":[{"path":"isSystem","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"isSystem","facet":"boolean"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#isSystem=missing",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isHidden":false,"position":3,"usageCount":12},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["isSystem"],"expected":"boolean"}],
+      "details": {"de":[{"path":"isSystem","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"isSystem","facet":"boolean"}}}],"en":[{"path":"isSystem","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"isSystem","facet":"boolean"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#isSystem=null",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":null,"isHidden":false,"position":3,"usageCount":12},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["isSystem"],"expected":"boolean"}],
+      "details": {"de":[{"path":"isSystem","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"isSystem","facet":"boolean"}}}],"en":[{"path":"isSystem","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"isSystem","facet":"boolean"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#isHidden=str-x",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":"x","position":3,"usageCount":12},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["isHidden"],"expected":"boolean"}],
+      "details": {"de":[{"path":"isHidden","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"isHidden","facet":"boolean"}}}],"en":[{"path":"isHidden","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"isHidden","facet":"boolean"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#isHidden=missing",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"position":3,"usageCount":12},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["isHidden"],"expected":"boolean"}],
+      "details": {"de":[{"path":"isHidden","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"isHidden","facet":"boolean"}}}],"en":[{"path":"isHidden","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"isHidden","facet":"boolean"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#isHidden=null",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":null,"position":3,"usageCount":12},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["isHidden"],"expected":"boolean"}],
+      "details": {"de":[{"path":"isHidden","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"isHidden","facet":"boolean"}}}],"en":[{"path":"isHidden","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"isHidden","facet":"boolean"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#position=nan",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":{"$number":"NaN"},"usageCount":12},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["position"],"expected":"number"}],
+      "details": {"de":[{"path":"position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#position=inf",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":{"$number":"Infinity"},"usageCount":12},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["position"],"expected":"number"}],
+      "details": {"de":[{"path":"position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#position=neg-inf",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":{"$number":"-Infinity"},"usageCount":12},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["position"],"expected":"number"}],
+      "details": {"de":[{"path":"position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#position=str-x",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":"x","usageCount":12},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["position"],"expected":"number"}],
+      "details": {"de":[{"path":"position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#position=missing",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"usageCount":12},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["position"],"expected":"number"}],
+      "details": {"de":[{"path":"position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#position=null",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":null,"usageCount":12},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["position"],"expected":"number"}],
+      "details": {"de":[{"path":"position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#position=neg1",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":-1,"usageCount":12},
+      "ok": true,
+      "output": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":-1,"usageCount":12}
+    },
+    {
+      "id": "CategoryResponseSchema#position=frac",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":1.5,"usageCount":12},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["position"],"expected":"int"}],
+      "details": {"de":[{"path":"position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"int"}}}],"en":[{"path":"position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"int"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#usageCount=nan",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":{"$number":"NaN"}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["usageCount"],"expected":"number"}],
+      "details": {"de":[{"path":"usageCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}],"en":[{"path":"usageCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#usageCount=inf",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":{"$number":"Infinity"}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["usageCount"],"expected":"number"}],
+      "details": {"de":[{"path":"usageCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}],"en":[{"path":"usageCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#usageCount=neg-inf",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":{"$number":"-Infinity"}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["usageCount"],"expected":"number"}],
+      "details": {"de":[{"path":"usageCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}],"en":[{"path":"usageCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#usageCount=str-x",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":"x"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["usageCount"],"expected":"number"}],
+      "details": {"de":[{"path":"usageCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}],"en":[{"path":"usageCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#usageCount=missing",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["usageCount"],"expected":"number"}],
+      "details": {"de":[{"path":"usageCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}],"en":[{"path":"usageCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#usageCount=null",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":null},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["usageCount"],"expected":"number"}],
+      "details": {"de":[{"path":"usageCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}],"en":[{"path":"usageCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#usageCount=neg1",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":-1},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["usageCount"],"origin":"number","minimum":0}],
+      "details": {"de":[{"path":"usageCount","code":"too_small","message":"Muss mindestens 0 sein","i18n":{"key":"server.zod.too_small.number","values":{"field":"usageCount","facet":"number","bound":0}}}],"en":[{"path":"usageCount","code":"too_small","message":"Must be at least 0","i18n":{"key":"server.zod.too_small.number","values":{"field":"usageCount","facet":"number","bound":0}}}]}
+    },
+    {
+      "id": "CategoryResponseSchema#usageCount=frac",
+      "schema": "CategoryResponseSchema",
+      "input": {"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":1.5},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["usageCount"],"expected":"int"}],
+      "details": {"de":[{"path":"usageCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"int"}}}],"en":[{"path":"usageCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"int"}}}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#valid",
+      "schema": "CategoryListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":12}]},
+      "ok": true,
+      "output": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":12}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#minimal",
+      "schema": "CategoryListResponseSchema",
+      "input": {"items":[]},
+      "ok": true,
+      "output": {"items":[]}
+    },
+    {
+      "id": "CategoryListResponseSchema#second-bad",
+      "schema": "CategoryListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":12},{"id":"x"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_format","path":["items",1,"id"],"format":"uuid"},{"code":"invalid_type","path":["items",1,"slug"],"expected":"string"},{"code":"invalid_type","path":["items",1,"label"],"expected":"string"},{"code":"invalid_type","path":["items",1,"customLabel"],"expected":"string"},{"code":"invalid_type","path":["items",1,"isSystem"],"expected":"boolean"},{"code":"invalid_type","path":["items",1,"isHidden"],"expected":"boolean"},{"code":"invalid_type","path":["items",1,"position"],"expected":"number"},{"code":"invalid_type","path":["items",1,"usageCount"],"expected":"number"}],
+      "details": {"de":[{"path":"items.1.id","code":"invalid_format","message":"Ungültiges Format","i18n":{"key":"server.zod.invalid_format","values":{"field":"id","facet":"uuid"}}},{"path":"items.1.slug","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"slug","facet":"string"}}},{"path":"items.1.label","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"label","facet":"string"}}},{"path":"items.1.customLabel","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"customLabel","facet":"string"}}},{"path":"items.1.isSystem","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"isSystem","facet":"boolean"}}},{"path":"items.1.isHidden","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"isHidden","facet":"boolean"}}},{"path":"items.1.position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}},{"path":"items.1.usageCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}],"en":[{"path":"items.1.id","code":"invalid_format","message":"Invalid format","i18n":{"key":"server.zod.invalid_format","values":{"field":"id","facet":"uuid"}}},{"path":"items.1.slug","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"slug","facet":"string"}}},{"path":"items.1.label","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"label","facet":"string"}}},{"path":"items.1.customLabel","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"customLabel","facet":"string"}}},{"path":"items.1.isSystem","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"isSystem","facet":"boolean"}}},{"path":"items.1.isHidden","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"isHidden","facet":"boolean"}}},{"path":"items.1.position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}},{"path":"items.1.usageCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#two",
+      "schema": "CategoryListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":12},{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5c","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":12}]},
+      "ok": true,
+      "output": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":12},{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5c","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":12}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#root-null",
+      "schema": "CategoryListResponseSchema",
+      "input": null,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#root-undefined",
+      "schema": "CategoryListResponseSchema",
+      "input": {"$undefined":true},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#root-string",
+      "schema": "CategoryListResponseSchema",
+      "input": "x",
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#root-array",
+      "schema": "CategoryListResponseSchema",
+      "input": [],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#root-number",
+      "schema": "CategoryListResponseSchema",
+      "input": 1,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#root-nan",
+      "schema": "CategoryListResponseSchema",
+      "input": {"$number":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#root-true",
+      "schema": "CategoryListResponseSchema",
+      "input": true,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#root-empty-object",
+      "schema": "CategoryListResponseSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items"],"expected":"array"}],
+      "details": {"de":[{"path":"items","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"array"}}}],"en":[{"path":"items","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"array"}}}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#unknown-key",
+      "schema": "CategoryListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":12}],"unknownKey":1},
+      "ok": true,
+      "output": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":12}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#items=str-x",
+      "schema": "CategoryListResponseSchema",
+      "input": {"items":"x"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items"],"expected":"array"}],
+      "details": {"de":[{"path":"items","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"array"}}}],"en":[{"path":"items","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"array"}}}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#items=missing",
+      "schema": "CategoryListResponseSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items"],"expected":"array"}],
+      "details": {"de":[{"path":"items","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"array"}}}],"en":[{"path":"items","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"array"}}}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#items=null",
+      "schema": "CategoryListResponseSchema",
+      "input": {"items":null},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items"],"expected":"array"}],
+      "details": {"de":[{"path":"items","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"array"}}}],"en":[{"path":"items","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"array"}}}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#items.0=str-x",
+      "schema": "CategoryListResponseSchema",
+      "input": {"items":["x"]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0],"expected":"object"}],
+      "details": {"de":[{"path":"items.0","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"object"}}}],"en":[{"path":"items.0","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"items","facet":"object"}}}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#items.0.id=num",
+      "schema": "CategoryListResponseSchema",
+      "input": {"items":[{"id":1,"slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":12}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"id"],"expected":"string"}],
+      "details": {"de":[{"path":"items.0.id","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}}],"en":[{"path":"items.0.id","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#items.0.slug=num",
+      "schema": "CategoryListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":1,"label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":12}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"slug"],"expected":"string"}],
+      "details": {"de":[{"path":"items.0.slug","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"slug","facet":"string"}}}],"en":[{"path":"items.0.slug","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"slug","facet":"string"}}}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#items.0.label=num",
+      "schema": "CategoryListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":1,"customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":12}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"label"],"expected":"string"}],
+      "details": {"de":[{"path":"items.0.label","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"label","facet":"string"}}}],"en":[{"path":"items.0.label","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"label","facet":"string"}}}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#items.0.customLabel=num",
+      "schema": "CategoryListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":1,"isSystem":true,"isHidden":false,"position":3,"usageCount":12}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"customLabel"],"expected":"string"}],
+      "details": {"de":[{"path":"items.0.customLabel","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"customLabel","facet":"string"}}}],"en":[{"path":"items.0.customLabel","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"customLabel","facet":"string"}}}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#items.0.isSystem=str-x",
+      "schema": "CategoryListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":"x","isHidden":false,"position":3,"usageCount":12}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"isSystem"],"expected":"boolean"}],
+      "details": {"de":[{"path":"items.0.isSystem","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"isSystem","facet":"boolean"}}}],"en":[{"path":"items.0.isSystem","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"isSystem","facet":"boolean"}}}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#items.0.isHidden=str-x",
+      "schema": "CategoryListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":"x","position":3,"usageCount":12}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"isHidden"],"expected":"boolean"}],
+      "details": {"de":[{"path":"items.0.isHidden","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"isHidden","facet":"boolean"}}}],"en":[{"path":"items.0.isHidden","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"isHidden","facet":"boolean"}}}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#items.0.position=nan",
+      "schema": "CategoryListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":{"$number":"NaN"},"usageCount":12}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"position"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"items.0.position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#items.0.position=inf",
+      "schema": "CategoryListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":{"$number":"Infinity"},"usageCount":12}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"position"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"items.0.position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#items.0.position=neg-inf",
+      "schema": "CategoryListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":{"$number":"-Infinity"},"usageCount":12}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"position"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"items.0.position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#items.0.position=str-x",
+      "schema": "CategoryListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":"x","usageCount":12}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"position"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"items.0.position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#items.0.usageCount=nan",
+      "schema": "CategoryListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":{"$number":"NaN"}}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"usageCount"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.usageCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}],"en":[{"path":"items.0.usageCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#items.0.usageCount=inf",
+      "schema": "CategoryListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":{"$number":"Infinity"}}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"usageCount"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.usageCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}],"en":[{"path":"items.0.usageCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#items.0.usageCount=neg-inf",
+      "schema": "CategoryListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":{"$number":"-Infinity"}}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"usageCount"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.usageCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}],"en":[{"path":"items.0.usageCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}]}
+    },
+    {
+      "id": "CategoryListResponseSchema#items.0.usageCount=str-x",
+      "schema": "CategoryListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","slug":"groceries","label":"Lebensmittel","customLabel":"Essen","isSystem":true,"isHidden":false,"position":3,"usageCount":"x"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"usageCount"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.usageCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}],"en":[{"path":"items.0.usageCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"usageCount","facet":"number"}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#valid",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"Essen","position":2},
+      "ok": true,
+      "output": {"label":"Essen","position":2}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#minimal",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"Essen"},
+      "ok": true,
+      "output": {"label":"Essen"}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#label-padded",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"  Essen  "},
+      "ok": true,
+      "output": {"label":"Essen"}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#position-negative",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"x","position":-5},
+      "ok": true,
+      "output": {"label":"x","position":-5}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#position-fraction",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"x","position":1.5},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["position"],"expected":"int"}],
+      "details": {"de":[{"path":"position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"int"}}}],"en":[{"path":"position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"int"}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#position-max-safe",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"x","position":9007199254740991},
+      "ok": true,
+      "output": {"label":"x","position":9007199254740991}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#position-over-max-safe",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"x","position":9007199254740992},
+      "ok": false,
+      "issues": [{"code":"too_big","path":["position"],"origin":"int","maximum":9007199254740991}],
+      "details": {"de":[{"path":"position","code":"too_big","message":"Wert ist zu groß","i18n":{"key":"server.zod.too_big","values":{"field":"position","facet":"int","bound":9007199254740991}}}],"en":[{"path":"position","code":"too_big","message":"Value is too big","i18n":{"key":"server.zod.too_big","values":{"field":"position","facet":"int","bound":9007199254740991}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#position-null",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"x","position":null},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["position"],"expected":"number"}],
+      "details": {"de":[{"path":"position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#both-bad",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"","position":"x"},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["label"],"origin":"string","minimum":1},{"code":"invalid_type","path":["position"],"expected":"number"}],
+      "details": {"de":[{"path":"label","code":"too_small","message":"Muss mindestens 1 Zeichen lang sein","i18n":{"key":"server.zod.too_small.string","values":{"field":"label","facet":"string","bound":1}}},{"path":"position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"label","code":"too_small","message":"Must be at least 1 characters long","i18n":{"key":"server.zod.too_small.string","values":{"field":"label","facet":"string","bound":1}}},{"path":"position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#root-null",
+      "schema": "CreateCategoryRequestSchema",
+      "input": null,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#root-undefined",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"$undefined":true},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#root-string",
+      "schema": "CreateCategoryRequestSchema",
+      "input": "x",
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#root-array",
+      "schema": "CreateCategoryRequestSchema",
+      "input": [],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#root-number",
+      "schema": "CreateCategoryRequestSchema",
+      "input": 1,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#root-nan",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"$number":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#root-true",
+      "schema": "CreateCategoryRequestSchema",
+      "input": true,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#root-empty-object",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["label"],"expected":"string"}],
+      "details": {"de":[{"path":"label","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"label","facet":"string"}}}],"en":[{"path":"label","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"label","facet":"string"}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#unknown-key",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"Essen","position":2,"unknownKey":1},
+      "ok": true,
+      "output": {"label":"Essen","position":2}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#label=num",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":1,"position":2},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["label"],"expected":"string"}],
+      "details": {"de":[{"path":"label","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"label","facet":"string"}}}],"en":[{"path":"label","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"label","facet":"string"}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#label=missing",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"position":2},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["label"],"expected":"string"}],
+      "details": {"de":[{"path":"label","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"label","facet":"string"}}}],"en":[{"path":"label","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"label","facet":"string"}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#label=null",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":null,"position":2},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["label"],"expected":"string"}],
+      "details": {"de":[{"path":"label","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"label","facet":"string"}}}],"en":[{"path":"label","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"label","facet":"string"}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#label=undefined",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":{"$undefined":true},"position":2},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["label"],"expected":"string"}],
+      "details": {"de":[{"path":"label","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"label","facet":"string"}}}],"en":[{"path":"label","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"label","facet":"string"}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#label=empty",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"","position":2},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["label"],"origin":"string","minimum":1}],
+      "details": {"de":[{"path":"label","code":"too_small","message":"Muss mindestens 1 Zeichen lang sein","i18n":{"key":"server.zod.too_small.string","values":{"field":"label","facet":"string","bound":1}}}],"en":[{"path":"label","code":"too_small","message":"Must be at least 1 characters long","i18n":{"key":"server.zod.too_small.string","values":{"field":"label","facet":"string","bound":1}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#label=blank",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"   ","position":2},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["label"],"origin":"string","minimum":1}],
+      "details": {"de":[{"path":"label","code":"too_small","message":"Muss mindestens 1 Zeichen lang sein","i18n":{"key":"server.zod.too_small.string","values":{"field":"label","facet":"string","bound":1}}}],"en":[{"path":"label","code":"too_small","message":"Must be at least 1 characters long","i18n":{"key":"server.zod.too_small.string","values":{"field":"label","facet":"string","bound":1}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#label=padded",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"  Essen  ","position":2},
+      "ok": true,
+      "output": {"label":"Essen","position":2}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#label=len79",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","position":2},
+      "ok": true,
+      "output": {"label":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","position":2}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#label=len80",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","position":2},
+      "ok": true,
+      "output": {"label":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","position":2}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#label=len81",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","position":2},
+      "ok": false,
+      "issues": [{"code":"too_big","path":["label"],"origin":"string","maximum":80}],
+      "details": {"de":[{"path":"label","code":"too_big","message":"Darf höchstens 80 Zeichen lang sein","i18n":{"key":"server.zod.too_big.string","values":{"field":"label","facet":"string","bound":80}}}],"en":[{"path":"label","code":"too_big","message":"Must be at most 80 characters long","i18n":{"key":"server.zod.too_big.string","values":{"field":"label","facet":"string","bound":80}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#position=nan",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"Essen","position":{"$number":"NaN"}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["position"],"expected":"number"}],
+      "details": {"de":[{"path":"position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#position=inf",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"Essen","position":{"$number":"Infinity"}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["position"],"expected":"number"}],
+      "details": {"de":[{"path":"position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#position=neg-inf",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"Essen","position":{"$number":"-Infinity"}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["position"],"expected":"number"}],
+      "details": {"de":[{"path":"position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#position=str-x",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"Essen","position":"x"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["position"],"expected":"number"}],
+      "details": {"de":[{"path":"position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#position=missing",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"Essen"},
+      "ok": true,
+      "output": {"label":"Essen"}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#position=null",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"Essen","position":null},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["position"],"expected":"number"}],
+      "details": {"de":[{"path":"position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#position=neg1",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"Essen","position":-1},
+      "ok": true,
+      "output": {"label":"Essen","position":-1}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#position=frac",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"Essen","position":1.5},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["position"],"expected":"int"}],
+      "details": {"de":[{"path":"position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"int"}}}],"en":[{"path":"position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"int"}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#position=undefined",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"Essen","position":{"$undefined":true}},
+      "ok": true,
+      "output": {"label":"Essen","position":{"$undefined":true}}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#position=str-1",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"Essen","position":"1"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["position"],"expected":"number"}],
+      "details": {"de":[{"path":"position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#position=zero",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"Essen","position":0},
+      "ok": true,
+      "output": {"label":"Essen","position":0}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#position=big",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"Essen","position":100000000000000000000},
+      "ok": false,
+      "issues": [{"code":"too_big","path":["position"],"origin":"int","maximum":9007199254740991}],
+      "details": {"de":[{"path":"position","code":"too_big","message":"Wert ist zu groß","i18n":{"key":"server.zod.too_big","values":{"field":"position","facet":"int","bound":9007199254740991}}}],"en":[{"path":"position","code":"too_big","message":"Value is too big","i18n":{"key":"server.zod.too_big","values":{"field":"position","facet":"int","bound":9007199254740991}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#position=neg-big",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"Essen","position":-100000000000000000000},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["position"],"origin":"int","minimum":-9007199254740991}],
+      "details": {"de":[{"path":"position","code":"too_small","message":"Wert ist zu klein","i18n":{"key":"server.zod.too_small","values":{"field":"position","facet":"int","bound":-9007199254740991}}}],"en":[{"path":"position","code":"too_small","message":"Value is too small","i18n":{"key":"server.zod.too_small","values":{"field":"position","facet":"int","bound":-9007199254740991}}}]}
+    },
+    {
+      "id": "CreateCategoryRequestSchema#position=max-safe-plus-1",
+      "schema": "CreateCategoryRequestSchema",
+      "input": {"label":"Essen","position":9007199254740992},
+      "ok": false,
+      "issues": [{"code":"too_big","path":["position"],"origin":"int","maximum":9007199254740991}],
+      "details": {"de":[{"path":"position","code":"too_big","message":"Wert ist zu groß","i18n":{"key":"server.zod.too_big","values":{"field":"position","facet":"int","bound":9007199254740991}}}],"en":[{"path":"position","code":"too_big","message":"Value is too big","i18n":{"key":"server.zod.too_big","values":{"field":"position","facet":"int","bound":9007199254740991}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#valid",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"Essen","isHidden":true,"position":2},
+      "ok": true,
+      "output": {"label":"Essen","isHidden":true,"position":2}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#empty",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {},
+      "ok": true,
+      "output": {}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#unknown-only",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"foo":1},
+      "ok": true,
+      "output": {}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#label-padded",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"  Essen  "},
+      "ok": true,
+      "output": {"label":"Essen"}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#label-blank",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"   "},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["label"],"origin":"string","minimum":1}],
+      "details": {"de":[{"path":"label","code":"too_small","message":"Muss mindestens 1 Zeichen lang sein","i18n":{"key":"server.zod.too_small.string","values":{"field":"label","facet":"string","bound":1}}}],"en":[{"path":"label","code":"too_small","message":"Must be at least 1 characters long","i18n":{"key":"server.zod.too_small.string","values":{"field":"label","facet":"string","bound":1}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#hidden-false",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"isHidden":false},
+      "ok": true,
+      "output": {"isHidden":false}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#hidden-string",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"isHidden":"true"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["isHidden"],"expected":"boolean"}],
+      "details": {"de":[{"path":"isHidden","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"isHidden","facet":"boolean"}}}],"en":[{"path":"isHidden","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"isHidden","facet":"boolean"}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#hidden-null",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"isHidden":null},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["isHidden"],"expected":"boolean"}],
+      "details": {"de":[{"path":"isHidden","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"isHidden","facet":"boolean"}}}],"en":[{"path":"isHidden","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"isHidden","facet":"boolean"}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#all-undefined",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":{"$undefined":true},"isHidden":{"$undefined":true},"position":{"$undefined":true}},
+      "ok": true,
+      "output": {"label":{"$undefined":true},"isHidden":{"$undefined":true},"position":{"$undefined":true}}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#position-fraction",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"position":1.5},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["position"],"expected":"int"}],
+      "details": {"de":[{"path":"position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"int"}}}],"en":[{"path":"position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"int"}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#all-bad",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"","isHidden":1,"position":"x"},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["label"],"origin":"string","minimum":1},{"code":"invalid_type","path":["isHidden"],"expected":"boolean"},{"code":"invalid_type","path":["position"],"expected":"number"}],
+      "details": {"de":[{"path":"label","code":"too_small","message":"Muss mindestens 1 Zeichen lang sein","i18n":{"key":"server.zod.too_small.string","values":{"field":"label","facet":"string","bound":1}}},{"path":"isHidden","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"isHidden","facet":"boolean"}}},{"path":"position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"label","code":"too_small","message":"Must be at least 1 characters long","i18n":{"key":"server.zod.too_small.string","values":{"field":"label","facet":"string","bound":1}}},{"path":"isHidden","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"isHidden","facet":"boolean"}}},{"path":"position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#root-null",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": null,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#root-undefined",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"$undefined":true},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#root-string",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": "x",
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#root-array",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": [],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#root-number",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": 1,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#root-nan",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"$number":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#root-true",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": true,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#root-empty-object",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {},
+      "ok": true,
+      "output": {}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#unknown-key",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"Essen","isHidden":true,"position":2,"unknownKey":1},
+      "ok": true,
+      "output": {"label":"Essen","isHidden":true,"position":2}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#label=num",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":1,"isHidden":true,"position":2},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["label"],"expected":"string"}],
+      "details": {"de":[{"path":"label","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"label","facet":"string"}}}],"en":[{"path":"label","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"label","facet":"string"}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#label=missing",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"isHidden":true,"position":2},
+      "ok": true,
+      "output": {"isHidden":true,"position":2}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#label=null",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":null,"isHidden":true,"position":2},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["label"],"expected":"string"}],
+      "details": {"de":[{"path":"label","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"label","facet":"string"}}}],"en":[{"path":"label","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"label","facet":"string"}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#label=undefined",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":{"$undefined":true},"isHidden":true,"position":2},
+      "ok": true,
+      "output": {"label":{"$undefined":true},"isHidden":true,"position":2}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#label=empty",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"","isHidden":true,"position":2},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["label"],"origin":"string","minimum":1}],
+      "details": {"de":[{"path":"label","code":"too_small","message":"Muss mindestens 1 Zeichen lang sein","i18n":{"key":"server.zod.too_small.string","values":{"field":"label","facet":"string","bound":1}}}],"en":[{"path":"label","code":"too_small","message":"Must be at least 1 characters long","i18n":{"key":"server.zod.too_small.string","values":{"field":"label","facet":"string","bound":1}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#label=blank",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"   ","isHidden":true,"position":2},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["label"],"origin":"string","minimum":1}],
+      "details": {"de":[{"path":"label","code":"too_small","message":"Muss mindestens 1 Zeichen lang sein","i18n":{"key":"server.zod.too_small.string","values":{"field":"label","facet":"string","bound":1}}}],"en":[{"path":"label","code":"too_small","message":"Must be at least 1 characters long","i18n":{"key":"server.zod.too_small.string","values":{"field":"label","facet":"string","bound":1}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#label=padded",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"  Essen  ","isHidden":true,"position":2},
+      "ok": true,
+      "output": {"label":"Essen","isHidden":true,"position":2}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#label=len79",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","isHidden":true,"position":2},
+      "ok": true,
+      "output": {"label":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","isHidden":true,"position":2}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#label=len80",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","isHidden":true,"position":2},
+      "ok": true,
+      "output": {"label":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","isHidden":true,"position":2}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#label=len81",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","isHidden":true,"position":2},
+      "ok": false,
+      "issues": [{"code":"too_big","path":["label"],"origin":"string","maximum":80}],
+      "details": {"de":[{"path":"label","code":"too_big","message":"Darf höchstens 80 Zeichen lang sein","i18n":{"key":"server.zod.too_big.string","values":{"field":"label","facet":"string","bound":80}}}],"en":[{"path":"label","code":"too_big","message":"Must be at most 80 characters long","i18n":{"key":"server.zod.too_big.string","values":{"field":"label","facet":"string","bound":80}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#isHidden=str-x",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"Essen","isHidden":"x","position":2},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["isHidden"],"expected":"boolean"}],
+      "details": {"de":[{"path":"isHidden","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"isHidden","facet":"boolean"}}}],"en":[{"path":"isHidden","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"isHidden","facet":"boolean"}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#isHidden=missing",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"Essen","position":2},
+      "ok": true,
+      "output": {"label":"Essen","position":2}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#isHidden=null",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"Essen","isHidden":null,"position":2},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["isHidden"],"expected":"boolean"}],
+      "details": {"de":[{"path":"isHidden","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"isHidden","facet":"boolean"}}}],"en":[{"path":"isHidden","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"isHidden","facet":"boolean"}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#isHidden=undefined",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"Essen","isHidden":{"$undefined":true},"position":2},
+      "ok": true,
+      "output": {"label":"Essen","isHidden":{"$undefined":true},"position":2}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#isHidden=str-true",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"Essen","isHidden":"true","position":2},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["isHidden"],"expected":"boolean"}],
+      "details": {"de":[{"path":"isHidden","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"isHidden","facet":"boolean"}}}],"en":[{"path":"isHidden","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"isHidden","facet":"boolean"}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#isHidden=num1",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"Essen","isHidden":1,"position":2},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["isHidden"],"expected":"boolean"}],
+      "details": {"de":[{"path":"isHidden","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"isHidden","facet":"boolean"}}}],"en":[{"path":"isHidden","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"isHidden","facet":"boolean"}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#position=nan",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"Essen","isHidden":true,"position":{"$number":"NaN"}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["position"],"expected":"number"}],
+      "details": {"de":[{"path":"position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#position=inf",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"Essen","isHidden":true,"position":{"$number":"Infinity"}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["position"],"expected":"number"}],
+      "details": {"de":[{"path":"position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#position=neg-inf",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"Essen","isHidden":true,"position":{"$number":"-Infinity"}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["position"],"expected":"number"}],
+      "details": {"de":[{"path":"position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#position=str-x",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"Essen","isHidden":true,"position":"x"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["position"],"expected":"number"}],
+      "details": {"de":[{"path":"position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#position=missing",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"Essen","isHidden":true},
+      "ok": true,
+      "output": {"label":"Essen","isHidden":true}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#position=null",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"Essen","isHidden":true,"position":null},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["position"],"expected":"number"}],
+      "details": {"de":[{"path":"position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#position=neg1",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"Essen","isHidden":true,"position":-1},
+      "ok": true,
+      "output": {"label":"Essen","isHidden":true,"position":-1}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#position=frac",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"Essen","isHidden":true,"position":1.5},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["position"],"expected":"int"}],
+      "details": {"de":[{"path":"position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"int"}}}],"en":[{"path":"position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"int"}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#position=undefined",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"Essen","isHidden":true,"position":{"$undefined":true}},
+      "ok": true,
+      "output": {"label":"Essen","isHidden":true,"position":{"$undefined":true}}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#position=str-1",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"Essen","isHidden":true,"position":"1"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["position"],"expected":"number"}],
+      "details": {"de":[{"path":"position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#position=zero",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"Essen","isHidden":true,"position":0},
+      "ok": true,
+      "output": {"label":"Essen","isHidden":true,"position":0}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#position=big",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"Essen","isHidden":true,"position":100000000000000000000},
+      "ok": false,
+      "issues": [{"code":"too_big","path":["position"],"origin":"int","maximum":9007199254740991}],
+      "details": {"de":[{"path":"position","code":"too_big","message":"Wert ist zu groß","i18n":{"key":"server.zod.too_big","values":{"field":"position","facet":"int","bound":9007199254740991}}}],"en":[{"path":"position","code":"too_big","message":"Value is too big","i18n":{"key":"server.zod.too_big","values":{"field":"position","facet":"int","bound":9007199254740991}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#position=neg-big",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"Essen","isHidden":true,"position":-100000000000000000000},
+      "ok": false,
+      "issues": [{"code":"too_small","path":["position"],"origin":"int","minimum":-9007199254740991}],
+      "details": {"de":[{"path":"position","code":"too_small","message":"Wert ist zu klein","i18n":{"key":"server.zod.too_small","values":{"field":"position","facet":"int","bound":-9007199254740991}}}],"en":[{"path":"position","code":"too_small","message":"Value is too small","i18n":{"key":"server.zod.too_small","values":{"field":"position","facet":"int","bound":-9007199254740991}}}]}
+    },
+    {
+      "id": "UpdateCategoryRequestSchema#position=max-safe-plus-1",
+      "schema": "UpdateCategoryRequestSchema",
+      "input": {"label":"Essen","isHidden":true,"position":9007199254740992},
+      "ok": false,
+      "issues": [{"code":"too_big","path":["position"],"origin":"int","maximum":9007199254740991}],
+      "details": {"de":[{"path":"position","code":"too_big","message":"Wert ist zu groß","i18n":{"key":"server.zod.too_big","values":{"field":"position","facet":"int","bound":9007199254740991}}}],"en":[{"path":"position","code":"too_big","message":"Value is too big","i18n":{"key":"server.zod.too_big","values":{"field":"position","facet":"int","bound":9007199254740991}}}]}
+    }
+  ]
+}

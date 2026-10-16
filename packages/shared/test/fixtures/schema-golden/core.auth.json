@@ -1,0 +1,866 @@
+{
+  "source": "packages/shared/src/core/schemas/auth.ts",
+  "zod": "4.5.4",
+  "cases": [
+    {
+      "id": "AuthSessionResponseSchema#valid",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": true,
+      "output": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"}
+    },
+    {
+      "id": "AuthSessionResponseSchema#minimal",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[]},
+      "ok": true,
+      "output": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#all-null",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":null},
+      "ok": true,
+      "output": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":null}
+    },
+    {
+      "id": "AuthSessionResponseSchema#household-bad",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"x"}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_format","path":["households",0,"id"],"format":"uuid"},{"code":"invalid_type","path":["households",0,"name"],"expected":"string"},{"code":"invalid_type","path":["households",0,"createdBy"],"expected":"string"},{"code":"invalid_type","path":["households",0,"createdAt"],"expected":"string"},{"code":"invalid_type","path":["households",0,"updatedAt"],"expected":"string"},{"code":"invalid_value","path":["households",0,"role"]},{"code":"invalid_type","path":["households",0,"memberCount"],"expected":"number"},{"code":"invalid_type","path":["households",0,"modules"],"expected":"array"}],
+      "details": {"de":[{"path":"households.0.id","code":"invalid_format","message":"Ungültiges Format","i18n":{"key":"server.zod.invalid_format","values":{"field":"id","facet":"uuid"}}},{"path":"households.0.name","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}},{"path":"households.0.createdBy","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"createdBy","facet":"string"}}},{"path":"households.0.createdAt","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"createdAt","facet":"string"}}},{"path":"households.0.updatedAt","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"updatedAt","facet":"string"}}},{"path":"households.0.role","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"role","facet":"_"}}},{"path":"households.0.memberCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"memberCount","facet":"number"}}},{"path":"households.0.modules","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"modules","facet":"array"}}}],"en":[{"path":"households.0.id","code":"invalid_format","message":"Invalid format","i18n":{"key":"server.zod.invalid_format","values":{"field":"id","facet":"uuid"}}},{"path":"households.0.name","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}},{"path":"households.0.createdBy","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"createdBy","facet":"string"}}},{"path":"households.0.createdAt","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"createdAt","facet":"string"}}},{"path":"households.0.updatedAt","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"updatedAt","facet":"string"}}},{"path":"households.0.role","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"role","facet":"_"}}},{"path":"households.0.memberCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"memberCount","facet":"number"}}},{"path":"households.0.modules","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"modules","facet":"array"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#second-household-bad",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]},1],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",1],"expected":"object"}],
+      "details": {"de":[{"path":"households.1","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"households","facet":"object"}}}],"en":[{"path":"households.1","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"households","facet":"object"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#active-bad",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"x"},
+      "ok": false,
+      "issues": [{"code":"invalid_format","path":["activeHouseholdId"],"format":"uuid"}],
+      "details": {"de":[{"path":"activeHouseholdId","code":"invalid_format","message":"Ungültiges Format","i18n":{"key":"server.zod.invalid_format","values":{"field":"activeHouseholdId","facet":"uuid"}}}],"en":[{"path":"activeHouseholdId","code":"invalid_format","message":"Invalid format","i18n":{"key":"server.zod.invalid_format","values":{"field":"activeHouseholdId","facet":"uuid"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#user-and-active-bad",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":1},"households":"x","activeHouseholdId":1},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["user","id"],"expected":"string"},{"code":"invalid_type","path":["user","email"],"expected":"string"},{"code":"invalid_type","path":["user","name"],"expected":"string"},{"code":"invalid_type","path":["user","emailVerified"],"expected":"boolean"},{"code":"invalid_type","path":["user","hasPassword"],"expected":"boolean"},{"code":"invalid_type","path":["user","createdAt"],"expected":"string"},{"code":"invalid_type","path":["user","updatedAt"],"expected":"string"},{"code":"invalid_type","path":["households"],"expected":"array"},{"code":"invalid_type","path":["activeHouseholdId"],"expected":"string"}],
+      "details": {"de":[{"path":"user.id","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}},{"path":"user.email","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"email","facet":"string"}}},{"path":"user.name","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}},{"path":"user.emailVerified","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"emailVerified","facet":"boolean"}}},{"path":"user.hasPassword","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"hasPassword","facet":"boolean"}}},{"path":"user.createdAt","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"createdAt","facet":"string"}}},{"path":"user.updatedAt","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"updatedAt","facet":"string"}}},{"path":"households","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"households","facet":"array"}}},{"path":"activeHouseholdId","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"activeHouseholdId","facet":"string"}}}],"en":[{"path":"user.id","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}},{"path":"user.email","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"email","facet":"string"}}},{"path":"user.name","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}},{"path":"user.emailVerified","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"emailVerified","facet":"boolean"}}},{"path":"user.hasPassword","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"hasPassword","facet":"boolean"}}},{"path":"user.createdAt","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"createdAt","facet":"string"}}},{"path":"user.updatedAt","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"updatedAt","facet":"string"}}},{"path":"households","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"households","facet":"array"}}},{"path":"activeHouseholdId","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"activeHouseholdId","facet":"string"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#user-id-only",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b"},"households":[]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["user","email"],"expected":"string"},{"code":"invalid_type","path":["user","name"],"expected":"string"},{"code":"invalid_type","path":["user","emailVerified"],"expected":"boolean"},{"code":"invalid_type","path":["user","hasPassword"],"expected":"boolean"},{"code":"invalid_type","path":["user","createdAt"],"expected":"string"},{"code":"invalid_type","path":["user","updatedAt"],"expected":"string"}],
+      "details": {"de":[{"path":"user.email","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"email","facet":"string"}}},{"path":"user.name","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}},{"path":"user.emailVerified","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"emailVerified","facet":"boolean"}}},{"path":"user.hasPassword","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"hasPassword","facet":"boolean"}}},{"path":"user.createdAt","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"createdAt","facet":"string"}}},{"path":"user.updatedAt","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"updatedAt","facet":"string"}}}],"en":[{"path":"user.email","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"email","facet":"string"}}},{"path":"user.name","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}},{"path":"user.emailVerified","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"emailVerified","facet":"boolean"}}},{"path":"user.hasPassword","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"hasPassword","facet":"boolean"}}},{"path":"user.createdAt","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"createdAt","facet":"string"}}},{"path":"user.updatedAt","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"updatedAt","facet":"string"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#root-null",
+      "schema": "AuthSessionResponseSchema",
+      "input": null,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#root-undefined",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"$undefined":true},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#root-string",
+      "schema": "AuthSessionResponseSchema",
+      "input": "x",
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#root-array",
+      "schema": "AuthSessionResponseSchema",
+      "input": [],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#root-number",
+      "schema": "AuthSessionResponseSchema",
+      "input": 1,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#root-nan",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"$number":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#root-true",
+      "schema": "AuthSessionResponseSchema",
+      "input": true,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#root-empty-object",
+      "schema": "AuthSessionResponseSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["user"],"expected":"object"},{"code":"invalid_type","path":["households"],"expected":"array"}],
+      "details": {"de":[{"path":"user","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"user","facet":"object"}}},{"path":"households","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"households","facet":"array"}}}],"en":[{"path":"user","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"user","facet":"object"}}},{"path":"households","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"households","facet":"array"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#unknown-key",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","unknownKey":1},
+      "ok": true,
+      "output": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"}
+    },
+    {
+      "id": "AuthSessionResponseSchema#user=str-x",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":"x","households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["user"],"expected":"object"}],
+      "details": {"de":[{"path":"user","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"user","facet":"object"}}}],"en":[{"path":"user","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"user","facet":"object"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#user.id=num",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":1,"email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["user","id"],"expected":"string"}],
+      "details": {"de":[{"path":"user.id","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}}],"en":[{"path":"user.id","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#user.email=num",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":1,"name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["user","email"],"expected":"string"}],
+      "details": {"de":[{"path":"user.email","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"email","facet":"string"}}}],"en":[{"path":"user.email","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"email","facet":"string"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#user.name=num",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":1,"avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["user","name"],"expected":"string"}],
+      "details": {"de":[{"path":"user.name","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}],"en":[{"path":"user.name","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#user.avatarUrl=num",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":1,"emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["user","avatarUrl"],"expected":"string"}],
+      "details": {"de":[{"path":"user.avatarUrl","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"avatarUrl","facet":"string"}}}],"en":[{"path":"user.avatarUrl","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"avatarUrl","facet":"string"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#user.emailVerified=str-x",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":"x","emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["user","emailVerified"],"expected":"boolean"}],
+      "details": {"de":[{"path":"user.emailVerified","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"emailVerified","facet":"boolean"}}}],"en":[{"path":"user.emailVerified","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"emailVerified","facet":"boolean"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#user.emailVerifiedAt=num",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":1,"hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["user","emailVerifiedAt"],"expected":"string"}],
+      "details": {"de":[{"path":"user.emailVerifiedAt","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"emailVerifiedAt","facet":"string"}}}],"en":[{"path":"user.emailVerifiedAt","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"emailVerifiedAt","facet":"string"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#user.hasPassword=str-x",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":"x","activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["user","hasPassword"],"expected":"boolean"}],
+      "details": {"de":[{"path":"user.hasPassword","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"hasPassword","facet":"boolean"}}}],"en":[{"path":"user.hasPassword","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"hasPassword","facet":"boolean"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#user.activeHouseholdId=num",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":1,"locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["user","activeHouseholdId"],"expected":"string"}],
+      "details": {"de":[{"path":"user.activeHouseholdId","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"activeHouseholdId","facet":"string"}}}],"en":[{"path":"user.activeHouseholdId","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"activeHouseholdId","facet":"string"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#user.locale=num",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":1,"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":["user","locale"]}],
+      "details": {"de":[{"path":"user.locale","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"locale","facet":"_"}}}],"en":[{"path":"user.locale","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"locale","facet":"_"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#user.createdAt=num",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":1,"updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["user","createdAt"],"expected":"string"}],
+      "details": {"de":[{"path":"user.createdAt","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"createdAt","facet":"string"}}}],"en":[{"path":"user.createdAt","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"createdAt","facet":"string"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#user.updatedAt=num",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":1},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["user","updatedAt"],"expected":"string"}],
+      "details": {"de":[{"path":"user.updatedAt","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"updatedAt","facet":"string"}}}],"en":[{"path":"user.updatedAt","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"updatedAt","facet":"string"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#households=str-x",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":"x","activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households"],"expected":"array"}],
+      "details": {"de":[{"path":"households","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"households","facet":"array"}}}],"en":[{"path":"households","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"households","facet":"array"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#households.0=str-x",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":["x"],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",0],"expected":"object"}],
+      "details": {"de":[{"path":"households.0","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"households","facet":"object"}}}],"en":[{"path":"households.0","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"households","facet":"object"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#households.0.id=num",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":1,"name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",0,"id"],"expected":"string"}],
+      "details": {"de":[{"path":"households.0.id","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}}],"en":[{"path":"households.0.id","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#households.0.name=num",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":1,"description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",0,"name"],"expected":"string"}],
+      "details": {"de":[{"path":"households.0.name","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}],"en":[{"path":"households.0.name","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#households.0.description=num",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":1,"imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",0,"description"],"expected":"string"}],
+      "details": {"de":[{"path":"households.0.description","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"description","facet":"string"}}}],"en":[{"path":"households.0.description","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"description","facet":"string"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#households.0.imageUrl=num",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":1,"createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",0,"imageUrl"],"expected":"string"}],
+      "details": {"de":[{"path":"households.0.imageUrl","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"imageUrl","facet":"string"}}}],"en":[{"path":"households.0.imageUrl","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"imageUrl","facet":"string"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#households.0.createdBy=num",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":1,"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",0,"createdBy"],"expected":"string"}],
+      "details": {"de":[{"path":"households.0.createdBy","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"createdBy","facet":"string"}}}],"en":[{"path":"households.0.createdBy","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"createdBy","facet":"string"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#households.0.createdAt=num",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":1,"updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",0,"createdAt"],"expected":"string"}],
+      "details": {"de":[{"path":"households.0.createdAt","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"createdAt","facet":"string"}}}],"en":[{"path":"households.0.createdAt","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"createdAt","facet":"string"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#households.0.updatedAt=num",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":1,"role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",0,"updatedAt"],"expected":"string"}],
+      "details": {"de":[{"path":"households.0.updatedAt","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"updatedAt","facet":"string"}}}],"en":[{"path":"households.0.updatedAt","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"updatedAt","facet":"string"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#households.0.role=num",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":1,"memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":["households",0,"role"]}],
+      "details": {"de":[{"path":"households.0.role","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"role","facet":"_"}}}],"en":[{"path":"households.0.role","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"role","facet":"_"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#households.0.memberCount=nan",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":{"$number":"NaN"},"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",0,"memberCount"],"expected":"number"}],
+      "details": {"de":[{"path":"households.0.memberCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"memberCount","facet":"number"}}}],"en":[{"path":"households.0.memberCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"memberCount","facet":"number"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#households.0.memberCount=inf",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":{"$number":"Infinity"},"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",0,"memberCount"],"expected":"number"}],
+      "details": {"de":[{"path":"households.0.memberCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"memberCount","facet":"number"}}}],"en":[{"path":"households.0.memberCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"memberCount","facet":"number"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#households.0.memberCount=neg-inf",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":{"$number":"-Infinity"},"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",0,"memberCount"],"expected":"number"}],
+      "details": {"de":[{"path":"households.0.memberCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"memberCount","facet":"number"}}}],"en":[{"path":"households.0.memberCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"memberCount","facet":"number"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#households.0.memberCount=str-x",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":"x","modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",0,"memberCount"],"expected":"number"}],
+      "details": {"de":[{"path":"households.0.memberCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"memberCount","facet":"number"}}}],"en":[{"path":"households.0.memberCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"memberCount","facet":"number"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#households.0.modules=str-x",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":"x"}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",0,"modules"],"expected":"array"}],
+      "details": {"de":[{"path":"households.0.modules","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"modules","facet":"array"}}}],"en":[{"path":"households.0.modules","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"modules","facet":"array"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#households.0.modules.0=num",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":[1,"finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",0,"modules",0],"expected":"string"}],
+      "details": {"de":[{"path":"households.0.modules.0","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"modules","facet":"string"}}}],"en":[{"path":"households.0.modules.0","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"modules","facet":"string"}}}]}
+    },
+    {
+      "id": "AuthSessionResponseSchema#activeHouseholdId=num",
+      "schema": "AuthSessionResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":1},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["activeHouseholdId"],"expected":"string"}],
+      "details": {"de":[{"path":"activeHouseholdId","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"activeHouseholdId","facet":"string"}}}],"en":[{"path":"activeHouseholdId","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"activeHouseholdId","facet":"string"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#valid",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": true,
+      "output": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"}
+    },
+    {
+      "id": "MeResponseSchema#minimal",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[]},
+      "ok": true,
+      "output": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[]}
+    },
+    {
+      "id": "MeResponseSchema#all-null",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":null},
+      "ok": true,
+      "output": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":null}
+    },
+    {
+      "id": "MeResponseSchema#household-bad",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"x"}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_format","path":["households",0,"id"],"format":"uuid"},{"code":"invalid_type","path":["households",0,"name"],"expected":"string"},{"code":"invalid_type","path":["households",0,"createdBy"],"expected":"string"},{"code":"invalid_type","path":["households",0,"createdAt"],"expected":"string"},{"code":"invalid_type","path":["households",0,"updatedAt"],"expected":"string"},{"code":"invalid_value","path":["households",0,"role"]},{"code":"invalid_type","path":["households",0,"memberCount"],"expected":"number"},{"code":"invalid_type","path":["households",0,"modules"],"expected":"array"}],
+      "details": {"de":[{"path":"households.0.id","code":"invalid_format","message":"Ungültiges Format","i18n":{"key":"server.zod.invalid_format","values":{"field":"id","facet":"uuid"}}},{"path":"households.0.name","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}},{"path":"households.0.createdBy","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"createdBy","facet":"string"}}},{"path":"households.0.createdAt","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"createdAt","facet":"string"}}},{"path":"households.0.updatedAt","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"updatedAt","facet":"string"}}},{"path":"households.0.role","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"role","facet":"_"}}},{"path":"households.0.memberCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"memberCount","facet":"number"}}},{"path":"households.0.modules","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"modules","facet":"array"}}}],"en":[{"path":"households.0.id","code":"invalid_format","message":"Invalid format","i18n":{"key":"server.zod.invalid_format","values":{"field":"id","facet":"uuid"}}},{"path":"households.0.name","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}},{"path":"households.0.createdBy","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"createdBy","facet":"string"}}},{"path":"households.0.createdAt","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"createdAt","facet":"string"}}},{"path":"households.0.updatedAt","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"updatedAt","facet":"string"}}},{"path":"households.0.role","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"role","facet":"_"}}},{"path":"households.0.memberCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"memberCount","facet":"number"}}},{"path":"households.0.modules","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"modules","facet":"array"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#root-null",
+      "schema": "MeResponseSchema",
+      "input": null,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#root-undefined",
+      "schema": "MeResponseSchema",
+      "input": {"$undefined":true},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#root-string",
+      "schema": "MeResponseSchema",
+      "input": "x",
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#root-array",
+      "schema": "MeResponseSchema",
+      "input": [],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#root-number",
+      "schema": "MeResponseSchema",
+      "input": 1,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#root-nan",
+      "schema": "MeResponseSchema",
+      "input": {"$number":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#root-true",
+      "schema": "MeResponseSchema",
+      "input": true,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#root-empty-object",
+      "schema": "MeResponseSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["user"],"expected":"object"},{"code":"invalid_type","path":["households"],"expected":"array"}],
+      "details": {"de":[{"path":"user","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"user","facet":"object"}}},{"path":"households","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"households","facet":"array"}}}],"en":[{"path":"user","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"user","facet":"object"}}},{"path":"households","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"households","facet":"array"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#unknown-key",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","unknownKey":1},
+      "ok": true,
+      "output": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"}
+    },
+    {
+      "id": "MeResponseSchema#user=str-x",
+      "schema": "MeResponseSchema",
+      "input": {"user":"x","households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["user"],"expected":"object"}],
+      "details": {"de":[{"path":"user","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"user","facet":"object"}}}],"en":[{"path":"user","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"user","facet":"object"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#user.id=num",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":1,"email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["user","id"],"expected":"string"}],
+      "details": {"de":[{"path":"user.id","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}}],"en":[{"path":"user.id","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#user.email=num",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":1,"name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["user","email"],"expected":"string"}],
+      "details": {"de":[{"path":"user.email","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"email","facet":"string"}}}],"en":[{"path":"user.email","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"email","facet":"string"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#user.name=num",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":1,"avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["user","name"],"expected":"string"}],
+      "details": {"de":[{"path":"user.name","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}],"en":[{"path":"user.name","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#user.avatarUrl=num",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":1,"emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["user","avatarUrl"],"expected":"string"}],
+      "details": {"de":[{"path":"user.avatarUrl","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"avatarUrl","facet":"string"}}}],"en":[{"path":"user.avatarUrl","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"avatarUrl","facet":"string"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#user.emailVerified=str-x",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":"x","emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["user","emailVerified"],"expected":"boolean"}],
+      "details": {"de":[{"path":"user.emailVerified","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"emailVerified","facet":"boolean"}}}],"en":[{"path":"user.emailVerified","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"emailVerified","facet":"boolean"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#user.emailVerifiedAt=num",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":1,"hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["user","emailVerifiedAt"],"expected":"string"}],
+      "details": {"de":[{"path":"user.emailVerifiedAt","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"emailVerifiedAt","facet":"string"}}}],"en":[{"path":"user.emailVerifiedAt","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"emailVerifiedAt","facet":"string"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#user.hasPassword=str-x",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":"x","activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["user","hasPassword"],"expected":"boolean"}],
+      "details": {"de":[{"path":"user.hasPassword","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"hasPassword","facet":"boolean"}}}],"en":[{"path":"user.hasPassword","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"hasPassword","facet":"boolean"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#user.activeHouseholdId=num",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":1,"locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["user","activeHouseholdId"],"expected":"string"}],
+      "details": {"de":[{"path":"user.activeHouseholdId","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"activeHouseholdId","facet":"string"}}}],"en":[{"path":"user.activeHouseholdId","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"activeHouseholdId","facet":"string"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#user.locale=num",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":1,"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":["user","locale"]}],
+      "details": {"de":[{"path":"user.locale","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"locale","facet":"_"}}}],"en":[{"path":"user.locale","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"locale","facet":"_"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#user.createdAt=num",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":1,"updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["user","createdAt"],"expected":"string"}],
+      "details": {"de":[{"path":"user.createdAt","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"createdAt","facet":"string"}}}],"en":[{"path":"user.createdAt","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"createdAt","facet":"string"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#user.updatedAt=num",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":1},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["user","updatedAt"],"expected":"string"}],
+      "details": {"de":[{"path":"user.updatedAt","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"updatedAt","facet":"string"}}}],"en":[{"path":"user.updatedAt","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"updatedAt","facet":"string"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#households=str-x",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":"x","activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households"],"expected":"array"}],
+      "details": {"de":[{"path":"households","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"households","facet":"array"}}}],"en":[{"path":"households","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"households","facet":"array"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#households.0=str-x",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":["x"],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",0],"expected":"object"}],
+      "details": {"de":[{"path":"households.0","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"households","facet":"object"}}}],"en":[{"path":"households.0","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"households","facet":"object"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#households.0.id=num",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":1,"name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",0,"id"],"expected":"string"}],
+      "details": {"de":[{"path":"households.0.id","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}}],"en":[{"path":"households.0.id","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"id","facet":"string"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#households.0.name=num",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":1,"description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",0,"name"],"expected":"string"}],
+      "details": {"de":[{"path":"households.0.name","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}],"en":[{"path":"households.0.name","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"name","facet":"string"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#households.0.description=num",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":1,"imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",0,"description"],"expected":"string"}],
+      "details": {"de":[{"path":"households.0.description","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"description","facet":"string"}}}],"en":[{"path":"households.0.description","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"description","facet":"string"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#households.0.imageUrl=num",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":1,"createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",0,"imageUrl"],"expected":"string"}],
+      "details": {"de":[{"path":"households.0.imageUrl","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"imageUrl","facet":"string"}}}],"en":[{"path":"households.0.imageUrl","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"imageUrl","facet":"string"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#households.0.createdBy=num",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":1,"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",0,"createdBy"],"expected":"string"}],
+      "details": {"de":[{"path":"households.0.createdBy","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"createdBy","facet":"string"}}}],"en":[{"path":"households.0.createdBy","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"createdBy","facet":"string"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#households.0.createdAt=num",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":1,"updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",0,"createdAt"],"expected":"string"}],
+      "details": {"de":[{"path":"households.0.createdAt","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"createdAt","facet":"string"}}}],"en":[{"path":"households.0.createdAt","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"createdAt","facet":"string"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#households.0.updatedAt=num",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":1,"role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",0,"updatedAt"],"expected":"string"}],
+      "details": {"de":[{"path":"households.0.updatedAt","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"updatedAt","facet":"string"}}}],"en":[{"path":"households.0.updatedAt","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"updatedAt","facet":"string"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#households.0.role=num",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":1,"memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":["households",0,"role"]}],
+      "details": {"de":[{"path":"households.0.role","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"role","facet":"_"}}}],"en":[{"path":"households.0.role","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"role","facet":"_"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#households.0.memberCount=nan",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":{"$number":"NaN"},"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",0,"memberCount"],"expected":"number"}],
+      "details": {"de":[{"path":"households.0.memberCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"memberCount","facet":"number"}}}],"en":[{"path":"households.0.memberCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"memberCount","facet":"number"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#households.0.memberCount=inf",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":{"$number":"Infinity"},"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",0,"memberCount"],"expected":"number"}],
+      "details": {"de":[{"path":"households.0.memberCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"memberCount","facet":"number"}}}],"en":[{"path":"households.0.memberCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"memberCount","facet":"number"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#households.0.memberCount=neg-inf",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":{"$number":"-Infinity"},"modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",0,"memberCount"],"expected":"number"}],
+      "details": {"de":[{"path":"households.0.memberCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"memberCount","facet":"number"}}}],"en":[{"path":"households.0.memberCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"memberCount","facet":"number"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#households.0.memberCount=str-x",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":"x","modules":["recipe","finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",0,"memberCount"],"expected":"number"}],
+      "details": {"de":[{"path":"households.0.memberCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"memberCount","facet":"number"}}}],"en":[{"path":"households.0.memberCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"memberCount","facet":"number"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#households.0.modules=str-x",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":"x"}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",0,"modules"],"expected":"array"}],
+      "details": {"de":[{"path":"households.0.modules","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"modules","facet":"array"}}}],"en":[{"path":"households.0.modules","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"modules","facet":"array"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#households.0.modules.0=num",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":[1,"finance"]}],"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["households",0,"modules",0],"expected":"string"}],
+      "details": {"de":[{"path":"households.0.modules.0","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"modules","facet":"string"}}}],"en":[{"path":"households.0.modules.0","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"modules","facet":"string"}}}]}
+    },
+    {
+      "id": "MeResponseSchema#activeHouseholdId=num",
+      "schema": "MeResponseSchema",
+      "input": {"user":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","email":"anna@example.de","name":"Anna","avatarUrl":"/uploads/a.png","emailVerified":true,"emailVerifiedAt":"2026-10-16T12:00:00.000Z","hasPassword":true,"activeHouseholdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","locale":"de","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"},"households":[{"id":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Familie","description":"Zuhause","imageUrl":"/uploads/h.png","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","role":"owner","memberCount":2,"modules":["recipe","finance"]}],"activeHouseholdId":1},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["activeHouseholdId"],"expected":"string"}],
+      "details": {"de":[{"path":"activeHouseholdId","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"activeHouseholdId","facet":"string"}}}],"en":[{"path":"activeHouseholdId","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"activeHouseholdId","facet":"string"}}}]}
+    },
+    {
+      "id": "EmailVerificationRequestResponseSchema#valid",
+      "schema": "EmailVerificationRequestResponseSchema",
+      "input": {"mailDelivery":"sent"},
+      "ok": true,
+      "output": {"mailDelivery":"sent"}
+    },
+    {
+      "id": "EmailVerificationRequestResponseSchema#not-configured",
+      "schema": "EmailVerificationRequestResponseSchema",
+      "input": {"mailDelivery":"not_configured"},
+      "ok": true,
+      "output": {"mailDelivery":"not_configured"}
+    },
+    {
+      "id": "EmailVerificationRequestResponseSchema#failed",
+      "schema": "EmailVerificationRequestResponseSchema",
+      "input": {"mailDelivery":"failed"},
+      "ok": true,
+      "output": {"mailDelivery":"failed"}
+    },
+    {
+      "id": "EmailVerificationRequestResponseSchema#bad",
+      "schema": "EmailVerificationRequestResponseSchema",
+      "input": {"mailDelivery":"queued"},
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":["mailDelivery"]}],
+      "details": {"de":[{"path":"mailDelivery","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"mailDelivery","facet":"_"}}}],"en":[{"path":"mailDelivery","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"mailDelivery","facet":"_"}}}]}
+    },
+    {
+      "id": "EmailVerificationRequestResponseSchema#upper",
+      "schema": "EmailVerificationRequestResponseSchema",
+      "input": {"mailDelivery":"SENT"},
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":["mailDelivery"]}],
+      "details": {"de":[{"path":"mailDelivery","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"mailDelivery","facet":"_"}}}],"en":[{"path":"mailDelivery","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"mailDelivery","facet":"_"}}}]}
+    },
+    {
+      "id": "EmailVerificationRequestResponseSchema#root-null",
+      "schema": "EmailVerificationRequestResponseSchema",
+      "input": null,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "EmailVerificationRequestResponseSchema#root-undefined",
+      "schema": "EmailVerificationRequestResponseSchema",
+      "input": {"$undefined":true},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "EmailVerificationRequestResponseSchema#root-string",
+      "schema": "EmailVerificationRequestResponseSchema",
+      "input": "x",
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "EmailVerificationRequestResponseSchema#root-array",
+      "schema": "EmailVerificationRequestResponseSchema",
+      "input": [],
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "EmailVerificationRequestResponseSchema#root-number",
+      "schema": "EmailVerificationRequestResponseSchema",
+      "input": 1,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "EmailVerificationRequestResponseSchema#root-nan",
+      "schema": "EmailVerificationRequestResponseSchema",
+      "input": {"$number":"NaN"},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "EmailVerificationRequestResponseSchema#root-true",
+      "schema": "EmailVerificationRequestResponseSchema",
+      "input": true,
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":[],"expected":"object"}],
+      "details": {"de":[{"path":"","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}],"en":[{"path":"","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"","facet":"object"}}}]}
+    },
+    {
+      "id": "EmailVerificationRequestResponseSchema#root-empty-object",
+      "schema": "EmailVerificationRequestResponseSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":["mailDelivery"]}],
+      "details": {"de":[{"path":"mailDelivery","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"mailDelivery","facet":"_"}}}],"en":[{"path":"mailDelivery","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"mailDelivery","facet":"_"}}}]}
+    },
+    {
+      "id": "EmailVerificationRequestResponseSchema#unknown-key",
+      "schema": "EmailVerificationRequestResponseSchema",
+      "input": {"mailDelivery":"sent","unknownKey":1},
+      "ok": true,
+      "output": {"mailDelivery":"sent"}
+    },
+    {
+      "id": "EmailVerificationRequestResponseSchema#mailDelivery=num",
+      "schema": "EmailVerificationRequestResponseSchema",
+      "input": {"mailDelivery":1},
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":["mailDelivery"]}],
+      "details": {"de":[{"path":"mailDelivery","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"mailDelivery","facet":"_"}}}],"en":[{"path":"mailDelivery","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"mailDelivery","facet":"_"}}}]}
+    },
+    {
+      "id": "EmailVerificationRequestResponseSchema#mailDelivery=missing",
+      "schema": "EmailVerificationRequestResponseSchema",
+      "input": {},
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":["mailDelivery"]}],
+      "details": {"de":[{"path":"mailDelivery","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"mailDelivery","facet":"_"}}}],"en":[{"path":"mailDelivery","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"mailDelivery","facet":"_"}}}]}
+    },
+    {
+      "id": "EmailVerificationRequestResponseSchema#mailDelivery=null",
+      "schema": "EmailVerificationRequestResponseSchema",
+      "input": {"mailDelivery":null},
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":["mailDelivery"]}],
+      "details": {"de":[{"path":"mailDelivery","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"mailDelivery","facet":"_"}}}],"en":[{"path":"mailDelivery","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"mailDelivery","facet":"_"}}}]}
+    },
+    {
+      "id": "EmailVerificationRequestResponseSchema#mailDelivery=undefined",
+      "schema": "EmailVerificationRequestResponseSchema",
+      "input": {"mailDelivery":{"$undefined":true}},
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":["mailDelivery"]}],
+      "details": {"de":[{"path":"mailDelivery","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"mailDelivery","facet":"_"}}}],"en":[{"path":"mailDelivery","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"mailDelivery","facet":"_"}}}]}
+    },
+    {
+      "id": "EmailVerificationRequestResponseSchema#mailDelivery=empty",
+      "schema": "EmailVerificationRequestResponseSchema",
+      "input": {"mailDelivery":""},
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":["mailDelivery"]}],
+      "details": {"de":[{"path":"mailDelivery","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"mailDelivery","facet":"_"}}}],"en":[{"path":"mailDelivery","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"mailDelivery","facet":"_"}}}]}
+    },
+    {
+      "id": "EmailVerificationRequestResponseSchema#mailDelivery=blank",
+      "schema": "EmailVerificationRequestResponseSchema",
+      "input": {"mailDelivery":"   "},
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":["mailDelivery"]}],
+      "details": {"de":[{"path":"mailDelivery","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"mailDelivery","facet":"_"}}}],"en":[{"path":"mailDelivery","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"mailDelivery","facet":"_"}}}]}
+    },
+    {
+      "id": "EmailVerificationRequestResponseSchema#mailDelivery=padded",
+      "schema": "EmailVerificationRequestResponseSchema",
+      "input": {"mailDelivery":"  sent  "},
+      "ok": false,
+      "issues": [{"code":"invalid_value","path":["mailDelivery"]}],
+      "details": {"de":[{"path":"mailDelivery","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"mailDelivery","facet":"_"}}}],"en":[{"path":"mailDelivery","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"mailDelivery","facet":"_"}}}]}
+    }
+  ]
+}
