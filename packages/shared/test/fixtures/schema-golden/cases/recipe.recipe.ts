@@ -1,4 +1,4 @@
-import { COERCE_STRINGS, enumLeaf, gen, singleKeys, uniqueIds, variants, type Case } from "./_lib.ts";
+import { COERCE_STRINGS, enumLeaf, gen, singleKeys, uniqueIds, variants, type Case, NAN, INF, NEG_INF, nonFinite } from "./_lib.ts";
 import { ID, ID2, ID3, INGREDIENT, PUBLIC_USER, RECIPE, STEP, TAG, TS, rep } from "./_fixtures.ts";
 
 const INGREDIENT_RECORD = { ...INGREDIENT, id: ID, recipeId: ID2 };
@@ -366,4 +366,14 @@ export const cases: Case[] = uniqueIds([
     allNull: { recipeId: ID, factor: 1, servingsAmount: 1, servingsUnit: null, ingredients: [] },
     extra: { "factor-zero": { recipeId: ID, factor: 0, servingsAmount: 1, ingredients: [] }, "servings-zero": { recipeId: ID, factor: 1, servingsAmount: 0, ingredients: [] }, "ingredient-bad": { recipeId: ID, factor: 1, servingsAmount: 1, ingredients: [{ name: "" }] } },
   }),
+  ...nonFinite("CreateRecipeRequestSchema", { ...CREATE, ingredients: [{ ...CREATE.ingredients[0], quantityMax: 250 }] }),
+  ...nonFinite("UpdateRecipeRequestSchema", { ...CREATE, ingredients: [{ ...CREATE.ingredients[0], quantityMax: 250 }] }),
+  ...variants("RecipeListQuerySchema", {}, "nonfinite-", [["offset", NAN], ["offset", INF], ["offset", NEG_INF]]),
+  ...nonFinite("RecipeListResponseSchema", { items: [LIST_ITEM], total: 1, limit: 24, offset: 0 }),
+  ...nonFinite("RecipeResponseSchema", { recipe: DETAIL }),
+  ...nonFinite("TagResponseSchema", { tag: TAG }),
+  ...nonFinite("TagListResponseSchema", { items: [TAG] }),
+  ...nonFinite("CollectionResponseSchema", { collection: COLLECTION }),
+  ...nonFinite("CollectionListResponseSchema", { items: [COLLECTION] }),
+  ...nonFinite("CollectionDetailResponseSchema", { collection: COLLECTION, recipes: [LIST_ITEM] }),
 ]);

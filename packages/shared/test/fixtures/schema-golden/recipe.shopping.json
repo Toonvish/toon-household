@@ -9130,6 +9130,630 @@
       "ok": false,
       "issues": [{"code":"invalid_value","path":["includeHidden"]}],
       "details": {"de":[{"path":"includeHidden","code":"invalid_value","message":"Eingabe ist ungültig","i18n":{"key":"server.zod.fallback","values":{"field":"includeHidden","facet":"_"}}}],"en":[{"path":"includeHidden","code":"invalid_value","message":"Input is invalid","i18n":{"key":"server.zod.fallback","values":{"field":"includeHidden","facet":"_"}}}]}
+    },
+    {
+      "id": "ShoppingListResponseSchema#nonfinite:list.itemCount=NaN",
+      "schema": "ShoppingListResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":{"$number":"NaN"},"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["list","itemCount"],"expected":"number"}],
+      "details": {"de":[{"path":"list.itemCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"itemCount","facet":"number"}}}],"en":[{"path":"list.itemCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"itemCount","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListResponseSchema#nonfinite:list.itemCount=Infinity",
+      "schema": "ShoppingListResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":{"$number":"Infinity"},"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["list","itemCount"],"expected":"number"}],
+      "details": {"de":[{"path":"list.itemCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"itemCount","facet":"number"}}}],"en":[{"path":"list.itemCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"itemCount","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListResponseSchema#nonfinite:list.itemCount=-Infinity",
+      "schema": "ShoppingListResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":{"$number":"-Infinity"},"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["list","itemCount"],"expected":"number"}],
+      "details": {"de":[{"path":"list.itemCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"itemCount","facet":"number"}}}],"en":[{"path":"list.itemCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"itemCount","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListResponseSchema#nonfinite:list.boughtCount=NaN",
+      "schema": "ShoppingListResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":{"$number":"NaN"},"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["list","boughtCount"],"expected":"number"}],
+      "details": {"de":[{"path":"list.boughtCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"boughtCount","facet":"number"}}}],"en":[{"path":"list.boughtCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"boughtCount","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListResponseSchema#nonfinite:list.boughtCount=Infinity",
+      "schema": "ShoppingListResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":{"$number":"Infinity"},"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["list","boughtCount"],"expected":"number"}],
+      "details": {"de":[{"path":"list.boughtCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"boughtCount","facet":"number"}}}],"en":[{"path":"list.boughtCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"boughtCount","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListResponseSchema#nonfinite:list.boughtCount=-Infinity",
+      "schema": "ShoppingListResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":{"$number":"-Infinity"},"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["list","boughtCount"],"expected":"number"}],
+      "details": {"de":[{"path":"list.boughtCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"boughtCount","facet":"number"}}}],"en":[{"path":"list.boughtCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"boughtCount","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListResponseSchema#nonfinite:list.previewItems.0.quantity=NaN",
+      "schema": "ShoppingListResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":{"$number":"NaN"},"unit":"l"}]}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["list","previewItems",0,"quantity"],"expected":"number"}],
+      "details": {"de":[{"path":"list.previewItems.0.quantity","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}],"en":[{"path":"list.previewItems.0.quantity","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListResponseSchema#nonfinite:list.previewItems.0.quantity=Infinity",
+      "schema": "ShoppingListResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":{"$number":"Infinity"},"unit":"l"}]}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["list","previewItems",0,"quantity"],"expected":"number"}],
+      "details": {"de":[{"path":"list.previewItems.0.quantity","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}],"en":[{"path":"list.previewItems.0.quantity","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListResponseSchema#nonfinite:list.previewItems.0.quantity=-Infinity",
+      "schema": "ShoppingListResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":{"$number":"-Infinity"},"unit":"l"}]}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["list","previewItems",0,"quantity"],"expected":"number"}],
+      "details": {"de":[{"path":"list.previewItems.0.quantity","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}],"en":[{"path":"list.previewItems.0.quantity","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListListResponseSchema#nonfinite:items.0.itemCount=NaN",
+      "schema": "ShoppingListListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":{"$number":"NaN"},"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"itemCount"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.itemCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"itemCount","facet":"number"}}}],"en":[{"path":"items.0.itemCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"itemCount","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListListResponseSchema#nonfinite:items.0.itemCount=Infinity",
+      "schema": "ShoppingListListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":{"$number":"Infinity"},"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"itemCount"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.itemCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"itemCount","facet":"number"}}}],"en":[{"path":"items.0.itemCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"itemCount","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListListResponseSchema#nonfinite:items.0.itemCount=-Infinity",
+      "schema": "ShoppingListListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":{"$number":"-Infinity"},"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"itemCount"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.itemCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"itemCount","facet":"number"}}}],"en":[{"path":"items.0.itemCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"itemCount","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListListResponseSchema#nonfinite:items.0.boughtCount=NaN",
+      "schema": "ShoppingListListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":{"$number":"NaN"},"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"boughtCount"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.boughtCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"boughtCount","facet":"number"}}}],"en":[{"path":"items.0.boughtCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"boughtCount","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListListResponseSchema#nonfinite:items.0.boughtCount=Infinity",
+      "schema": "ShoppingListListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":{"$number":"Infinity"},"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"boughtCount"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.boughtCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"boughtCount","facet":"number"}}}],"en":[{"path":"items.0.boughtCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"boughtCount","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListListResponseSchema#nonfinite:items.0.boughtCount=-Infinity",
+      "schema": "ShoppingListListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":{"$number":"-Infinity"},"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"boughtCount"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.boughtCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"boughtCount","facet":"number"}}}],"en":[{"path":"items.0.boughtCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"boughtCount","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListListResponseSchema#nonfinite:items.0.previewItems.0.quantity=NaN",
+      "schema": "ShoppingListListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":{"$number":"NaN"},"unit":"l"}]}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"previewItems",0,"quantity"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.previewItems.0.quantity","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}],"en":[{"path":"items.0.previewItems.0.quantity","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListListResponseSchema#nonfinite:items.0.previewItems.0.quantity=Infinity",
+      "schema": "ShoppingListListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":{"$number":"Infinity"},"unit":"l"}]}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"previewItems",0,"quantity"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.previewItems.0.quantity","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}],"en":[{"path":"items.0.previewItems.0.quantity","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListListResponseSchema#nonfinite:items.0.previewItems.0.quantity=-Infinity",
+      "schema": "ShoppingListListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":{"$number":"-Infinity"},"unit":"l"}]}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"previewItems",0,"quantity"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.previewItems.0.quantity","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}],"en":[{"path":"items.0.previewItems.0.quantity","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:list.itemCount=NaN",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":{"$number":"NaN"},"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":5,"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["list","itemCount"],"expected":"number"}],
+      "details": {"de":[{"path":"list.itemCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"itemCount","facet":"number"}}}],"en":[{"path":"list.itemCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"itemCount","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:list.itemCount=Infinity",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":{"$number":"Infinity"},"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":5,"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["list","itemCount"],"expected":"number"}],
+      "details": {"de":[{"path":"list.itemCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"itemCount","facet":"number"}}}],"en":[{"path":"list.itemCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"itemCount","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:list.itemCount=-Infinity",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":{"$number":"-Infinity"},"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":5,"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["list","itemCount"],"expected":"number"}],
+      "details": {"de":[{"path":"list.itemCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"itemCount","facet":"number"}}}],"en":[{"path":"list.itemCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"itemCount","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:list.boughtCount=NaN",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":{"$number":"NaN"},"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":5,"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["list","boughtCount"],"expected":"number"}],
+      "details": {"de":[{"path":"list.boughtCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"boughtCount","facet":"number"}}}],"en":[{"path":"list.boughtCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"boughtCount","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:list.boughtCount=Infinity",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":{"$number":"Infinity"},"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":5,"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["list","boughtCount"],"expected":"number"}],
+      "details": {"de":[{"path":"list.boughtCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"boughtCount","facet":"number"}}}],"en":[{"path":"list.boughtCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"boughtCount","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:list.boughtCount=-Infinity",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":{"$number":"-Infinity"},"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":5,"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["list","boughtCount"],"expected":"number"}],
+      "details": {"de":[{"path":"list.boughtCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"boughtCount","facet":"number"}}}],"en":[{"path":"list.boughtCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"boughtCount","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:list.previewItems.0.quantity=NaN",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":{"$number":"NaN"},"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":5,"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["list","previewItems",0,"quantity"],"expected":"number"}],
+      "details": {"de":[{"path":"list.previewItems.0.quantity","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}],"en":[{"path":"list.previewItems.0.quantity","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:list.previewItems.0.quantity=Infinity",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":{"$number":"Infinity"},"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":5,"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["list","previewItems",0,"quantity"],"expected":"number"}],
+      "details": {"de":[{"path":"list.previewItems.0.quantity","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}],"en":[{"path":"list.previewItems.0.quantity","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:list.previewItems.0.quantity=-Infinity",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":{"$number":"-Infinity"},"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":5,"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["list","previewItems",0,"quantity"],"expected":"number"}],
+      "details": {"de":[{"path":"list.previewItems.0.quantity","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}],"en":[{"path":"list.previewItems.0.quantity","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:items.0.quantity=NaN",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":{"$number":"NaN"},"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":5,"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"quantity"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.quantity","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}],"en":[{"path":"items.0.quantity","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:items.0.quantity=Infinity",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":{"$number":"Infinity"},"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":5,"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"quantity"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.quantity","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}],"en":[{"path":"items.0.quantity","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:items.0.quantity=-Infinity",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":{"$number":"-Infinity"},"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":5,"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"quantity"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.quantity","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}],"en":[{"path":"items.0.quantity","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:items.0.position=NaN",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":{"$number":"NaN"},"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":5,"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"position"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"items.0.position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:items.0.position=Infinity",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":{"$number":"Infinity"},"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":5,"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"position"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"items.0.position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:items.0.position=-Infinity",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":{"$number":"-Infinity"},"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":5,"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"position"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"items.0.position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:catalog.0.useCount=NaN",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":{"$number":"NaN"},"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":5,"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["catalog",0,"useCount"],"expected":"number"}],
+      "details": {"de":[{"path":"catalog.0.useCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"useCount","facet":"number"}}}],"en":[{"path":"catalog.0.useCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"useCount","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:catalog.0.useCount=Infinity",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":{"$number":"Infinity"},"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":5,"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["catalog",0,"useCount"],"expected":"number"}],
+      "details": {"de":[{"path":"catalog.0.useCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"useCount","facet":"number"}}}],"en":[{"path":"catalog.0.useCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"useCount","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:catalog.0.useCount=-Infinity",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":{"$number":"-Infinity"},"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":5,"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["catalog",0,"useCount"],"expected":"number"}],
+      "details": {"de":[{"path":"catalog.0.useCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"useCount","facet":"number"}}}],"en":[{"path":"catalog.0.useCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"useCount","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:bought.0.quantity=NaN",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":{"$number":"NaN"},"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":5,"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["bought",0,"quantity"],"expected":"number"}],
+      "details": {"de":[{"path":"bought.0.quantity","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}],"en":[{"path":"bought.0.quantity","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:bought.0.quantity=Infinity",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":{"$number":"Infinity"},"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":5,"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["bought",0,"quantity"],"expected":"number"}],
+      "details": {"de":[{"path":"bought.0.quantity","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}],"en":[{"path":"bought.0.quantity","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:bought.0.quantity=-Infinity",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":{"$number":"-Infinity"},"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":5,"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["bought",0,"quantity"],"expected":"number"}],
+      "details": {"de":[{"path":"bought.0.quantity","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}],"en":[{"path":"bought.0.quantity","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:recipes.0.servings=NaN",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":{"$number":"NaN"},"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":5,"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["recipes",0,"servings"],"expected":"number"}],
+      "details": {"de":[{"path":"recipes.0.servings","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}],"en":[{"path":"recipes.0.servings","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:recipes.0.servings=Infinity",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":{"$number":"Infinity"},"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":5,"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["recipes",0,"servings"],"expected":"number"}],
+      "details": {"de":[{"path":"recipes.0.servings","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}],"en":[{"path":"recipes.0.servings","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:recipes.0.servings=-Infinity",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":{"$number":"-Infinity"},"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":5,"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["recipes",0,"servings"],"expected":"number"}],
+      "details": {"de":[{"path":"recipes.0.servings","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}],"en":[{"path":"recipes.0.servings","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:recipes.0.ingredientTotal=NaN",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":{"$number":"NaN"},"onListCount":5,"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["recipes",0,"ingredientTotal"],"expected":"number"}],
+      "details": {"de":[{"path":"recipes.0.ingredientTotal","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"ingredientTotal","facet":"number"}}}],"en":[{"path":"recipes.0.ingredientTotal","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"ingredientTotal","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:recipes.0.ingredientTotal=Infinity",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":{"$number":"Infinity"},"onListCount":5,"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["recipes",0,"ingredientTotal"],"expected":"number"}],
+      "details": {"de":[{"path":"recipes.0.ingredientTotal","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"ingredientTotal","facet":"number"}}}],"en":[{"path":"recipes.0.ingredientTotal","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"ingredientTotal","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:recipes.0.ingredientTotal=-Infinity",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":{"$number":"-Infinity"},"onListCount":5,"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["recipes",0,"ingredientTotal"],"expected":"number"}],
+      "details": {"de":[{"path":"recipes.0.ingredientTotal","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"ingredientTotal","facet":"number"}}}],"en":[{"path":"recipes.0.ingredientTotal","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"ingredientTotal","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:recipes.0.onListCount=NaN",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":{"$number":"NaN"},"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["recipes",0,"onListCount"],"expected":"number"}],
+      "details": {"de":[{"path":"recipes.0.onListCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"onListCount","facet":"number"}}}],"en":[{"path":"recipes.0.onListCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"onListCount","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:recipes.0.onListCount=Infinity",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":{"$number":"Infinity"},"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["recipes",0,"onListCount"],"expected":"number"}],
+      "details": {"de":[{"path":"recipes.0.onListCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"onListCount","facet":"number"}}}],"en":[{"path":"recipes.0.onListCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"onListCount","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:recipes.0.onListCount=-Infinity",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":{"$number":"-Infinity"},"sharedCount":1,"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["recipes",0,"onListCount"],"expected":"number"}],
+      "details": {"de":[{"path":"recipes.0.onListCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"onListCount","facet":"number"}}}],"en":[{"path":"recipes.0.onListCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"onListCount","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:recipes.0.sharedCount=NaN",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":5,"sharedCount":{"$number":"NaN"},"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["recipes",0,"sharedCount"],"expected":"number"}],
+      "details": {"de":[{"path":"recipes.0.sharedCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"sharedCount","facet":"number"}}}],"en":[{"path":"recipes.0.sharedCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"sharedCount","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:recipes.0.sharedCount=Infinity",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":5,"sharedCount":{"$number":"Infinity"},"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["recipes",0,"sharedCount"],"expected":"number"}],
+      "details": {"de":[{"path":"recipes.0.sharedCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"sharedCount","facet":"number"}}}],"en":[{"path":"recipes.0.sharedCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"sharedCount","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingListDetailResponseSchema#nonfinite:recipes.0.sharedCount=-Infinity",
+      "schema": "ShoppingListDetailResponseSchema",
+      "input": {"list":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Wocheneinkauf","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","itemCount":3,"boughtCount":1,"boughtClearedAt":"2026-10-16T12:00:00.000Z","previewItems":[{"name":"Milch","quantity":1,"unit":"l"}]},"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1.5,"unit":"l","note":"bio","position":0,"sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"],"sources":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe"}],"createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z"}],"catalog":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","unit":"l","useCount":3,"lastUsedAt":"2026-10-16T12:00:00.000Z","hiddenAt":"2026-10-16T12:00:00.000Z"}],"bought":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","servings":4,"servingsUnit":"Portionen","ingredientTotal":8,"onListCount":5,"sharedCount":{"$number":"-Infinity"},"addedAt":"2026-10-16T12:00:00.000Z"}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["recipes",0,"sharedCount"],"expected":"number"}],
+      "details": {"de":[{"path":"recipes.0.sharedCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"sharedCount","facet":"number"}}}],"en":[{"path":"recipes.0.sharedCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"sharedCount","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingBoughtListResponseSchema#nonfinite:items.0.quantity=NaN",
+      "schema": "ShoppingBoughtListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":{"$number":"NaN"},"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"total":1,"limit":24,"offset":0},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"quantity"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.quantity","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}],"en":[{"path":"items.0.quantity","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingBoughtListResponseSchema#nonfinite:items.0.quantity=Infinity",
+      "schema": "ShoppingBoughtListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":{"$number":"Infinity"},"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"total":1,"limit":24,"offset":0},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"quantity"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.quantity","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}],"en":[{"path":"items.0.quantity","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingBoughtListResponseSchema#nonfinite:items.0.quantity=-Infinity",
+      "schema": "ShoppingBoughtListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":{"$number":"-Infinity"},"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"total":1,"limit":24,"offset":0},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"quantity"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.quantity","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}],"en":[{"path":"items.0.quantity","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingBoughtListResponseSchema#nonfinite:total=NaN",
+      "schema": "ShoppingBoughtListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"total":{"$number":"NaN"},"limit":24,"offset":0},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["total"],"expected":"number"}],
+      "details": {"de":[{"path":"total","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"total","facet":"number"}}}],"en":[{"path":"total","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"total","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingBoughtListResponseSchema#nonfinite:total=Infinity",
+      "schema": "ShoppingBoughtListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"total":{"$number":"Infinity"},"limit":24,"offset":0},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["total"],"expected":"number"}],
+      "details": {"de":[{"path":"total","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"total","facet":"number"}}}],"en":[{"path":"total","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"total","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingBoughtListResponseSchema#nonfinite:total=-Infinity",
+      "schema": "ShoppingBoughtListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"total":{"$number":"-Infinity"},"limit":24,"offset":0},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["total"],"expected":"number"}],
+      "details": {"de":[{"path":"total","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"total","facet":"number"}}}],"en":[{"path":"total","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"total","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingBoughtListResponseSchema#nonfinite:limit=NaN",
+      "schema": "ShoppingBoughtListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"total":1,"limit":{"$number":"NaN"},"offset":0},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["limit"],"expected":"number"}],
+      "details": {"de":[{"path":"limit","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}],"en":[{"path":"limit","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingBoughtListResponseSchema#nonfinite:limit=Infinity",
+      "schema": "ShoppingBoughtListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"total":1,"limit":{"$number":"Infinity"},"offset":0},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["limit"],"expected":"number"}],
+      "details": {"de":[{"path":"limit","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}],"en":[{"path":"limit","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingBoughtListResponseSchema#nonfinite:limit=-Infinity",
+      "schema": "ShoppingBoughtListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"total":1,"limit":{"$number":"-Infinity"},"offset":0},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["limit"],"expected":"number"}],
+      "details": {"de":[{"path":"limit","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}],"en":[{"path":"limit","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"limit","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingBoughtListResponseSchema#nonfinite:offset=NaN",
+      "schema": "ShoppingBoughtListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"total":1,"limit":24,"offset":{"$number":"NaN"}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["offset"],"expected":"number"}],
+      "details": {"de":[{"path":"offset","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}],"en":[{"path":"offset","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingBoughtListResponseSchema#nonfinite:offset=Infinity",
+      "schema": "ShoppingBoughtListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"total":1,"limit":24,"offset":{"$number":"Infinity"}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["offset"],"expected":"number"}],
+      "details": {"de":[{"path":"offset","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}],"en":[{"path":"offset","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}]}
+    },
+    {
+      "id": "ShoppingBoughtListResponseSchema#nonfinite:offset=-Infinity",
+      "schema": "ShoppingBoughtListResponseSchema",
+      "input": {"items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","name":"Milch","quantity":1,"unit":"l","note":"bio","boughtBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","boughtByName":"Anna","boughtAt":"2026-10-16T12:00:00.000Z","sourceRecipeIds":["b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"]}],"total":1,"limit":24,"offset":{"$number":"-Infinity"}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["offset"],"expected":"number"}],
+      "details": {"de":[{"path":"offset","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}],"en":[{"path":"offset","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}]}
+    },
+    {
+      "id": "PlanShoppingPreviewResponseSchema#nonfinite:totalMissingCount=NaN",
+      "schema": "PlanShoppingPreviewResponseSchema",
+      "input": {"listId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listName":"Woche","from":"2026-10-01","to":"2026-10-07","totalMissingCount":{"$number":"NaN"},"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","plannedOn":"2026-10-16","servings":4,"ingredientTotal":8,"missingCount":1,"missingIngredientIds":["6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"],"missingIngredients":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"Linsen","quantity":200,"unit":"g"}]}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["totalMissingCount"],"expected":"number"}],
+      "details": {"de":[{"path":"totalMissingCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"totalMissingCount","facet":"number"}}}],"en":[{"path":"totalMissingCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"totalMissingCount","facet":"number"}}}]}
+    },
+    {
+      "id": "PlanShoppingPreviewResponseSchema#nonfinite:totalMissingCount=Infinity",
+      "schema": "PlanShoppingPreviewResponseSchema",
+      "input": {"listId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listName":"Woche","from":"2026-10-01","to":"2026-10-07","totalMissingCount":{"$number":"Infinity"},"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","plannedOn":"2026-10-16","servings":4,"ingredientTotal":8,"missingCount":1,"missingIngredientIds":["6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"],"missingIngredients":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"Linsen","quantity":200,"unit":"g"}]}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["totalMissingCount"],"expected":"number"}],
+      "details": {"de":[{"path":"totalMissingCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"totalMissingCount","facet":"number"}}}],"en":[{"path":"totalMissingCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"totalMissingCount","facet":"number"}}}]}
+    },
+    {
+      "id": "PlanShoppingPreviewResponseSchema#nonfinite:totalMissingCount=-Infinity",
+      "schema": "PlanShoppingPreviewResponseSchema",
+      "input": {"listId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listName":"Woche","from":"2026-10-01","to":"2026-10-07","totalMissingCount":{"$number":"-Infinity"},"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","plannedOn":"2026-10-16","servings":4,"ingredientTotal":8,"missingCount":1,"missingIngredientIds":["6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"],"missingIngredients":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"Linsen","quantity":200,"unit":"g"}]}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["totalMissingCount"],"expected":"number"}],
+      "details": {"de":[{"path":"totalMissingCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"totalMissingCount","facet":"number"}}}],"en":[{"path":"totalMissingCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"totalMissingCount","facet":"number"}}}]}
+    },
+    {
+      "id": "PlanShoppingPreviewResponseSchema#nonfinite:recipes.0.servings=NaN",
+      "schema": "PlanShoppingPreviewResponseSchema",
+      "input": {"listId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listName":"Woche","from":"2026-10-01","to":"2026-10-07","totalMissingCount":1,"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","plannedOn":"2026-10-16","servings":{"$number":"NaN"},"ingredientTotal":8,"missingCount":1,"missingIngredientIds":["6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"],"missingIngredients":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"Linsen","quantity":200,"unit":"g"}]}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["recipes",0,"servings"],"expected":"number"}],
+      "details": {"de":[{"path":"recipes.0.servings","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}],"en":[{"path":"recipes.0.servings","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}]}
+    },
+    {
+      "id": "PlanShoppingPreviewResponseSchema#nonfinite:recipes.0.servings=Infinity",
+      "schema": "PlanShoppingPreviewResponseSchema",
+      "input": {"listId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listName":"Woche","from":"2026-10-01","to":"2026-10-07","totalMissingCount":1,"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","plannedOn":"2026-10-16","servings":{"$number":"Infinity"},"ingredientTotal":8,"missingCount":1,"missingIngredientIds":["6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"],"missingIngredients":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"Linsen","quantity":200,"unit":"g"}]}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["recipes",0,"servings"],"expected":"number"}],
+      "details": {"de":[{"path":"recipes.0.servings","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}],"en":[{"path":"recipes.0.servings","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}]}
+    },
+    {
+      "id": "PlanShoppingPreviewResponseSchema#nonfinite:recipes.0.servings=-Infinity",
+      "schema": "PlanShoppingPreviewResponseSchema",
+      "input": {"listId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listName":"Woche","from":"2026-10-01","to":"2026-10-07","totalMissingCount":1,"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","plannedOn":"2026-10-16","servings":{"$number":"-Infinity"},"ingredientTotal":8,"missingCount":1,"missingIngredientIds":["6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"],"missingIngredients":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"Linsen","quantity":200,"unit":"g"}]}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["recipes",0,"servings"],"expected":"number"}],
+      "details": {"de":[{"path":"recipes.0.servings","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}],"en":[{"path":"recipes.0.servings","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}]}
+    },
+    {
+      "id": "PlanShoppingPreviewResponseSchema#nonfinite:recipes.0.ingredientTotal=NaN",
+      "schema": "PlanShoppingPreviewResponseSchema",
+      "input": {"listId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listName":"Woche","from":"2026-10-01","to":"2026-10-07","totalMissingCount":1,"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","plannedOn":"2026-10-16","servings":4,"ingredientTotal":{"$number":"NaN"},"missingCount":1,"missingIngredientIds":["6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"],"missingIngredients":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"Linsen","quantity":200,"unit":"g"}]}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["recipes",0,"ingredientTotal"],"expected":"number"}],
+      "details": {"de":[{"path":"recipes.0.ingredientTotal","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"ingredientTotal","facet":"number"}}}],"en":[{"path":"recipes.0.ingredientTotal","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"ingredientTotal","facet":"number"}}}]}
+    },
+    {
+      "id": "PlanShoppingPreviewResponseSchema#nonfinite:recipes.0.ingredientTotal=Infinity",
+      "schema": "PlanShoppingPreviewResponseSchema",
+      "input": {"listId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listName":"Woche","from":"2026-10-01","to":"2026-10-07","totalMissingCount":1,"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","plannedOn":"2026-10-16","servings":4,"ingredientTotal":{"$number":"Infinity"},"missingCount":1,"missingIngredientIds":["6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"],"missingIngredients":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"Linsen","quantity":200,"unit":"g"}]}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["recipes",0,"ingredientTotal"],"expected":"number"}],
+      "details": {"de":[{"path":"recipes.0.ingredientTotal","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"ingredientTotal","facet":"number"}}}],"en":[{"path":"recipes.0.ingredientTotal","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"ingredientTotal","facet":"number"}}}]}
+    },
+    {
+      "id": "PlanShoppingPreviewResponseSchema#nonfinite:recipes.0.ingredientTotal=-Infinity",
+      "schema": "PlanShoppingPreviewResponseSchema",
+      "input": {"listId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listName":"Woche","from":"2026-10-01","to":"2026-10-07","totalMissingCount":1,"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","plannedOn":"2026-10-16","servings":4,"ingredientTotal":{"$number":"-Infinity"},"missingCount":1,"missingIngredientIds":["6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"],"missingIngredients":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"Linsen","quantity":200,"unit":"g"}]}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["recipes",0,"ingredientTotal"],"expected":"number"}],
+      "details": {"de":[{"path":"recipes.0.ingredientTotal","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"ingredientTotal","facet":"number"}}}],"en":[{"path":"recipes.0.ingredientTotal","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"ingredientTotal","facet":"number"}}}]}
+    },
+    {
+      "id": "PlanShoppingPreviewResponseSchema#nonfinite:recipes.0.missingCount=NaN",
+      "schema": "PlanShoppingPreviewResponseSchema",
+      "input": {"listId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listName":"Woche","from":"2026-10-01","to":"2026-10-07","totalMissingCount":1,"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","plannedOn":"2026-10-16","servings":4,"ingredientTotal":8,"missingCount":{"$number":"NaN"},"missingIngredientIds":["6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"],"missingIngredients":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"Linsen","quantity":200,"unit":"g"}]}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["recipes",0,"missingCount"],"expected":"number"}],
+      "details": {"de":[{"path":"recipes.0.missingCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"missingCount","facet":"number"}}}],"en":[{"path":"recipes.0.missingCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"missingCount","facet":"number"}}}]}
+    },
+    {
+      "id": "PlanShoppingPreviewResponseSchema#nonfinite:recipes.0.missingCount=Infinity",
+      "schema": "PlanShoppingPreviewResponseSchema",
+      "input": {"listId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listName":"Woche","from":"2026-10-01","to":"2026-10-07","totalMissingCount":1,"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","plannedOn":"2026-10-16","servings":4,"ingredientTotal":8,"missingCount":{"$number":"Infinity"},"missingIngredientIds":["6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"],"missingIngredients":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"Linsen","quantity":200,"unit":"g"}]}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["recipes",0,"missingCount"],"expected":"number"}],
+      "details": {"de":[{"path":"recipes.0.missingCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"missingCount","facet":"number"}}}],"en":[{"path":"recipes.0.missingCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"missingCount","facet":"number"}}}]}
+    },
+    {
+      "id": "PlanShoppingPreviewResponseSchema#nonfinite:recipes.0.missingCount=-Infinity",
+      "schema": "PlanShoppingPreviewResponseSchema",
+      "input": {"listId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listName":"Woche","from":"2026-10-01","to":"2026-10-07","totalMissingCount":1,"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","plannedOn":"2026-10-16","servings":4,"ingredientTotal":8,"missingCount":{"$number":"-Infinity"},"missingIngredientIds":["6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"],"missingIngredients":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"Linsen","quantity":200,"unit":"g"}]}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["recipes",0,"missingCount"],"expected":"number"}],
+      "details": {"de":[{"path":"recipes.0.missingCount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"missingCount","facet":"number"}}}],"en":[{"path":"recipes.0.missingCount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"missingCount","facet":"number"}}}]}
+    },
+    {
+      "id": "PlanShoppingPreviewResponseSchema#nonfinite:recipes.0.missingIngredients.0.quantity=NaN",
+      "schema": "PlanShoppingPreviewResponseSchema",
+      "input": {"listId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listName":"Woche","from":"2026-10-01","to":"2026-10-07","totalMissingCount":1,"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","plannedOn":"2026-10-16","servings":4,"ingredientTotal":8,"missingCount":1,"missingIngredientIds":["6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"],"missingIngredients":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"Linsen","quantity":{"$number":"NaN"},"unit":"g"}]}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["recipes",0,"missingIngredients",0,"quantity"],"expected":"number"}],
+      "details": {"de":[{"path":"recipes.0.missingIngredients.0.quantity","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}],"en":[{"path":"recipes.0.missingIngredients.0.quantity","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}]}
+    },
+    {
+      "id": "PlanShoppingPreviewResponseSchema#nonfinite:recipes.0.missingIngredients.0.quantity=Infinity",
+      "schema": "PlanShoppingPreviewResponseSchema",
+      "input": {"listId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listName":"Woche","from":"2026-10-01","to":"2026-10-07","totalMissingCount":1,"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","plannedOn":"2026-10-16","servings":4,"ingredientTotal":8,"missingCount":1,"missingIngredientIds":["6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"],"missingIngredients":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"Linsen","quantity":{"$number":"Infinity"},"unit":"g"}]}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["recipes",0,"missingIngredients",0,"quantity"],"expected":"number"}],
+      "details": {"de":[{"path":"recipes.0.missingIngredients.0.quantity","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}],"en":[{"path":"recipes.0.missingIngredients.0.quantity","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}]}
+    },
+    {
+      "id": "PlanShoppingPreviewResponseSchema#nonfinite:recipes.0.missingIngredients.0.quantity=-Infinity",
+      "schema": "PlanShoppingPreviewResponseSchema",
+      "input": {"listId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","listName":"Woche","from":"2026-10-01","to":"2026-10-07","totalMissingCount":1,"recipes":[{"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/t.webp","plannedOn":"2026-10-16","servings":4,"ingredientTotal":8,"missingCount":1,"missingIngredientIds":["6f1d3f2e-4b5a-4c6d-9e8f-123456789abc"],"missingIngredients":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","name":"Linsen","quantity":{"$number":"-Infinity"},"unit":"g"}]}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["recipes",0,"missingIngredients",0,"quantity"],"expected":"number"}],
+      "details": {"de":[{"path":"recipes.0.missingIngredients.0.quantity","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}],"en":[{"path":"recipes.0.missingIngredients.0.quantity","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"quantity","facet":"number"}}}]}
     }
   ]
 }

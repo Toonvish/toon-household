@@ -7342,6 +7342,30 @@
       "ok": false,
       "issues": [{"code":"invalid_type","path":["settlementTotalCents"],"expected":"int"}],
       "details": {"de":[{"path":"settlementTotalCents","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"settlementTotalCents","facet":"int"}}}],"en":[{"path":"settlementTotalCents","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"settlementTotalCents","facet":"int"}}}]}
+    },
+    {
+      "id": "TransactionListQuerySchema#nonfinite-offset=NaN",
+      "schema": "TransactionListQuerySchema",
+      "input": {"offset":{"$number":"NaN"}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["offset"],"expected":"number"}],
+      "details": {"de":[{"path":"offset","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}],"en":[{"path":"offset","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}]}
+    },
+    {
+      "id": "TransactionListQuerySchema#nonfinite-offset=Infinity",
+      "schema": "TransactionListQuerySchema",
+      "input": {"offset":{"$number":"Infinity"}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["offset"],"expected":"number"}],
+      "details": {"de":[{"path":"offset","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}],"en":[{"path":"offset","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}]}
+    },
+    {
+      "id": "TransactionListQuerySchema#nonfinite-offset=-Infinity",
+      "schema": "TransactionListQuerySchema",
+      "input": {"offset":{"$number":"-Infinity"}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["offset"],"expected":"number"}],
+      "details": {"de":[{"path":"offset","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}],"en":[{"path":"offset","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"offset","facet":"number"}}}]}
     }
   ]
 }

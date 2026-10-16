@@ -1,4 +1,4 @@
-import { COERCE_STRINGS, enumLeaf, gen, numberLeaf, probe, uniqueIds, variants, type Case } from "./_lib.ts";
+import { COERCE_STRINGS, enumLeaf, gen, numberLeaf, probe, uniqueIds, variants, type Case, nonFinite } from "./_lib.ts";
 import { ID, ID2, ID3, INGREDIENT, RECIPE, STEP, TAG, TS, PUBLIC_USER, rep } from "./_fixtures.ts";
 
 const CONFIDENCE = { overall: 0.9, title: 1, description: 0.5, ingredients: 0.8, steps: 0.7, servings: 0, times: 0.25, image: 0.1 };
@@ -239,4 +239,11 @@ export const cases: Case[] = uniqueIds([
     depth: 0,
     extra: { full: { recipe: DETAIL, draft: DRAFT }, "recipe-bad": { recipe: { id: "x" }, draft: DRAFT_MINIMAL }, "draft-bad": { recipe: DETAIL_MINIMAL, draft: { id: "x" } }, "both-bad": { recipe: 1, draft: 2 } },
   }),
+  ...nonFinite("ParsedRecipeSchema", PARSED),
+  ...nonFinite("ImportDraftSchema", DRAFT),
+  ...nonFinite("UpdateImportDraftRequestSchema", { parsed: PARSED, status: "reviewed" }),
+  ...nonFinite("CommitImportDraftRequestSchema", { parsed: PARSED, tags: ["a"], collectionIds: [ID] }),
+  ...nonFinite("ImportDraftResponseSchema", { draft: DRAFT }),
+  ...nonFinite("ImportDraftListResponseSchema", { items: [DRAFT], total: 1, limit: 24, offset: 0 }),
+  ...nonFinite("CommitImportDraftResponseSchema", { recipe: DETAIL, draft: DRAFT }),
 ]);

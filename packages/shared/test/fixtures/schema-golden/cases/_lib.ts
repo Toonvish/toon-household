@@ -333,6 +333,30 @@ export function gen(schema: string, valid: unknown, options: GenOptions = {}): C
   return uniqueIds(cases);
 }
 
+/**
+ * NaN, Infinity and -Infinity (the `$number` marker) at every number leaf of the
+ * valid fixture `base` (arrays: their first element), plus at every dotted path
+ * of `extraPaths` (number fields a fixture leaves absent, e.g. `a.0.quantityMax`).
+ * Every other field stays valid, so each case isolates the one number.
+ */
+export function nonFinite(schema: string, base: unknown, extraPaths: readonly string[] = []): Case[] {
+  const paths: Path[] = nodesOf(base)
+    .filter((node) => typeof node.value === "number")
+    .map((node) => node.path);
+  for (const extra of extraPaths) paths.push(extra.split(".").map((part) => (/^\d+$/.test(part) ? Number(part) : part)));
+  const cases: Case[] = [];
+  const seen = new Set<string>();
+  for (const path of paths) {
+    const name = dotted(path);
+    if (seen.has(name)) continue;
+    seen.add(name);
+    for (const [label, value] of [["NaN", NAN], ["Infinity", INF], ["-Infinity", NEG_INF]] as const) {
+      cases.push({ id: `${schema}#nonfinite:${name}=${label}`, schema, input: setAt(base, path, value) });
+    }
+  }
+  return cases;
+}
+
 /** `value` with the given dotted paths replaced (hand-written variations of a fixture). */
 export function withPath(base: unknown, path: string, value: unknown): unknown {
   return setAt(base, path.split(".").map((part) => (/^\d+$/.test(part) ? Number(part) : part)), value);

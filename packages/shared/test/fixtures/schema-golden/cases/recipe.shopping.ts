@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { COERCE_STRINGS, gen, leaf, singleKeys, uniqueIds, type Case } from "./_lib.ts";
+import { COERCE_STRINGS, gen, leaf, singleKeys, uniqueIds, type Case, nonFinite } from "./_lib.ts";
 import { ID, ID2, ID3, SHOPPING_LIST, TS, rep } from "./_fixtures.ts";
 
 /**
@@ -236,4 +236,9 @@ export const cases: Case[] = uniqueIds([
       ["everything-bad", { limit: "0", offset: "-1", includeHidden: "yes" }],
     ]),
   }),
+  ...nonFinite("ShoppingListResponseSchema", { list: LIST }),
+  ...nonFinite("ShoppingListListResponseSchema", { items: [LIST] }),
+  ...nonFinite("ShoppingListDetailResponseSchema", { list: LIST, items: [ITEM], catalog: [CATALOG], bought: [BOUGHT], recipes: [LIST_RECIPE] }),
+  ...nonFinite("ShoppingBoughtListResponseSchema", { items: [BOUGHT], total: 1, limit: 24, offset: 0 }),
+  ...nonFinite("PlanShoppingPreviewResponseSchema", { listId: ID, listName: "Woche", from: "2026-10-01", to: "2026-10-07", totalMissingCount: 1, recipes: [PREVIEW_RECIPE] }),
 ]);

@@ -1,4 +1,4 @@
-import { gen, leaf, singleKeys, uniqueIds, type Case } from "./_lib.ts";
+import { gen, leaf, singleKeys, uniqueIds, type Case, nonFinite } from "./_lib.ts";
 import { ID, ID2, ID3, TS, rep } from "./_fixtures.ts";
 
 const PLAN_RECIPE = { id: ID, title: "Linsensuppe", thumbnailUrl: "/uploads/t.webp", totalMinutes: 40, servingsAmount: 4, servingsUnit: "Portionen" };
@@ -153,4 +153,7 @@ export const cases: Case[] = uniqueIds([
     allNull: { recipeId: ID, cookedAt: TS, lastCookedAt: TS, mealPlanEntry: null },
     extra: { full: { recipeId: ID, cookedAt: TS, lastCookedAt: TS, mealPlanEntry: ENTRY }, "entry-undefined": { recipeId: ID, cookedAt: TS, lastCookedAt: TS, mealPlanEntry: undefined }, "entry-bad": { recipeId: ID, cookedAt: TS, lastCookedAt: TS, mealPlanEntry: { id: "x" } } },
   }),
+  ...nonFinite("MealPlanEntryResponseSchema", { entry: ENTRY }),
+  ...nonFinite("MealPlanRangeResponseSchema", { from: "2026-10-01", to: "2026-10-31", items: [ENTRY] }),
+  ...nonFinite("RecipeCookedResponseSchema", { recipeId: ID, cookedAt: TS, lastCookedAt: TS, mealPlanEntry: ENTRY }),
 ]);

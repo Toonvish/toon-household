@@ -1,4 +1,4 @@
-import { COERCE_STRINGS, enumLeaf, gen, leaf, singleKeys, uniqueIds, variants, type Case } from "./_lib.ts";
+import { COERCE_STRINGS, enumLeaf, gen, leaf, singleKeys, uniqueIds, variants, type Case, NAN, INF, NEG_INF } from "./_lib.ts";
 import { BOOL_INPUTS } from "./finance.common.ts";
 import { ID, ID2, TS, TX, rep } from "./_fixtures.ts";
 
@@ -173,4 +173,5 @@ export const cases: Case[] = uniqueIds([
       "both-bad": { ...SUMMARY, byCategory: [1], byMonth: [2] },
     },
   }),
+  ...variants("TransactionListQuerySchema", {}, "nonfinite-", [["offset", NAN], ["offset", INF], ["offset", NEG_INF]]),
 ]);

@@ -3990,6 +3990,294 @@
       "ok": false,
       "issues": [{"code":"invalid_type","path":["mealPlanEntry","recipe","title"],"expected":"string"}],
       "details": {"de":[{"path":"mealPlanEntry.recipe.title","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"title","facet":"string"}}}],"en":[{"path":"mealPlanEntry.recipe.title","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"title","facet":"string"}}}]}
+    },
+    {
+      "id": "MealPlanEntryResponseSchema#nonfinite:entry.position=NaN",
+      "schema": "MealPlanEntryResponseSchema",
+      "input": {"entry":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":{"$number":"NaN"},"servings":4,"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":40,"servingsAmount":4,"servingsUnit":"Portionen"}}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["entry","position"],"expected":"number"}],
+      "details": {"de":[{"path":"entry.position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"entry.position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "MealPlanEntryResponseSchema#nonfinite:entry.position=Infinity",
+      "schema": "MealPlanEntryResponseSchema",
+      "input": {"entry":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":{"$number":"Infinity"},"servings":4,"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":40,"servingsAmount":4,"servingsUnit":"Portionen"}}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["entry","position"],"expected":"number"}],
+      "details": {"de":[{"path":"entry.position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"entry.position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "MealPlanEntryResponseSchema#nonfinite:entry.position=-Infinity",
+      "schema": "MealPlanEntryResponseSchema",
+      "input": {"entry":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":{"$number":"-Infinity"},"servings":4,"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":40,"servingsAmount":4,"servingsUnit":"Portionen"}}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["entry","position"],"expected":"number"}],
+      "details": {"de":[{"path":"entry.position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"entry.position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "MealPlanEntryResponseSchema#nonfinite:entry.servings=NaN",
+      "schema": "MealPlanEntryResponseSchema",
+      "input": {"entry":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":0,"servings":{"$number":"NaN"},"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":40,"servingsAmount":4,"servingsUnit":"Portionen"}}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["entry","servings"],"expected":"number"}],
+      "details": {"de":[{"path":"entry.servings","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}],"en":[{"path":"entry.servings","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}]}
+    },
+    {
+      "id": "MealPlanEntryResponseSchema#nonfinite:entry.servings=Infinity",
+      "schema": "MealPlanEntryResponseSchema",
+      "input": {"entry":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":0,"servings":{"$number":"Infinity"},"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":40,"servingsAmount":4,"servingsUnit":"Portionen"}}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["entry","servings"],"expected":"number"}],
+      "details": {"de":[{"path":"entry.servings","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}],"en":[{"path":"entry.servings","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}]}
+    },
+    {
+      "id": "MealPlanEntryResponseSchema#nonfinite:entry.servings=-Infinity",
+      "schema": "MealPlanEntryResponseSchema",
+      "input": {"entry":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":0,"servings":{"$number":"-Infinity"},"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":40,"servingsAmount":4,"servingsUnit":"Portionen"}}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["entry","servings"],"expected":"number"}],
+      "details": {"de":[{"path":"entry.servings","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}],"en":[{"path":"entry.servings","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}]}
+    },
+    {
+      "id": "MealPlanEntryResponseSchema#nonfinite:entry.recipe.totalMinutes=NaN",
+      "schema": "MealPlanEntryResponseSchema",
+      "input": {"entry":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":0,"servings":4,"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":{"$number":"NaN"},"servingsAmount":4,"servingsUnit":"Portionen"}}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["entry","recipe","totalMinutes"],"expected":"number"}],
+      "details": {"de":[{"path":"entry.recipe.totalMinutes","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"totalMinutes","facet":"number"}}}],"en":[{"path":"entry.recipe.totalMinutes","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"totalMinutes","facet":"number"}}}]}
+    },
+    {
+      "id": "MealPlanEntryResponseSchema#nonfinite:entry.recipe.totalMinutes=Infinity",
+      "schema": "MealPlanEntryResponseSchema",
+      "input": {"entry":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":0,"servings":4,"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":{"$number":"Infinity"},"servingsAmount":4,"servingsUnit":"Portionen"}}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["entry","recipe","totalMinutes"],"expected":"number"}],
+      "details": {"de":[{"path":"entry.recipe.totalMinutes","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"totalMinutes","facet":"number"}}}],"en":[{"path":"entry.recipe.totalMinutes","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"totalMinutes","facet":"number"}}}]}
+    },
+    {
+      "id": "MealPlanEntryResponseSchema#nonfinite:entry.recipe.totalMinutes=-Infinity",
+      "schema": "MealPlanEntryResponseSchema",
+      "input": {"entry":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":0,"servings":4,"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":{"$number":"-Infinity"},"servingsAmount":4,"servingsUnit":"Portionen"}}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["entry","recipe","totalMinutes"],"expected":"number"}],
+      "details": {"de":[{"path":"entry.recipe.totalMinutes","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"totalMinutes","facet":"number"}}}],"en":[{"path":"entry.recipe.totalMinutes","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"totalMinutes","facet":"number"}}}]}
+    },
+    {
+      "id": "MealPlanEntryResponseSchema#nonfinite:entry.recipe.servingsAmount=NaN",
+      "schema": "MealPlanEntryResponseSchema",
+      "input": {"entry":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":0,"servings":4,"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":40,"servingsAmount":{"$number":"NaN"},"servingsUnit":"Portionen"}}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["entry","recipe","servingsAmount"],"expected":"number"}],
+      "details": {"de":[{"path":"entry.recipe.servingsAmount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"servingsAmount","facet":"number"}}}],"en":[{"path":"entry.recipe.servingsAmount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"servingsAmount","facet":"number"}}}]}
+    },
+    {
+      "id": "MealPlanEntryResponseSchema#nonfinite:entry.recipe.servingsAmount=Infinity",
+      "schema": "MealPlanEntryResponseSchema",
+      "input": {"entry":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":0,"servings":4,"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":40,"servingsAmount":{"$number":"Infinity"},"servingsUnit":"Portionen"}}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["entry","recipe","servingsAmount"],"expected":"number"}],
+      "details": {"de":[{"path":"entry.recipe.servingsAmount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"servingsAmount","facet":"number"}}}],"en":[{"path":"entry.recipe.servingsAmount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"servingsAmount","facet":"number"}}}]}
+    },
+    {
+      "id": "MealPlanEntryResponseSchema#nonfinite:entry.recipe.servingsAmount=-Infinity",
+      "schema": "MealPlanEntryResponseSchema",
+      "input": {"entry":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":0,"servings":4,"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":40,"servingsAmount":{"$number":"-Infinity"},"servingsUnit":"Portionen"}}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["entry","recipe","servingsAmount"],"expected":"number"}],
+      "details": {"de":[{"path":"entry.recipe.servingsAmount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"servingsAmount","facet":"number"}}}],"en":[{"path":"entry.recipe.servingsAmount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"servingsAmount","facet":"number"}}}]}
+    },
+    {
+      "id": "MealPlanRangeResponseSchema#nonfinite:items.0.position=NaN",
+      "schema": "MealPlanRangeResponseSchema",
+      "input": {"from":"2026-10-01","to":"2026-10-31","items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":{"$number":"NaN"},"servings":4,"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":40,"servingsAmount":4,"servingsUnit":"Portionen"}}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"position"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"items.0.position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "MealPlanRangeResponseSchema#nonfinite:items.0.position=Infinity",
+      "schema": "MealPlanRangeResponseSchema",
+      "input": {"from":"2026-10-01","to":"2026-10-31","items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":{"$number":"Infinity"},"servings":4,"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":40,"servingsAmount":4,"servingsUnit":"Portionen"}}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"position"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"items.0.position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "MealPlanRangeResponseSchema#nonfinite:items.0.position=-Infinity",
+      "schema": "MealPlanRangeResponseSchema",
+      "input": {"from":"2026-10-01","to":"2026-10-31","items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":{"$number":"-Infinity"},"servings":4,"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":40,"servingsAmount":4,"servingsUnit":"Portionen"}}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"position"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"items.0.position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "MealPlanRangeResponseSchema#nonfinite:items.0.servings=NaN",
+      "schema": "MealPlanRangeResponseSchema",
+      "input": {"from":"2026-10-01","to":"2026-10-31","items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":0,"servings":{"$number":"NaN"},"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":40,"servingsAmount":4,"servingsUnit":"Portionen"}}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"servings"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.servings","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}],"en":[{"path":"items.0.servings","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}]}
+    },
+    {
+      "id": "MealPlanRangeResponseSchema#nonfinite:items.0.servings=Infinity",
+      "schema": "MealPlanRangeResponseSchema",
+      "input": {"from":"2026-10-01","to":"2026-10-31","items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":0,"servings":{"$number":"Infinity"},"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":40,"servingsAmount":4,"servingsUnit":"Portionen"}}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"servings"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.servings","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}],"en":[{"path":"items.0.servings","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}]}
+    },
+    {
+      "id": "MealPlanRangeResponseSchema#nonfinite:items.0.servings=-Infinity",
+      "schema": "MealPlanRangeResponseSchema",
+      "input": {"from":"2026-10-01","to":"2026-10-31","items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":0,"servings":{"$number":"-Infinity"},"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":40,"servingsAmount":4,"servingsUnit":"Portionen"}}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"servings"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.servings","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}],"en":[{"path":"items.0.servings","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}]}
+    },
+    {
+      "id": "MealPlanRangeResponseSchema#nonfinite:items.0.recipe.totalMinutes=NaN",
+      "schema": "MealPlanRangeResponseSchema",
+      "input": {"from":"2026-10-01","to":"2026-10-31","items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":0,"servings":4,"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":{"$number":"NaN"},"servingsAmount":4,"servingsUnit":"Portionen"}}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"recipe","totalMinutes"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.recipe.totalMinutes","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"totalMinutes","facet":"number"}}}],"en":[{"path":"items.0.recipe.totalMinutes","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"totalMinutes","facet":"number"}}}]}
+    },
+    {
+      "id": "MealPlanRangeResponseSchema#nonfinite:items.0.recipe.totalMinutes=Infinity",
+      "schema": "MealPlanRangeResponseSchema",
+      "input": {"from":"2026-10-01","to":"2026-10-31","items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":0,"servings":4,"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":{"$number":"Infinity"},"servingsAmount":4,"servingsUnit":"Portionen"}}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"recipe","totalMinutes"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.recipe.totalMinutes","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"totalMinutes","facet":"number"}}}],"en":[{"path":"items.0.recipe.totalMinutes","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"totalMinutes","facet":"number"}}}]}
+    },
+    {
+      "id": "MealPlanRangeResponseSchema#nonfinite:items.0.recipe.totalMinutes=-Infinity",
+      "schema": "MealPlanRangeResponseSchema",
+      "input": {"from":"2026-10-01","to":"2026-10-31","items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":0,"servings":4,"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":{"$number":"-Infinity"},"servingsAmount":4,"servingsUnit":"Portionen"}}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"recipe","totalMinutes"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.recipe.totalMinutes","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"totalMinutes","facet":"number"}}}],"en":[{"path":"items.0.recipe.totalMinutes","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"totalMinutes","facet":"number"}}}]}
+    },
+    {
+      "id": "MealPlanRangeResponseSchema#nonfinite:items.0.recipe.servingsAmount=NaN",
+      "schema": "MealPlanRangeResponseSchema",
+      "input": {"from":"2026-10-01","to":"2026-10-31","items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":0,"servings":4,"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":40,"servingsAmount":{"$number":"NaN"},"servingsUnit":"Portionen"}}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"recipe","servingsAmount"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.recipe.servingsAmount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"servingsAmount","facet":"number"}}}],"en":[{"path":"items.0.recipe.servingsAmount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"servingsAmount","facet":"number"}}}]}
+    },
+    {
+      "id": "MealPlanRangeResponseSchema#nonfinite:items.0.recipe.servingsAmount=Infinity",
+      "schema": "MealPlanRangeResponseSchema",
+      "input": {"from":"2026-10-01","to":"2026-10-31","items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":0,"servings":4,"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":40,"servingsAmount":{"$number":"Infinity"},"servingsUnit":"Portionen"}}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"recipe","servingsAmount"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.recipe.servingsAmount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"servingsAmount","facet":"number"}}}],"en":[{"path":"items.0.recipe.servingsAmount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"servingsAmount","facet":"number"}}}]}
+    },
+    {
+      "id": "MealPlanRangeResponseSchema#nonfinite:items.0.recipe.servingsAmount=-Infinity",
+      "schema": "MealPlanRangeResponseSchema",
+      "input": {"from":"2026-10-01","to":"2026-10-31","items":[{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":0,"servings":4,"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":40,"servingsAmount":{"$number":"-Infinity"},"servingsUnit":"Portionen"}}]},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["items",0,"recipe","servingsAmount"],"expected":"number"}],
+      "details": {"de":[{"path":"items.0.recipe.servingsAmount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"servingsAmount","facet":"number"}}}],"en":[{"path":"items.0.recipe.servingsAmount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"servingsAmount","facet":"number"}}}]}
+    },
+    {
+      "id": "RecipeCookedResponseSchema#nonfinite:mealPlanEntry.position=NaN",
+      "schema": "RecipeCookedResponseSchema",
+      "input": {"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","cookedAt":"2026-10-16T12:00:00.000Z","lastCookedAt":"2026-10-16T12:00:00.000Z","mealPlanEntry":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":{"$number":"NaN"},"servings":4,"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":40,"servingsAmount":4,"servingsUnit":"Portionen"}}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["mealPlanEntry","position"],"expected":"number"}],
+      "details": {"de":[{"path":"mealPlanEntry.position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"mealPlanEntry.position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "RecipeCookedResponseSchema#nonfinite:mealPlanEntry.position=Infinity",
+      "schema": "RecipeCookedResponseSchema",
+      "input": {"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","cookedAt":"2026-10-16T12:00:00.000Z","lastCookedAt":"2026-10-16T12:00:00.000Z","mealPlanEntry":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":{"$number":"Infinity"},"servings":4,"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":40,"servingsAmount":4,"servingsUnit":"Portionen"}}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["mealPlanEntry","position"],"expected":"number"}],
+      "details": {"de":[{"path":"mealPlanEntry.position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"mealPlanEntry.position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "RecipeCookedResponseSchema#nonfinite:mealPlanEntry.position=-Infinity",
+      "schema": "RecipeCookedResponseSchema",
+      "input": {"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","cookedAt":"2026-10-16T12:00:00.000Z","lastCookedAt":"2026-10-16T12:00:00.000Z","mealPlanEntry":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":{"$number":"-Infinity"},"servings":4,"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":40,"servingsAmount":4,"servingsUnit":"Portionen"}}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["mealPlanEntry","position"],"expected":"number"}],
+      "details": {"de":[{"path":"mealPlanEntry.position","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}],"en":[{"path":"mealPlanEntry.position","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"position","facet":"number"}}}]}
+    },
+    {
+      "id": "RecipeCookedResponseSchema#nonfinite:mealPlanEntry.servings=NaN",
+      "schema": "RecipeCookedResponseSchema",
+      "input": {"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","cookedAt":"2026-10-16T12:00:00.000Z","lastCookedAt":"2026-10-16T12:00:00.000Z","mealPlanEntry":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":0,"servings":{"$number":"NaN"},"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":40,"servingsAmount":4,"servingsUnit":"Portionen"}}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["mealPlanEntry","servings"],"expected":"number"}],
+      "details": {"de":[{"path":"mealPlanEntry.servings","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}],"en":[{"path":"mealPlanEntry.servings","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}]}
+    },
+    {
+      "id": "RecipeCookedResponseSchema#nonfinite:mealPlanEntry.servings=Infinity",
+      "schema": "RecipeCookedResponseSchema",
+      "input": {"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","cookedAt":"2026-10-16T12:00:00.000Z","lastCookedAt":"2026-10-16T12:00:00.000Z","mealPlanEntry":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":0,"servings":{"$number":"Infinity"},"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":40,"servingsAmount":4,"servingsUnit":"Portionen"}}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["mealPlanEntry","servings"],"expected":"number"}],
+      "details": {"de":[{"path":"mealPlanEntry.servings","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}],"en":[{"path":"mealPlanEntry.servings","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}]}
+    },
+    {
+      "id": "RecipeCookedResponseSchema#nonfinite:mealPlanEntry.servings=-Infinity",
+      "schema": "RecipeCookedResponseSchema",
+      "input": {"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","cookedAt":"2026-10-16T12:00:00.000Z","lastCookedAt":"2026-10-16T12:00:00.000Z","mealPlanEntry":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":0,"servings":{"$number":"-Infinity"},"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":40,"servingsAmount":4,"servingsUnit":"Portionen"}}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["mealPlanEntry","servings"],"expected":"number"}],
+      "details": {"de":[{"path":"mealPlanEntry.servings","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}],"en":[{"path":"mealPlanEntry.servings","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"servings","facet":"number"}}}]}
+    },
+    {
+      "id": "RecipeCookedResponseSchema#nonfinite:mealPlanEntry.recipe.totalMinutes=NaN",
+      "schema": "RecipeCookedResponseSchema",
+      "input": {"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","cookedAt":"2026-10-16T12:00:00.000Z","lastCookedAt":"2026-10-16T12:00:00.000Z","mealPlanEntry":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":0,"servings":4,"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":{"$number":"NaN"},"servingsAmount":4,"servingsUnit":"Portionen"}}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["mealPlanEntry","recipe","totalMinutes"],"expected":"number"}],
+      "details": {"de":[{"path":"mealPlanEntry.recipe.totalMinutes","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"totalMinutes","facet":"number"}}}],"en":[{"path":"mealPlanEntry.recipe.totalMinutes","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"totalMinutes","facet":"number"}}}]}
+    },
+    {
+      "id": "RecipeCookedResponseSchema#nonfinite:mealPlanEntry.recipe.totalMinutes=Infinity",
+      "schema": "RecipeCookedResponseSchema",
+      "input": {"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","cookedAt":"2026-10-16T12:00:00.000Z","lastCookedAt":"2026-10-16T12:00:00.000Z","mealPlanEntry":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":0,"servings":4,"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":{"$number":"Infinity"},"servingsAmount":4,"servingsUnit":"Portionen"}}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["mealPlanEntry","recipe","totalMinutes"],"expected":"number"}],
+      "details": {"de":[{"path":"mealPlanEntry.recipe.totalMinutes","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"totalMinutes","facet":"number"}}}],"en":[{"path":"mealPlanEntry.recipe.totalMinutes","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"totalMinutes","facet":"number"}}}]}
+    },
+    {
+      "id": "RecipeCookedResponseSchema#nonfinite:mealPlanEntry.recipe.totalMinutes=-Infinity",
+      "schema": "RecipeCookedResponseSchema",
+      "input": {"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","cookedAt":"2026-10-16T12:00:00.000Z","lastCookedAt":"2026-10-16T12:00:00.000Z","mealPlanEntry":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":0,"servings":4,"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":{"$number":"-Infinity"},"servingsAmount":4,"servingsUnit":"Portionen"}}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["mealPlanEntry","recipe","totalMinutes"],"expected":"number"}],
+      "details": {"de":[{"path":"mealPlanEntry.recipe.totalMinutes","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"totalMinutes","facet":"number"}}}],"en":[{"path":"mealPlanEntry.recipe.totalMinutes","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"totalMinutes","facet":"number"}}}]}
+    },
+    {
+      "id": "RecipeCookedResponseSchema#nonfinite:mealPlanEntry.recipe.servingsAmount=NaN",
+      "schema": "RecipeCookedResponseSchema",
+      "input": {"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","cookedAt":"2026-10-16T12:00:00.000Z","lastCookedAt":"2026-10-16T12:00:00.000Z","mealPlanEntry":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":0,"servings":4,"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":40,"servingsAmount":{"$number":"NaN"},"servingsUnit":"Portionen"}}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["mealPlanEntry","recipe","servingsAmount"],"expected":"number"}],
+      "details": {"de":[{"path":"mealPlanEntry.recipe.servingsAmount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"servingsAmount","facet":"number"}}}],"en":[{"path":"mealPlanEntry.recipe.servingsAmount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"servingsAmount","facet":"number"}}}]}
+    },
+    {
+      "id": "RecipeCookedResponseSchema#nonfinite:mealPlanEntry.recipe.servingsAmount=Infinity",
+      "schema": "RecipeCookedResponseSchema",
+      "input": {"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","cookedAt":"2026-10-16T12:00:00.000Z","lastCookedAt":"2026-10-16T12:00:00.000Z","mealPlanEntry":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":0,"servings":4,"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":40,"servingsAmount":{"$number":"Infinity"},"servingsUnit":"Portionen"}}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["mealPlanEntry","recipe","servingsAmount"],"expected":"number"}],
+      "details": {"de":[{"path":"mealPlanEntry.recipe.servingsAmount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"servingsAmount","facet":"number"}}}],"en":[{"path":"mealPlanEntry.recipe.servingsAmount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"servingsAmount","facet":"number"}}}]}
+    },
+    {
+      "id": "RecipeCookedResponseSchema#nonfinite:mealPlanEntry.recipe.servingsAmount=-Infinity",
+      "schema": "RecipeCookedResponseSchema",
+      "input": {"recipeId":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","cookedAt":"2026-10-16T12:00:00.000Z","lastCookedAt":"2026-10-16T12:00:00.000Z","mealPlanEntry":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","householdId":"6f1d3f2e-4b5a-4c6d-9e8f-123456789abc","recipeId":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","plannedOn":"2026-10-16","position":0,"servings":4,"note":"Wochenende","cookedAt":"2026-10-16T12:00:00.000Z","createdBy":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","createdAt":"2026-10-16T12:00:00.000Z","updatedAt":"2026-10-16T12:00:00.000Z","recipe":{"id":"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b","title":"Linsensuppe","thumbnailUrl":"/uploads/t.webp","totalMinutes":40,"servingsAmount":{"$number":"-Infinity"},"servingsUnit":"Portionen"}}},
+      "ok": false,
+      "issues": [{"code":"invalid_type","path":["mealPlanEntry","recipe","servingsAmount"],"expected":"number"}],
+      "details": {"de":[{"path":"mealPlanEntry.recipe.servingsAmount","code":"invalid_type","message":"Ungültiger Wert","i18n":{"key":"server.zod.invalid_type","values":{"field":"servingsAmount","facet":"number"}}}],"en":[{"path":"mealPlanEntry.recipe.servingsAmount","code":"invalid_type","message":"Invalid value","i18n":{"key":"server.zod.invalid_type","values":{"field":"servingsAmount","facet":"number"}}}]}
     }
   ]
 }
