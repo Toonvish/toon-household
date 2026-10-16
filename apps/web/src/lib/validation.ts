@@ -3,7 +3,15 @@
  * in the browser and turn failures into `{ field: "message" }` maps that the
  * `<Input error>` prop understands.
  */
-import { resolveWireKey, resolveZodIssue } from "@toon/shared";
+import {
+  ALL_ISSUES,
+  flattenIssue,
+  fromZodIssue,
+  resolveIssue,
+  resolveWireKey,
+  type FlatIssue,
+} from "@toon/shared";
+import { Result, Schema, type Types } from "effect";
 import type { z } from "zod";
 import type { $ZodIssue } from "zod/v4/core";
 import { isApiError } from "./api";
@@ -13,15 +21,31 @@ import { getLocale, translate } from "./i18n/store.ts";
 export type FieldErrors = Record<string, string>;
 
 /**
- * First message per field path, joined with "." for nested paths. Resolves
- * through the SAME `resolveZodIssue` the server uses (§5), so a field that
+ * A schema the browser can decode with: an Effect schema (no decoding services) or, until the zod
+ * schemas are gone (plan e1 P8, E1-T11), a zod one.
+ */
+export type Decodable = Schema.Decoder<unknown, never> | z.ZodType;
+
+/**
+ * What a successful decode yields: the Effect arm's `Type` made mutable (plan e1 P5), the zod arm's output.
+ * Spelled out because a zod 4 `ZodType` has no `Type` member.
+ */
+export type Decoded<S> = S extends Schema.Top
+  ? Types.DeepMutable<S["Type"]>
+  : S extends z.ZodType
+    ? z.output<S>
+    : never;
+
+/**
+ * First message per field path, joined with "." for nested paths (`_form` for the root). Resolves
+ * through the SAME `resolveIssue` the server uses (§5), so a field that
  * fails client-side and again server-side reads identically.
  */
-export function zodFieldErrors(error: z.ZodError): FieldErrors {
+export function issueFieldErrors(issues: readonly FlatIssue[]): FieldErrors {
   const errors: FieldErrors = {};
-  for (const issue of error.issues) {
+  for (const issue of issues) {
     const key = issue.path.length > 0 ? issue.path.map((part) => String(part)).join(".") : "_form";
-    if (!(key in errors)) errors[key] = resolveZodIssue(issue as $ZodIssue, getLocale()).message;
+    if (!(key in errors)) errors[key] = resolveIssue(issue, getLocale()).message;
   }
   return errors;
 }
@@ -35,13 +59,23 @@ export type ValidationResult<T> =
  * on success `result.data` is fully typed and normalised (e-mails are trimmed and
  * lower-cased by the shared schema).
  */
-export function validate<Schema extends z.ZodType>(
+export function validate<Schema extends Decodable>(
   schema: Schema,
   value: unknown,
-): ValidationResult<z.output<Schema>> {
-  const parsed = schema.safeParse(value);
-  if (parsed.success) return { ok: true, data: parsed.data, errors: null };
-  return { ok: false, data: null, errors: zodFieldErrors(parsed.error) };
+): ValidationResult<Decoded<Schema>> {
+  if (isEffectSchema(schema)) {
+    const decoded = Schema.decodeUnknownResult(schema as Schema.ConstraintDecoder<unknown>, ALL_ISSUES)(value);
+    if (Result.isSuccess(decoded)) return { ok: true, data: decoded.success as Decoded<Schema>, errors: null };
+    return { ok: false, data: null, errors: issueFieldErrors(flattenIssue(decoded.failure.issue)) };
+  }
+  const parsed = (schema as z.ZodType).safeParse(value);
+  if (parsed.success) return { ok: true, data: parsed.data as Decoded<Schema>, errors: null };
+  return { ok: false, data: null, errors: issueFieldErrors(parsed.error.issues.map((issue) => fromZodIssue(issue as $ZodIssue))) };
+}
+
+/** The one transitional test (plan e1 P8): a zod schema is not an Effect schema. */
+export function isEffectSchema(schema: Decodable): schema is Schema.Decoder<unknown, never> {
+  return Schema.isSchema(schema);
 }
 
 /**

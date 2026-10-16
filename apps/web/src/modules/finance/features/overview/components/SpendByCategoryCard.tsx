@@ -1,6 +1,5 @@
 import { AppLink } from "@/lib/nav";
-import type { CategoryResponse, CategorySpendSchema } from "@toon/shared";
-import type { z } from "zod";
+import type { CategoryResponse, TransactionSummaryResponse } from "@toon/shared";
 import { AmountText } from "@/modules/finance/components/AmountText";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -8,7 +7,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { Tabs } from "@/components/ui/Tabs";
 import { useT } from "@/lib/i18n";
 
-type CategorySpend = z.infer<typeof CategorySpendSchema>;
+type CategorySpend = TransactionSummaryResponse["byCategory"][number];
 
 export type SpendRangeKey = "thisMonth" | "lastMonth" | "thisYear" | "allTime";
 

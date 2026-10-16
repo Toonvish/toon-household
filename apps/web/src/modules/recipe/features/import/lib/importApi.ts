@@ -33,7 +33,9 @@ import {
   type MessageValues,
   type UpdateImportDraftRequest,
 } from "@toon/shared";
+import { Result, Schema } from "effect";
 import type { ZodType } from "zod";
+import { type Decodable, type Decoded, isEffectSchema } from "@/lib/validation";
 import { API_BASE_URL } from "@/modules/recipe/lib/api";
 import type { MessageKey } from "@/lib/i18n/catalogs/index.ts";
 import { getLocale } from "@/lib/i18n/store.ts";
@@ -302,13 +304,21 @@ export function describeError(error: unknown): DescribedImportError {
  * Validates a server payload but never fails the request over it: an additive
  * server change must not break the review screen, so a schema mismatch only logs.
  */
-function parseOrPassThrough<T>(schema: ZodType<T>, payload: unknown, label: string): T {
-  const result = schema.safeParse(payload);
-  if (result.success) return result.data;
+function parseOrPassThrough<S extends Decodable>(schema: S, payload: unknown, label: string): Decoded<S> {
+  if (isEffectSchema(schema)) {
+    const decoded = Schema.decodeUnknownResult(schema as Schema.ConstraintDecoder<unknown>)(payload);
+    if (Result.isSuccess(decoded)) return decoded.success as Decoded<S>;
+    if (import.meta.env.DEV) {
+      console.warn(`[import] response from ${label} does not match the schema`, decoded.failure);
+    }
+    return payload as Decoded<S>;
+  }
+  const result = (schema as ZodType).safeParse(payload);
+  if (result.success) return result.data as Decoded<S>;
   if (import.meta.env.DEV) {
     console.warn(`[import] response from ${label} does not match the schema`, result.error);
   }
-  return payload as T;
+  return payload as Decoded<S>;
 }
 
 async function readJson(response: Response): Promise<unknown> {
@@ -321,11 +331,11 @@ async function readJson(response: Response): Promise<unknown> {
   }
 }
 
-async function requestJson<T>(
+async function requestJson<S extends Decodable>(
   path: string,
-  schema: ZodType<T>,
+  schema: S,
   init: RequestInit = {},
-): Promise<T> {
+): Promise<Decoded<S>> {
   let response: Response;
   try {
     response = await fetch(`${apiBaseUrl()}${path}`, {
@@ -378,8 +388,13 @@ const DEFAULT_UPLOAD_TIMEOUT_MS = 240_000;
  * multipart upload with real progress via XHR (fetch cannot report request
  * progress in any shipping browser).
  */
-function uploadFile<T>(path: string, file: File, schema: ZodType<T>, handle: UploadHandle = {}): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
+function uploadFile<S extends Decodable>(
+  path: string,
+  file: File,
+  schema: S,
+  handle: UploadHandle = {},
+): Promise<Decoded<S>> {
+  return new Promise<Decoded<S>>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${apiBaseUrl()}${path}`, true);
     xhr.withCredentials = true;

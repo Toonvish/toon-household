@@ -1,6 +1,5 @@
 import { currentPeriod, previousPeriod } from "@toon/shared";
-import type { MonthSpendSchema } from "@toon/shared";
-import type { z } from "zod";
+import type { TransactionSummaryResponse } from "@toon/shared";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -8,7 +7,7 @@ import { formatCurrency } from "@/modules/finance/lib/format";
 import { useLocale, useT } from "@/lib/i18n";
 import { useTransactionCount, useTransactionSummary } from "../lib/queries";
 
-type MonthSpend = z.infer<typeof MonthSpendSchema>;
+type MonthSpend = TransactionSummaryResponse["byMonth"][number];
 
 const TREND_MONTHS = 6;
 
