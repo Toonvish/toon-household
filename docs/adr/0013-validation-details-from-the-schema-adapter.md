@@ -2,6 +2,9 @@
 
 Date: 2026-10-16
 
+Status: implemented and pinned by `apps/api/test/validation-wire.test.ts`; the wire change of the owner note below
+awaits the owner's acknowledgment (`docs/open-work.md` D-7). Until then it is the shipped behaviour, not a settled one.
+
 ## Context
 
 Milestone E1 of `docs/EFFECT.md` (decision E4) replaces Zod with Effect `Schema` in `packages/shared` and gives

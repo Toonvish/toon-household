@@ -8,6 +8,7 @@
  * old shape, or a drift of `path` / `code`, fails with the route named.
  */
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { db } from "../src/db/client.ts";
 import { runMigrations } from "../src/db/migrate.ts";
 import { sessions, users } from "../src/db/schema.ts";
@@ -66,6 +67,8 @@ describe("validation details on the former zValidator routes (ADR 0013)", () => 
       expect(issue?.code).toBe("too_small");
       expect(issue?.i18n?.key).toBe("server.zod.field.name.too_small.1");
       expect(Object.keys(issue ?? {}).sort()).toEqual(["code", "i18n", "message", "path"]);
+      // The envelope around the items is unchanged (docs/API.md "Errors").
+      expect(Object.keys(res.body.error).sort()).toEqual(["code", "details", "message"]);
     }
     expect(de.body.error.details?.[0]?.message).toBe("Name fehlt");
     expect(en.body.error.details?.[0]?.message).toBe("Name is required");
@@ -122,5 +125,17 @@ describe("validation details on the former zValidator routes (ADR 0013)", () => 
       messages.push(issue?.message ?? "");
     }
     expect(messages[0]).not.toBe(messages[1]);
+  });
+});
+
+describe("the wire change stays an open owner decision until acknowledged (ADR 0013, open-work D-7)", () => {
+  const root = new URL("../../../", import.meta.url);
+  const read = (path: string): string => readFileSync(new URL(path, root), "utf8");
+
+  test("ADR 0013 carries a Status line that points at open-work D-7, and D-7 names the ADR", () => {
+    const adr = read("docs/adr/0013-validation-details-from-the-schema-adapter.md");
+    const openWork = read("docs/open-work.md");
+    expect(adr).toMatch(/^Status: [^#]*docs\/open-work\.md` D-7/m);
+    expect(openWork).toMatch(/^\| D-7 \| .*ADR 0013/m);
   });
 });
