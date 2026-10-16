@@ -1,15 +1,16 @@
-import { z } from "zod";
-import { IdSchema, IsoDateSchema } from "../../../core/schemas/zod-legacy.ts";
+import { Effect, Schema, type Types } from "effect";
+import { IdSchema, IsoDateSchema } from "../../../core/schemas/common.ts";
+import { Int, Str, nonnegative } from "../../../core/schemas/checks.ts";
 import { BooleanQuerySchema, CentsSchema, PeriodSchema } from "./common.ts";
 
 /** Mirrors `BalanceBreakdown` from `ledger.ts` — same field names, same sign convention. */
-export const BalanceBreakdownSchema = z.object({
+export const BalanceBreakdownSchema = Schema.Struct({
   splitOtherCents: CentsSchema,
   forOtherCents: CentsSchema,
   settledCents: CentsSchema,
-  transactionCount: z.number().int().nonnegative(),
+  transactionCount: Int.check(nonnegative()),
 });
-export type BalanceBreakdownResponse = z.infer<typeof BalanceBreakdownSchema>;
+export type BalanceBreakdownResponse = Types.DeepMutable<typeof BalanceBreakdownSchema.Type>;
 
 /**
  * **Positive `balanceCents` = `member_slot 2` owes `member_slot 1`.** One
@@ -17,7 +18,7 @@ export type BalanceBreakdownResponse = z.infer<typeof BalanceBreakdownSchema>;
  * raw sign — it renders `viewerBalanceCents` through the three
  * `balance.owesYou` / `balance.youOwe` / `balance.settled` catalog keys.
  */
-export const BalanceResponseSchema = z.object({
+export const BalanceResponseSchema = Schema.Struct({
   balanceCents: CentsSchema,
   /** The person at `member_slot 1` — the perspective `balanceCents` is expressed for. */
   perspectiveUserId: IdSchema,
@@ -27,25 +28,25 @@ export const BalanceResponseSchema = z.object({
   asOf: IsoDateSchema,
   breakdown: BalanceBreakdownSchema,
 });
-export type BalanceResponse = z.infer<typeof BalanceResponseSchema>;
+export type BalanceResponse = Types.DeepMutable<typeof BalanceResponseSchema.Type>;
 
-export const BalanceQuerySchema = z.object({
-  includeAggregates: BooleanQuerySchema.default(true),
+export const BalanceQuerySchema = Schema.Struct({
+  includeAggregates: BooleanQuerySchema.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
 });
-export type BalanceQuery = z.infer<typeof BalanceQuerySchema>;
+export type BalanceQuery = Types.DeepMutable<typeof BalanceQuerySchema.Type>;
 
-export const BalanceHistoryQuerySchema = z.object({
-  from: z.string().optional(),
-  to: z.string().optional(),
-  includeAggregates: BooleanQuerySchema.default(true),
+export const BalanceHistoryQuerySchema = Schema.Struct({
+  from: Schema.optional(Str),
+  to: Schema.optional(Str),
+  includeAggregates: BooleanQuerySchema.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
 });
-export type BalanceHistoryQuery = z.infer<typeof BalanceHistoryQuerySchema>;
+export type BalanceHistoryQuery = Types.DeepMutable<typeof BalanceHistoryQuerySchema.Type>;
 
-export const BalanceHistoryPointSchema = z.object({
+export const BalanceHistoryPointSchema = Schema.Struct({
   period: PeriodSchema,
   deltaCents: CentsSchema,
   balanceCents: CentsSchema,
 });
 
-export const BalanceHistoryResponseSchema = z.object({ items: z.array(BalanceHistoryPointSchema) });
-export type BalanceHistoryResponse = z.infer<typeof BalanceHistoryResponseSchema>;
+export const BalanceHistoryResponseSchema = Schema.Struct({ items: Schema.Array(BalanceHistoryPointSchema) });
+export type BalanceHistoryResponse = Types.DeepMutable<typeof BalanceHistoryResponseSchema.Type>;

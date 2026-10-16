@@ -1,5 +1,5 @@
-import { z } from "zod";
-import { refineKey } from "../../../core/i18n/zod.ts";
+import { Effect, Schema, SchemaTransformation, type Types } from "effect";
+import { Bool, CoercedInt, Int, Lit, OneOf, Str, keyed, max, min, wireIssue } from "../../../core/schemas/checks.ts";
 
 const PERIOD_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 function isPeriodString(value: string): boolean {
@@ -18,14 +18,14 @@ export const MIN_PERIOD = "2000-01";
 export const MAX_PERIOD = "2100-12";
 
 /** A calendar month, `'YYYY-MM'` (docs/ledger-spec.md §0), inside `[MIN_PERIOD, MAX_PERIOD]`. */
-export const PeriodSchema = z
-  .string()
-  .refine(isPeriodString, refineKey("server.validation.periodFormat"))
-  .refine((value) => value >= MIN_PERIOD && value <= MAX_PERIOD, refineKey("server.validation.periodBounds"));
-export type PeriodValue = z.infer<typeof PeriodSchema>;
+export const PeriodSchema = Str.check(
+  keyed(isPeriodString, "server.validation.periodFormat"),
+  keyed((value: string) => value >= MIN_PERIOD && value <= MAX_PERIOD, "server.validation.periodBounds"),
+);
+export type PeriodValue = Types.DeepMutable<typeof PeriodSchema.Type>;
 
 /** Signed integer cents — the only money representation on the wire. Never a float, never a decimal string. */
-export const CentsSchema = z.number().int();
+export const CentsSchema = Int;
 
 /**
  * There is deliberately NO `NonZeroCentsSchema` here. `amountCents === 0` is
@@ -40,10 +40,7 @@ export const CentsSchema = z.number().int();
  */
 
 /** `CentsSchema`, additionally requiring a positive value (fixed-cost items, incomes, settlement amounts). */
-export const PositiveCentsSchema = CentsSchema.refine(
-  (value) => value > 0,
-  refineKey("server.validation.amountPositive"),
-);
+export const PositiveCentsSchema = CentsSchema.check(keyed((value: number) => value > 0, "server.validation.amountPositive"));
 
 /**
  * Query params for a paginated list endpoint. `limit` defaults to 50, max
@@ -51,11 +48,11 @@ export const PositiveCentsSchema = CentsSchema.refine(
  * transaction list is a dense row listing, not a card grid, and a month has
  * roughly 60 rows.
  */
-export const FinancePaginationQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(200).default(50),
-  offset: z.coerce.number().int().min(0).default(0),
+export const FinancePaginationQuerySchema = Schema.Struct({
+  limit: CoercedInt.check(min(1), max(200)).pipe(Schema.withDecodingDefault(Effect.succeed(50))),
+  offset: CoercedInt.check(min(0)).pipe(Schema.withDecodingDefault(Effect.succeed(0))),
 });
-export type FinancePaginationQuery = z.infer<typeof FinancePaginationQuerySchema>;
+export type FinancePaginationQuery = Types.DeepMutable<typeof FinancePaginationQuerySchema.Type>;
 
 const BOOLEAN_QUERY_VALUES: Record<string, boolean> = {
   true: true,
@@ -71,16 +68,21 @@ const BOOLEAN_QUERY_VALUES: Record<string, boolean> = {
  * actual boolean (already-parsed JSON bodies) or the literal strings
  * `"true"/"false"/"1"/"0"` and rejects anything else.
  */
-export const BooleanQuerySchema = z.union([z.boolean(), z.string()]).transform((value, ctx) => {
-  if (typeof value === "boolean") return value;
-  const normalized = BOOLEAN_QUERY_VALUES[value.toLowerCase()];
-  if (normalized === undefined) {
-    ctx.addIssue({ code: "custom", message: "invalid boolean" });
-    return z.NEVER;
-  }
-  return normalized;
-});
+export const BooleanQuerySchema = OneOf([Bool, Str]).pipe(
+  Schema.decodeTo(
+    Bool,
+    SchemaTransformation.transformEffect<boolean, boolean | string>({
+      decode: (value) => {
+        if (typeof value === "boolean") return Effect.succeed(value);
+        const normalized = BOOLEAN_QUERY_VALUES[value.toLowerCase()];
+        // A custom issue without a key: the resolver ladder falls to `server.zod.fallback`, as zod's `ctx.addIssue` did.
+        return normalized === undefined ? Effect.fail(wireIssue({ code: "custom" })) : Effect.succeed(normalized);
+      },
+      encode: (value) => Effect.succeed(value),
+    }),
+  ),
+);
 
 /** `household_members.member_slot` — exactly two seats, enforced by the DB (docs/spec.md §2.4). */
-export const MemberSlotSchema = z.union([z.literal(1), z.literal(2)]);
-export type MemberSlot = z.infer<typeof MemberSlotSchema>;
+export const MemberSlotSchema = OneOf([Lit(1), Lit(2)]);
+export type MemberSlot = Types.DeepMutable<typeof MemberSlotSchema.Type>;

@@ -1,24 +1,25 @@
-import { z } from "zod";
+import { Effect, Schema, type Types } from "effect";
 import { TAG_MAX_LENGTH } from "../tags.ts";
-import { IdSchema } from "../../../core/schemas/zod-legacy.ts";
+import { IdSchema } from "../../../core/schemas/common.ts";
+import { CoercedInt, Int, Str, max, maxLength, min, minLength, nonnegative, trim } from "../../../core/schemas/checks.ts";
 
-export const TagNameSchema = z.string().trim().min(1).max(TAG_MAX_LENGTH);
+export const TagNameSchema = Str.pipe(trim).check(minLength(1), maxLength(TAG_MAX_LENGTH));
 
-export const FinanceTagResponseSchema = z.object({
+export const FinanceTagResponseSchema = Schema.Struct({
   id: IdSchema,
-  name: z.string(),
-  usageCount: z.number().int().nonnegative(),
+  name: Str,
+  usageCount: Int.check(nonnegative()),
 });
-export type FinanceTagResponse = z.infer<typeof FinanceTagResponseSchema>;
+export type FinanceTagResponse = Types.DeepMutable<typeof FinanceTagResponseSchema.Type>;
 
-export const FinanceTagListResponseSchema = z.object({ items: z.array(FinanceTagResponseSchema) });
-export type FinanceTagListResponse = z.infer<typeof FinanceTagListResponseSchema>;
+export const FinanceTagListResponseSchema = Schema.Struct({ items: Schema.Array(FinanceTagResponseSchema) });
+export type FinanceTagListResponse = Types.DeepMutable<typeof FinanceTagListResponseSchema.Type>;
 
-export const FinanceUpdateTagRequestSchema = z.object({ name: TagNameSchema });
-export type FinanceUpdateTagRequest = z.infer<typeof FinanceUpdateTagRequestSchema>;
+export const FinanceUpdateTagRequestSchema = Schema.Struct({ name: TagNameSchema });
+export type FinanceUpdateTagRequest = Types.DeepMutable<typeof FinanceUpdateTagRequestSchema.Type>;
 
-export const TagQuerySchema = z.object({
-  q: z.string().max(100).optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
+export const TagQuerySchema = Schema.Struct({
+  q: Schema.optional(Str.check(maxLength(100))),
+  limit: CoercedInt.check(min(1), max(100)).pipe(Schema.withDecodingDefault(Effect.succeed(20))),
 });
-export type TagQuery = z.infer<typeof TagQuerySchema>;
+export type TagQuery = Types.DeepMutable<typeof TagQuerySchema.Type>;

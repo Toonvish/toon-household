@@ -1,146 +1,147 @@
-import { z } from "zod";
-import { IdSchema, IsoDateSchema, listResponse } from "../../../core/schemas/zod-legacy.ts";
+import { Schema, type Types } from "effect";
+import { IdSchema, IsoDateSchema, listResponse } from "../../../core/schemas/common.ts";
+import { Bool, Enum, Int, Str, maxLength, minLength, nonnegative, partial, trim } from "../../../core/schemas/checks.ts";
 import { CentsSchema, PeriodSchema, PositiveCentsSchema } from "./common.ts";
 import { TransactionResponseSchema } from "./transactions.ts";
 
 /** `GET …/plan/preview?period=YYYY-MM` (docs/spec.md §3.7). */
-export const PlanPreviewQuerySchema = z.object({ period: PeriodSchema });
-export type PlanPreviewQuery = z.infer<typeof PlanPreviewQuerySchema>;
+export const PlanPreviewQuerySchema = Schema.Struct({ period: PeriodSchema });
+export type PlanPreviewQuery = Types.DeepMutable<typeof PlanPreviewQuerySchema.Type>;
 
-export const UpdatePlanRequestSchema = z.object({
-  enabled: z.boolean().optional(),
-  payerId: IdSchema.optional(),
-  startPeriod: PeriodSchema.optional(),
+export const UpdatePlanRequestSchema = Schema.Struct({
+  enabled: Schema.optional(Bool),
+  payerId: Schema.optional(IdSchema),
+  startPeriod: Schema.optional(PeriodSchema),
 });
-export type UpdatePlanRequest = z.infer<typeof UpdatePlanRequestSchema>;
+export type UpdatePlanRequest = Types.DeepMutable<typeof UpdatePlanRequestSchema.Type>;
 
-const ItemLabelSchema = z.string().trim().min(1).max(80);
+const ItemLabelSchema = Str.pipe(trim).check(minLength(1), maxLength(80));
 
-export const FixedCostItemResponseSchema = z.object({
+export const FixedCostItemResponseSchema = Schema.Struct({
   id: IdSchema,
-  label: z.string(),
+  label: Str,
   amountCents: PositiveCentsSchema,
   activeFrom: PeriodSchema,
-  activeTo: PeriodSchema.nullable(),
-  position: z.number().int(),
+  activeTo: Schema.NullOr(PeriodSchema),
+  position: Int,
 });
-export type FixedCostItemResponse = z.infer<typeof FixedCostItemResponseSchema>;
+export type FixedCostItemResponse = Types.DeepMutable<typeof FixedCostItemResponseSchema.Type>;
 
-export const IncomeResponseSchema = z.object({
+export const IncomeResponseSchema = Schema.Struct({
   id: IdSchema,
   personId: IdSchema,
   amountCents: PositiveCentsSchema,
   validFrom: PeriodSchema,
-  validTo: PeriodSchema.nullable(),
+  validTo: Schema.NullOr(PeriodSchema),
 });
-export type IncomeResponse = z.infer<typeof IncomeResponseSchema>;
+export type IncomeResponse = Types.DeepMutable<typeof IncomeResponseSchema.Type>;
 
-export const CreateFixedCostItemRequestSchema = z.object({
+export const CreateFixedCostItemRequestSchema = Schema.Struct({
   label: ItemLabelSchema,
   amountCents: PositiveCentsSchema,
   activeFrom: PeriodSchema,
-  activeTo: PeriodSchema.nullish(),
-  position: z.number().int().optional(),
+  activeTo: Schema.optional(Schema.NullOr(PeriodSchema)),
+  position: Schema.optional(Int),
 });
-export type CreateFixedCostItemRequest = z.infer<typeof CreateFixedCostItemRequestSchema>;
+export type CreateFixedCostItemRequest = Types.DeepMutable<typeof CreateFixedCostItemRequestSchema.Type>;
 
-export const UpdateFixedCostItemRequestSchema = CreateFixedCostItemRequestSchema.partial();
-export type UpdateFixedCostItemRequest = z.infer<typeof UpdateFixedCostItemRequestSchema>;
+export const UpdateFixedCostItemRequestSchema = partial(CreateFixedCostItemRequestSchema);
+export type UpdateFixedCostItemRequest = Types.DeepMutable<typeof UpdateFixedCostItemRequestSchema.Type>;
 
-export const CreateIncomeRequestSchema = z.object({
+export const CreateIncomeRequestSchema = Schema.Struct({
   personId: IdSchema,
   amountCents: PositiveCentsSchema,
   validFrom: PeriodSchema,
-  validTo: PeriodSchema.nullish(),
+  validTo: Schema.optional(Schema.NullOr(PeriodSchema)),
 });
-export type CreateIncomeRequest = z.infer<typeof CreateIncomeRequestSchema>;
+export type CreateIncomeRequest = Types.DeepMutable<typeof CreateIncomeRequestSchema.Type>;
 
-export const UpdateIncomeRequestSchema = CreateIncomeRequestSchema.partial();
-export type UpdateIncomeRequest = z.infer<typeof UpdateIncomeRequestSchema>;
+export const UpdateIncomeRequestSchema = partial(CreateIncomeRequestSchema);
+export type UpdateIncomeRequest = Types.DeepMutable<typeof UpdateIncomeRequestSchema.Type>;
 
-export const PlanShareResponseSchema = z.object({
+export const PlanShareResponseSchema = Schema.Struct({
   personId: IdSchema,
   incomeCents: CentsSchema,
   shareCents: CentsSchema,
 });
 
-export const PlanComputationResponseSchema = z.object({
+export const PlanComputationResponseSchema = Schema.Struct({
   period: PeriodSchema,
   costTotalCents: CentsSchema,
   incomeTotalCents: CentsSchema,
   /** = costTotalCents — the quote stays a fraction, never a float, on the wire. */
-  quoteNumerator: z.number().int(),
+  quoteNumerator: Int,
   /** = incomeTotalCents */
-  quoteDenominator: z.number().int(),
-  shares: z.array(PlanShareResponseSchema),
+  quoteDenominator: Int,
+  shares: Schema.Array(PlanShareResponseSchema),
   payerId: IdSchema,
   /** The non-paying person's share. */
   bookableCents: CentsSchema,
-  booked: z.boolean(),
+  booked: Bool,
 });
-export type PlanComputationResponse = z.infer<typeof PlanComputationResponseSchema>;
+export type PlanComputationResponse = Types.DeepMutable<typeof PlanComputationResponseSchema.Type>;
 
-export const AccrualRunResponseSchema = z.object({
+export const AccrualRunResponseSchema = Schema.Struct({
   id: IdSchema,
-  trigger: z.enum(["boot", "interval", "manual", "import"]),
-  fromPeriod: PeriodSchema.nullable(),
-  toPeriod: PeriodSchema.nullable(),
-  periodsBooked: z.number().int().nonnegative(),
-  periodsSkipped: z.number().int().nonnegative(),
+  trigger: Enum(["boot", "interval", "manual", "import"]),
+  fromPeriod: Schema.NullOr(PeriodSchema),
+  toPeriod: Schema.NullOr(PeriodSchema),
+  periodsBooked: Int.check(nonnegative()),
+  periodsSkipped: Int.check(nonnegative()),
   bookedCents: CentsSchema,
   /** English ops text, or null on success — never rendered through the i18n catalog. */
-  error: z.string().nullable(),
+  error: Schema.NullOr(Str),
   startedAt: IsoDateSchema,
   finishedAt: IsoDateSchema,
 });
-export type AccrualRunResponse = z.infer<typeof AccrualRunResponseSchema>;
+export type AccrualRunResponse = Types.DeepMutable<typeof AccrualRunResponseSchema.Type>;
 
 export const AccrualRunListResponseSchema = listResponse(AccrualRunResponseSchema);
-export type AccrualRunListResponse = z.infer<typeof AccrualRunListResponseSchema>;
+export type AccrualRunListResponse = Types.DeepMutable<typeof AccrualRunListResponseSchema.Type>;
 
-export const PlanResponseSchema = z.object({
-  plan: z.object({
-    enabled: z.boolean(),
+export const PlanResponseSchema = Schema.Struct({
+  plan: Schema.Struct({
+    enabled: Bool,
     payerId: IdSchema,
     startPeriod: PeriodSchema,
-    lastBookedPeriod: PeriodSchema.nullable(),
+    lastBookedPeriod: Schema.NullOr(PeriodSchema),
   }),
-  items: z.array(FixedCostItemResponseSchema),
-  incomes: z.array(IncomeResponseSchema),
+  items: Schema.Array(FixedCostItemResponseSchema),
+  incomes: Schema.Array(IncomeResponseSchema),
   /** `null` when the plan is `plan_incomplete` for the current period. */
-  current: PlanComputationResponseSchema.nullable(),
-  lastRun: AccrualRunResponseSchema.nullable(),
+  current: Schema.NullOr(PlanComputationResponseSchema),
+  lastRun: Schema.NullOr(AccrualRunResponseSchema),
   /** What a run would book right now. */
-  pendingPeriods: z.array(PeriodSchema),
+  pendingPeriods: Schema.Array(PeriodSchema),
 });
-export type PlanResponse = z.infer<typeof PlanResponseSchema>;
+export type PlanResponse = Types.DeepMutable<typeof PlanResponseSchema.Type>;
 
-export const RunPlanRequestSchema = z.object({ through: PeriodSchema.optional() });
-export type RunPlanRequest = z.infer<typeof RunPlanRequestSchema>;
+export const RunPlanRequestSchema = Schema.Struct({ through: Schema.optional(PeriodSchema) });
+export type RunPlanRequest = Types.DeepMutable<typeof RunPlanRequestSchema.Type>;
 
-export const RunPlanResponseSchema = z.object({
-  bookedPeriods: z.array(PeriodSchema),
-  skippedPeriods: z.array(PeriodSchema),
+export const RunPlanResponseSchema = Schema.Struct({
+  bookedPeriods: Schema.Array(PeriodSchema),
+  skippedPeriods: Schema.Array(PeriodSchema),
   bookedCents: CentsSchema,
   run: AccrualRunResponseSchema,
 });
-export type RunPlanResponse = z.infer<typeof RunPlanResponseSchema>;
+export type RunPlanResponse = Types.DeepMutable<typeof RunPlanResponseSchema.Type>;
 
-export const RecalculatePlanRequestSchema = z.object({ dryRun: z.boolean() });
-export type RecalculatePlanRequest = z.infer<typeof RecalculatePlanRequestSchema>;
+export const RecalculatePlanRequestSchema = Schema.Struct({ dryRun: Bool });
+export type RecalculatePlanRequest = Types.DeepMutable<typeof RecalculatePlanRequestSchema.Type>;
 
-export const RecalculationLineSchema = z.object({
+export const RecalculationLineSchema = Schema.Struct({
   period: PeriodSchema,
   bookedCents: CentsSchema,
   recomputedCents: CentsSchema,
   deltaCents: CentsSchema,
 });
 
-export const RecalculatePlanResponseSchema = z.object({
-  items: z.array(RecalculationLineSchema),
+export const RecalculatePlanResponseSchema = Schema.Struct({
+  items: Schema.Array(RecalculationLineSchema),
   totalDeltaCents: CentsSchema,
-  applied: z.boolean(),
+  applied: Bool,
   /** Empty when `dryRun` was true. */
-  adjustments: z.array(TransactionResponseSchema),
+  adjustments: Schema.Array(TransactionResponseSchema),
 });
-export type RecalculatePlanResponse = z.infer<typeof RecalculatePlanResponseSchema>;
+export type RecalculatePlanResponse = Types.DeepMutable<typeof RecalculatePlanResponseSchema.Type>;

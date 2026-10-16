@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { resolveWireKey, serverText, SERVER_CATALOGS } from "../src/core/i18n/catalogs/index.ts";
-import { resolveZodIssue } from "../src/core/i18n/zod.ts";
-import type { $ZodIssue } from "zod/v4/core";
+import { resolveIssue, type FlatIssue } from "../src/core/i18n/issues.ts";
 
 // M3 (T01): the locale negotiation, interpolate and createTranslator cases of F's
 // i18n.test.ts are the core's runtime and are covered by packages/shared/test/i18n.test.ts.
@@ -36,19 +35,19 @@ describe("resolveWireKey / serverText — the server catalogs", () => {
   });
 });
 
-describe("resolveZodIssue — the field/code/facet resolution ladder", () => {
-  function issue(partial: Partial<$ZodIssue> & Pick<$ZodIssue, "code">): $ZodIssue {
-    return { path: [], message: "unused", input: undefined, ...partial } as $ZodIssue;
+describe("resolveIssue — the field/code/facet resolution ladder", () => {
+  function issue(partial: Partial<FlatIssue> & Pick<FlatIssue, "code">): FlatIssue {
+    return { path: [], ...partial };
   }
 
   test("falls back to server.zod.fallback for a completely generic issue", () => {
-    const resolved = resolveZodIssue(issue({ code: "custom" } as $ZodIssue), "de");
+    const resolved = resolveIssue(issue({ code: "custom" }), "de");
     expect(resolved.key).toBe("server.zod.fallback");
   });
 
   test("a field-specific candidate wins over the generic one", () => {
-    const resolved = resolveZodIssue(
-      issue({ code: "invalid_format", path: ["email"], format: "email", input: "not-an-email" } as never),
+    const resolved = resolveIssue(
+      issue({ code: "invalid_format", path: ["email"], format: "email" }),
       "de",
     );
     expect(resolved.key).toBe("server.zod.field.email.invalid_format");
@@ -57,8 +56,8 @@ describe("resolveZodIssue — the field/code/facet resolution ladder", () => {
   // H: the core has no `server.zod.invalid_format.uuid` (F's generic key is not ported, ADR 0002), and
   // `url` has a field key in the core, so the path is a field with no key of its own.
   test("without a field-specific key, falls back to code.facet", () => {
-    const resolved = resolveZodIssue(
-      issue({ code: "invalid_format", path: ["note"], format: "uuid", input: "nope" } as never),
+    const resolved = resolveIssue(
+      issue({ code: "invalid_format", path: ["note"], format: "uuid" }),
       "de",
     );
     expect(resolved.key).toBe("server.zod.invalid_format");
@@ -66,8 +65,8 @@ describe("resolveZodIssue — the field/code/facet resolution ladder", () => {
   });
 
   test("an explicit refineKey on a custom issue always wins", () => {
-    const resolved = resolveZodIssue(
-      issue({ code: "custom", params: { i18n: "server.validation.periodFormat" } } as never),
+    const resolved = resolveIssue(
+      issue({ code: "custom", params: { i18n: "server.validation.periodFormat" } }),
       "de",
     );
     expect(resolved.key).toBe("server.validation.periodFormat");
@@ -75,8 +74,8 @@ describe("resolveZodIssue — the field/code/facet resolution ladder", () => {
   });
 
   test("too_small on the description resolves to its field-specific key (bound 1)", () => {
-    const resolved = resolveZodIssue(
-      issue({ code: "too_small", path: ["description"], origin: "string", minimum: 1, input: "" } as never),
+    const resolved = resolveIssue(
+      issue({ code: "too_small", path: ["description"], origin: "string", minimum: 1 }),
       "de",
     );
     expect(resolved.key).toBe("server.zod.field.description.too_small.1");
@@ -84,15 +83,15 @@ describe("resolveZodIssue — the field/code/facet resolution ladder", () => {
   });
 
   test("too_big on the description renders its bound (200)", () => {
-    const de = resolveZodIssue(
-      issue({ code: "too_big", path: ["description"], origin: "string", maximum: 200, input: "x" } as never),
+    const de = resolveIssue(
+      issue({ code: "too_big", path: ["description"], origin: "string", maximum: 200 }),
       "de",
     );
     expect(de.key).toBe("server.zod.field.description.too_big.200");
     expect(de.message).toBe("Die Beschreibung ist zu lang (höchstens 200 Zeichen).");
 
-    const en = resolveZodIssue(
-      issue({ code: "too_big", path: ["description"], origin: "string", maximum: 200, input: "x" } as never),
+    const en = resolveIssue(
+      issue({ code: "too_big", path: ["description"], origin: "string", maximum: 200 }),
       "en",
     );
     expect(en.message).toBe("The description is too long (at most 200 characters).");
