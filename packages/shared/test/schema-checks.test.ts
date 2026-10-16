@@ -121,6 +121,13 @@ const VOCABULARY: Record<string, Decodable> = {
   "z.object({ tags: z.array(z.string()).default([]) })": Schema.Struct({
     tags: Schema.Array(Str).pipe(Schema.withDecodingDefault(Effect.succeed([]))),
   }),
+  // E1-T10 (plan e1 P21): `withDecodingDefault` would validate the encoded side (`string[]`) first and hide the
+  // item checks behind one `invalid_type`; the `Type` variant decodes every item, as zod's `.default([])` does.
+  "z.object({ tags: z.array(z.string().trim().min(1).max(60)).max(30).default([]) })": Schema.Struct({
+    tags: Schema.Array(Str.pipe(trim).check(minLength(1), maxLength(60)))
+      .check(maxItems(30))
+      .pipe(Schema.withDecodingDefaultType(Effect.sync(() => []))),
+  }),
   "z.record(z.string(), z.unknown())": UnknownRecord,
   "z.record(z.string(), z.union([z.string(), z.number()]))": Schema.Record(Schema.String, OneOf([Str, Num])),
   "z.object({ s: z.string(), o: z.boolean().optional() }).catchall(z.boolean())": CatchallStruct,

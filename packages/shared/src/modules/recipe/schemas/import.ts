@@ -1,5 +1,21 @@
-import { z } from "zod";
-import { HttpUrlSchema, IdSchema, IsoDateSchema, listResponse } from "../../../core/schemas/zod-legacy.ts";
+import { Effect, Schema, type Types } from "effect";
+import {
+  CoercedInt,
+  Enum,
+  Int,
+  Num,
+  Str,
+  Url,
+  max,
+  maxItems,
+  maxLength,
+  min,
+  minLength,
+  nonnegative,
+  positive,
+  trim,
+} from "../../../core/schemas/checks.ts";
+import { HttpUrlSchema, IdSchema, IsoDateSchema, listResponse } from "../../../core/schemas/common.ts";
 import {
   DifficultySchema,
   RecipeDetailSchema,
@@ -8,27 +24,27 @@ import {
 } from "./recipe.ts";
 
 /** 0..1 confidence per field. Absent = "no opinion". */
-export const ConfidenceSchema = z.number().min(0).max(1);
+export const ConfidenceSchema = Num.check(min(0), max(1));
 
-export const ParsedRecipeConfidenceSchema = z.object({
+export const ParsedRecipeConfidenceSchema = Schema.Struct({
   /** Aggregate quality of the parse; the review screen warns below 0.5. */
   overall: ConfidenceSchema,
-  title: ConfidenceSchema.optional(),
-  description: ConfidenceSchema.optional(),
-  ingredients: ConfidenceSchema.optional(),
-  steps: ConfidenceSchema.optional(),
-  servings: ConfidenceSchema.optional(),
-  times: ConfidenceSchema.optional(),
-  image: ConfidenceSchema.optional(),
+  title: Schema.optional(ConfidenceSchema),
+  description: Schema.optional(ConfidenceSchema),
+  ingredients: Schema.optional(ConfidenceSchema),
+  steps: Schema.optional(ConfidenceSchema),
+  servings: Schema.optional(ConfidenceSchema),
+  times: Schema.optional(ConfidenceSchema),
+  image: Schema.optional(ConfidenceSchema),
 });
-export type ParsedRecipeConfidence = z.infer<typeof ParsedRecipeConfidenceSchema>;
+export type ParsedRecipeConfidence = Types.DeepMutable<typeof ParsedRecipeConfidenceSchema.Type>;
 
-export const ServingsSchema = z.object({
-  amount: z.number().positive(),
+export const ServingsSchema = Schema.Struct({
+  amount: Num.check(positive()),
   /** Canonical German plural, e.g. "Portionen", "Stück", "Personen". */
-  unit: z.string().min(1).max(40),
+  unit: Str.check(minLength(1), maxLength(40)),
 });
-export type Servings = z.infer<typeof ServingsSchema>;
+export type Servings = Types.DeepMutable<typeof ServingsSchema.Type>;
 
 /**
  * The normalized recipe shape that EVERY importer produces (URL/JSON-LD parser,
@@ -36,88 +52,94 @@ export type Servings = z.infer<typeof ServingsSchema>;
  * Everything except `ingredients`/`steps`/`confidence` is optional because a
  * scan may simply not contain it.
  */
-export const ParsedRecipeSchema = z.object({
-  title: z.string().max(300).optional(),
-  description: z.string().max(5000).optional(),
-  imageUrl: z.string().max(2000).optional(),
-  sourceUrl: HttpUrlSchema.optional(),
-  sourceName: z.string().max(200).optional(),
-  servings: ServingsSchema.optional(),
-  prepMinutes: z.number().int().min(0).max(100000).optional(),
-  cookMinutes: z.number().int().min(0).max(100000).optional(),
-  totalMinutes: z.number().int().min(0).max(100000).optional(),
-  difficulty: DifficultySchema.optional(),
-  ingredients: z.array(RecipeIngredientSchema).max(300).default([]),
-  steps: z.array(RecipeStepSchema).max(300).default([]),
-  tags: z.array(z.string().trim().min(1).max(60)).max(30).default([]),
-  notes: z.string().max(10000).optional(),
+export const ParsedRecipeSchema = Schema.Struct({
+  title: Schema.optional(Str.check(maxLength(300))),
+  description: Schema.optional(Str.check(maxLength(5000))),
+  imageUrl: Schema.optional(Str.check(maxLength(2000))),
+  sourceUrl: Schema.optional(HttpUrlSchema),
+  sourceName: Schema.optional(Str.check(maxLength(200))),
+  servings: Schema.optional(ServingsSchema),
+  prepMinutes: Schema.optional(Int.check(min(0), max(100000))),
+  cookMinutes: Schema.optional(Int.check(min(0), max(100000))),
+  totalMinutes: Schema.optional(Int.check(min(0), max(100000))),
+  difficulty: Schema.optional(DifficultySchema),
+  ingredients: Schema.Array(RecipeIngredientSchema)
+    .check(maxItems(300))
+    .pipe(Schema.withDecodingDefaultType(Effect.sync(() => []))),
+  steps: Schema.Array(RecipeStepSchema)
+    .check(maxItems(300))
+    .pipe(Schema.withDecodingDefaultType(Effect.sync(() => []))),
+  tags: Schema.Array(Str.pipe(trim).check(minLength(1), maxLength(60)))
+    .check(maxItems(30))
+    .pipe(Schema.withDecodingDefaultType(Effect.sync(() => []))),
+  notes: Schema.optional(Str.check(maxLength(10000))),
   /** BCP-47-ish hint, "de" by default. */
-  language: z.string().max(10).optional(),
+  language: Schema.optional(Str.check(maxLength(10))),
   confidence: ParsedRecipeConfidenceSchema,
 });
-export type ParsedRecipe = z.infer<typeof ParsedRecipeSchema>;
+export type ParsedRecipe = Types.DeepMutable<typeof ParsedRecipeSchema.Type>;
 
-export const ImportSourceTypeSchema = z.enum(["manual", "url", "ocr"]);
-export type ImportSourceType = z.infer<typeof ImportSourceTypeSchema>;
+export const ImportSourceTypeSchema = Enum(["manual", "url", "ocr"]);
+export type ImportSourceType = Types.DeepMutable<typeof ImportSourceTypeSchema.Type>;
 
-export const ImportDraftStatusSchema = z.enum(["pending", "reviewed", "discarded"]);
-export type ImportDraftStatus = z.infer<typeof ImportDraftStatusSchema>;
+export const ImportDraftStatusSchema = Enum(["pending", "reviewed", "discarded"]);
+export type ImportDraftStatus = Types.DeepMutable<typeof ImportDraftStatusSchema.Type>;
 
 /**
  * How the text was obtained. PDF and image imports both use sourceType "ocr";
  * this field says whether a text layer was used or pixels were recognised.
  */
-export const ExtractionMethodSchema = z.enum(["json-ld", "microdata", "selector", "pdf-text", "ocr", "manual"]);
-export type ExtractionMethod = z.infer<typeof ExtractionMethodSchema>;
+export const ExtractionMethodSchema = Enum(["json-ld", "microdata", "selector", "pdf-text", "ocr", "manual"]);
+export type ExtractionMethod = Types.DeepMutable<typeof ExtractionMethodSchema.Type>;
 
-export const ImportSourceMetaSchema = z.object({
+export const ImportSourceMetaSchema = Schema.Struct({
   method: ExtractionMethodSchema,
-  filename: z.string().max(300).optional(),
-  mimeType: z.string().max(100).optional(),
+  filename: Schema.optional(Str.check(maxLength(300))),
+  mimeType: Schema.optional(Str.check(maxLength(100))),
   /** Stored upload path relative to UPLOAD_DIR, when a file was involved. */
-  storedPath: z.string().max(300).optional(),
-  pages: z.number().int().positive().optional(),
+  storedPath: Schema.optional(Str.check(maxLength(300))),
+  pages: Schema.optional(Int.check(positive())),
   /** Hostname for URL imports. */
-  host: z.string().max(200).optional(),
+  host: Schema.optional(Str.check(maxLength(200))),
   /** OCR engine + languages actually used. */
-  engine: z.string().max(100).optional(),
-  langs: z.string().max(50).optional(),
-  durationMs: z.number().int().nonnegative().optional(),
+  engine: Schema.optional(Str.check(maxLength(100))),
+  langs: Schema.optional(Str.check(maxLength(50))),
+  durationMs: Schema.optional(Int.check(nonnegative())),
 });
-export type ImportSourceMeta = z.infer<typeof ImportSourceMetaSchema>;
+export type ImportSourceMeta = Types.DeepMutable<typeof ImportSourceMetaSchema.Type>;
 
-export const ImportDraftSchema = z.object({
+export const ImportDraftSchema = Schema.Struct({
   id: IdSchema,
   householdId: IdSchema,
   createdBy: IdSchema,
   status: ImportDraftStatusSchema,
   sourceType: ImportSourceTypeSchema,
-  sourceUrl: z.string().nullish(),
+  sourceUrl: Schema.optional(Schema.NullOr(Str)),
   /** Raw OCR/text-layer output, kept so the user can copy from it while editing. */
-  rawText: z.string().nullish(),
+  rawText: Schema.optional(Schema.NullOr(Str)),
   parsed: ParsedRecipeSchema,
   /** Convenience mirror of parsed.confidence.overall for list views. */
-  confidence: ConfidenceSchema.nullish(),
-  sourceMeta: ImportSourceMetaSchema.nullish(),
+  confidence: Schema.optional(Schema.NullOr(ConfidenceSchema)),
+  sourceMeta: Schema.optional(Schema.NullOr(ImportSourceMetaSchema)),
   /** Set once the draft was committed to a real recipe. */
-  recipeId: IdSchema.nullish(),
+  recipeId: Schema.optional(Schema.NullOr(IdSchema)),
   createdAt: IsoDateSchema,
   updatedAt: IsoDateSchema,
 });
-export type ImportDraft = z.infer<typeof ImportDraftSchema>;
+export type ImportDraft = Types.DeepMutable<typeof ImportDraftSchema.Type>;
 
 /* ------------------------------- requests -------------------------------- */
 
-export const ImportUrlRequestSchema = z.object({
-  url: z.url().max(2000),
+export const ImportUrlRequestSchema = Schema.Struct({
+  url: Url.check(maxLength(2000)),
 });
-export type ImportUrlRequest = z.infer<typeof ImportUrlRequestSchema>;
+export type ImportUrlRequest = Types.DeepMutable<typeof ImportUrlRequestSchema.Type>;
 
-export const ImportTextRequestSchema = z.object({
-  rawText: z.string().min(1).max(100000),
-  title: z.string().trim().max(300).optional(),
+export const ImportTextRequestSchema = Schema.Struct({
+  rawText: Str.check(minLength(1), maxLength(100000)),
+  title: Schema.optional(Str.pipe(trim).check(maxLength(300))),
 });
-export type ImportTextRequest = z.infer<typeof ImportTextRequestSchema>;
+export type ImportTextRequest = Types.DeepMutable<typeof ImportTextRequestSchema.Type>;
 
 /**
  * multipart/form-data with a single `file` field. Declared for documentation:
@@ -125,40 +147,40 @@ export type ImportTextRequest = z.infer<typeof ImportTextRequestSchema>;
  */
 export const ImportFileFieldName = "file";
 
-export const UpdateImportDraftRequestSchema = z.object({
+export const UpdateImportDraftRequestSchema = Schema.Struct({
   parsed: ParsedRecipeSchema,
-  status: ImportDraftStatusSchema.optional(),
+  status: Schema.optional(ImportDraftStatusSchema),
 });
-export type UpdateImportDraftRequest = z.infer<typeof UpdateImportDraftRequestSchema>;
+export type UpdateImportDraftRequest = Types.DeepMutable<typeof UpdateImportDraftRequestSchema.Type>;
 
 /** Final "Speichern" from the review screen. `parsed` overrides the stored draft. */
-export const CommitImportDraftRequestSchema = z.object({
-  parsed: ParsedRecipeSchema.optional(),
-  tags: z.array(z.string().trim().min(1).max(60)).max(30).optional(),
-  collectionIds: z.array(IdSchema).max(30).optional(),
+export const CommitImportDraftRequestSchema = Schema.Struct({
+  parsed: Schema.optional(ParsedRecipeSchema),
+  tags: Schema.optional(Schema.Array(Str.pipe(trim).check(minLength(1), maxLength(60))).check(maxItems(30))),
+  collectionIds: Schema.optional(Schema.Array(IdSchema).check(maxItems(30))),
 });
-export type CommitImportDraftRequest = z.infer<typeof CommitImportDraftRequestSchema>;
+export type CommitImportDraftRequest = Types.DeepMutable<typeof CommitImportDraftRequestSchema.Type>;
 
-export const ImportDraftListQuerySchema = z.object({
-  status: ImportDraftStatusSchema.optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(24),
-  offset: z.coerce.number().int().min(0).default(0),
+export const ImportDraftListQuerySchema = Schema.Struct({
+  status: Schema.optional(ImportDraftStatusSchema),
+  limit: CoercedInt.check(min(1), max(100)).pipe(Schema.withDecodingDefault(Effect.succeed(24))),
+  offset: CoercedInt.check(min(0)).pipe(Schema.withDecodingDefault(Effect.succeed(0))),
 });
-export type ImportDraftListQuery = z.infer<typeof ImportDraftListQuerySchema>;
+export type ImportDraftListQuery = Types.DeepMutable<typeof ImportDraftListQuerySchema.Type>;
 
 /* ------------------------------- responses ------------------------------- */
 
-export const ImportDraftResponseSchema = z.object({ draft: ImportDraftSchema });
-export type ImportDraftResponse = z.infer<typeof ImportDraftResponseSchema>;
+export const ImportDraftResponseSchema = Schema.Struct({ draft: ImportDraftSchema });
+export type ImportDraftResponse = Types.DeepMutable<typeof ImportDraftResponseSchema.Type>;
 
 export const ImportDraftListResponseSchema = listResponse(ImportDraftSchema);
-export type ImportDraftListResponse = z.infer<typeof ImportDraftListResponseSchema>;
+export type ImportDraftListResponse = Types.DeepMutable<typeof ImportDraftListResponseSchema.Type>;
 
-export const CommitImportDraftResponseSchema = z.object({
+export const CommitImportDraftResponseSchema = Schema.Struct({
   recipe: RecipeDetailSchema,
   draft: ImportDraftSchema,
 });
-export type CommitImportDraftResponse = z.infer<typeof CommitImportDraftResponseSchema>;
+export type CommitImportDraftResponse = Types.DeepMutable<typeof CommitImportDraftResponseSchema.Type>;
 
 /** Empty parse result helper so importers never hand back a half-built object. */
 export function emptyParsedRecipe(overrides: Partial<ParsedRecipe> = {}): ParsedRecipe {

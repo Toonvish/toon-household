@@ -12,7 +12,10 @@
  *
  * Everything else is plain Effect: `Schema.Struct`, `Schema.Array`, `Schema.Record`, `Schema.optional`
  * (`.optional()`), `Schema.NullOr` (`.nullable()`), `Schema.optional(Schema.NullOr(X))` (`.nullish()`),
- * `X.pipe(Schema.withDecodingDefault(Effect.succeed(v)))` (`.default(v)`), `{ ...A.fields, … }` (`.extend`),
+ * `X.pipe(Schema.withDecodingDefault(Effect.succeed(v)))` (`.default(v)`; for an `X` whose items transform or carry
+ * checks, `X.pipe(Schema.withDecodingDefaultType(Effect.sync(() => v)))`: `withDecodingDefault` first validates
+ * `X`'s ENCODED side, so one item of the wrong type would hide every other item's check issue, E1-T10),
+ * `{ ...A.fields, … }` (`.extend`),
  * `Schema.decodeTo` / `Schema.makeFilter` (`.transform` / `.superRefine`), and for `.catchall(X)`
  * `Schema.StructWithRest(S, [Schema.Record(K, X)])` where `K` is `Str` refused for the declared keys (a rest
  * record over every string key also checks the declared fields against `X`). No name here ends in `Schema`.
