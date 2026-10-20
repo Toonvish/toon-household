@@ -15,8 +15,7 @@
  *     salted hash could not be looked up by token at all.
  *
  * `spendableToken` is the verdict as an Effect on the `Clock` (docs/EFFECT.md E7; plan
- * `docs/plans/e2-api-core-services.md` P7). `assertSpendableToken` (its `Date.now()` default included) stays as it is
- * until E2-T08 moves its two callers (`emailVerification.ts`, `passwordReset.ts`) onto `spendableToken` and deletes it.
+ * `docs/plans/e2-api-core-services.md` P7); `emailVerification.ts` and `passwordReset.ts` look their rows up through it.
  */
 
 import { Clock, Effect } from "effect";
@@ -45,30 +44,12 @@ interface SpendableTokenRow {
 }
 
 /**
- * The "is this row still worth anything" half of a token lookup, identical for
- * password reset and e-mail confirmation.
+ * The "is this row still worth anything" half of a token lookup, identical for password reset and e-mail
+ * confirmation, with "now" read from `Clock.currentTimeMillis` (so a `TestClock` reaches it).
  *
- * UNKNOWN, ALREADY-USED AND EXPIRED MUST BE INDISTINGUISHABLE, which is why the
- * caller passes ONE `invalid` factory and every branch here throws it — three
- * different errors would tell an attacker whether the token ever existed. Keeping
- * the query at the call site keeps drizzle's row type exact; only the verdict is
- * shared.
- */
-export function assertSpendableToken<T extends SpendableTokenRow>(
-  row: T | undefined,
-  invalid: () => Error,
-  now: number = Date.now(),
-): T {
-  if (!row) throw invalid();
-  if (row.usedAt !== null) throw invalid();
-  if (row.expiresAt <= now) throw invalid();
-  return row;
-}
-
-/**
- * {@link assertSpendableToken} on the `Clock`: the same verdict, with "now" read from `Clock.currentTimeMillis` (so a
- * `TestClock` reaches it). Every branch fails with the ONE refusal `invalid` builds — unknown, already-used and
- * expired stay indistinguishable.
+ * UNKNOWN, ALREADY-USED AND EXPIRED MUST BE INDISTINGUISHABLE, which is why the caller passes ONE `invalid` factory
+ * and every branch here fails with it — three different errors would tell an attacker whether the token ever
+ * existed. Keeping the query at the call site keeps drizzle's row type exact; only the verdict is shared.
  */
 export const spendableToken = Effect.fnUntraced(function* <T extends SpendableTokenRow, E>(
   row: T | undefined,
