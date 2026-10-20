@@ -16,17 +16,12 @@ import { runMigrations } from "../src/db/migrate.ts";
 import { emailVerificationTokens, passwordResetTokens, sessions, users } from "../src/db/schema.ts";
 import { app } from "../src/index.ts";
 import { SESSION_COOKIE } from "../src/lib/cookies.ts";
-import {
-  EMAIL_VERIFICATION_TTL_MS,
-  createEmailVerificationToken,
-} from "../src/core/services/auth/emailVerification.ts";
-import {
-  PASSWORD_RESET_TTL_MS,
-  consumePasswordReset,
-  createPasswordResetToken,
-} from "../src/core/services/auth/passwordReset.ts";
+import { EMAIL_VERIFICATION_TTL_MS, EmailVerification } from "../src/core/services/auth/emailVerification.ts";
+import { OAuthAccounts } from "../src/core/services/auth/oauthAccounts.ts";
+import { PASSWORD_RESET_TTL_MS, PasswordReset } from "../src/core/services/auth/passwordReset.ts";
 import { hashToken } from "../src/core/services/auth/tokens.ts";
 import { ConsoleMailer, type Mailer, setMailer } from "../src/core/services/mail/index.ts";
+import { runTest } from "./support/effect.ts";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 const PASSWORD = "geheimes-passwort-123";
@@ -35,6 +30,19 @@ const NEW_PASSWORD = "ein-ganz-neues-passwort-456";
 beforeAll(async () => {
   await runMigrations(db);
 });
+
+/** The services on the app runtime (plan e2 P14): a typed failure rejects with the error itself. */
+function mintPasswordReset(userId: string) {
+  return runTest(PasswordReset.use((service) => service.createPasswordResetToken(userId)));
+}
+
+function consumeReset(token: string, password: string) {
+  return runTest(PasswordReset.use((service) => service.consumePasswordReset(token, password)));
+}
+
+function mintEmailVerification(user: typeof users.$inferSelect) {
+  return runTest(EmailVerification.use((service) => service.createEmailVerificationToken(user)));
+}
 
 let mailer = new ConsoleMailer(() => undefined);
 function useRecordingMailer(): ConsoleMailer {
@@ -287,7 +295,7 @@ describe("POST /api/auth/password/reset", () => {
 
   test("an expired token is rejected", async () => {
     const account = await register();
-    const { token } = await createPasswordResetToken(db, account.userId);
+    const { token } = await mintPasswordReset(account.userId);
     await db
       .update(passwordResetTokens)
       .set({ expiresAt: Date.now() - 1000 })
@@ -303,7 +311,7 @@ describe("POST /api/auth/password/reset", () => {
 
   test("an unknown token gets the SAME error as an expired one", async () => {
     const account = await register();
-    const { token: real } = await createPasswordResetToken(db, account.userId);
+    const { token: real } = await mintPasswordReset(account.userId);
     await db
       .update(passwordResetTokens)
       .set({ expiresAt: Date.now() - 1000 })
@@ -321,7 +329,7 @@ describe("POST /api/auth/password/reset", () => {
 
   test("422 when the new password is too short (the register rule is reused)", async () => {
     const account = await register();
-    const { token } = await createPasswordResetToken(db, account.userId);
+    const { token } = await mintPasswordReset(account.userId);
 
     const response = await post("/api/auth/password/reset", { token, password: "kurz" });
     expect(response.status).toBe(422);
@@ -334,7 +342,7 @@ describe("POST /api/auth/password/reset", () => {
   test("TTL is one hour, not the invites' fourteen days", async () => {
     const account = await register();
     const before = Date.now();
-    const { expiresAt } = await createPasswordResetToken(db, account.userId);
+    const { expiresAt } = await mintPasswordReset(account.userId);
     expect(expiresAt).toBeGreaterThanOrEqual(before + PASSWORD_RESET_TTL_MS - 50);
     expect(expiresAt).toBeLessThanOrEqual(Date.now() + PASSWORD_RESET_TTL_MS);
   });
@@ -345,7 +353,7 @@ describe("POST /api/auth/password/reset", () => {
     await db.update(users).set({ passwordHash: null }).where(eq(users.id, account.userId));
     expect((await login(account.email, PASSWORD)).status).toBe(401);
 
-    const { token } = await createPasswordResetToken(db, account.userId);
+    const { token } = await mintPasswordReset(account.userId);
     expect((await post("/api/auth/password/reset", { token, password: NEW_PASSWORD })).status).toBe(
       204,
     );
@@ -360,16 +368,16 @@ describe("POST /api/auth/password/reset", () => {
 describe("consumePasswordReset", () => {
   test("marks the row used, so nothing can be replayed at the service level", async () => {
     const account = await register();
-    const { token } = await createPasswordResetToken(db, account.userId);
+    const { token } = await mintPasswordReset(account.userId);
 
-    await consumePasswordReset(db, token, NEW_PASSWORD);
+    await consumeReset(token, NEW_PASSWORD);
 
     const rows = await db
       .select()
       .from(passwordResetTokens)
       .where(eq(passwordResetTokens.tokenHash, hashToken(token)));
     expect(rows[0]?.usedAt).not.toBeNull();
-    await expect(consumePasswordReset(db, token, NEW_PASSWORD)).rejects.toThrow();
+    await expect(consumeReset(token, NEW_PASSWORD)).rejects.toThrow();
   });
 });
 
@@ -522,7 +530,7 @@ describe("e-mail verification", () => {
     const user = row[0];
     if (!user) throw new Error("user vanished");
 
-    const { token } = await createEmailVerificationToken(db, user);
+    const { token } = await mintEmailVerification(user);
     expect((await post("/api/auth/email/verify/confirm", { token })).status).toBe(200);
 
     const replay = await post("/api/auth/email/verify/confirm", { token });
@@ -538,7 +546,7 @@ describe("e-mail verification", () => {
     const account = await register();
     const row = (await db.select().from(users).where(eq(users.id, account.userId)))[0];
     if (!row) throw new Error("user vanished");
-    const { token } = await createEmailVerificationToken(db, row);
+    const { token } = await mintEmailVerification(row);
 
     // The address changes after the token was issued.
     await db.update(users).set({ email: uniqueEmail("moved") }).where(eq(users.id, account.userId));
@@ -553,7 +561,7 @@ describe("e-mail verification", () => {
     const account = await register();
     const row = (await db.select().from(users).where(eq(users.id, account.userId)))[0];
     if (!row) throw new Error("user vanished");
-    const { token, expiresAt } = await createEmailVerificationToken(db, row);
+    const { token, expiresAt } = await mintEmailVerification(row);
     expect(expiresAt).toBeLessThanOrEqual(Date.now() + EMAIL_VERIFICATION_TTL_MS);
 
     await db
@@ -572,16 +580,19 @@ describe("e-mail verification", () => {
     await post("/api/auth/email/verify/request", {}, account.cookie);
     await post("/api/auth/email/verify/confirm", { token: tokenFromLastMail("verify-email") });
 
-    const { loginWithOAuthProfile } = await import("../src/core/services/auth/oauthAccounts.ts");
     await expect(
-      loginWithOAuthProfile(db, {
-        provider: "google",
-        providerUserId: `sub-${crypto.randomUUID()}`,
-        email: account.email,
-        emailVerified: true,
-        name: "Test Nutzerin",
-        avatarUrl: null,
-      }),
+      runTest(
+        OAuthAccounts.use((accounts) =>
+          accounts.loginWithOAuthProfile({
+            provider: "google",
+            providerUserId: `sub-${crypto.randomUUID()}`,
+            email: account.email,
+            emailVerified: true,
+            name: "Test Nutzerin",
+            avatarUrl: null,
+          }),
+        ),
+      ),
     ).rejects.toMatchObject({ code: "email_taken" });
   });
 });

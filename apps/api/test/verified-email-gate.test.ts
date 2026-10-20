@@ -19,17 +19,19 @@
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
+import { Clock, Effect } from "effect";
 import { db } from "../src/db/client.ts";
 import { runMigrations } from "../src/db/migrate.ts";
 import { users } from "../src/db/schema.ts";
 import { app } from "../src/index.ts";
 import { SESSION_COOKIE } from "../src/lib/cookies.ts";
-import { markEmailVerified } from "../src/core/services/auth/emailVerification.ts";
+import { EmailVerification } from "../src/core/services/auth/emailVerification.ts";
 import {
   isVerifiedEmailRequired,
   setVerifiedEmailRequired,
 } from "../src/core/services/auth/verifiedEmail.ts";
 import { ConsoleMailer, setMailer } from "../src/core/services/mail/index.ts";
+import { runTest } from "./support/effect.ts";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 const PASSWORD = "geheimes-passwort-123";
@@ -95,7 +97,13 @@ async function register(name = "Neu"): Promise<Account> {
 
 /** Confirms the address directly — the mail round-trip has its own test. */
 async function confirm(account: Account): Promise<void> {
-  await markEmailVerified(db, account.userId);
+  await runTest(
+    EmailVerification.use((service) =>
+      Effect.gen(function* () {
+        return yield* service.markEmailVerified(account.userId, yield* Clock.currentTimeMillis);
+      }),
+    ),
+  );
 }
 
 /**

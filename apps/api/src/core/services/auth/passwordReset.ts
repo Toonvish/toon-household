@@ -200,7 +200,7 @@ export class PasswordReset extends Context.Service<
 
 /* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
 
-/** Callers: `core/routes/auth.ts` (E2-T10), `scripts/reset-password.ts` (E5), `apps/api/test/password-reset.test.ts`. */
+/** Callers: `core/routes/auth.ts` (E2-T10), `scripts/reset-password.ts` (E5). */
 export function createPasswordResetToken(
   database: DrizzleDatabase,
   userId: string,
@@ -213,7 +213,7 @@ export function createPasswordResetToken(
   );
 }
 
-/** Callers: `apps/api/test/password-reset.test.ts` (until its rewrite onto the service). */
+/** Callers: none outside this file's own export (kept for its old export; E2-T13 prunes). */
 export function findUsablePasswordReset(database: DrizzleDatabase, token: string): Promise<PasswordResetTokenRow> {
   return runtime.runPromise(
     PasswordReset.use((service) => service.findUsablePasswordReset(token)).pipe(Database.withExecutor(database)),

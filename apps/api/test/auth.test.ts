@@ -17,22 +17,14 @@ import { SESSION_COOKIE, SESSION_TTL_MS } from "../src/lib/cookies.ts";
 import { ApiError, onErrorHandler } from "../src/lib/errors.ts";
 import type { AppEnv } from "../src/lib/types.ts";
 import { requireHouseholdRole } from "../src/middleware/household.ts";
-import { safeNextPath, webUrl } from "../src/lib/oauth.ts";
+import { type OAuthProfile, safeNextPath, webUrl } from "../src/lib/oauth.ts";
 import { requireSession } from "../src/middleware/session.ts";
 import { AuthInvites, generateInviteToken } from "../src/core/services/auth/invites.ts";
-import {
-  linkOAuthAccount,
-  loginWithOAuthProfile,
-  unlinkOAuthAccount,
-} from "../src/core/services/auth/oauthAccounts.ts";
+import { OAuthAccounts } from "../src/core/services/auth/oauthAccounts.ts";
 import { Passwords } from "../src/core/services/auth/passwords.ts";
 import { LOGIN_RULE, checkRateLimit, resetRateLimits } from "../src/core/services/auth/rateLimit.ts";
 import { sessionHandle } from "../src/core/services/auth/sessions.ts";
-import {
-  type CreateUserInput,
-  Users,
-  updateUser,
-} from "../src/core/services/auth/users.ts";
+import { type CreateUserInput, Users } from "../src/core/services/auth/users.ts";
 import { runTest } from "./support/effect.ts";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
@@ -110,7 +102,7 @@ async function registeredUser(): Promise<{ id: string; email: string; cookie: st
 
 /**
  * Creates a user and a household they own through the `Users` service on the app runtime (plan e2 P14); the invite
- * part uses it since E2-T07, the OAuth part still uses the bridges until E2-T08.
+ * part uses it since E2-T07.
  */
 function userOwningHousehold(input: CreateUserInput, householdName: string) {
   return runTest(
@@ -121,6 +113,11 @@ function userOwningHousehold(input: CreateUserInput, householdName: string) {
       return { user, householdId };
     }),
   );
+}
+
+/** The `OAuthAccounts` service on the app runtime (plan e2 P14): a typed failure rejects with the error itself. */
+function oauthLogin(profile: OAuthProfile) {
+  return runTest(OAuthAccounts.use((accounts) => accounts.loginWithOAuthProfile(profile)));
 }
 
 /* ------------------------------- register -------------------------------- */
@@ -414,7 +411,7 @@ describe("POST /api/auth/password", () => {
     const email = uniqueEmail("nopass");
     // The account MUST be born from the OAuth flow: a pre-existing local row with
     // the same address is refused on purpose (see the takeover test below).
-    const { user, outcome } = await loginWithOAuthProfile(db, {
+    const { user, outcome } = await oauthLogin({
       provider: "github",
       providerUserId: `gh-${crypto.randomUUID()}`,
       email,
@@ -585,7 +582,7 @@ describe("OAuth", () => {
       avatarUrl: "https://example.com/a.png",
     };
 
-    const error = await loginWithOAuthProfile(db, profile).catch((thrown: unknown) => thrown);
+    const error = await runTest(Effect.flip(OAuthAccounts.use((accounts) => accounts.loginWithOAuthProfile(profile))));
     expect(error).toBeInstanceOf(ApiError);
     expect((error as ApiError).status).toBe(409);
     expect((error as ApiError).code).toBe("email_taken");
@@ -608,15 +605,15 @@ describe("OAuth", () => {
       avatarUrl: "https://example.com/a.png",
     };
 
-    await linkOAuthAccount(db, existing.id, profile);
+    await runTest(OAuthAccounts.use((accounts) => accounts.linkOAuthAccount(existing.id, profile)));
     // Idempotent.
-    await linkOAuthAccount(db, existing.id, profile);
+    await runTest(OAuthAccounts.use((accounts) => accounts.linkOAuthAccount(existing.id, profile)));
     expect(
       await db.select().from(oauthAccounts).where(eq(oauthAccounts.userId, existing.id)),
     ).toHaveLength(1);
 
     // The password stays untouched, so both login paths now work.
-    const login = await loginWithOAuthProfile(db, profile);
+    const login = await oauthLogin(profile);
     expect(login.outcome).toBe("login");
     expect(login.user.id).toBe(existing.id);
     expect(login.user.passwordHash).toBe(existing.passwordHash);
@@ -635,15 +632,17 @@ describe("OAuth", () => {
       avatarUrl: null,
     };
 
-    await linkOAuthAccount(db, first.id, profile);
-    const error = await linkOAuthAccount(db, second.id, profile).catch((thrown: unknown) => thrown);
+    await runTest(OAuthAccounts.use((accounts) => accounts.linkOAuthAccount(first.id, profile)));
+    const error = await runTest(
+      Effect.flip(OAuthAccounts.use((accounts) => accounts.linkOAuthAccount(second.id, profile))),
+    );
     expect(error).toBeInstanceOf(ApiError);
-    expect((error as ApiError).code).toBe("oauth_already_linked");
+    expect((error as { code: string }).code).toBe("oauth_already_linked");
   });
 
   test("unlink refuses to remove the only login method", async () => {
     const email = uniqueEmail("only-oauth");
-    const { user } = await loginWithOAuthProfile(db, {
+    const { user } = await oauthLogin({
       provider: "google",
       providerUserId: `google-${crypto.randomUUID()}`,
       email,
@@ -653,13 +652,15 @@ describe("OAuth", () => {
     });
     expect(user.passwordHash).toBeNull();
 
-    const error = await unlinkOAuthAccount(db, user, "google").catch((thrown: unknown) => thrown);
+    const error = await runTest(
+      Effect.flip(OAuthAccounts.use((accounts) => accounts.unlinkOAuthAccount(user, "google"))),
+    );
     expect(error).toBeInstanceOf(ApiError);
-    expect((error as ApiError).code).toBe("last_login_method");
+    expect((error as { code: string }).code).toBe("last_login_method");
 
     // With a password set it is allowed.
-    const withPassword = await updateUser(db, user.id, { passwordHash: "argon2-hash" });
-    await unlinkOAuthAccount(db, withPassword, "google");
+    const withPassword = await runTest(Users.use((service) => service.updateUser(user.id, { passwordHash: "argon2-hash" })));
+    await runTest(OAuthAccounts.use((accounts) => accounts.unlinkOAuthAccount(withPassword, "google")));
     expect(
       await db.select().from(oauthAccounts).where(eq(oauthAccounts.userId, user.id)),
     ).toHaveLength(0);
@@ -667,7 +668,7 @@ describe("OAuth", () => {
 
   test("creates a user plus first household for an unknown provider identity", async () => {
     const email = uniqueEmail("fresh-oauth");
-    const result = await loginWithOAuthProfile(db, {
+    const result = await oauthLogin({
       provider: "github",
       providerUserId: `gh-${crypto.randomUUID()}`,
       email,
@@ -690,15 +691,20 @@ describe("OAuth", () => {
 
   test("refuses to take over an address the provider has not verified", async () => {
     const { email } = await register();
-    const attempt = loginWithOAuthProfile(db, {
-      provider: "github",
-      providerUserId: `gh-${crypto.randomUUID()}`,
-      email,
-      emailVerified: false,
-      name: null,
-      avatarUrl: null,
-    });
-    const error = await attempt.catch((err: unknown) => err);
+    const error = await runTest(
+      Effect.flip(
+        OAuthAccounts.use((accounts) =>
+          accounts.loginWithOAuthProfile({
+            provider: "github",
+            providerUserId: `gh-${crypto.randomUUID()}`,
+            email,
+            emailVerified: false,
+            name: null,
+            avatarUrl: null,
+          }),
+        ),
+      ),
+    );
     expect(error).toBeInstanceOf(ApiError);
     expect((error as ApiError).code).toBe("email_taken");
   });

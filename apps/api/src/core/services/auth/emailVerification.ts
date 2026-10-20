@@ -225,7 +225,7 @@ export function createEmailVerificationToken(
   );
 }
 
-/** Callers: `apps/api/test/password-reset.test.ts` (until its rewrite onto the service). */
+/** Callers: none outside this file's own export (kept for its old export; E2-T13 prunes). */
 export function findUsableEmailVerification(
   database: DrizzleDatabase,
   token: string,
@@ -244,17 +244,10 @@ export function confirmEmailVerification(database: DrizzleDatabase, token: strin
   );
 }
 
-/**
- * Callers: `apps/api/test/verified-email-gate.test.ts` (until its rewrite onto the service), `scripts/seed.ts`
- * comment only. Without `at` the Clock's time is used (the service itself has no default).
- */
-export function markEmailVerified(database: DrizzleDatabase, userId: string, at?: number): Promise<UserRow> {
+/** Callers: none outside the module's own exports (the timestamp has no default: the caller passes the Clock's value). */
+export function markEmailVerified(database: DrizzleDatabase, userId: string, at: number): Promise<UserRow> {
   return runtime.runPromise(
-    EmailVerification.use((service) =>
-      Effect.gen(function* () {
-        return yield* service.markEmailVerified(userId, at ?? (yield* Clock.currentTimeMillis));
-      }),
-    ).pipe(Database.withExecutor(database)),
+    EmailVerification.use((service) => service.markEmailVerified(userId, at)).pipe(Database.withExecutor(database)),
   );
 }
 

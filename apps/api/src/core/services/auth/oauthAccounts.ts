@@ -225,28 +225,28 @@ export class OAuthAccounts extends Context.Service<
 
 /* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
 
-/** Callers: `core/routes/auth.ts` (E2-T10), `core/services/auth/index.ts`, `apps/api/test/auth.test.ts`. */
+/** Callers: `core/routes/auth.ts` (E2-T10), `core/services/auth/index.ts`. */
 export function loginWithOAuthProfile(database: DrizzleDatabase, profile: OAuthProfile): Promise<OAuthLoginResult> {
   return runtime.runPromise(
     OAuthAccounts.use((service) => service.loginWithOAuthProfile(profile)).pipe(Database.withExecutor(database)),
   );
 }
 
-/** Callers: `core/routes/auth.ts` (E2-T10), `core/services/auth/index.ts`, `apps/api/test/auth.test.ts`. */
+/** Callers: `core/routes/auth.ts` (E2-T10), `core/services/auth/index.ts`. */
 export function listOAuthAccounts(database: DrizzleDatabase, userId: string): Promise<OAuthAccountRow[]> {
   return runtime.runPromise(
     OAuthAccounts.use((service) => service.listOAuthAccounts(userId)).pipe(Database.withExecutor(database)),
   );
 }
 
-/** Callers: `core/routes/auth.ts` (E2-T10), `apps/api/test/auth.test.ts`. */
+/** Callers: `core/routes/auth.ts` (E2-T10). */
 export function linkOAuthAccount(database: DrizzleDatabase, userId: string, profile: OAuthProfile): Promise<void> {
   return runtime.runPromise(
     OAuthAccounts.use((service) => service.linkOAuthAccount(userId, profile)).pipe(Database.withExecutor(database)),
   );
 }
 
-/** Callers: `core/routes/auth.ts` (E2-T10), `apps/api/test/auth.test.ts`. */
+/** Callers: `core/routes/auth.ts` (E2-T10). */
 export function unlinkOAuthAccount(
   database: DrizzleDatabase,
   user: UserRow,
