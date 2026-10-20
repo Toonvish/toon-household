@@ -8,7 +8,8 @@
  * `return yield* new NotFound()`. ONE mapper, `toApiError`, turns whatever reaches the boundary into a family member,
  * and `onErrorHandler` (mounted in src/index.ts) renders it as the standard envelope
  *   { error: { code, message, details? } }
- * with the right HTTP status. Stack traces are logged, never sent.
+ * with the right HTTP status. Stack traces are logged, never sent (a 5xx family member logs
+ * `<status> <code>: <English message>` and its stack; a defect or a `DatabaseError` logs the raw value or its `cause`).
  *
  * `text` is a KEY into the server catalog (`ServerKey`, or `{ key, values }` for one that takes placeholders);
  * `errorBody(error, locale)` renders it in the locale the request negotiated (docs/i18n.md §4), and every instance's
@@ -353,7 +354,12 @@ export const onErrorHandler: ErrorHandler = (error, c: Context) => {
   const locale = requestLocale(c);
   const apiError = toApiError(error, locale);
   if (apiError.status >= 500) {
-    console.error(`[api] ${c.req.method} ${c.req.path} ->`, isDatabaseError(error) ? error.cause : error);
+    if (isApiError(error)) {
+      // A family member is a tagged-error dump to Bun's console; the pre-E2 line was the English message and the stack.
+      console.error(`[api] ${c.req.method} ${c.req.path} -> ${error.status} ${error.code}: ${error.message}`, error.stack);
+    } else {
+      console.error(`[api] ${c.req.method} ${c.req.path} ->`, isDatabaseError(error) ? error.cause : error);
+    }
   } else if (env.NODE_ENV === "development") {
     console.warn(`[api] ${c.req.method} ${c.req.path} -> ${apiError.status} ${apiError.code}: ${apiError.message}`);
   }

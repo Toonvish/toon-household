@@ -7,7 +7,7 @@
  * every family member is `instanceof ApiError`, and `DatabaseError` is outside the family.
  */
 import type { Locale } from "@toon/shared";
-import { ALL_ISSUES } from "@toon/shared";
+import { ALL_ISSUES, serverText } from "@toon/shared";
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { Effect, Schema } from "effect";
 import { Hono } from "hono";
@@ -475,6 +475,28 @@ describe("onErrorHandler and notFoundHandler through a tiny Hono app", () => {
     const [prefix, logged] = errorSpy.mock.calls[0] as [string, unknown];
     expect(prefix).toBe("[api] GET /defect ->");
     expect((logged as Error).message).toBe("a bug");
+  });
+
+  test("a 5xx family member logs status, code, the English message and the stack", async () => {
+    errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+    const failing = new Hono();
+    failing.get("/ocr", () => {
+      throw new ApiFailure({ status: 501, code: "ocr_disabled", text: "server.import.ocrDisabled" });
+    });
+    failing.get("/legacy", () => {
+      throw ApiError.internal();
+    });
+    failing.onError(onErrorHandler);
+    expect((await failing.request("/ocr")).status).toBe(501);
+    expect((await failing.request("/legacy")).status).toBe(500);
+    expect(errorSpy).toHaveBeenCalledTimes(2);
+    const [line, stack] = errorSpy.mock.calls[0] as [string, unknown];
+    expect(line).toBe(`[api] GET /ocr -> 501 ocr_disabled: ${serverText("en", "server.import.ocrDisabled")}`);
+    expect(typeof stack).toBe("string");
+    expect(stack as string).toContain("errors.test.ts");
+    const [legacyLine, legacyStack] = errorSpy.mock.calls[1] as [string, unknown];
+    expect(legacyLine).toBe(`[api] GET /legacy -> 500 internal_error: ${serverText("en", "server.error.internal")}`);
+    expect(typeof legacyStack).toBe("string");
   });
 
   test("a DatabaseError answers 500 internal_error and logs its cause", async () => {
