@@ -7,6 +7,7 @@
  */
 import { beforeAll, describe, expect, test } from "bun:test";
 import { and, eq } from "drizzle-orm";
+import { Effect } from "effect";
 import { Hono } from "hono";
 import { db } from "../src/db/client.ts";
 import { runMigrations } from "../src/db/migrate.ts";
@@ -24,10 +25,17 @@ import {
   loginWithOAuthProfile,
   unlinkOAuthAccount,
 } from "../src/core/services/auth/oauthAccounts.ts";
-import { hashPassword, verifyPassword } from "../src/core/services/auth/passwords.ts";
+import { Passwords } from "../src/core/services/auth/passwords.ts";
 import { LOGIN_RULE, checkRateLimit, resetRateLimits } from "../src/core/services/auth/rateLimit.ts";
 import { sessionHandle } from "../src/core/services/auth/sessions.ts";
-import { createOwnedHousehold, createUser, updateUser } from "../src/core/services/auth/users.ts";
+import {
+  type CreateUserInput,
+  Users,
+  createOwnedHousehold,
+  createUser,
+  updateUser,
+} from "../src/core/services/auth/users.ts";
+import { runTest } from "./support/effect.ts";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 const PASSWORD = "geheimes-passwort-123";
@@ -100,6 +108,21 @@ async function registeredUser(): Promise<{ id: string; email: string; cookie: st
   expect(response.status).toBe(201);
   const body = (await response.json()) as { user: { id: string } };
   return { id: body.user.id, email, cookie: sessionCookie(response) };
+}
+
+/**
+ * Creates a user and a household they own through the `Users` service on the app runtime (plan e2 P14); the OAuth
+ * and invite parts below still use the bridges until E2-T07/E2-T08.
+ */
+function userOwningHousehold(input: CreateUserInput, householdName: string) {
+  return runTest(
+    Effect.gen(function* () {
+      const users = yield* Users;
+      const user = yield* users.createUser(input);
+      const { householdId } = yield* users.createOwnedHousehold(user.id, householdName);
+      return { user, householdId };
+    }),
+  );
 }
 
 /* ------------------------------- register -------------------------------- */
@@ -209,8 +232,7 @@ describe("POST /api/auth/login", () => {
 
   test("an OAuth-only account gets a clear 401, not a 500", async () => {
     const email = uniqueEmail("oauthonly");
-    const user = await createUser(db, { email, name: "Ohne Passwort", passwordHash: null });
-    await createOwnedHousehold(db, user.id, "Meine Rezepte");
+    await userOwningHousehold({ email, name: "Ohne Passwort", passwordHash: null }, "Meine Rezepte");
 
     const response = await login(email, PASSWORD);
     expect(response.status).toBe(401);
@@ -337,8 +359,10 @@ describe("PATCH /api/auth/me", () => {
 
   test("refuses an activeHouseholdId the user is not a member of", async () => {
     const { cookie } = await registeredUser();
-    const stranger = await createUser(db, { email: uniqueEmail("stranger"), name: "Fremd" });
-    const { householdId } = await createOwnedHousehold(db, stranger.id, "Fremde Gruppe");
+    const { householdId } = await userOwningHousehold(
+      { email: uniqueEmail("stranger"), name: "Fremd" },
+      "Fremde Gruppe",
+    );
 
     const response = await app.request("/api/auth/me", {
       method: "PATCH",
@@ -806,8 +830,10 @@ describe("requireHouseholdRole", () => {
 
   test("rejects a non-member with 403 and an unknown household with 404", async () => {
     const outsider = await registeredUser();
-    const stranger = await createUser(db, { email: uniqueEmail("owner"), name: "Besitzer" });
-    const { householdId } = await createOwnedHousehold(db, stranger.id, "Geheime Gruppe");
+    const { householdId } = await userOwningHousehold(
+      { email: uniqueEmail("owner"), name: "Besitzer" },
+      "Geheime Gruppe",
+    );
 
     const forbidden = await guarded.request(`/member/${householdId}`, {
       headers: { cookie: outsider.cookie },
@@ -825,8 +851,10 @@ describe("requireHouseholdRole", () => {
   });
 
   test("ranks roles: a member may not use admin or owner routes", async () => {
-    const owner = await createUser(db, { email: uniqueEmail("boss"), name: "Chefin" });
-    const { householdId } = await createOwnedHousehold(db, owner.id, "Rangfolge");
+    const { householdId } = await userOwningHousehold(
+      { email: uniqueEmail("boss"), name: "Chefin" },
+      "Rangfolge",
+    );
 
     const joiner = await registeredUser();
     await db.insert(householdMembers).values({
@@ -853,13 +881,18 @@ describe("requireHouseholdRole", () => {
 
 describe("primitives", () => {
   test("argon2id hashes verify and reject", async () => {
-    const hash = await hashPassword(PASSWORD);
-    expect(hash.startsWith("$argon2id$")).toBe(true);
-    expect(await verifyPassword(PASSWORD, hash)).toBe(true);
-    expect(await verifyPassword("etwas-anderes-123", hash)).toBe(false);
-    // Missing/garbage hashes must be false, never throw.
-    expect(await verifyPassword(PASSWORD, null)).toBe(false);
-    expect(await verifyPassword(PASSWORD, "not-a-hash")).toBe(false);
+    await runTest(
+      Effect.gen(function* () {
+        const passwords = yield* Passwords;
+        const hash = yield* passwords.hashPassword(PASSWORD);
+        expect(hash.startsWith("$argon2id$")).toBe(true);
+        expect(yield* passwords.verifyPassword(PASSWORD, hash)).toBe(true);
+        expect(yield* passwords.verifyPassword("etwas-anderes-123", hash)).toBe(false);
+        // Missing/garbage hashes must be false, never fail.
+        expect(yield* passwords.verifyPassword(PASSWORD, null)).toBe(false);
+        expect(yield* passwords.verifyPassword(PASSWORD, "not-a-hash")).toBe(false);
+      }),
+    );
   });
 
   test("session handles are stable, opaque and unique", () => {

@@ -9,6 +9,7 @@
  */
 import { afterEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
+import { Effect } from "effect";
 import { db } from "../src/db/client.ts";
 import { runMigrations } from "../src/db/migrate.ts";
 import {
@@ -20,8 +21,9 @@ import {
   sessions,
   users,
 } from "../src/db/schema.ts";
-import { createOwnedHousehold } from "../src/core/services/auth/users.ts";
+import { Users } from "../src/core/services/auth/users.ts";
 import { type Mailer, setMailer } from "../src/core/services/mail/index.ts";
+import { runTest } from "./support/effect.ts";
 
 await runMigrations(db);
 
@@ -145,7 +147,9 @@ describe("POST /api/households (module rows)", () => {
 
   test("the registration path (createOwnedHousehold) writes the recipe module row", async () => {
     const user = await createUser("Registrant");
-    const { householdId } = await createOwnedHousehold(db, user.id, "Registrierung");
+    const { householdId } = await runTest(
+      Effect.flatMap(Users, (users) => users.createOwnedHousehold(user.id, "Registrierung")),
+    );
     const rows = await db
       .select()
       .from(householdModules)

@@ -5,18 +5,21 @@
  * shapes the mappers produce for a placeholder row (inserted directly into the shared DB).
  *
  * The `/me` 401 is not reachable through HTTP (no login path can produce a session for a
- * placeholder), so `toUserDto` is called directly.
+ * placeholder), so the `Users` service's `userDto` / `accountEmail` (the effects behind the sync
+ * `toUserDto` / `requireAccountEmail` bridges) are run directly on the app runtime (plan e2 P14).
  */
 import { describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
+import { Effect } from "effect";
 import { db } from "../src/db/client.ts";
 import { runMigrations } from "../src/db/migrate.ts";
 import { type UserRow, householdInvites, householdMembers, households, users } from "../src/db/schema.ts";
-import { isPlaceholderUser, requireAccountEmail, toUserDto } from "../src/core/services/auth/users.ts";
+import { Users, isPlaceholderUser } from "../src/core/services/auth/users.ts";
 import { listMembers } from "../src/core/services/households/households.service.ts";
 import { previewInvite } from "../src/core/services/households/invites.service.ts";
 import { toHouseholdInvite } from "../src/core/services/households/mappers.ts";
 import { ApiError } from "../src/lib/errors.ts";
+import { runTest } from "./support/effect.ts";
 
 await runMigrations(db);
 
@@ -52,23 +55,24 @@ describe("isPlaceholderUser (decision 1: e-mail AND password hash are NULL)", ()
 });
 
 describe("toUserDto refuses a placeholder (toon-finance requireAccountEmail)", () => {
-  test("an account maps with its e-mail", () => {
-    expect(toUserDto(userRow({})).email).toBe("anna@toon.test");
-    expect(requireAccountEmail({ email: "anna@toon.test" })).toBe("anna@toon.test");
+  test("an account maps with its e-mail", async () => {
+    await runTest(
+      Effect.gen(function* () {
+        const users = yield* Users;
+        expect((yield* users.userDto(userRow({}))).email).toBe("anna@toon.test");
+        expect(yield* users.accountEmail({ email: "anna@toon.test" })).toBe("anna@toon.test");
+      }),
+    );
   });
 
-  test("a placeholder row is a 401, never an empty address", () => {
+  test("a placeholder row is a 401, never an empty address", async () => {
     const placeholder = userRow({ email: null, passwordHash: null });
-    let caught: unknown;
-    try {
-      toUserDto(placeholder);
-    } catch (error) {
-      caught = error;
-    }
+    const caught: unknown = await runTest(Effect.flip(Effect.flatMap(Users, (users) => users.userDto(placeholder))));
     expect(caught).toBeInstanceOf(ApiError);
     expect((caught as ApiError).status).toBe(401);
     expect((caught as ApiError).code).toBe("unauthorized");
-    expect(() => requireAccountEmail({ email: null })).toThrow(ApiError);
+    const refused = await runTest(Effect.flip(Effect.flatMap(Users, (users) => users.accountEmail({ email: null }))));
+    expect(refused).toBeInstanceOf(ApiError);
   });
 });
 

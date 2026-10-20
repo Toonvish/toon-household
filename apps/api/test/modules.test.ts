@@ -10,7 +10,8 @@
  * override is handed back in `afterAll`.
  *
  * The fake modules of "module hooks" are Promise-based manifests (`PromiseApiModule`), wrapped by
- * `fromPromiseModule` as `src/modules/index.ts` wraps the real ones (plan e2 P11).
+ * `fromPromiseModule` as `src/modules/index.ts` wraps the real ones (plan e2 P11). The hook tests call the
+ * `HouseholdModules` service on the app runtime (`runTest`, plan e2 P14); a refusal is read with `Effect.flip`.
  *
  * Since M3 `finance` is a real build module whose `onEnable` needs two participants (SPEC D3,
  * plan M3 decision 4): every enable of finance that must succeed sends a participants body
@@ -18,10 +19,11 @@
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { and, eq } from "drizzle-orm";
+import { Effect } from "effect";
 import { Hono } from "hono";
 import { resetRateLimits } from "../src/core/services/auth/rateLimit.ts";
 import { setVerifiedEmailRequired } from "../src/core/services/auth/verifiedEmail.ts";
-import { enableModule, initializeHousehold } from "../src/core/services/households/modules.ts";
+import { HouseholdModules } from "../src/core/services/households/modules.ts";
 import { db } from "../src/db/client.ts";
 import { runMigrations } from "../src/db/migrate.ts";
 import { financeParticipants, householdMembers, householdModules, users } from "../src/db/schema.ts";
@@ -34,6 +36,7 @@ import { requireMembership } from "../src/lib/types.ts";
 import { mountModules } from "../src/modules/mount.ts";
 import { fromPromiseModule } from "../src/modules/adapter.ts";
 import type { ApiModule, DbExecutor, PromiseApiModule } from "../src/modules/types.ts";
+import { runTest } from "./support/effect.ts";
 
 /* -------------------------------- helpers -------------------------------- */
 
@@ -399,12 +402,16 @@ describe("module hooks", () => {
       },
     };
 
-    await expect(enableModule(db, owner.householdId, "finance", undefined, [fromPromiseModule(refusing)])).rejects.toBe(refusal);
+    const enable = (settings: Record<string, unknown> | undefined) =>
+      HouseholdModules.use((modules) =>
+        modules.enableModule(owner.householdId, "finance", settings, [fromPromiseModule(refusing)]),
+      );
+    expect(await runTest(Effect.flip(enable(undefined)))).toBe(refusal);
     expect(calls).toEqual([{ householdId: owner.householdId, settings: null }]);
     expect(await moduleRow(owner.householdId, "finance")).toBeUndefined();
 
     // Settings reach the hook as sent, and a refusal with settings writes nothing either.
-    await expect(enableModule(db, owner.householdId, "finance", { a: 1 }, [fromPromiseModule(refusing)])).rejects.toBe(refusal);
+    expect(await runTest(Effect.flip(enable({ a: 1 })))).toBe(refusal);
     expect(calls[1]).toEqual({ householdId: owner.householdId, settings: { a: 1 } });
     expect(await moduleRow(owner.householdId, "finance")).toBeUndefined();
   });
@@ -419,7 +426,11 @@ describe("module hooks", () => {
         runs += 1;
       },
     };
-    await enableModule(db, owner.householdId, "finance", undefined, [fromPromiseModule(accepting)]);
+    await runTest(
+      HouseholdModules.use((modules) =>
+        modules.enableModule(owner.householdId, "finance", undefined, [fromPromiseModule(accepting)]),
+      ),
+    );
     expect(runs).toBe(1);
     expect(await moduleRow(owner.householdId, "finance")).toBeDefined();
   });
@@ -435,7 +446,9 @@ describe("module hooks", () => {
         seen.push(householdId);
       },
     };
-    await initializeHousehold(db, owner.householdId, [fromPromiseModule(recording)]);
+    await runTest(
+      HouseholdModules.use((modules) => modules.initializeHousehold(owner.householdId, [fromPromiseModule(recording)])),
+    );
     expect(seen).toEqual([owner.householdId]);
     expect(await moduleRow(owner.householdId, "recipe")).toBeDefined();
   });
