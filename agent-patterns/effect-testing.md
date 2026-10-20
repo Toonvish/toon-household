@@ -226,3 +226,20 @@ rule, a pinned allow list, failures as `file:line: code`).
 A test that runs `sharp` (`apps/api/test/thumbnails.test.ts`) takes an explicit budget, `SHARP_TEST_TIMEOUT_MS = 60_000` as the
 third argument of `test(...)`; bun's 5 s default fails on a loaded host, and a failing gate log must keep its `(fail)` and
 `Unhandled error` lines.
+
+**As built (E2, E2-T03):** the support module and the database tests.
+- `apps/api/test/support/effect.ts`: `runTest(effect, { clock? })` and `runTestExit(effect, { clock? })` run on the
+  APP `runtime` (the one the routes use; its `Database` is the shared temp file DB of ADR 0009, never disposed in a
+  test); `clock: "test"` wraps the effect in `Effect.provide(TestClock.layer())` (`Clock.currentTimeMillis` reads 0);
+  `itEffect(name, effect | () => effect, timeoutMs?, options?)` is a `bun:test` `test`. `AppServices` is re-exported
+  from `apps/api/src/runtime.ts`. E2-T04 adds the recording mailer.
+- A test that needs a database of its own builds one with `createDatabase({ url: "file:" + path })` and provides
+  `Database.layerFrom(created)` per run (`Effect.runPromise(effect.pipe(Effect.provide(Database.layerFrom(created))))`);
+  a hook-shaped test opens a drizzle transaction itself and provides `Database.layerFromExecutor(tx)` inside it
+  (`apps/api/test/database.test.ts`).
+- Only `apps/api/test/runtime.test.ts` (d) and `apps/api/test/database.test.ts` make throwaway runtimes from the
+  real layers (`ManagedRuntime.make(AppLayer)`) and dispose them: safe because `Database.layer` never closes the
+  shared client under `NODE_ENV=test`; both assert the shared client still answers afterwards.
+- `apps/api/test/import-order-effect.test.ts` (the second fresh-process import test): per entry a `bun -e` child
+  imports the entry first, then `./src/runtime.ts`, then awaits `runtime.runPromise(Effect.void)`, which builds the
+  whole `AppLayer` after that import order.

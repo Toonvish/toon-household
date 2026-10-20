@@ -14,6 +14,12 @@ import { env } from "../env.ts";
 import * as schema from "./schema.ts";
 
 export type Database = ReturnType<typeof drizzle<typeof schema>>;
+/**
+ * The same drizzle type under a name that never collides with the `Database` SERVICE of
+ * `src/db/database.ts` (docs/EFFECT.md E5, plan e2 P6). Module and script files keep importing
+ * `Database` from here until E3 to E5 move them onto the service.
+ */
+export type DrizzleDatabase = Database;
 
 /** Resolves a `file:` URL against process.cwd() and creates the directory. */
 function prepareUrl(url: string): string {
@@ -115,6 +121,8 @@ export interface CreateDatabaseOptions {
 export interface CreatedDatabase {
   client: Client;
   db: Database;
+  /** The URL the client was opened with (a relative `file:` path resolved, see `prepareUrl`). */
+  url: string;
   /**
    * Resolves once {@link LOCAL_FILE_PRAGMAS} have been applied.
    *
@@ -139,7 +147,7 @@ export function createDatabase(options: CreateDatabaseOptions = {}): CreatedData
     ...(isLocalFile(url) ? { timeout: BUSY_TIMEOUT_MS } : {}),
   });
   const db = drizzle(client, { schema, logger: env.DEBUG_SQL === true });
-  return { client, db, ready: applyPragmas(client, url) };
+  return { client, db, url, ready: applyPragmas(client, url) };
 }
 
 /**

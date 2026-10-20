@@ -4,13 +4,16 @@
  *
  * The shared `runtime` is NEVER disposed here: every test file runs in one bun
  * process and shares it (CLAUDE.md "Retired gotchas"); test (d) proves the disposal
- * behaviour on a throwaway runtime of its own.
+ * behaviour on a throwaway runtime of its own. Since E2-T03 that throwaway runtime builds the
+ * real `AppLayer` (`AppConfig`, `Database`), and `Database.layer` never closes the shared
+ * client under `NODE_ENV=test` (plan e2 P6): (d) proves the shared client survives.
  */
 import { HealthResponseSchema } from "@toon/shared";
 import { describe, expect, spyOn, test } from "bun:test";
 import { Cause, Exit, ManagedRuntime, Schema } from "effect";
 import { healthResponse } from "../src/core/health.ts";
 import { app } from "../src/index.ts";
+import { client as sharedClient } from "../src/db/client.ts";
 import { AppLayer, appMemoMap, runtime } from "../src/runtime.ts";
 
 describe("src/runtime.ts", () => {
@@ -80,5 +83,12 @@ describe("src/runtime.ts", () => {
       expect(Cause.hasDies(exit.cause)).toBe(true);
       expect(Cause.squash(exit.cause)).toBe("ManagedRuntime disposed");
     }
+
+    // The dispose closed the throwaway layer scope, never the shared client (plan e2 P6), and the
+    // shared runtime still serves.
+    expect(sharedClient.closed).toBe(false);
+    const result = await sharedClient.execute("SELECT 1 AS one");
+    expect(Number(result.rows[0]?.one)).toBe(1);
+    expect((await runtime.runPromise(healthResponse)).ok).toBe(true);
   });
 });

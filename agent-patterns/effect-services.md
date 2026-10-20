@@ -201,8 +201,8 @@ Sources: `repos/effect/migration/services.md`, `layer-memoization.md`, `scope.md
 
 Where it will be applied:
 
-- `apps/api/src/config.ts` (`AppConfig`), `apps/api/src/db/client.ts` (`Database`: scoped layer, D7 pragmas, closed by
-  the runtime scope), `apps/api/src/core/services/**` and `apps/api/src/modules/<id>/services/**` (one
+- `apps/api/src/config.ts` (`AppConfig`), `apps/api/src/db/database.ts` (`Database`: scoped layer, D7 pragmas, closed by
+  the runtime scope; the drizzle TYPE `Database` / `DrizzleDatabase` stays in `apps/api/src/db/client.ts`), `apps/api/src/core/services/**` and `apps/api/src/modules/<id>/services/**` (one
   `Context.Service` class with a static `layer` per service), `apps/api/src/runtime.ts` (`AppLayer` via
   `Layer.mergeAll` / `Layer.provideMerge`, ONE `ManagedRuntime.make(AppLayer, { memoMap })`, disposed from the
   SIGTERM/SIGINT handlers), the module manifests (`layer` field), `apps/api/scripts/*.ts` (`BunRuntime.runMain`), and
@@ -226,3 +226,35 @@ functions, not a `Context.Service`. What the milestone pins for later is the typ
 handler can decode without a layer, and a schema that needs a service fails to typecheck at `validate(...)` instead of at
 run time. `validate.ts` imports only `hono/validator`, `effect` and `@toon/shared` (CLAUDE.md "API import cycle": it runs at
 route definition); when E7 replaces Hono the decoding moves into `HttpApi` payload schemas and the helper goes.
+
+**As built (E2, E2-T03):** the composition and the `Database` service.
+- `apps/api/src/runtime.ts`: `AppLayer = Layer.suspend(appLayer)` over a HOISTED `function appLayer()` returning
+  `Layer.mergeAll(coreServicesLayer()).pipe(Layer.provideMerge(infraLayer()))`, annotated
+  `Layer.Layer<AppServices, AppLayerError, never>`: a requirement left open by a wrong nesting is a `tsc` error in
+  `runtime.ts` (`Type 'Layer<Database, DatabaseError, AppConfig>' is not assignable to type 'Layer<AppServices,
+  DatabaseError, never>'`), not a surprise in `ManagedRuntime.make`. The module scope reads only `Layer` and
+  `ManagedRuntime`; `Layer.suspend` defers `appLayer()` to the first run, so the file can sit anywhere in the import
+  cycle. `apps/api/src/infra.ts` (`infraLayer()`), `apps/api/src/core/services/layer.ts` (`coreServicesLayer()`,
+  `baseServicesLayer()`), `apps/api/src/core/services/auth/layer.ts` and `apps/api/src/core/services/households/layer.ts`
+  export hoisted functions only. Siblings that depend on each other never share one `Layer.mergeAll` (it feeds no
+  member into another); the dependent goes in an outer step and `Layer.provideMerge(inner)` satisfies it.
+- `Database` (`apps/api/src/db/database.ts`): `use(f)` (`Effect.tryPromise`, rejection → `DatabaseError`),
+  `transaction(effect)`, `executor`, plus `drizzle`, `client`, `url`, `transactionsSupported`. The current executor
+  is `CurrentExecutor = Context.Reference<{ executor, open } | undefined>(id, { defaultValue: () => undefined })`,
+  read on every call (`CurrentExecutor.useSync(...)`; a `Context.Reference` needs no provider). `transaction` reads
+  the fiber's context (`Effect.context<R>()`), opens drizzle's `root.transaction(async (tx) => …)` inside
+  `Effect.promise((signal) => …)`, and runs the effect in it with
+  `Effect.runPromiseExitWith(Context.add(context, CurrentExecutor, { executor: tx, open: true }))(effect, { signal })`;
+  a failed `Exit` throws a private sentinel (drizzle rolls back) and is re-raised with `Effect.failCause(exit.cause)`,
+  so the caller sees the same error object (a defect stays a defect). `Database.withExecutor(db)(effect)` is
+  `Effect.provideService(effect, CurrentExecutor, { executor: db, open: false })`.
+- A static `layer` reads its dependencies INSIDE the generator (`const config = yield* AppConfig`), never in the
+  initializer: `static readonly layer = Layer.effect(this, Effect.gen(function* () { … }))`. A `Context.Service`
+  class is itself an `Effect` of its shape (`Context.Key extends Effect`): `Effect.flatMap(Database, (db) => …)` and
+  `runtime.runPromise(Database)` work, and `typeof Database === "function"`, so tell an Effect from a thunk with
+  `Effect.isEffect`, never `typeof`.
+- Scoped resources: `Database.layer` is `Effect.acquireRelease(awaitPragmas, () => config.isTest ? Effect.void :
+  close + Console.log("[db] database closed"))`; `Database.layerFromUrl` acquires `createDatabase(...)` itself and
+  closes it on release. The memo map is ref-counted (`Layer.ts` `makeMemoMapEntry`): an entry is built once per memo
+  map while observed and released when its last observer's scope closes, so `Effect.provide(Database.layerFromUrl(u))`
+  closes the client at the end of that run.

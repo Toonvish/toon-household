@@ -55,7 +55,10 @@ in `docs/adr/`, the ADR edits this text in the same commit.
   that sends the D7 pragmas (the `db-pragmas` test keeps passing, pooled connection included), exposes
   `use(fn)` and `transaction(effect)` (replacing `withTransaction`, same degradation rule under an explicit
   `TEST_DATABASE_URL=file::memory:`), and is closed by the runtime's scope on shutdown. Raw SQL through
-  `@effect/sql-libsql` is a later ADR, not this migration.
+  `@effect/sql-libsql` is a later ADR, not this migration. Until E5 moves the last script, the process-wide instance is still
+  created at import of `apps/api/src/db/client.ts` (recipe, finance and the scripts import `db`) and
+  `Database.layer` owns its lifetime (acquire awaits the pragmas, release closes it, never under `NODE_ENV=test`):
+  ADR 0014.
 - **E6 — Errors are tagged, typed and mapped once.** `ApiError` and its static helpers become a family of
   `Schema.TaggedError` classes in `apps/api/src/lib/errors.ts` carrying `status`, `code` and `text` (the
   server-catalog key with values) exactly as today; `toBody(locale)` moves to one `toApiError` /
@@ -78,7 +81,10 @@ in `docs/adr/`, the ADR edits this text in the same commit.
   become Effects that receive the transaction through the `Database` service's transactional context, and the
   manifest gains `layer: Layer.Layer<…>` for the module's own services; the import-cycle rule of CLAUDE.md
   ("read the registry inside functions") stays binding: layers are values, so a manifest never references a
-  core middleware at module scope.
+  core middleware at module scope. While E2 to E5 convert the core, the modules and the scripts in turn, the
+  converted core keeps legacy bridges with the old signatures, a Promise module contract behind an adapter
+  (`PromiseApiModule`, `fromPromiseModule`, `runModuleHook`) and the test seams `setMailer`,
+  `setVerifiedEmailRequired` and `resetRateLimits`, each removed by the milestone that moves its last caller: ADR 0014.
 - **E8 — Hono goes last, and only when the API is already Effect underneath.** E7 (the milestone) replaces
   `Hono` with `effect/http-api` (`HttpApi`, `HttpApiGroup`, `HttpApiEndpoint`, `HttpApiBuilder`,
   `HttpApiMiddleware`) served by `BunHttpServer` (`@effect/platform-bun`). The observable contract is frozen:
