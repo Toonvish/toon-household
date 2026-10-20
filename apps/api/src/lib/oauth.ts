@@ -7,12 +7,23 @@
  * the login/link/create decision. Clients are built lazily per request so the
  * API boots fine without any OAuth credentials configured; the routes answer
  * 400 `oauth_not_configured` in that case (see docs/API.md).
+ *
+ * The `OAuthProviders` service (docs/EFFECT.md E6, E7; plan `docs/plans/e2-api-core-services.md` P1, P2) holds the
+ * two operations that can fail: `requireProviderConfigured` and `exchangeCodeForProfile`. Every `fetch` and every
+ * arctic call goes through `Effect.tryPromise`: a transport failure is an `OAuthTransportError` (outside the API
+ * error family, so the callback logs it and redirects with `oauth_failed`, as it did for the raw `TypeError`), the
+ * provider's own refusals are `ApiFailure` 400 `oauth_failed` with today's texts. The pure helpers
+ * (`isProviderConfigured`, `callbackUrl`, `createAuthorization`, the three parsers, `webUrl`, `safeNextPath`) stay
+ * plain functions reading the process `env` (or the settings they are handed); the sync bridge
+ * `requireProviderConfigured` stays SYNCHRONOUS with return type `void` (plan e2 P1).
  */
 import type { OAuthProvider } from "@toon/shared";
 import { GitHub, Google, decodeIdToken, generateCodeVerifier, generateState } from "arctic";
-import { Option, Schema } from "effect";
+import { Context, Effect, Layer, Option, Predicate, Schema } from "effect";
+import { AppConfig, type Env } from "../config.ts";
 import { env } from "../env.ts";
-import { ApiError } from "./errors.ts";
+import { runtime } from "../runtime.ts";
+import { ApiFailure } from "./errors.ts";
 
 export type { OAuthProvider };
 
@@ -37,54 +48,74 @@ export interface OAuthStart {
 const GOOGLE_SCOPES = ["openid", "profile", "email"];
 const GITHUB_SCOPES = ["read:user", "user:email"];
 
+/** The part of the environment this file reads: the process `env` by default, any `AppConfig` value in a service. */
+export type OAuthSettings = Pick<
+  Env,
+  | "googleOAuthConfigured"
+  | "githubOAuthConfigured"
+  | "GOOGLE_CLIENT_ID"
+  | "GOOGLE_CLIENT_SECRET"
+  | "GITHUB_CLIENT_ID"
+  | "GITHUB_CLIENT_SECRET"
+  | "OAUTH_REDIRECT_BASE"
+>;
+
 /** True when both client id and secret are present in the environment. */
-export function isProviderConfigured(provider: OAuthProvider): boolean {
-  return provider === "google" ? env.googleOAuthConfigured : env.githubOAuthConfigured;
+export function isProviderConfigured(provider: OAuthProvider, settings: OAuthSettings = env): boolean {
+  return provider === "google" ? settings.googleOAuthConfigured : settings.githubOAuthConfigured;
+}
+
+/** The `oauth_failed` refusal with one catalog text. */
+function oauthFailed(text: ConstructorParameters<typeof ApiFailure>[0]["text"]): ApiFailure {
+  return new ApiFailure({ status: 400, code: "oauth_failed", text });
 }
 
 /**
  * 400 `oauth_not_configured` instead of a boot crash when a provider is not set up.
  * INTEGRATION: docs/API.md is the referee and documents 400 here; it was 501 before,
  * which also made the global onError log a stack trace for a perfectly normal
- * "this server has no Google credentials" answer.
+ * "this server has no Google credentials" answer. Service-free (reads only `settings`).
  */
-export function requireProviderConfigured(provider: OAuthProvider): void {
-  if (isProviderConfigured(provider)) return;
-  throw new ApiError(
-    400,
-    "oauth_not_configured",
-    provider === "google" ? "server.auth.googleNotConfigured" : "server.auth.githubNotConfigured",
-  );
-}
+export const checkProviderConfigured = Effect.fnUntraced(function* (
+  provider: OAuthProvider,
+  settings: OAuthSettings = env,
+): Effect.fn.Return<void, ApiFailure> {
+  if (isProviderConfigured(provider, settings)) return;
+  return yield* new ApiFailure({
+    status: 400,
+    code: "oauth_not_configured",
+    text: provider === "google" ? "server.auth.googleNotConfigured" : "server.auth.githubNotConfigured",
+  });
+});
 
 /** Redirect URI registered with the provider. */
-export function callbackUrl(provider: OAuthProvider): string {
-  return `${env.OAUTH_REDIRECT_BASE.replace(/\/+$/, "")}/api/auth/oauth/${provider}/callback`;
+export function callbackUrl(provider: OAuthProvider, settings: OAuthSettings = env): string {
+  return `${settings.OAUTH_REDIRECT_BASE.replace(/\/+$/, "")}/api/auth/oauth/${provider}/callback`;
 }
 
-function googleClient(): Google {
-  return new Google(env.GOOGLE_CLIENT_ID ?? "", env.GOOGLE_CLIENT_SECRET ?? "", callbackUrl("google"));
+function googleClient(settings: OAuthSettings): Google {
+  return new Google(settings.GOOGLE_CLIENT_ID ?? "", settings.GOOGLE_CLIENT_SECRET ?? "", callbackUrl("google", settings));
 }
 
-function githubClient(): GitHub {
-  return new GitHub(env.GITHUB_CLIENT_ID ?? "", env.GITHUB_CLIENT_SECRET ?? "", callbackUrl("github"));
+function githubClient(settings: OAuthSettings): GitHub {
+  return new GitHub(settings.GITHUB_CLIENT_ID ?? "", settings.GITHUB_CLIENT_SECRET ?? "", callbackUrl("github", settings));
 }
 
 /** Builds the provider authorization URL plus the values to store in cookies. */
-export function createAuthorization(provider: OAuthProvider): OAuthStart {
-  requireProviderConfigured(provider);
+export function createAuthorization(provider: OAuthProvider, settings: OAuthSettings = env): OAuthStart {
+  requireProviderConfigured(provider, settings);
   const state = generateState();
 
   if (provider === "google") {
     const codeVerifier = generateCodeVerifier();
-    const url = googleClient().createAuthorizationURL(state, codeVerifier, GOOGLE_SCOPES);
+    const url = googleClient(settings).createAuthorizationURL(state, codeVerifier, GOOGLE_SCOPES);
     // Ask Google for a refresh-free, always-fresh id_token and let the user pick
     // an account instead of silently reusing the last one.
     url.searchParams.set("prompt", "select_account");
     return { url: url.toString(), state, codeVerifier };
   }
 
-  const url = githubClient().createAuthorizationURL(state, GITHUB_SCOPES);
+  const url = githubClient(settings).createAuthorizationURL(state, GITHUB_SCOPES);
   return { url: url.toString(), state };
 }
 
@@ -138,70 +169,55 @@ function truthy(value: boolean | string | undefined): boolean {
 }
 
 /**
- * Exchanges the authorization code and loads the user profile.
- * Any provider/network failure becomes 400 `oauth_failed` — the callers turn it
- * into a redirect back to the web app.
+ * A provider or network failure that is NOT one of the provider's own refusals: a rejected `fetch`, a body that is
+ * not JSON. Outside the API error family on purpose (like `DatabaseError`): the OAuth callback logs it and redirects
+ * with `oauth_failed`, exactly as it did for the raw rejection.
  */
-export async function exchangeCodeForProfile(
-  provider: OAuthProvider,
-  code: string,
-  codeVerifier: string | undefined,
-): Promise<OAuthProfile> {
-  requireProviderConfigured(provider);
+export class OAuthTransportError extends Schema.TaggedError<OAuthTransportError>()("OAuthTransportError", {
+  cause: Schema.Defect(),
+}) {}
 
-  if (provider === "google") {
-    if (!codeVerifier) {
-      throw new ApiError(400, "oauth_failed", "server.auth.oauthSessionExpired");
-    }
-    const tokens = await validate(() => googleClient().validateAuthorizationCode(code, codeVerifier));
-    // `idToken()` throws when the response carried none — then we fall back to
-    // the userinfo endpoint inside googleProfile().
-    let idToken: string | undefined;
-    try {
-      idToken = tokens.idToken();
-    } catch {
-      idToken = undefined;
-    }
-    return googleProfile(idToken, tokens.accessToken());
-  }
-
-  const tokens = await validate(() => githubClient().validateAuthorizationCode(code));
-  return githubProfile(tokens.accessToken());
+/** A promise (or a thunk that throws synchronously) as an effect whose failure is an `OAuthTransportError`. */
+function attempt<A>(run: () => Promise<A>): Effect.Effect<A, OAuthTransportError> {
+  return Effect.tryPromise({ try: run, catch: (cause) => new OAuthTransportError({ cause }) });
 }
 
-async function validate<T>(run: () => Promise<T>): Promise<T> {
-  try {
-    return await run();
-  } catch (error) {
-    console.warn("[auth] OAuth code exchange failed:", error instanceof Error ? error.message : error);
-    throw new ApiError(400, "oauth_failed", "server.auth.oauthLoginFailed");
-  }
+/** arctic's code exchange: any failure is logged (English, as before) and becomes 400 `oauth_failed`. */
+function validateCode<A>(run: () => Promise<A>): Effect.Effect<A, ApiFailure> {
+  return attempt(run).pipe(
+    Effect.catchTag("OAuthTransportError", ({ cause }) =>
+      Effect.sync(() =>
+        console.warn("[auth] OAuth code exchange failed:", Predicate.isError(cause) ? cause.message : cause),
+      ).pipe(Effect.andThen(Effect.fail(oauthFailed("server.auth.oauthLoginFailed")))),
+    ),
+  );
 }
 
-async function googleProfile(idToken: string | undefined, accessToken: string): Promise<OAuthProfile> {
+const googleProfile = Effect.fn("OAuthProviders.googleProfile")(function* (
+  idToken: string | undefined,
+  accessToken: string,
+) {
   let claims: unknown;
   if (idToken) {
-    try {
-      claims = decodeIdToken(idToken);
-    } catch {
-      claims = undefined;
-    }
+    claims = yield* Effect.try(() => decodeIdToken(idToken)).pipe(Effect.orElseSucceed((): unknown => undefined));
   }
   if (claims === undefined) {
-    const response = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    const response = yield* attempt(() =>
+      fetch("https://openidconnect.googleapis.com/v1/userinfo", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }),
+    );
     if (!response.ok) {
-      throw new ApiError(400, "oauth_failed", "server.auth.googleProfileUnavailable");
+      return yield* oauthFailed("server.auth.googleProfileUnavailable");
     }
-    claims = await response.json();
+    claims = yield* attempt((): Promise<unknown> => response.json());
   }
 
   const data = parseGoogleClaims(claims);
   if (data === undefined) {
-    throw new ApiError(400, "oauth_failed", "server.auth.googleProfileIncomplete");
+    return yield* oauthFailed("server.auth.googleProfileIncomplete");
   }
-  return {
+  const profile: OAuthProfile = {
     provider: "google",
     providerUserId: data.sub,
     email: data.email?.trim().toLowerCase() ?? null,
@@ -209,9 +225,10 @@ async function googleProfile(idToken: string | undefined, accessToken: string): 
     name: data.name ?? data.given_name ?? null,
     avatarUrl: data.picture ?? null,
   };
-}
+  return profile;
+});
 
-async function githubProfile(accessToken: string): Promise<OAuthProfile> {
+const githubProfile = Effect.fn("OAuthProviders.githubProfile")(function* (accessToken: string) {
   const headers = {
     Authorization: `Bearer ${accessToken}`,
     Accept: "application/vnd.github+json",
@@ -219,22 +236,22 @@ async function githubProfile(accessToken: string): Promise<OAuthProfile> {
     "X-GitHub-Api-Version": "2022-11-28",
   };
 
-  const userResponse = await fetch("https://api.github.com/user", { headers });
+  const userResponse = yield* attempt(() => fetch("https://api.github.com/user", { headers }));
   if (!userResponse.ok) {
-    throw new ApiError(400, "oauth_failed", "server.auth.githubProfileUnavailable");
+    return yield* oauthFailed("server.auth.githubProfileUnavailable");
   }
-  const user = parseGitHubUser(await userResponse.json());
+  const user = parseGitHubUser(yield* attempt((): Promise<unknown> => userResponse.json()));
   if (user === undefined) {
-    throw new ApiError(400, "oauth_failed", "server.auth.githubProfileIncomplete");
+    return yield* oauthFailed("server.auth.githubProfileIncomplete");
   }
 
   let email = user.email?.trim().toLowerCase() ?? null;
   let emailVerified = false;
 
   // The public profile e-mail may be hidden; /user/emails needs `user:email`.
-  const emailsResponse = await fetch("https://api.github.com/user/emails", { headers });
+  const emailsResponse = yield* attempt(() => fetch("https://api.github.com/user/emails", { headers }));
   if (emailsResponse.ok) {
-    const emails = parseGitHubEmails(await emailsResponse.json());
+    const emails = parseGitHubEmails(yield* attempt((): Promise<unknown> => emailsResponse.json()));
     if (emails !== undefined) {
       const primary =
         emails.find((entry) => entry.primary === true && entry.verified === true) ??
@@ -246,7 +263,7 @@ async function githubProfile(accessToken: string): Promise<OAuthProfile> {
     }
   }
 
-  return {
+  const profile: OAuthProfile = {
     provider: "github",
     providerUserId: String(user.id),
     email,
@@ -254,6 +271,64 @@ async function githubProfile(accessToken: string): Promise<OAuthProfile> {
     name: user.name ?? user.login,
     avatarUrl: user.avatar_url ?? null,
   };
+  return profile;
+});
+
+/** The provider operations that can fail: the configuration check and the code exchange. */
+export class OAuthProviders extends Context.Service<
+  OAuthProviders,
+  {
+    /** 400 `oauth_not_configured` unless the provider's client id and secret are set. */
+    readonly requireProviderConfigured: (provider: OAuthProvider) => Effect.Effect<void, ApiFailure>;
+    /**
+     * Exchanges the authorization code and loads the user profile. A provider refusal is 400 `oauth_failed`; a
+     * network failure is an `OAuthTransportError` (the callers turn both into a redirect back to the web app).
+     */
+    readonly exchangeCodeForProfile: (
+      provider: OAuthProvider,
+      code: string,
+      codeVerifier: string | undefined,
+    ) => Effect.Effect<OAuthProfile, ApiFailure | OAuthTransportError>;
+  }
+>()("toon/api/lib/oauth/OAuthProviders") {
+  static readonly layer = Layer.effect(
+    this,
+    Effect.gen(function* () {
+      const config = yield* AppConfig;
+
+      const requireConfigured = Effect.fn("OAuthProviders.requireProviderConfigured")(function* (
+        provider: OAuthProvider,
+      ) {
+        yield* checkProviderConfigured(provider, config);
+      });
+
+      const exchangeCodeForProfile = Effect.fn("OAuthProviders.exchangeCodeForProfile")(function* (
+        provider: OAuthProvider,
+        code: string,
+        codeVerifier: string | undefined,
+      ) {
+        yield* checkProviderConfigured(provider, config);
+
+        if (provider === "google") {
+          if (!codeVerifier) {
+            return yield* oauthFailed("server.auth.oauthSessionExpired");
+          }
+          const tokens = yield* validateCode(() => googleClient(config).validateAuthorizationCode(code, codeVerifier));
+          // `idToken()` throws when the response carried none — then we fall back to
+          // the userinfo endpoint inside googleProfile().
+          const idToken = yield* Effect.try(() => tokens.idToken()).pipe(
+            Effect.orElseSucceed((): string | undefined => undefined),
+          );
+          return yield* googleProfile(idToken, tokens.accessToken());
+        }
+
+        const tokens = yield* validateCode(() => githubClient(config).validateAuthorizationCode(code));
+        return yield* githubProfile(tokens.accessToken());
+      });
+
+      return OAuthProviders.of({ requireProviderConfigured: requireConfigured, exchangeCodeForProfile });
+    }),
+  );
 }
 
 /**
@@ -295,4 +370,30 @@ export function safeNextPath(value: string | undefined | null): string | undefin
   if (/[\\\u0000-\u0020\u007f]/.test(value)) return undefined;
   if (!value.startsWith("/") || value.startsWith("//")) return undefined;
   return value;
+}
+
+/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
+
+/**
+ * SYNCHRONOUS, return type `void` (plan e2 P1): `Effect.runSync` over the service-free check throws the `ApiFailure`
+ * itself. Callers: `createAuthorization` above, `core/routes/auth.ts` (E2-T10).
+ */
+export function requireProviderConfigured(provider: OAuthProvider, settings: OAuthSettings = env): void {
+  Effect.runSync(checkProviderConfigured(provider, settings));
+}
+
+/**
+ * Callers: `core/routes/auth.ts` (E2-T10). A refusal rejects with the `ApiFailure` itself; a transport failure rejects
+ * with the original cause (what the raw `fetch` rejection was before), so the callback's log line is unchanged.
+ */
+export function exchangeCodeForProfile(
+  provider: OAuthProvider,
+  code: string,
+  codeVerifier: string | undefined,
+): Promise<OAuthProfile> {
+  return runtime.runPromise(
+    OAuthProviders.use((service) => service.exchangeCodeForProfile(provider, code, codeVerifier)).pipe(
+      Effect.catchTag("OAuthTransportError", ({ cause }) => Effect.die(cause)),
+    ),
+  );
 }

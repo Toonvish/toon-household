@@ -2,7 +2,7 @@
  * Sessions and mailed tokens on the `Clock` (docs/EFFECT.md E7, E9; plan `docs/plans/e2-api-core-services.md` P7,
  * task E2-T07): `Sessions` reads "now" from `Clock.currentTimeMillis` inside each method, so a `TestClock` provided
  * around one run (`runTest(…, { clock: "test" })`) moves a session through its lifetime without waiting, and
- * `spendableToken` gives the same verdict as `assertSpendableToken` with the Clock's time.
+ * `spendableToken` gives the verdict for unknown, used and expired rows with the Clock's time.
  *
  * The virtual start instant is 2020-01-01, long before every real row of the shared test DB, so a sweep this run
  * might start (`resolveSession` forks it) can only reach rows older than that: the ones this file wrote.
