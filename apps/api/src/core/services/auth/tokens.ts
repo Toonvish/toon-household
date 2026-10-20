@@ -13,7 +13,13 @@
  *     would cost every account, so this one is one-way. No salt and no argon2:
  *     the input is already 256 random bits, so there is nothing to grind, and a
  *     salted hash could not be looked up by token at all.
+ *
+ * `spendableToken` is the verdict as an Effect on the `Clock` (docs/EFFECT.md E7; plan
+ * `docs/plans/e2-api-core-services.md` P7). `assertSpendableToken` (its `Date.now()` default included) stays as it is
+ * until E2-T08 moves its two callers (`emailVerification.ts`, `passwordReset.ts`) onto `spendableToken` and deletes it.
  */
+
+import { Clock, Effect } from "effect";
 
 /** 32 random bytes, URL-safe base64 (43 chars) — safe in a path segment. */
 export function generateOpaqueToken(): string {
@@ -58,3 +64,19 @@ export function assertSpendableToken<T extends SpendableTokenRow>(
   if (row.expiresAt <= now) throw invalid();
   return row;
 }
+
+/**
+ * {@link assertSpendableToken} on the `Clock`: the same verdict, with "now" read from `Clock.currentTimeMillis` (so a
+ * `TestClock` reaches it). Every branch fails with the ONE refusal `invalid` builds — unknown, already-used and
+ * expired stay indistinguishable.
+ */
+export const spendableToken = Effect.fnUntraced(function* <T extends SpendableTokenRow, E>(
+  row: T | undefined,
+  invalid: () => E,
+): Effect.fn.Return<T, E> {
+  if (!row) return yield* Effect.fail(invalid());
+  if (row.usedAt !== null) return yield* Effect.fail(invalid());
+  const now = yield* Clock.currentTimeMillis;
+  if (row.expiresAt <= now) return yield* Effect.fail(invalid());
+  return row;
+});
