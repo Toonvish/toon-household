@@ -128,14 +128,14 @@ describe("validation details on the former zValidator routes (ADR 0013)", () => 
   });
 });
 
-describe("the wire change stays an open owner decision until acknowledged (ADR 0013, open-work D-7)", () => {
+describe("the wire change is accepted (ADR 0013)", () => {
   const root = new URL("../../../", import.meta.url);
   const read = (path: string): string => readFileSync(new URL(path, root), "utf8");
 
-  test("ADR 0013 carries a Status line that points at open-work D-7, and D-7 names the ADR", () => {
+  test("ADR 0013 carries the owner's acceptance of 2026-10-16, and open-work has no D-7 row left", () => {
     const adr = read("docs/adr/0013-validation-details-from-the-schema-adapter.md");
     const openWork = read("docs/open-work.md");
-    expect(adr).toMatch(/^Status: [^#]*docs\/open-work\.md` D-7/m);
-    expect(openWork).toMatch(/^\| D-7 \| .*ADR 0013/m);
+    expect(adr).toMatch(/^Status: accepted by the owner on 2026-10-16\b/m);
+    expect(openWork).not.toMatch(/^\| D-7 \|/m);
   });
 });

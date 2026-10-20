@@ -6,11 +6,17 @@
  * - the auth middleware sets `user` + `sessionId` (requireSession)
  * - the household middleware sets `membership` (requireHouseholdRole)
  * Handlers read them with c.get("user") / c.get("membership"); the non-optional
- * getters below throw a 401/403-shaped ApiError if the middleware was forgotten.
+ * getters below fail with `Unauthorized` (401) / `Forbidden` (403) if the
+ * middleware was forgotten: `currentUser(c)` / `currentMembership(c)` as Effects
+ * (plan e2 P19), `requireUser(c)` / `requireMembership(c)` as their synchronous
+ * bridges for the recipe and finance modules (plan e2 P1).
+ *
+ * Import cycle (plan e2 P12): this file imports neither `runtime.ts` nor a service.
  */
 import type { HouseholdRole, Locale, User } from "@toon/shared";
+import { Effect } from "effect";
 import type { Context } from "hono";
-import { ApiError } from "./errors.ts";
+import { Forbidden, Unauthorized } from "./errors.ts";
 
 export interface Membership {
   householdId: string;
@@ -38,16 +44,30 @@ export type AppEnv = { Variables: AppVariables };
 
 export type AppContext = Context<AppEnv>;
 
-/** Returns the authenticated user or throws 401. */
-export function requireUser(c: AppContext): User {
+/** The authenticated user, or `Unauthorized` (401) when `requireSession` did not run. */
+export const currentUser = Effect.fnUntraced(function* (c: AppContext): Effect.fn.Return<User, Unauthorized> {
   const user = c.get("user");
-  if (!user) throw ApiError.unauthorized();
+  if (!user) return yield* new Unauthorized();
   return user;
+});
+
+/** The verified household membership, or `Forbidden` (403) when `requireHouseholdRole` did not run. */
+export const currentMembership = Effect.fnUntraced(function* (
+  c: AppContext,
+): Effect.fn.Return<Membership, Forbidden> {
+  const membership = c.get("membership");
+  if (!membership) return yield* new Forbidden({ text: "server.group.noAccess" });
+  return membership;
+});
+
+/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
+
+/** Returns the authenticated user or throws `Unauthorized` (401). Callers: the recipe and finance routes. */
+export function requireUser(c: AppContext): User {
+  return Effect.runSync(currentUser(c));
 }
 
-/** Returns the verified household membership or throws 403. */
+/** Returns the verified household membership or throws `Forbidden` (403). Callers: the recipe and finance routes. */
 export function requireMembership(c: AppContext): Membership {
-  const membership = c.get("membership");
-  if (!membership) throw ApiError.forbidden("server.group.noAccess");
-  return membership;
+  return Effect.runSync(currentMembership(c));
 }
