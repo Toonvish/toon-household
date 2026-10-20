@@ -62,12 +62,13 @@ export const currentMembership = Effect.fnUntraced(function* (
 
 /* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
 
-/** Returns the authenticated user or throws `Unauthorized` (401). Callers: the recipe and finance routes. */
+/** Returns the authenticated user or throws `Unauthorized` (401). Callers: the recipe and finance routes (E3, E4). Synchronous. */
 export function requireUser(c: AppContext): User {
   return Effect.runSync(currentUser(c));
 }
 
-/** Returns the verified household membership or throws `Forbidden` (403). Callers: the recipe and finance routes. */
+/** Returns the verified household membership or throws `Forbidden` (403). Callers: the recipe and finance routes and `finance/middleware.ts` (E3, E4), `apps/api/test/{modules,middleware}.test.ts`.
+ * Synchronous. */
 export function requireMembership(c: AppContext): Membership {
   return Effect.runSync(currentMembership(c));
 }

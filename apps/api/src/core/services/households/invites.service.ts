@@ -15,11 +15,10 @@
  * The `HouseholdInvites` service (docs/EFFECT.md E7; plan `docs/plans/e2-api-core-services.md` P2, P7) reads the
  * current executor of `Database` on every call, takes its time from the `Clock`, sends the mail through
  * `Mailer.trySendMail` (never fails) and reads the household reads and the membership join through `Households`.
- * The Promise bridges at the end of the file keep the old exports working for the routes until E2-T11.
+ * The service has no legacy bridge (the invite routes use it).
  */
 import type {
   AcceptInviteResponse,
-  HouseholdInvite,
   HouseholdInviteListResponse,
   HouseholdInviteResponse,
   HouseholdRole,
@@ -30,18 +29,16 @@ import { type Locale, isLocale } from "@toon/shared";
 import { type SQL, and, count, desc, eq, isNull } from "drizzle-orm";
 import { Clock, Context, Effect, Layer } from "effect";
 import { AppConfig } from "../../../config.ts";
-import type { Database as DrizzleDatabase } from "../../../db/client.ts";
 import { Database } from "../../../db/database.ts";
 import { householdInvites, householdMembers, households, users } from "../../../db/schema.ts";
 import { env } from "../../../env.ts";
 import { BadRequest, Conflict, type DatabaseError, NotFound } from "../../../lib/errors.ts";
 import { toIso } from "../../../lib/http.ts";
-import { runtime } from "../../../runtime.ts";
 import { inviteMail, mailDeliveryOf, MailerService } from "../mail/index.ts";
 import { Households } from "./households.service.ts";
 import { toHouseholdInvite, toInvitableRole, toInviteStatus } from "./mappers.ts";
 import { toHouseholdRole } from "./membership.ts";
-import { type DbLike, eqFolded } from "./support.ts";
+import { eqFolded } from "./support.ts";
 
 /** Invite lifetime — docs/API.md: 32-byte token, 14 days. */
 export const INVITE_TTL_DAYS = 14;
@@ -416,53 +413,5 @@ export class HouseholdInvites extends Context.Service<
 
       return HouseholdInvites.of({ createInvite, listInvites, revokeInvite, previewInvite, acceptInvite });
     }),
-  );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/** Callers: `core/routes/invites.ts` (E2-T11). */
-export function createInvite(
-  db: DrizzleDatabase,
-  householdId: string,
-  invitedBy: string,
-  input: { email?: string | undefined; role: "admin" | "member"; claimsUserId?: string | undefined },
-): Promise<HouseholdInviteResponse> {
-  return runtime.runPromise(
-    HouseholdInvites.use((service) => service.createInvite(householdId, invitedBy, input)).pipe(
-      Database.withExecutor(db),
-    ),
-  );
-}
-
-/** Callers: `core/routes/invites.ts` (E2-T11). */
-export function listInvites(
-  db: DbLike,
-  householdId: string,
-  pagination: PaginationQuery,
-): Promise<HouseholdInviteListResponse> {
-  return runtime.runPromise(
-    HouseholdInvites.use((service) => service.listInvites(householdId, pagination)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `core/routes/invites.ts` (E2-T11). */
-export function revokeInvite(db: DbLike, householdId: string, inviteId: string): Promise<void> {
-  return runtime.runPromise(
-    HouseholdInvites.use((service) => service.revokeInvite(householdId, inviteId)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `core/routes/invites.ts` (E2-T11). */
-export function previewInvite(db: DbLike, token: string): Promise<InvitePreviewResponse> {
-  return runtime.runPromise(
-    HouseholdInvites.use((service) => service.previewInvite(token)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `core/routes/invites.ts` (E2-T11). */
-export function acceptInvite(db: DrizzleDatabase, userId: string, token: string): Promise<AcceptInviteResponse> {
-  return runtime.runPromise(
-    HouseholdInvites.use((service) => service.acceptInvite(userId, token)).pipe(Database.withExecutor(db)),
   );
 }

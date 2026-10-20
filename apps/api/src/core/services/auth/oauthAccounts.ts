@@ -26,18 +26,16 @@
  * OAuth provider can also set.
  *
  * The `OAuthAccounts` service (docs/EFFECT.md E6, E7; plan `docs/plans/e2-api-core-services.md` P2, P7) reads the
- * current executor of `Database` on every call and its time from the `Clock`, inside each method. The Promise
- * bridges at the end of the file keep the old exports working for the callers that are not converted yet.
+ * current executor of `Database` on every call and its time from the `Clock`, inside each method. The service has
+ * no legacy bridge.
  */
 import { and, eq } from "drizzle-orm";
 import { Clock, Context, Effect, Layer } from "effect";
-import type { DrizzleDatabase } from "../../../db/client.ts";
 import { Database } from "../../../db/database.ts";
 import { type OAuthAccountRow, type UserRow, oauthAccounts } from "../../../db/schema.ts";
 import { Conflict, type DatabaseError, NotFound } from "../../../lib/errors.ts";
 import type { OAuthProfile } from "../../../lib/oauth.ts";
 import type { HookError } from "../../../modules/types.ts";
-import { runtime } from "../../../runtime.ts";
 import { DEFAULT_HOUSEHOLD_NAME, Users, displayNameFromEmail } from "./users.ts";
 
 export type OAuthOutcome = "login" | "linked" | "created";
@@ -220,39 +218,5 @@ export class OAuthAccounts extends Context.Service<
 
       return OAuthAccounts.of({ loginWithOAuthProfile, listOAuthAccounts, linkOAuthAccount, unlinkOAuthAccount });
     }),
-  );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/** Callers: `core/routes/auth.ts` (E2-T10), `core/services/auth/index.ts`. */
-export function loginWithOAuthProfile(database: DrizzleDatabase, profile: OAuthProfile): Promise<OAuthLoginResult> {
-  return runtime.runPromise(
-    OAuthAccounts.use((service) => service.loginWithOAuthProfile(profile)).pipe(Database.withExecutor(database)),
-  );
-}
-
-/** Callers: `core/routes/auth.ts` (E2-T10), `core/services/auth/index.ts`. */
-export function listOAuthAccounts(database: DrizzleDatabase, userId: string): Promise<OAuthAccountRow[]> {
-  return runtime.runPromise(
-    OAuthAccounts.use((service) => service.listOAuthAccounts(userId)).pipe(Database.withExecutor(database)),
-  );
-}
-
-/** Callers: `core/routes/auth.ts` (E2-T10). */
-export function linkOAuthAccount(database: DrizzleDatabase, userId: string, profile: OAuthProfile): Promise<void> {
-  return runtime.runPromise(
-    OAuthAccounts.use((service) => service.linkOAuthAccount(userId, profile)).pipe(Database.withExecutor(database)),
-  );
-}
-
-/** Callers: `core/routes/auth.ts` (E2-T10). */
-export function unlinkOAuthAccount(
-  database: DrizzleDatabase,
-  user: UserRow,
-  provider: OAuthProfile["provider"],
-): Promise<void> {
-  return runtime.runPromise(
-    OAuthAccounts.use((service) => service.unlinkOAuthAccount(user, provider)).pipe(Database.withExecutor(database)),
   );
 }

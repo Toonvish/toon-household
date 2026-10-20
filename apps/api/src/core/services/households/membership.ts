@@ -55,12 +55,13 @@ export const checkCanModifyOwned = Effect.fnUntraced(function* (
 // Both stay SYNCHRONOUS with a `void` return type (plan e2 P1): `Effect.runSync` over a service-free effect throws
 // the `Forbidden` refusal itself, as the old `throw ApiError.forbidden(...)` did.
 
-/** Throws 403 unless `membership.role` satisfies `required`. Callers: `recipe/services/recipes/recipes.service.ts` (E3). */
+/** Throws 403 unless `membership.role` satisfies `required`. Callers: none read it; `recipe/services/recipes/recipes.service.ts` still
+ * imports it (an unused import, E3 removes both). Synchronous. */
 export function assertRole(membership: Membership, required: HouseholdRole): void {
   Effect.runSync(checkRole(membership, required));
 }
 
-/** Callers: `recipe/services/recipes/{recipes,collections}.service.ts`, `shopping/lists.service.ts` (E3). */
+/** Callers: `recipe/services/recipes/{recipes,collections}.service.ts`, `shopping/lists.service.ts` (E3). Synchronous. */
 export function assertCanModifyOwned(membership: Membership, row: { createdBy: string }): void {
   Effect.runSync(checkCanModifyOwned(membership, row));
 }

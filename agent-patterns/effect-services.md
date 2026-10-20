@@ -258,3 +258,15 @@ route definition); when E7 replaces Hono the decoding moves into `HttpApi` paylo
   closes it on release. The memo map is ref-counted (`Layer.ts` `makeMemoMapEntry`): an entry is built once per memo
   map while observed and released when its last observer's scope closes, so `Effect.provide(Database.layerFromUrl(u))`
   closes the client at the end of that run.
+
+**As built (E2, integration):** the bridges and the cycle, recorded once the last core caller moved.
+- A legacy bridge is a plain exported function in a marked section at the END of its service's file, with the old name, the old
+  `db` first argument (`Database.withExecutor(db)`) and the old calling convention as an explicit return type: Promise →
+  `runtime.runPromise(Service.use(...).pipe(Database.withExecutor(db)))`, synchronous → `Effect.runSync` over a service-free effect,
+  fire-and-forget → `runtime.runFork(... Effect.ignoreCause)`. `apps/api/src/core/services/auth/index.ts` (the old barrel) was
+  deleted with the last bridge nobody used; what survives is listed in `docs/plans/e2-api-core-services.md` section 9.2.
+- A middleware factory that a router calls at module scope (`requireHouseholdRole("admin")`) is a hoisted `function` whose body reads no
+  imported binding; the returned handler reads `runtime` and the services on a request. The same rule keeps `runtime.ts` importable from
+  anywhere in the import cycle: its module scope reads only `Layer` and `ManagedRuntime`.
+- A pure helper that sits in a service's file (`mailDeliveryOf`, `redactAddress`, `generateInviteToken`, `INVITE_TTL_MS`) is not a bridge
+  and never goes away; say so in a comment above it so a later prune does not delete it.

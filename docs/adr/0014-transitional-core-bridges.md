@@ -64,3 +64,13 @@ The core keeps four transitional doors open until the milestone that moves the l
   `shutdown` first, then `runtime.dispose()`).
 - Each bridge is a debt with a named owner milestone; a bridge that outlives its milestone is a finding of that
   milestone's review.
+
+## Status after E2's integration (2026-10-20)
+
+E2's integration task pruned the bridges: 59 were deleted (every one whose callers were only core routes, middlewares,
+`apps/api/src/index.ts` or rewritten core tests, and the old `auth/index.ts` barrel) and 22 survive, listed with their callers,
+calling convention and removal milestone in `docs/plans/e2-api-core-services.md` section 9.2. Of the synchronous
+bridges named above, `toUserDto`, `requireAccountEmail` and `requireProviderConfigured` no longer exist (no caller was left);
+`assertRole` survives with no reader (an unused import in recipe). The idioms test pins the two rules that make the
+transition honest: `throw ApiError` only under `apps/api/src/modules/recipe/` and `finance/` (rule (10)), and no `Date.now(` /
+`new Date(` in a `services/` directory and no `nowMs(` call under `apps/api/src/core/` outside the pinned entries (rule (11)).

@@ -137,8 +137,8 @@ export class Uploads extends Context.Service<
 
 /**
  * Reads the multipart `file` field, validates size + real type and stores it.
- * Rejects with the 400/413/415 family error. Callers: `apps/api/src/modules/recipe/routes/recipes.ts`, the
- * core routes until E2-T10.
+ * Rejects with the 400/413/415 family error. Callers: `apps/api/src/modules/recipe/routes/recipes.ts` (E3),
+ * `apps/api/test/uploads.test.ts`. Promise.
  */
 export function storeUploadedImage(formData: FormData, field = "file"): Promise<UploadResponse> {
   return runtime.runPromise(Uploads.use((uploads) => uploads.storeUploadedImage(formData, field)));

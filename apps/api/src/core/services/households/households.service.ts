@@ -2,8 +2,8 @@
  * Households + memberships.
  *
  * The `Households` service (docs/EFFECT.md E7; plan `docs/plans/e2-api-core-services.md` P2, P7, P11) reads the
- * current executor of `Database` on every call, so the legacy bridges at the end of the file (which take the old `db`
- * argument) and an open transaction reach it, and takes every timestamp from the `Clock`. `createHousehold`,
+ * current executor of `Database` on every call, so an open transaction reaches it, and takes every timestamp from
+ * the `Clock`. `createHousehold`,
  * `addPlaceholderMember`, `updateMemberRole`, `deleteHousehold` and `removeMember` run their writes in
  * `database.transaction`; `removeMember` runs every module's `onMemberRemoving` veto first, inside that transaction.
  *
@@ -19,7 +19,6 @@ import type {
 } from "@toon/shared";
 import { and, asc, count, eq, inArray, isNull, ne } from "drizzle-orm";
 import { Clock, Context, Effect, Layer } from "effect";
-import type { Database as DrizzleDatabase } from "../../../db/client.ts";
 import { Database } from "../../../db/database.ts";
 import { householdMembers, households, users } from "../../../db/schema.ts";
 import type { HouseholdRow } from "../../../db/schema.ts";
@@ -28,12 +27,11 @@ import type { Membership } from "../../../lib/types.ts";
 import { normalizeStoredUploadUrl } from "../../../lib/uploadUrls.ts";
 import { API_MODULES } from "../../../modules/index.ts";
 import type { ApiModule, HookError } from "../../../modules/types.ts";
-import { runtime } from "../../../runtime.ts";
 import { Users, isPlaceholderUser } from "../auth/users.ts";
 import { toHouseholdMember, toHouseholdWithRole } from "./mappers.ts";
 import { checkRole, toHouseholdRole } from "./membership.ts";
 import { HouseholdModules } from "./modules.ts";
-import { type DbLike, eqFolded, toCountMap } from "./support.ts";
+import { eqFolded, toCountMap } from "./support.ts";
 
 /** Households and their members: reads, creation, the placeholder members and the role and membership changes. */
 export class Households extends Context.Service<
@@ -537,134 +535,5 @@ export class Households extends Context.Service<
         removeMember,
       });
     }),
-  );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/** Callers: `auth/bootstrap.ts` bridge, `core/routes/households.ts` (E2-T11). */
-export function listHouseholdsForUser(db: DbLike, userId: string): Promise<HouseholdWithRole[]> {
-  return runtime.runPromise(
-    Households.use((service) => service.listHouseholdsForUser(userId)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: none outside this file's tests (`apps/api/test`), kept for the bridge inventory (E2-T13 prunes). */
-export function loadHouseholdRow(db: DbLike, householdId: string): Promise<HouseholdRow> {
-  return runtime.runPromise(
-    Households.use((service) => service.loadHouseholdRow(householdId)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `core/routes/households.ts`, `core/routes/modules.ts` (E2-T11). */
-export function getHouseholdWithRole(
-  db: DbLike,
-  householdId: string,
-  role: HouseholdRole,
-): Promise<HouseholdWithRole> {
-  return runtime.runPromise(
-    Households.use((service) => service.getHouseholdWithRole(householdId, role)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `core/routes/households.ts`, `core/routes/members.ts` (E2-T11). */
-export function listMembers(db: DbLike, householdId: string): Promise<HouseholdMember[]> {
-  return runtime.runPromise(Households.use((service) => service.listMembers(householdId)).pipe(Database.withExecutor(db)));
-}
-
-/** Callers: none outside this file's tests (`apps/api/test`), kept for the bridge inventory (E2-T13 prunes). */
-export function getMember(db: DbLike, householdId: string, userId: string): Promise<HouseholdMember> {
-  return runtime.runPromise(
-    Households.use((service) => service.getMember(householdId, userId)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `core/routes/households.ts` (E2-T11). */
-export function createHousehold(
-  db: DrizzleDatabase,
-  userId: string,
-  input: CreateHouseholdRequest,
-): Promise<HouseholdWithRole> {
-  return runtime.runPromise(
-    Households.use((service) => service.createHousehold(userId, input)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `core/routes/households.ts` (E2-T11). */
-export function updateHousehold(
-  db: DbLike,
-  householdId: string,
-  role: HouseholdRole,
-  input: UpdateHouseholdRequest,
-): Promise<HouseholdWithRole> {
-  return runtime.runPromise(
-    Households.use((service) => service.updateHousehold(householdId, role, input)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `core/routes/households.ts` (E2-T11). */
-export function deleteHousehold(db: DrizzleDatabase, householdId: string): Promise<void> {
-  return runtime.runPromise(
-    Households.use((service) => service.deleteHousehold(householdId)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `core/routes/members.ts` (E2-T11). */
-export function addPlaceholderMember(
-  db: DrizzleDatabase,
-  householdId: string,
-  displayName: string,
-): Promise<HouseholdMember> {
-  return runtime.runPromise(
-    Households.use((service) => service.addPlaceholderMember(householdId, displayName)).pipe(
-      Database.withExecutor(db),
-    ),
-  );
-}
-
-/** Callers: `core/routes/members.ts` (E2-T11). */
-export function isPlaceholderMember(db: DbLike, householdId: string, userId: string): Promise<boolean> {
-  return runtime.runPromise(
-    Households.use((service) => service.isPlaceholderMember(householdId, userId)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `core/routes/members.ts` (E2-T11). */
-export function renamePlaceholderMember(
-  db: DbLike,
-  householdId: string,
-  userId: string,
-  name: string,
-): Promise<HouseholdMember> {
-  return runtime.runPromise(
-    Households.use((service) => service.renamePlaceholderMember(householdId, userId, name)).pipe(
-      Database.withExecutor(db),
-    ),
-  );
-}
-
-/** Callers: `core/routes/members.ts` (E2-T11). */
-export function updateMemberRole(
-  db: DrizzleDatabase,
-  actor: Membership,
-  targetUserId: string,
-  nextRole: HouseholdRole,
-): Promise<HouseholdMember> {
-  return runtime.runPromise(
-    Households.use((service) => service.updateMemberRole(actor, targetUserId, nextRole)).pipe(
-      Database.withExecutor(db),
-    ),
-  );
-}
-
-/** Callers: `core/routes/members.ts` (E2-T11). `modules` defaults to the build's `API_MODULES`, read when called. */
-export function removeMember(
-  db: DrizzleDatabase,
-  actor: Membership,
-  targetUserId: string,
-  modules: readonly ApiModule[] = API_MODULES,
-): Promise<void> {
-  return runtime.runPromise(
-    Households.use((service) => service.removeMember(actor, targetUserId, modules)).pipe(Database.withExecutor(db)),
   );
 }

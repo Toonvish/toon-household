@@ -6,9 +6,8 @@
  *
  * The `Users` service (docs/EFFECT.md E7; plan `docs/plans/e2-api-core-services.md` P2, P7) reads the current
  * executor of `Database` on every call, so a bridge's `db` and an open transaction reach it; timestamps come from
- * the `Clock`. `userDto` and `accountEmail` are service-free Effects (they read no database), so their bridges
- * `toUserDto` and `requireAccountEmail` stay SYNCHRONOUS through `Effect.runSync` (plan e2 P1): a placeholder row
- * throws the `Unauthorized` refusal synchronously, as before. The pure helpers (`isPlaceholderUser`,
+ * the `Clock`. `userDto` and `accountEmail` are service-free Effects (they read no database); a placeholder row
+ * fails them with `Unauthorized`. Only two Promise bridges survive (`findUserByEmail`, `claimPlaceholderUser`). The pure helpers (`isPlaceholderUser`,
  * `isUniqueViolation`, `displayNameFromEmail`, `DEFAULT_HOUSEHOLD_NAME`) stay plain.
  */
 import type { User } from "@toon/shared";
@@ -373,74 +372,14 @@ export function displayNameFromEmail(email: string): string {
 
 /* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
 
-// `requireAccountEmail` and `toUserDto` stay SYNCHRONOUS with their old return types (plan e2 P1): each runs a
-// service-free effect with `Effect.runSync`, which throws the `Unauthorized` refusal itself (`Cause.squash`).
-
-/** Callers: `core/routes/auth.ts`, `emailVerification.ts` (E2-T08/E2-T10). */
-export function requireAccountEmail(row: Pick<UserRow, "email">): string {
-  return Effect.runSync(accountEmail(row));
-}
-
-/** Callers: `middleware/session.ts` (E2-T12), `auth/bootstrap.ts` (E2-T09). */
-export function toUserDto(row: UserRow, activeHouseholdId?: string | null): User {
-  return Effect.runSync(userDto(row, activeHouseholdId));
-}
-
-/** Callers: `core/routes/auth.ts`, `oauthAccounts.ts`, `scripts/reset-password.ts` (E5). */
+/** Callers: `scripts/reset-password.ts` (E5). Promise. */
 export function findUserByEmail(database: DrizzleDatabase, email: string): Promise<UserRow | undefined> {
   return runtime.runPromise(Users.use((service) => service.findUserByEmail(email)).pipe(Database.withExecutor(database)));
 }
 
-/** Callers: `core/routes/auth.ts`, `emailVerification.ts`, `oauthAccounts.ts`, `passwordReset.ts`. */
-export function findUserById(database: DrizzleDatabase, id: string): Promise<UserRow | undefined> {
-  return runtime.runPromise(Users.use((service) => service.findUserById(id)).pipe(Database.withExecutor(database)));
-}
-
-/** Callers: `core/routes/auth.ts`, `oauthAccounts.ts`, `apps/api/test/auth.test.ts` (OAuth, invite parts). */
-export function createUser(database: DrizzleDatabase, input: CreateUserInput): Promise<UserRow> {
-  return runtime.runPromise(Users.use((service) => service.createUser(input)).pipe(Database.withExecutor(database)));
-}
-
-/** Callers: `households.service.ts` (E2-T09), inside the membership's transaction. */
-export function createPlaceholderUser(database: DbLike, name: string, householdId: string): Promise<UserRow> {
-  return runtime.runPromise(
-    Users.use((service) => service.createPlaceholderUser(name, householdId)).pipe(Database.withExecutor(database)),
-  );
-}
-
-/** Callers: `auth/invites.ts` (E2-T07), `apps/api/test/placeholders.test.ts` (pinned: the two-claim race). */
+/** Callers: `apps/api/test/placeholders.test.ts` (pinned: the two-claim race). Promise. */
 export function claimPlaceholderUser(database: DbLike, userId: string, input: ClaimPlaceholderInput): Promise<void> {
   return runtime.runPromise(
     Users.use((service) => service.claimPlaceholderUser(userId, input)).pipe(Database.withExecutor(database)),
   );
-}
-
-/** Callers: `core/routes/auth.ts`, `oauthAccounts.ts`, `apps/api/test/auth.test.ts` (OAuth, invite parts). */
-export function createOwnedHousehold(
-  database: DrizzleDatabase,
-  userId: string,
-  name: string,
-  description?: string | null,
-): Promise<{ householdId: string }> {
-  return runtime.runPromise(
-    Users.use((service) => service.createOwnedHousehold(userId, name, description)).pipe(
-      Database.withExecutor(database),
-    ),
-  );
-}
-
-/** Callers: `core/routes/auth.ts`, `auth/bootstrap.ts`. */
-export function setActiveHousehold(
-  database: DrizzleDatabase,
-  userId: string,
-  householdId: string | null,
-): Promise<void> {
-  return runtime.runPromise(
-    Users.use((service) => service.setActiveHousehold(userId, householdId)).pipe(Database.withExecutor(database)),
-  );
-}
-
-/** Callers: `core/routes/auth.ts`, `oauthAccounts.ts`, `apps/api/test/auth.test.ts` (OAuth part). */
-export function updateUser(database: DrizzleDatabase, userId: string, patch: UserPatch): Promise<UserRow> {
-  return runtime.runPromise(Users.use((service) => service.updateUser(userId, patch)).pipe(Database.withExecutor(database)));
 }

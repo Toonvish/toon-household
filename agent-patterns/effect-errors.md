@@ -228,3 +228,10 @@ code, text })` / `new RateLimited({ retryAfterSeconds })` (the mapper sets `Retr
   is rethrown by Hono, so `toApiError` maps it to `Internal` for callers outside Hono, and a route never lets one escape.
 - **Bun's `expect(() => new X()).not.toThrow()` fails when the arrow RETURNS an Error**; construct outside the arrow
   (`apps/api/test/errors.test.ts`).
+
+**As built (E2, integration):** `grep -rnE 'throw (new )?ApiError' apps/api/src` is now only `apps/api/src/modules/recipe/` and
+`apps/api/src/modules/finance/` (idioms rule (10), pinned allow list that E3 and E4 empty). Catch-all sites are the ones that went
+wrong in review, so keep them in mind when converting a `try { … } catch`: `Effect.catch` and `Effect.catchTag(s)` never see a synchronous
+throw or an `Effect.promise` rejection (defects); the OAuth callback, `sendVerificationLinkQuietly`, `verifyPassword`, `trySendMail`,
+the expired-token sweeps and the thumbnail generation all use `Effect.catchCause` / `Effect.ignoreCause` and `Cause.squash(cause)` for
+the old `catch (error)` value. `apps/api/test/oauth-callback.test.ts` pins the callback (a defect still redirects with `oauth_failed`).

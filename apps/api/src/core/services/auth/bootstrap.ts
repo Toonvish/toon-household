@@ -9,16 +9,12 @@
  * shape; both read it through `listHouseholdsForUser`, so the two stay in step.
  *
  * The `AuthBootstrap` service (docs/EFFECT.md E7; plan `docs/plans/e2-api-core-services.md` P2, P3) stands on
- * `Households` and `Users`; the Promise bridges at the end of the file keep the old exports working for the routes
- * until E2-T10.
+ * `Households` and `Users`; it has no legacy bridge (the auth routes use the service).
  */
 import type { AuthSessionResponse, HouseholdWithRole } from "@toon/shared";
 import { Context, Effect, Layer } from "effect";
-import type { Database as DrizzleDatabase } from "../../../db/client.ts";
-import { Database } from "../../../db/database.ts";
 import type { UserRow } from "../../../db/schema.ts";
 import type { DatabaseError, Unauthorized } from "../../../lib/errors.ts";
-import { runtime } from "../../../runtime.ts";
 import { Households } from "../households/households.service.ts";
 import { Users } from "./users.ts";
 
@@ -65,21 +61,5 @@ export class AuthBootstrap extends Context.Service<
 
       return AuthBootstrap.of({ loadUserHouseholds, buildAuthSession });
     }),
-  );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/** Callers: `core/services/auth/index.ts` (re-export), `core/routes/auth.ts` (E2-T10). */
-export function loadUserHouseholds(database: DrizzleDatabase, userId: string): Promise<HouseholdWithRole[]> {
-  return runtime.runPromise(
-    AuthBootstrap.use((service) => service.loadUserHouseholds(userId)).pipe(Database.withExecutor(database)),
-  );
-}
-
-/** Callers: `core/routes/auth.ts` (E2-T10). */
-export function buildAuthSession(database: DrizzleDatabase, user: UserRow): Promise<AuthSessionResponse> {
-  return runtime.runPromise(
-    AuthBootstrap.use((service) => service.buildAuthSession(user)).pipe(Database.withExecutor(database)),
   );
 }

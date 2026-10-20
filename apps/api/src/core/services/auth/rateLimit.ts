@@ -230,12 +230,12 @@ function socketAddress(c: HonoContext): string | undefined {
 // `enforceRateLimit` as a plain unawaited statement, so a Promise would typecheck there, stay green under test (a
 // no-op) and drop the import limit in production. Each runs a service-free effect with `Effect.runSync`.
 
-/** Callers: `apps/api/test/auth.test.ts` (rate-limit block, pinned), core routes until E2-T10. */
+/** Callers: `apps/api/test/auth.test.ts` (rate-limit block, pinned), `apps/api/test/rate-limiter.test.ts`. */
 export function checkRateLimit(key: string, rule: RateLimitRule): RateLimitResult {
   return Effect.runSync(checkIn(key, rule));
 }
 
-/** Callers: `apps/api/test/auth.test.ts` (pinned), modules.test.ts, finance-module.test.ts, core routes. */
+/** Callers: `apps/api/test/{auth,modules,finance-module,rate-limiter}.test.ts` (the tests' door into the live store). */
 export function resetRateLimits(key?: string): void {
   resetBuckets(key);
 }
@@ -243,7 +243,8 @@ export function resetRateLimits(key?: string): void {
 /**
  * Throws `RateLimited` (429 `rate_limited`) synchronously when the bucket is exhausted and sets `Retry-After` on `c`;
  * returns the bucket key otherwise. `enabled` defaults to "not under NODE_ENV=test"; a test passes `true` to switch the
- * limiter on. Callers: `apps/api/src/modules/recipe/routes/imports.ts` (unawaited), core routes until E2-T10.
+ * limiter on. Callers: `apps/api/src/modules/recipe/routes/imports.ts` (unawaited, E3),
+ * `apps/api/test/rate-limiter.test.ts`.
  */
 export function enforceRateLimit(
   c: HonoContext,

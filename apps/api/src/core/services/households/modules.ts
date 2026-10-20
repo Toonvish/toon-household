@@ -9,8 +9,9 @@
  * the current executor of `Database` on every call, takes `enabledAt` from the `Clock`, and runs the module hooks
  * (Effects since E2-T05) with `yield*` on that same executor: inside `database.transaction` the open transaction,
  * which a Promise-based manifest behind `fromPromiseModule` receives as its `tx`. `modules` defaults to the build's
- * `API_MODULES`, read when a method is called, never at import (CLAUDE.md "API import cycle"). The Promise bridges at
- * the end of the file keep the old exports working for the callers that are not converted yet.
+ * `API_MODULES`, read when a method is called, never at import (CLAUDE.md "API import cycle"). The two Promise bridges
+ * at the end of the file (`initializeHousehold`, `enableModule`) keep the seed script, the finance seed and
+ * `finance-seed.test.ts` working until E4/E5.
  */
 import { DEFAULT_ENABLED_MODULES, MODULE_IDS, type ModuleId, isModuleId } from "@toon/shared";
 import { and, eq, inArray } from "drizzle-orm";
@@ -160,16 +161,9 @@ export class HouseholdModules extends Context.Service<
 
 /* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
 
-/** Callers: `auth/bootstrap.ts`, `households.service.ts`, `core/routes/households.ts` until E2-T09/E2-T11. */
-export function enabledModulesFor(db: DbLike, householdIds: readonly string[]): Promise<Map<string, ModuleId[]>> {
-  return runtime.runPromise(
-    HouseholdModules.use((modules) => modules.enabledModulesFor(householdIds)).pipe(Database.withExecutor(db)),
-  );
-}
-
 /**
  * Runs on `db`, the executor the caller holds (the creation's transaction inside `createHousehold`).
- * Callers: `households.service.ts` (E2-T09), `scripts/seed.ts` (E5), `apps/api/test/finance-seed.test.ts` (E4).
+ * Callers: `scripts/seed.ts` (E5), `apps/api/test/finance-seed.test.ts` (E4). Promise.
  */
 export function initializeHousehold(
   db: DbLike,
@@ -181,7 +175,7 @@ export function initializeHousehold(
   );
 }
 
-/** Callers: `core/routes/modules.ts` (E2-T11), `modules/finance/seed.ts` (E4). */
+/** Callers: `modules/finance/seed.ts` (E4). Promise. */
 export function enableModule(
   db: DrizzleDatabase,
   householdId: string,
@@ -193,12 +187,5 @@ export function enableModule(
     HouseholdModules.use((service) => service.enableModule(householdId, moduleId, settings, modules)).pipe(
       Database.withExecutor(db),
     ),
-  );
-}
-
-/** Callers: `core/routes/modules.ts` (E2-T11). */
-export function disableModule(db: DbLike, householdId: string, moduleId: ModuleId): Promise<void> {
-  return runtime.runPromise(
-    HouseholdModules.use((service) => service.disableModule(householdId, moduleId)).pipe(Database.withExecutor(db)),
   );
 }

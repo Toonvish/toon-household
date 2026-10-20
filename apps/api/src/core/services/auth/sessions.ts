@@ -14,8 +14,8 @@
  * around one run reaches it (`apps/api/test/sessions-clock.test.ts`). The expired-session sweep stays fire-and-forget
  * and catch-all (plan e2 P2): `resolveSession` starts it as a detached fiber whose whole cause is ignored, never
  * awaited by the request, and a failed sweep never breaks the request that triggered it. The pure helpers
- * (`generateSessionId`, `sessionHandle`) stay plain; the Promise bridges at the end of the file keep the old exports
- * working for the callers that are not converted yet.
+ * (`generateSessionId`, `sessionHandle`) stay plain; the one Promise bridge at the end of the file (`createSession`) keeps
+ * the import tests and `middleware.test.ts` working until E3.
  */
 import type { SessionInfo } from "@toon/shared";
 import { desc, eq, lt } from "drizzle-orm";
@@ -252,8 +252,8 @@ export class Sessions extends Context.Service<
 /* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
 
 /**
- * Callers: `core/routes/auth.ts` (E2-T10), `apps/api/test/middleware.test.ts` (pinned),
- * `apps/api/test/import/routes.test.ts`, `apps/api/test/import/ocr-disabled.test.ts` (E3).
+ * Callers: `apps/api/test/middleware.test.ts` (pinned), `apps/api/test/import/routes.test.ts`,
+ * `apps/api/test/import/ocr-disabled.test.ts` (E3). Promise.
  */
 export function createSession(
   database: DrizzleDatabase,
@@ -262,63 +262,5 @@ export function createSession(
 ): Promise<SessionRow> {
   return runtime.runPromise(
     Sessions.use((service) => service.createSession(userId, fingerprint)).pipe(Database.withExecutor(database)),
-  );
-}
-
-/** Callers: `middleware/session.ts` (E2-T12). */
-export function resolveSession(database: DrizzleDatabase, sessionId: string): Promise<ResolvedSession | null> {
-  return runtime.runPromise(
-    Sessions.use((service) => service.resolveSession(sessionId)).pipe(Database.withExecutor(database)),
-  );
-}
-
-/** Callers: `core/routes/auth.ts` (E2-T10). */
-export function deleteSession(database: DrizzleDatabase, sessionId: string): Promise<boolean> {
-  return runtime.runPromise(
-    Sessions.use((service) => service.deleteSession(sessionId)).pipe(Database.withExecutor(database)),
-  );
-}
-
-/** Callers: `core/routes/auth.ts` (E2-T10), `passwordReset.ts` (E2-T08). */
-export function deleteOtherSessions(
-  database: DrizzleDatabase,
-  userId: string,
-  keepSessionId?: string,
-): Promise<void> {
-  return runtime.runPromise(
-    Sessions.use((service) => service.deleteOtherSessions(userId, keepSessionId)).pipe(
-      Database.withExecutor(database),
-    ),
-  );
-}
-
-/** Callers: none outside the re-export of `core/services/auth/index.ts` (kept for its old export; E2-T13 prunes). */
-export function sweepExpiredSessions(database: DrizzleDatabase): Promise<void> {
-  return runtime
-    .runPromise(Sessions.use((service) => service.sweepExpiredSessions()).pipe(Database.withExecutor(database)))
-    .catch(() => undefined);
-}
-
-/** Callers: `core/routes/auth.ts` (E2-T10). */
-export function listSessionsForUser(
-  database: DrizzleDatabase,
-  userId: string,
-  currentSessionId: string | undefined,
-): Promise<SessionInfo[]> {
-  return runtime.runPromise(
-    Sessions.use((service) => service.listSessionsForUser(userId, currentSessionId)).pipe(
-      Database.withExecutor(database),
-    ),
-  );
-}
-
-/** Callers: `core/routes/auth.ts` (E2-T10). */
-export function findSessionByHandle(
-  database: DrizzleDatabase,
-  userId: string,
-  handle: string,
-): Promise<SessionRow | null> {
-  return runtime.runPromise(
-    Sessions.use((service) => service.findSessionByHandle(userId, handle)).pipe(Database.withExecutor(database)),
   );
 }

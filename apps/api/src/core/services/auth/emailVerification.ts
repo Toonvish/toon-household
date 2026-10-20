@@ -21,12 +21,10 @@
  * lookup runs through `spendableToken` (`tokens.ts`), so unknown, used and expired stay one indistinguishable
  * refusal. `markEmailVerified` takes the timestamp as an argument (it has no default: the caller passes the
  * Clock's value). The expired-token sweep stays fire-and-forget and catch-all: a detached fiber whose whole cause is
- * ignored, never awaited by the request (plan e2 P2). The Promise bridges at the end of the file keep the old
- * exports working for the callers that are not converted yet.
+ * ignored, never awaited by the request (plan e2 P2). The service has no legacy bridge.
  */
 import { and, eq, isNull, lt } from "drizzle-orm";
 import { Clock, Context, Effect, Layer } from "effect";
-import type { DrizzleDatabase } from "../../../db/client.ts";
 import { Database } from "../../../db/database.ts";
 import {
   type EmailVerificationTokenRow,
@@ -35,7 +33,6 @@ import {
   users,
 } from "../../../db/schema.ts";
 import { ApiFailure, Conflict, type DatabaseError, NotFound, type Unauthorized } from "../../../lib/errors.ts";
-import { runtime } from "../../../runtime.ts";
 import { generateOpaqueToken, hashToken, spendableToken } from "./tokens.ts";
 import { Users } from "./users.ts";
 
@@ -208,56 +205,4 @@ export class EmailVerification extends Context.Service<
       });
     }),
   );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/** Callers: `core/routes/auth.ts` (E2-T10). */
-export function createEmailVerificationToken(
-  database: DrizzleDatabase,
-  user: UserRow,
-  options: { requestedIp?: string | null } = {},
-): Promise<CreatedEmailVerification> {
-  return runtime.runPromise(
-    EmailVerification.use((service) => service.createEmailVerificationToken(user, options)).pipe(
-      Database.withExecutor(database),
-    ),
-  );
-}
-
-/** Callers: none outside this file's own export (kept for its old export; E2-T13 prunes). */
-export function findUsableEmailVerification(
-  database: DrizzleDatabase,
-  token: string,
-): Promise<EmailVerificationTokenRow> {
-  return runtime.runPromise(
-    EmailVerification.use((service) => service.findUsableEmailVerification(token)).pipe(
-      Database.withExecutor(database),
-    ),
-  );
-}
-
-/** Callers: `core/routes/auth.ts` (E2-T10). */
-export function confirmEmailVerification(database: DrizzleDatabase, token: string): Promise<{ user: UserRow }> {
-  return runtime.runPromise(
-    EmailVerification.use((service) => service.confirmEmailVerification(token)).pipe(Database.withExecutor(database)),
-  );
-}
-
-/** Callers: none outside the module's own exports (the timestamp has no default: the caller passes the Clock's value). */
-export function markEmailVerified(database: DrizzleDatabase, userId: string, at: number): Promise<UserRow> {
-  return runtime.runPromise(
-    EmailVerification.use((service) => service.markEmailVerified(userId, at)).pipe(Database.withExecutor(database)),
-  );
-}
-
-/** Callers: none outside this file's own export (kept for its old export; E2-T13 prunes). */
-export function sweepExpiredVerificationTokens(database: DrizzleDatabase): Promise<void> {
-  return runtime
-    .runPromise(
-      EmailVerification.use((service) => service.sweepExpiredVerificationTokens()).pipe(
-        Database.withExecutor(database),
-      ),
-    )
-    .catch(() => undefined);
 }

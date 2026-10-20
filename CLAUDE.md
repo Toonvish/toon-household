@@ -44,7 +44,9 @@ DB (restores toon-finance gotcha 2); 0010 a header row per shell screen instead 
 the service worker's runtime rules are the union of both sources' (D9, D13); 0012 Effect is the application
 framework (E1–E12; amends D10's wording); 0013 validation details come from the one schema adapter (E4; plan
 `docs/plans/e1-shared-schema.md` P7, P9, P10: every route's `details` carry the catalog message and `i18n`, a
-struct's own checks do not run while one of its fields fails).
+struct's own checks do not run while one of its fields fails); 0014 transitional bridges while the core moves onto
+Effect (E5, E7; plan `docs/plans/e2-api-core-services.md` P1, P6, P11, P17: the process-wide database instance, the
+legacy bridges with their calling conventions, the Promise module contract, the test seams).
 
 `docs/EFFECT.md` §1 (E1–E12) is fixed in the same way as D1–D15: it changes only through an ADR, and a task that
 forces a deviation makes the smallest one and records it (ADR 0012, `docs/adr/0012-effect-application-framework.md`).
@@ -117,16 +119,22 @@ module (`docs/plans/m2-recipe-module.md`), M3 finance module (`docs/plans/m3-fin
 and M7 harden (`docs/plans/m7-harden.md`), 2026-10-13 to 2026-10-15; each plan's last sections are its
 integration record and "what changed vs plan". Two modules are built (`API_MODULES` and `WEB_MODULES` are
 `[recipe, finance]`, `/api/health` reports `modules: ["recipe","finance"]`). The tree typechecks, builds and tests
-green (`bun test`: 14508 pass in 150 files, 24.37 s on the temp file DB after the E1 review, where 11357 of them are
-the golden parity cases of `packages/shared/test/parity/`; 2463 pass in 141 files at the end of E0; `i18n:check` exits 1 with
-the 146 classified false positives; M7's integration record, `docs/plans/m7-harden.md` section 9, has the gate logs,
+green (`bun test`: 14657 pass in 158 files, 69.96 s on the temp file DB after E2 (measured under a host load average of 14 to 50; 39.79 s at E2's quiet baseline), where 11357 of them are
+the golden parity cases of `packages/shared/test/parity/`; 14508 pass in 150 files after the E1 review; 2463 pass in 141 files at the end of E0; `i18n:check` exits 1 with
+the 147 classified false positives (the 146 and the `Effect.die` stopword hit in `apps/api/src/modules/adapter.ts`); M7's integration record, `docs/plans/m7-harden.md` section 9, has the gate logs,
 the walkthrough, the `migrate:legacy` fixture run and the print-to-PDF proof). Milestone E0 of the Effect migration
 (foundation: the vendored source fenced off, the pinned Effect packages, the one `ManagedRuntime` serving
 `/api/health`, the idioms test, ADR 0012) is done; its integration record is `docs/plans/e0-foundation.md` sections
 9 and 10. Milestone E1 (shared-schema: every Zod schema of `packages/shared` is an Effect `Schema` with the same
 accepted and rejected inputs, the API validates through `apps/api/src/lib/validate.ts`, the web forms through the
 same shared schemas, and `zod` and `@hono/zod-validator` are gone from the tree and `bun.lock`; ADR 0013) is
-done and reviewed; its integration record is `docs/plans/e1-shared-schema.md` sections 9 and 10 (the one deliberate wire change, the `details` prose of the former `zValidator` routes, accepted by the owner on 2026-10-16, ADR 0013). What is left is the owner's (see "Open work").
+done and reviewed; its integration record is `docs/plans/e1-shared-schema.md` sections 9 and 10 (the one deliberate wire change, the `details` prose of the former `zValidator` routes, accepted by the owner on 2026-10-16, ADR 0013). Milestone E2 (api-core-services: `AppConfig`, `Database`, the
+tagged error family and its one boundary mapper, `Mailer`, `RateLimiter`, `VerifiedEmail`, `Thumbnails`, `Uploads`
+and every `apps/api/src/core/services/**` module as a `Context.Service` with a static `layer`, time from the
+`Clock`, the core routes and middlewares through `runtime.runPromise` with Hono on top, the module hooks as Effects
+behind an adapter that keeps the Promise-based recipe and finance manifests working until E3/E4; ADR 0014) is done;
+its integration record is `docs/plans/e2-api-core-services.md` sections 9 and 10 (the surviving legacy bridges are
+listed there with their callers and removal milestones). What is left is the owner's (see "Open work").
 
 ## Layout (as built)
 
@@ -192,6 +200,20 @@ Package names are `@toon/shared`, `@toon/api`, `@toon/web`; the root is `toon-ho
   `repos/`), `repos/effect/` (the vendored Effect source, read-only; "Vendored reference code") and `agent-patterns/`
   (the `effect-<topic>.md` pattern files); the gate is `apps/api/test/effect-idioms.test.ts`, and
   `apps/api/test/runtime.test.ts` pins the runtime and the health route served through it.
+- Effect core (E2): `apps/api/src/config.ts` (`AppConfig`, the validated environment as a service; `apps/api/src/env.ts`
+  re-exports its resolved `env`, `REPO_ROOT`, `parseEnv`), `apps/api/src/db/database.ts` (the `Database` service;
+  `db/client.ts` keeps `createDatabase`, the shared `client` / `db` / `dbReady` and the drizzle TYPE `Database`),
+  `apps/api/src/infra.ts` (`infraLayer()`: config, database, mailer, thumbnails, uploads, rate limiter, verified-email),
+  `apps/api/src/core/services/layer.ts` (`coreServicesLayer()`, `baseServicesLayer()`) with
+  `apps/api/src/core/services/auth/layer.ts` and `apps/api/src/core/services/households/layer.ts` (one hoisted
+  composition function each), `apps/api/src/lib/errors.ts` (the tagged error family, `ApiError` kept for the modules,
+  `toApiError`, `errorBody`, `onErrorHandler`), `apps/api/src/modules/adapter.ts` (`fromPromiseModule`,
+  `runModuleHook`), `apps/api/test/support/effect.ts` (`runTest`, `runTestExit`, `itEffect`, `recordingMailer`,
+  `withMailer`) and `apps/api/test/import-order-effect.test.ts` (the fresh-process import guard for the files the
+  runtime pulls into the cycle). Core services (`Context.Service` classes): `Mailer` (`mail/index.ts`, exported as
+  `MailerService`), `RateLimiter`, `VerifiedEmail`, `Thumbnails`, `Uploads`, `UploadReferences`, `HouseholdModules`,
+  `Passwords`, `Users`, `Sessions`, `AuthInvites`, `EmailVerification`, `PasswordReset`, `OAuthProviders`
+  (`apps/api/src/lib/oauth.ts`), `OAuthAccounts`, `Households`, `HouseholdInvites`, `AuthBootstrap`.
 - Docs: see "Read order"; plus `docs/plans/screenshots/` and `docs/design/recipe-redesign/` (design record, D5).
 - Core DB tables (unprefixed): `users`, `oauth_accounts`, `sessions`, `password_reset_tokens`,
   `email_verification_tokens`, `households`, `household_members`, `household_invites`, `household_modules`,
@@ -314,15 +336,97 @@ ones; the module gotchas are indexed below and live in the module docs.
 
 ### Database and API
 
-- **One runtime, disposed on shutdown (E0).** `apps/api/src/runtime.ts` is the only file that calls
-  `ManagedRuntime.make` (`AppLayer`, today `Layer.empty`, the slot E2 fills; the shared `appMemoMap`). Nothing runs
+- **One runtime, disposed on shutdown (E0, E2).** `apps/api/src/runtime.ts` is the only file that calls
+  `ManagedRuntime.make` (`AppLayer`, the whole composition below; the shared `appMemoMap`). Nothing runs
   an effect on it at module scope: the layer builds lazily on the first run, and a run at import time would
   re-enter the API import cycle (below). `GET /api/health` is `runtime.runPromise(healthResponse)`
-  (`apps/api/src/core/health.ts`; the registry and the feature flags are read inside the generator, key order
-  `ok, status, version, time, database, modules, features`). On SIGTERM/SIGINT (never in tests) `apps/api/src/index.ts`
-  logs `[api] <signal> — stopping modules …`, runs every module's `shutdown`, THEN `await runtime.dispose()` and logs
-  `[api] runtime disposed` (a failed dispose logs `[api] runtime dispose failed:`), and `process.exit(0)` last in every
-  case. Never dispose the runtime in a test: the tests share one process and one runtime.
+  (`apps/api/src/core/health.ts`; `AppConfig`, `VerifiedEmail` and the registry are read inside the generator, key
+  order `ok, status, version, time, database, modules, features`). Boot (`apps/api/src/index.ts`): `await
+  runtime.runPromise(Effect.void)` builds the whole `AppLayer` first, so a database that cannot be opened fails the
+  boot, then each module's `start()` effect (a failure logs `[api] start of module <id> failed:`). On SIGTERM/SIGINT
+  (never in tests) it logs `[api] <signal> — stopping modules …`, runs every module's `shutdown` effect, THEN `await
+  runtime.dispose()`, which runs `Database.layer`'s release and logs `[db] database closed`, then logs `[api] runtime
+  disposed` (a failed dispose logs `[api] runtime dispose failed:`), and `process.exit(0)` last in every case. Never
+  dispose the runtime in a test: the tests share one process and one runtime.
+- **One composition point, evaluated lazily, siblings nested explicitly (E2, plan P3).** `AppLayer` is
+  `Layer.suspend(appLayer)` over hoisted functions only (`infraLayer()`, `coreServicesLayer()`, `baseServicesLayer()`,
+  `authServicesLayer()`, `householdServicesLayer()`, `moduleLayers()`), annotated `Layer.Layer<AppServices,
+  AppLayerError, never>` so a requirement left open is a `tsc` error in `apps/api/src/runtime.ts`. `Layer.mergeAll`
+  feeds no member's output into another member's input: a service that needs a service of the same step goes in an
+  outer step, `Layer.provideMerge`d, never beside it. **A service's static `layer` references no imported binding but
+  `effect` exports and its own class**: its dependencies are yielded inside the generator at build time, because a
+  static `Layer.provide(Other.layer)` reads `Other` while the import cycle may still be evaluating it (TDZ). Time and
+  the current executor are read inside the method body on every call (never captured at build), so a `TestClock` or a
+  transaction reaches them. `apps/api/test/import-order-effect.test.ts` builds the `AppLayer` after each entry point,
+  first in a fresh process.
+- **Bridges until E3 to E5 (E2, plan P1, ADR 0014).** A converted core file keeps, in a section `/* legacy bridges:
+  callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */` at its end, a bridge with the OLD name and
+  signature for every export a caller outside the converted set still uses (the list of survivors with callers and
+  removal milestones is `docs/plans/e2-api-core-services.md` section 9.2). **A bridge keeps its calling
+  convention and says so with an explicit return type:** a Promise export runs `runtime.runPromise` (a failure
+  rejects with the tagged error itself); a SYNCHRONOUS export (`checkRateLimit`, `enforceRateLimit`,
+  `resetRateLimits`, `requireUser`, `requireMembership`, `assertRole`, `assertCanModifyOwned`,
+  `isVerifiedEmailRequired`, `getMailer`) stays synchronous over a service-free effect with `Effect.runSync` (a
+  failure throws the tagged error synchronously); a fire-and-forget `void` export (`warmThumbnail`) never
+  returns before starting and never rejects. The reason is `enforceRateLimit`: recipe's `imports.ts` calls it as a
+  plain unawaited statement, and a Promise-returning bridge would typecheck there, stay green under test (the
+  limiter is off) and silently drop the import limit in production. A new bridge gets its caller list in its doc
+  comment; a bridge whose last caller moves is deleted in that commit.
+- **Catch-all stays catch-all (E2, plan P2).** `Effect.catch` and `Effect.catchTag(s)` see the typed error channel
+  only; a synchronous throw inside a generator and an `Effect.promise` rejection are DEFECTS and pass them by. Where
+  the old code caught everything (`verifyPassword`: a malformed hash is `false`, never a 500; `trySendMail`; the
+  expired-token sweeps; the thumbnail generation and its failure cache; the OAuth callback and
+  `sendVerificationLinkQuietly` in `apps/api/src/core/routes/auth.ts`) the Effect form wraps a Promise with
+  `Effect.tryPromise` and recovers the WHOLE cause with `Effect.catchCause` (`Cause.squash(cause)` is the value the
+  old `catch (error)` saw) or `Effect.ignoreCause`. The OAuth callback must never use `Effect.catch`: a defect would
+  become a `500` JSON instead of the redirect with `oauth_failed`.
+- **The error family and the one boundary mapper (E2, plan P4).** `apps/api/src/lib/errors.ts` has one
+  `Schema.TaggedError` per HTTP refusal (`BadRequest`, `Unauthorized`, `InvalidCredentials`, `Forbidden`, `NotFound`,
+  `Conflict`, `PayloadTooLarge`, `UnsupportedMediaType`, `ValidationFailed`, `Internal`, `RateLimited` with
+  `Retry-After`, the generic `ApiFailure`), permissive field schemas (a constructor never throws on a value today's
+  code passes) and `isApiError` (a `Predicate`, no `instanceof`). Services and routes fail with them
+  (`return yield* new NotFound()`), `toApiError` / `errorBody` / `onErrorHandler` render the envelope once. The old
+  `ApiError` class and its ten static helpers stay for the modules until E3/E4 (`x instanceof ApiError` is true for
+  every family member; idioms rule (10) allows `throw ApiError` only under `apps/api/src/modules/recipe/` and
+  `finance/`). `DatabaseError` and `MailError` are tagged errors OUTSIDE the family: a database failure is a `500
+  internal_error` whose log line shows its `cause`, never an API error to module code.
+- **The `Database` service and the shared client (E2, plan P6, ADR 0014).** `apps/api/src/db/client.ts` still creates
+  the process-wide instance at import (recipe, finance and the scripts import `db` until E3 to E5); the `Database`
+  service (`apps/api/src/db/database.ts`) owns its lifetime: acquire awaits `dbReady` (the D7 pragmas), release closes
+  the client and logs `[db] database closed`, **never under `NODE_ENV=test`** (one process, one client, ADR 0009;
+  a test that disposes an `AppLayer` runtime must not close it, `apps/api/test/database.test.ts` proves it).
+  The current executor is a `Context.Reference`: inside `Database.transaction` it is the open transaction (no
+  savepoint for a nested call), `Database.withExecutor(db)(effect)` hands in an instance (what the bridges do),
+  `Database.layerFromExecutor(executor)` wraps a bare drizzle executor and closes nothing, `layerFrom` and
+  `layerFromUrl` are the test and script constructors. On a `:memory:` URL `transaction` degrades to sequential
+  exactly as `withTransaction` did.
+- **The mail seam (E2, plan P8).** `Mailer` is a service whose layers (`layerConsole`, `layerSmtp`, `layerResend`)
+  choose by `AppConfig.mailTransport`; the transport is read AT SEND TIME through the module-level override of
+  `setMailer(m)` / `setMailer(null)`, so a test that installs a fake (or a failing relay) works through the
+  runtime, and `isMailConfigured()` / `getMailer()` / `isMailerOverridden()` stay synchronous. `trySendMail` never
+  fails and logs `[mail] Sending to <redacted> failed (<transport>): <reason>`; the SMTP `Date` header takes the
+  Clock's time through the optional `now` of `SmtpMailer.send`. The other seams in the same spirit:
+  `setVerifiedEmailRequired` and `resetRateLimits` (same live state the services read).
+- **Hooks are Effects behind `fromPromiseModule` (E2, plan P11).** `ApiModule` hooks are Effects that read the
+  current executor from `Database`; the recipe and finance manifests are `PromiseApiModule`s (the old interface, one
+  annotation changed) wrapped in `apps/api/src/modules/index.ts` by `fromPromiseModule`, which hands the Promise hook
+  the current executor and passes a family refusal through unchanged (`modules.test.ts` (h) asserts `toBe(refusal)`).
+  Outside the runtime (`runMigrations`, `collectUploadReferences(database)`, `apps/api/scripts/seed.ts`) a hook runs through
+  `runModuleHook(effect, executor)`, which provides `Database.layerFromExecutor` and never imports `runtime.ts`, so
+  `db/migrate.ts` keeps `migrate-legacy.ts`'s import-order rule. E3/E4 delete `PromiseApiModule`, the adapter and
+  `runModuleHook`. `API_MODULES` in `apps/api/src/modules/index.ts` is a lazy array (a `Proxy` over the wrapped
+  manifests, built on first access) so a manifest imported FIRST in a fresh process does not read the list in its
+  TDZ; a read at module scope still fails loudly.
+- **Middleware factories are TDZ-safe (E2, plan P12, P21).** The runtime imports `modules/index.ts`, which imports
+  the routers, which call `requireHouseholdRole("admin")`, `requireVerifiedEmail()`, `requireModule(id)` at module
+  scope, possibly while the middleware file is still evaluating. So every exported middleware factory
+  (`requireSession`, `optionalSession`, `requireHouseholdRole`, `requireHouseholdMember/Admin/Owner`,
+  `requireModule`, `requireVerifiedEmail`, `originGuard`) is a hoisted `function` declaration whose body reads NO
+  imported binding and no module-level `const` until a request arrives (the returned handler reads `runtime`, the
+  services and the tables). A middleware does its service and database work as ONE `await runtime.runPromise(...)`
+  before `await next()`; `next()` is never called inside an effect. `lib/errors.ts`, `lib/types.ts` and
+  `lib/validate.ts` import neither the runtime nor a service. `apps/api/test/import-order.test.ts` stays pinned;
+  `apps/api/test/import-order-effect.test.ts` covers the files E2 added to the cycle.
 
 - **D7 pragmas.** `apps/api/src/db/client.ts` sends WAL + `synchronous = FULL` (finance's ledger choice, not
   recipe's `NORMAL`), `foreign_keys = ON` and the busy timeout on every connection to a local `file:` DB, never
@@ -531,13 +635,19 @@ ones; the module gotchas are indexed below and live in the module docs.
   fence the rest; the idioms test reads all four.
 - **The idioms test is the E12 gate.** `apps/api/test/effect-idioms.test.ts` makes the greps of `docs/EFFECT.md` E12
   permanent, in the shape of the design-system gate: a comment-free line scan, one `describe` per rule, a failure
-  of `file:line: code`, and a pinned allow list (file to reason, empty at E0) per rule. At E0 it holds: no import from
+  of `file:line: code`, and a pinned allow list (file or path prefix to reason) per rule. At E0 it holds: no import from
   `repos/`, no `effect/unstable/` path, no Effect 3 package or service constructor, `ManagedRuntime.make(` only in
   `apps/api/src/runtime.ts`, every `effect` / `@effect/*` dependency and lockfile entry one exact version, and the
   vendored tree and the four fences matching it. Rule (9) is "no zod" (E1: no `zod` import, dependency or lockfile entry).
-  The rules a later milestone switches on (no `throw new ApiError` and no `Date.now()` / `new Date()` in services at E2, no `hono` at E7) are a `PENDING_RULES`
-  comment in the file, never skipped tests, and each becomes a `describe` in the commit of the migration that
-  makes it true. Never relax a rule to get green.
+  Rule (10) (E2) is "no `throw ApiError` / `throw new ApiError` under `apps/api/src`", allow list the prefixes
+  `apps/api/src/modules/recipe/` and `apps/api/src/modules/finance/` (E3 and E4 empty it). Rule (11) (E2) is "no
+  `Date.now(` / `new Date(` in a `services/` directory under `apps/api/src`" (allow list: `households/support.ts`
+  `nowMs()`, the module helper, and `apps/api/src/modules/recipe/services/`) plus "no `nowMs(` call under
+  `apps/api/src/core/`" (its definition is the one allowed line): `nowMs()` reads `Date.now()`, so a core call
+  bypasses the `Clock`. Both rules fail a stale allow-list entry (a fixed file leaves the list in the same commit).
+  The one rule a later milestone switches on (no `hono` at E7) is a `PENDING_RULES` comment in the file, never a
+  skipped test, and becomes a `describe` in the commit of the migration that makes it true. Never relax a rule to
+  get green.
 - **A test that runs `sharp` carries an explicit time budget.** `apps/api/test/thumbnails.test.ts` gives its route tests
   `SHARP_TEST_TIMEOUT_MS` (60 s) as the `test(...)` timeout: under the load of parallel worktrees (354 s for a suite that
   takes 25 s alone) bun's 5 s default failed four of them. A gate that fails keeps its `(fail)` lines and any `Unhandled

@@ -187,7 +187,7 @@ function buildMailer(): Mailer {
   return env.isTest ? new ConsoleMailer(() => undefined) : new ConsoleMailer();
 }
 
-/** The shared mailer, created on first use. Callers: `trySendMail` below, the tests, `isMailConfigured`. */
+/** The shared mailer, created on first use. Callers: `trySendMail` and `isMailConfigured` below, `apps/api/test/mail.test.ts`. Synchronous. */
 export function getMailer(): Mailer {
   mailer ??= buildMailer();
   return mailer;
@@ -199,7 +199,7 @@ export function setMailer(next: Mailer | null): void {
   overridden = next !== null;
 }
 
-/** True when a non-default mailer is installed (tests, diagnostics). */
+/** True when a non-default mailer is installed (`apps/api/test/mail.test.ts`). Synchronous. */
 export function isMailerOverridden(): boolean {
   return overridden;
 }
@@ -209,7 +209,8 @@ export function isMailerOverridden(): boolean {
  *
  * Callers use it to decide what to TELL the user — e.g. the invite panel still
  * shows the copyable link, but only claims "wurde per E-Mail verschickt" when
- * this is true. It never gates whether an action is allowed.
+ * this is true. It never gates whether an action is allowed. Callers: `auth/verifiedEmail.ts`,
+ * `scripts/reset-password.ts` (E5), `apps/api/test/mail.test.ts`. Synchronous.
  */
 export function isMailConfigured(): boolean {
   return getMailer().name !== "console";
@@ -224,13 +225,16 @@ export function isMailConfigured(): boolean {
  * to probe for accounts. So the failure is logged with its reason and reported
  * back as data, not raised.
  *
- * The bridge over `MailerService`'s logic for the callers that hold no runtime (core routes until E2-T10, the
- * `auth:reset-password` script): it sends through `getMailer()`, which honours `setMailer`.
+ * The bridge over `MailerService`'s logic for the callers that hold no runtime (the `auth:reset-password` script, E5, and
+ * `apps/api/test/mail.test.ts`): it sends through `getMailer()`, which honours `setMailer`. Promise.
  */
 export function trySendMail(message: MailMessage): Promise<MailSendResult> {
   const service = makeMailer(plain(getMailer()));
   return Effect.runPromise(service.trySendMail(message));
 }
+
+// `mailDeliveryOf` and `redactAddress` are pure helpers (no I/O): plain exports that stay for good (plan e2 P1), not
+// bridges; `core/routes/auth.ts` and `households/invites.service.ts` call the first.
 
 /**
  * Turns a send result into the three-state status the contract exposes.

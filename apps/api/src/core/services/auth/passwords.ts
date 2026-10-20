@@ -5,14 +5,13 @@
  *
  * The `Passwords` service (docs/EFFECT.md E7; plan `docs/plans/e2-api-core-services.md` P2) has no dependencies.
  * `verifyPassword` stays CATCH-ALL (plan e2 P2): a malformed or legacy hash in the DB, a synchronous throw of argon2
- * included, is `false`, never a failure and never a 500. The Promise bridges at the end of the file keep the old
- * exports working for the callers that are not converted yet.
+ * included, is `false`, never a failure and never a 500. The service has no
+ * legacy bridge.
  *
  * The 200-character cap before argon2 (CLAUDE.md "Core hardening from `1715207`") lives in the request schemas of
  * `@toon/shared` (`PasswordSchema`, `packages/shared/src/core/schemas/user.ts`); this file hashes what it is given.
  */
 import { Context, Effect, Layer } from "effect";
-import { runtime } from "../../../runtime.ts";
 
 /**
  * A real argon2id hash of a random throw-away string. Login verifies against it
@@ -66,21 +65,4 @@ export class Passwords extends Context.Service<
       return Passwords.of({ hashPassword, verifyPassword, fakeVerifyPassword });
     }),
   );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/** Callers: `core/routes/auth.ts` (register, password change), `passwordReset.ts`. */
-export function hashPassword(password: string): Promise<string> {
-  return runtime.runPromise(Passwords.use((passwords) => passwords.hashPassword(password)));
-}
-
-/** Callers: `core/routes/auth.ts` (login, password change). */
-export function verifyPassword(password: string, hash: string | null | undefined): Promise<boolean> {
-  return runtime.runPromise(Passwords.use((passwords) => passwords.verifyPassword(password, hash)));
-}
-
-/** Callers: none outside the re-export of `core/services/auth/index.ts` (kept for its old export; E2-T13 prunes). */
-export function fakeVerifyPassword(password: string): Promise<void> {
-  return runtime.runPromise(Passwords.use((passwords) => passwords.fakeVerifyPassword(password)));
 }

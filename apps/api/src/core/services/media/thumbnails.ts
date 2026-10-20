@@ -272,14 +272,6 @@ const loadSharp: Effect.Effect<SharpFactory | undefined> = Effect.suspend(() => 
 /* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
 
 /**
- * Path to serve for a `<original>.thumb.webp` request (see `Thumbnails.resolveThumbnail`).
- * Callers: `apps/api/src/index.ts` (the `/uploads` route) until E2-T12.
- */
-export function resolveThumbnail(filename: string): Promise<ResolvedThumbnail | undefined> {
-  return runtime.runPromise(Thumbnails.use((thumbnails) => thumbnails.resolveThumbnail(filename)));
-}
-
-/**
  * Builds the derivative for a freshly stored upload without making the caller wait.
  *
  * Stays `void` (plan e2 P1, P10): returns before any work, never throws and never rejects. The upload response must

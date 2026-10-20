@@ -15,15 +15,13 @@
  * The `AuthInvites` service (docs/EFFECT.md E7; plan `docs/plans/e2-api-core-services.md` P2, P7) reads the current
  * executor of `Database` on every call and its time from the `Clock`; refusals are typed failures of the error
  * family with the old status, code and text. The pure `generateInviteToken` and `INVITE_TTL_MS` stay plain; the
- * Promise bridges at the end of the file keep the old exports working for the callers that are not converted yet.
+ * service has no legacy bridge (the auth routes and the scripts use the service or the pure exports).
  */
 import { and, eq } from "drizzle-orm";
 import { Clock, Context, Effect, Layer } from "effect";
-import type { DrizzleDatabase } from "../../../db/client.ts";
 import { Database } from "../../../db/database.ts";
 import { type HouseholdInviteRow, householdInvites, householdMembers, users } from "../../../db/schema.ts";
 import { ApiFailure, Conflict, type DatabaseError } from "../../../lib/errors.ts";
-import { runtime } from "../../../runtime.ts";
 import { type ClaimPlaceholderInput, Users } from "./users.ts";
 
 /** Invite links are valid for 14 days (docs/API.md). */
@@ -231,39 +229,5 @@ export class AuthInvites extends Context.Service<
 
       return AuthInvites.of({ findInviteByToken, loadRedeemableInvite, acceptInvite, claimInvite });
     }),
-  );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/** Callers: none outside the re-export of `core/services/auth/index.ts` (kept for its old export; E2-T13 prunes). */
-export function findInviteByToken(database: DrizzleDatabase, token: string): Promise<HouseholdInviteRow | undefined> {
-  return runtime.runPromise(
-    AuthInvites.use((service) => service.findInviteByToken(token)).pipe(Database.withExecutor(database)),
-  );
-}
-
-/** Callers: `core/routes/auth.ts` (E2-T10). */
-export function loadRedeemableInvite(database: DrizzleDatabase, token: string): Promise<HouseholdInviteRow> {
-  return runtime.runPromise(
-    AuthInvites.use((service) => service.loadRedeemableInvite(token)).pipe(Database.withExecutor(database)),
-  );
-}
-
-/** Callers: `core/routes/auth.ts` (E2-T10). */
-export function acceptInvite(database: DrizzleDatabase, token: string, userId: string): Promise<AcceptedInvite> {
-  return runtime.runPromise(
-    AuthInvites.use((service) => service.acceptInvite(token, userId)).pipe(Database.withExecutor(database)),
-  );
-}
-
-/** Callers: `core/routes/auth.ts` (E2-T10). */
-export function claimInvite(
-  database: DrizzleDatabase,
-  invite: HouseholdInviteRow,
-  input: ClaimPlaceholderInput,
-): Promise<string> {
-  return runtime.runPromise(
-    AuthInvites.use((service) => service.claimInvite(invite, input)).pipe(Database.withExecutor(database)),
   );
 }

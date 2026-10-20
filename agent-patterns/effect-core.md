@@ -229,3 +229,16 @@ The web, which has no throw-and-catch boundary, uses `Schema.decodeUnknownResult
 (`apps/web/src/lib/validation.ts`: `decoded.success` on the happy arm, `decoded.failure.issue` on the other). A
 `Result` has `success` / `failure`, not v3's `right` / `left`. `Effect` itself is touched only where a schema API asks for
 one (`Schema.withDecodingDefault(Effect.succeed("member" as const))`, a default is an `Effect`).
+
+**As built (E2):** the runtime is no longer empty. `apps/api/src/runtime.ts` is `ManagedRuntime.make(AppLayer, { memoMap })` with
+`AppLayer = Layer.suspend(appLayer)` (`Layer.Layer<AppServices, AppLayerError, never>`); every Hono handler of the core routes is
+`(c) => runtime.runPromise(Effect.gen(function* () { … }))`, the Hono context operations (`c.req`, `c.json`, cookies) stay inside the
+generator, and a refusal is `return yield* new <TaggedError>(…)`, which `runPromise` rejects with as the squashed error itself, so
+`onErrorHandler` renders it as before. What the integration found about the edge helpers:
+- `Effect.runSync(effect)` is the right bridge for a SYNCHRONOUS legacy export over a service-free effect (the `Clock` is a default
+  service, so `Clock.currentTimeMillis` works); it THROWS the tagged error itself (`Cause.squash`) and cannot run anything asynchronous.
+  Every such bridge carries an explicit return type copied from the old signature, so `tsc` refuses one that became a `Promise`.
+- A middleware does its effect work as ONE `await runtime.runPromise(...)` before `await next()`; never call `next()` inside an effect.
+- A fire-and-forget export runs `runtime.runFork(effect.pipe(Effect.ignoreCause))` and returns `void` (`warmThumbnail`).
+- A `Context.Service` class is itself an `Effect` of its shape, so `runtime.runPromise(Passwords.use((p) => p.hashPassword(x)))` is the
+  one-liner a bridge needs; the fewer places that read a service class at module scope the fewer TDZ crashes (`effect-services.md`).

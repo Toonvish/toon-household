@@ -4,14 +4,13 @@
 // failure text of `file:line: code` per hit. A new violation anywhere fails here with the rule; never
 // relax a rule to get green (an allow list is a pinned constant with a reason per entry).
 //
-// Only the rules that hold at E0 are switched on. The rules a later milestone switches on are listed in
+// Only the rules that hold at the current milestone are switched on. The rules a later milestone switches on are listed in
 // PENDING_RULES below as a comment, never as skipped or todo tests.
 //
 // PENDING_RULES (switched on by the milestone named; each is a new `describe` in the same commit as the
 // migration that makes it true):
-//   E2  (api-core-services) No `throw new ApiError` in services; no `Date.now()` / `new Date()` in services
-//        (DateTime / Clock instead).
 //   E7  (http-api)       No `hono` import or dependency (the HttpApi server replaces it; docs/EFFECT.md E7).
+// (E1 switched on rule (9), E2 rules (10) and (11) below.)
 //
 // Comment lines (trimmed line starting with `*`, `//`, `/*`, `{/*`) are never scanned. No test reads git history.
 import { describe, expect, test } from "bun:test";
@@ -353,5 +352,98 @@ describe("(9) no zod (E1, E4)", () => {
     const lock = readFileSync(join(ROOT, "bun.lock"), "utf8");
     const problems = [...lock.matchAll(/"(zod|@hono\/zod-validator)(?:@[^"]*)?"\s*:/g)].map((m) => `bun.lock: "${m[1]}"`);
     expectNoProblems("no zod entry in the lockfile (docs/EFFECT.md E1, E4)", problems);
+  });
+});
+
+// --- (10), (11) the E2 rules (plan docs/plans/e2-api-core-services.md P15) -------------------------
+
+/** A pinned allow list over file paths: a key ending in `/` is a directory prefix, any other key is one file. */
+type PathAllow = Record<string, string>;
+const pathAllowed = (allow: PathAllow, path: string) =>
+  Object.keys(allow).some((key) => (key.endsWith("/") ? path.startsWith(key) : path === key));
+const allowedPath = (allow: PathAllow) => (line: Line) => pathAllowed(allow, rel(line.file));
+
+/** Every allow-list entry must still match a hit of its rule: a fixed file leaves the list in the same commit. */
+function expectNoStaleEntries(rule: string, allow: PathAllow, hits: Line[]) {
+  const stale = Object.keys(allow).filter(
+    (key) => !hits.some((h) => (key.endsWith("/") ? rel(h.file).startsWith(key) : rel(h.file) === key)),
+  );
+  expectNoProblems(`${rule}: allow-list entries that no longer match a hit (remove them)`, stale.map((k) => `${k}: ${allow[k]}`));
+}
+
+const API_SRC_FILES = ALL_FILES.filter((f) => rel(f).startsWith("apps/api/src/"));
+
+// Pinned allow list (path prefix -> reason): the module code that E3 and E4 move onto the tagged family.
+const ALLOW_THROW_API_ERROR: PathAllow = {
+  "apps/api/src/modules/recipe/": "E3 moves recipe onto the tagged family",
+  "apps/api/src/modules/finance/": "E4 moves finance onto the tagged family",
+};
+const THROW_API_ERROR = /\bthrow\s+(?:new\s+)?ApiError\b/;
+
+describe("(10) no throw of ApiError (E6, E12)", () => {
+  test("no `throw ApiError` / `throw new ApiError` under apps/api/src outside the pinned module allow list", () => {
+    expectNone(
+      "refusals are `return yield* new <TaggedError>(...)` (a Schema.TaggedError of apps/api/src/lib/errors.ts), never a thrown ApiError (docs/EFFECT.md E6, E12)",
+      scan(API_SRC_FILES, (l) => THROW_API_ERROR.test(l.text) && !allowedPath(ALLOW_THROW_API_ERROR)(l)),
+    );
+  });
+
+  test("every allow-list entry still matches (E3 and E4 shrink it, never grow it)", () => {
+    expectNoStaleEntries("(10)", ALLOW_THROW_API_ERROR, scan(API_SRC_FILES, (l) => THROW_API_ERROR.test(l.text)));
+  });
+
+  test("the rule bites: a throw line matches, a comment-free Effect refusal does not", () => {
+    expect(THROW_API_ERROR.test("  throw ApiError.notFound();")).toBe(true);
+    expect(THROW_API_ERROR.test("  throw new ApiError(409, 'x', 'y');")).toBe(true);
+    expect(THROW_API_ERROR.test("  return yield* new NotFound();")).toBe(false);
+  });
+});
+
+// Pinned allow list (path or prefix -> reason) for `Date.now(` / `new Date(` under a `services/` directory.
+const ALLOW_SERVICE_DATE: PathAllow = {
+  "apps/api/src/core/services/households/support.ts": "nowMs(), the module helper recipe and finance call until E3/E4",
+  "apps/api/src/modules/recipe/services/": "E3 moves recipe onto Clock / DateTime",
+};
+// (Finance's services hold no `Date.now(` / `new Date(` today, so no E4 entry: the stale-entry test below would fail it.)
+const SERVICE_DATE = /\bDate\.now\s*\(|\bnew\s+Date\s*\(/;
+const SERVICE_FILES = API_SRC_FILES.filter((f) => rel(f).includes("/services/"));
+
+// `nowMs()` reads `Date.now()` inside the allow-listed support.ts, so a call from the core bypasses the Clock as
+// surely as a literal one does (plan e2 P7): nothing under apps/api/src/core/ calls it but its own definition.
+const NOW_MS_CALL = /\bnowMs\s*\(/;
+const CORE_FILES = API_SRC_FILES.filter((f) => rel(f).startsWith("apps/api/src/core/"));
+const ALLOW_NOW_MS: PathAllow = {
+  "apps/api/src/core/services/households/support.ts": "the definition of nowMs() itself (module helper until E3/E4)",
+};
+
+describe("(11) no Date.now() / new Date( in services, no nowMs( in the core (E7, E12)", () => {
+  test("no `Date.now(` / `new Date(` in a services/ directory outside the pinned allow list", () => {
+    expectNone(
+      "services read time from Clock / DateTime inside the method body (docs/EFFECT.md E7, E12; plan e2 P7)",
+      scan(SERVICE_FILES, (l) => SERVICE_DATE.test(l.text) && !allowedPath(ALLOW_SERVICE_DATE)(l)),
+    );
+  });
+
+  test("every service allow-list entry still matches", () => {
+    expectNoStaleEntries("(11)", ALLOW_SERVICE_DATE, scan(SERVICE_FILES, (l) => SERVICE_DATE.test(l.text)));
+  });
+
+  test("no `nowMs(` call under apps/api/src/core/ (the module helper reads Date.now(), bypassing the Clock)", () => {
+    expectNone(
+      "the core reads `yield* Clock.currentTimeMillis`, never support.ts nowMs() (plan e2 P7)",
+      scan(CORE_FILES, (l) => NOW_MS_CALL.test(l.text) && !allowedPath(ALLOW_NOW_MS)(l)),
+    );
+  });
+
+  test("the nowMs allow-list entry still matches", () => {
+    expectNoStaleEntries("(11) nowMs", ALLOW_NOW_MS, scan(CORE_FILES, (l) => NOW_MS_CALL.test(l.text)));
+  });
+
+  test("the rule bites on the three shapes", () => {
+    expect(SERVICE_DATE.test("const at = Date.now();")).toBe(true);
+    expect(SERVICE_DATE.test("const d = new Date(value);")).toBe(true);
+    expect(SERVICE_DATE.test("const at = yield* Clock.currentTimeMillis;")).toBe(false);
+    expect(NOW_MS_CALL.test("const at = nowMs();")).toBe(true);
+    expect(NOW_MS_CALL.test("const at = yield* Clock.currentTimeMillis;")).toBe(false);
   });
 });

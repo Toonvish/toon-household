@@ -17,8 +17,8 @@
  * The `PasswordReset` service (docs/EFFECT.md E6, E7; plan `docs/plans/e2-api-core-services.md` P2, P7) reads the
  * current executor of `Database` on every call and its time from the `Clock`, inside each method; the token lookup
  * runs through `spendableToken` (`tokens.ts`). The expired-token sweep stays fire-and-forget and catch-all (a
- * detached fiber whose whole cause is ignored, plan e2 P2). The Promise bridges at the end of the file keep the old
- * exports working for the callers that are not converted yet.
+ * detached fiber whose whole cause is ignored, plan e2 P2). The one Promise bridge at the end of the file
+ * (`createPasswordResetToken`) keeps `scripts/reset-password.ts` working until E5.
  */
 import { and, eq, isNull, lt } from "drizzle-orm";
 import { Clock, Context, Effect, Layer } from "effect";
@@ -200,7 +200,7 @@ export class PasswordReset extends Context.Service<
 
 /* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
 
-/** Callers: `core/routes/auth.ts` (E2-T10), `scripts/reset-password.ts` (E5). */
+/** Callers: `scripts/reset-password.ts` (E5). Promise. */
 export function createPasswordResetToken(
   database: DrizzleDatabase,
   userId: string,
@@ -211,33 +211,4 @@ export function createPasswordResetToken(
       Database.withExecutor(database),
     ),
   );
-}
-
-/** Callers: none outside this file's own export (kept for its old export; E2-T13 prunes). */
-export function findUsablePasswordReset(database: DrizzleDatabase, token: string): Promise<PasswordResetTokenRow> {
-  return runtime.runPromise(
-    PasswordReset.use((service) => service.findUsablePasswordReset(token)).pipe(Database.withExecutor(database)),
-  );
-}
-
-/** Callers: `core/routes/auth.ts` (E2-T10). */
-export function consumePasswordReset(
-  database: DrizzleDatabase,
-  token: string,
-  newPassword: string,
-): Promise<{ userId: string }> {
-  return runtime.runPromise(
-    PasswordReset.use((service) => service.consumePasswordReset(token, newPassword)).pipe(
-      Database.withExecutor(database),
-    ),
-  );
-}
-
-/** Callers: none outside this file's own export (kept for its old export; E2-T13 prunes). */
-export function sweepExpiredResetTokens(database: DrizzleDatabase): Promise<void> {
-  return runtime
-    .runPromise(
-      PasswordReset.use((service) => service.sweepExpiredResetTokens()).pipe(Database.withExecutor(database)),
-    )
-    .catch(() => undefined);
 }

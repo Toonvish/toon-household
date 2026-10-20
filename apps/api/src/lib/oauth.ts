@@ -14,15 +14,14 @@
  * error family, so the callback logs it and redirects with `oauth_failed`, as it did for the raw `TypeError`), the
  * provider's own refusals are `ApiFailure` 400 `oauth_failed` with today's texts. The pure helpers
  * (`isProviderConfigured`, `callbackUrl`, `createAuthorization`, the three parsers, `webUrl`, `safeNextPath`) stay
- * plain functions reading the process `env` (or the settings they are handed); the sync bridge
- * `requireProviderConfigured` stays SYNCHRONOUS with return type `void` (plan e2 P1).
+ * plain functions reading the process `env` (or the settings they are handed); `createAuthorization` refuses an
+ * unconfigured provider synchronously (`Effect.runSync` over the same check). The service has no legacy bridge.
  */
 import type { OAuthProvider } from "@toon/shared";
 import { GitHub, Google, decodeIdToken, generateCodeVerifier, generateState } from "arctic";
 import { Context, Effect, Layer, Option, Predicate, Schema } from "effect";
 import { AppConfig, type Env } from "../config.ts";
 import { env } from "../env.ts";
-import { runtime } from "../runtime.ts";
 import { ApiFailure } from "./errors.ts";
 
 export type { OAuthProvider };
@@ -103,7 +102,7 @@ function githubClient(settings: OAuthSettings): GitHub {
 
 /** Builds the provider authorization URL plus the values to store in cookies. */
 export function createAuthorization(provider: OAuthProvider, settings: OAuthSettings = env): OAuthStart {
-  requireProviderConfigured(provider, settings);
+  Effect.runSync(checkProviderConfigured(provider, settings));
   const state = generateState();
 
   if (provider === "google") {
@@ -370,30 +369,4 @@ export function safeNextPath(value: string | undefined | null): string | undefin
   if (/[\\\u0000-\u0020\u007f]/.test(value)) return undefined;
   if (!value.startsWith("/") || value.startsWith("//")) return undefined;
   return value;
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/**
- * SYNCHRONOUS, return type `void` (plan e2 P1): `Effect.runSync` over the service-free check throws the `ApiFailure`
- * itself. Callers: `createAuthorization` above, `core/routes/auth.ts` (E2-T10).
- */
-export function requireProviderConfigured(provider: OAuthProvider, settings: OAuthSettings = env): void {
-  Effect.runSync(checkProviderConfigured(provider, settings));
-}
-
-/**
- * Callers: `core/routes/auth.ts` (E2-T10). A refusal rejects with the `ApiFailure` itself; a transport failure rejects
- * with the original cause (what the raw `fetch` rejection was before), so the callback's log line is unchanged.
- */
-export function exchangeCodeForProfile(
-  provider: OAuthProvider,
-  code: string,
-  codeVerifier: string | undefined,
-): Promise<OAuthProfile> {
-  return runtime.runPromise(
-    OAuthProviders.use((service) => service.exchangeCodeForProfile(provider, code, codeVerifier)).pipe(
-      Effect.catchTag("OAuthTransportError", ({ cause }) => Effect.die(cause)),
-    ),
-  );
 }

@@ -231,3 +231,10 @@ is left in `mail/index.ts`, `mail/smtp.ts`, `auth/rateLimit.ts`, `auth/verifiedE
   `TestClock.setTime(Date.UTC(2026, 7, 4, 9, 30))` gives `Date: Tue, 04 Aug 2026 09:30:00 +0000`.
 - **Do not capture the time at layer build.** Every method reads the Clock in its body; a layer-time read would freeze
   the first instant of the process (and ignore a per-run `TestClock`).
+
+**As built (E2, integration):** idioms rule (11) is on. `Date.now(` and `new Date(` are forbidden in any `services/` directory under
+`apps/api/src` except `apps/api/src/core/services/households/support.ts` (`nowMs()`, the module helper recipe and finance still call
+until E3/E4) and `apps/api/src/modules/recipe/services/` (E3); and `nowMs(` may not be CALLED anywhere under `apps/api/src/core/`
+(it reads `Date.now()`, so a call bypasses the `Clock` as surely as the literal; the core uses `yield* Clock.currentTimeMillis`). Finance's
+services hold no `Date.now(` today, so the stale-entry test of the rule refuses an E4 entry. `lib/` (`cookies.ts`, `http.ts`,
+`uploadUrls.ts`) is outside the rule and keeps `Date`.

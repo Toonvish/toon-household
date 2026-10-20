@@ -243,3 +243,9 @@ third argument of `test(...)`; bun's 5 s default fails on a loaded host, and a f
 - `apps/api/test/import-order-effect.test.ts` (the second fresh-process import test): per entry a `bun -e` child
   imports the entry first, then `./src/runtime.ts`, then awaits `runtime.runPromise(Effect.void)`, which builds the
   whole `AppLayer` after that import order.
+
+**As built (E2, integration):** the idioms test gained rules (10) and (11) in the shape of the design-system gate: a pinned allow list per
+rule (a key ending in `/` is a path prefix, any other key one file), a failure of `file:line: code`, a test that the rule still BITES on a
+sample line, and a stale-entry test (an allow-list entry that no longer matches a hit fails, so a fixed file leaves the list in the same
+commit). The pinned test files of an exit criterion (`db-pragmas`, `middleware`, `import-order`, `placeholders`, `security` and the
+rate-limit block of `auth`) are verified unchanged with `git diff <base> -- <files>`, not by reading them.

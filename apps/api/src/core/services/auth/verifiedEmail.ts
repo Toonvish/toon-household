@@ -138,20 +138,8 @@ export type VerifiableUser = Pick<UserRow, "emailVerifiedAt">;
  * Follows {@link isMailConfigured} rather than an env variable — see the file
  * header for why an operator must not be able to switch this on without a
  * transport that can deliver the link it demands. Synchronous, as before.
- * Callers: `apps/api/src/core/health.ts`, recipe's import `capabilities.ts`, `assertEmailVerified`, the tests.
+ * Callers: recipe's import `capabilities.ts` (E3), `apps/api/test/verified-email-gate.test.ts`. Synchronous.
  */
 export function isVerifiedEmailRequired(): boolean {
   return requiredWhen(env.isTest, isMailConfigured);
-}
-
-/**
- * Throws 403 `email_unverified` (synchronously) when `user` may not write on this deployment.
- *
- * Takes the DTO shape as well as the row, because the middleware only ever has
- * `c.get("user")` (an ISO string) while a service may hold a {@link UserRow}
- * (unix ms). Both are non-null exactly when the address is confirmed.
- * Callers: `apps/api/src/middleware/verifiedEmail.ts`.
- */
-export function assertEmailVerified(user: { emailVerifiedAt?: number | string | null }): void {
-  Effect.runSync(verifyIn(isVerifiedEmailRequired(), user));
 }
