@@ -15,29 +15,29 @@ import {
   UpdateMemberRoleRequestSchema,
   UpdatePlaceholderMemberRequestSchema,
 } from "@toon/shared";
+import { Effect } from "effect";
 import type { Hono } from "hono";
-import { db } from "../../db/client.ts";
 import { created, json, noContent } from "../../lib/http.ts";
 import type { AppEnv } from "../../lib/types.ts";
-import { requireMembership } from "../../lib/types.ts";
+import { currentMembership } from "../../lib/types.ts";
 import { requireHouseholdRole } from "../../middleware/household.ts";
 import { requireSession } from "../../middleware/session.ts";
 import { requireVerifiedEmail } from "../../middleware/verifiedEmail.ts";
-import {
-  addPlaceholderMember,
-  listMembers,
-  removeMember,
-  renamePlaceholderMember,
-  updateMemberRole,
-} from "../services/households/households.service.ts";
+import { Households } from "../services/households/households.service.ts";
 import { validate } from "../../lib/validate.ts";
+import { runtime } from "../../runtime.ts";
 
 export function registerMemberRoutes(router: Hono<AppEnv>): void {
   /** GET /api/households/:householdId/members */
-  router.get("/:householdId/members", requireSession(), requireHouseholdRole("member"), async (c) => {
-    const membership = requireMembership(c);
-    return json(c, { items: await listMembers(db, membership.householdId) });
-  });
+  router.get("/:householdId/members", requireSession(), requireHouseholdRole("member"), (c) =>
+    runtime.runPromise(
+      Effect.gen(function* () {
+        const households = yield* Households;
+        const membership = yield* currentMembership(c);
+        return json(c, { items: yield* households.listMembers(membership.householdId) });
+      }),
+    ),
+  );
 
   /**
    * POST /api/households/:householdId/members — adds a PLACEHOLDER member by display name
@@ -51,15 +51,18 @@ export function registerMemberRoutes(router: Hono<AppEnv>): void {
     requireHouseholdRole("admin"),
     requireVerifiedEmail(),
     validate("json", CreatePlaceholderMemberRequestSchema),
-    async (c) => {
-      const membership = requireMembership(c);
-      const member = await addPlaceholderMember(
-        db,
-        membership.householdId,
-        c.req.valid("json").displayName,
-      );
-      return created(c, { member }, `/api/households/${membership.householdId}/members/${member.userId}`);
-    },
+    (c) =>
+      runtime.runPromise(
+        Effect.gen(function* () {
+          const households = yield* Households;
+          const membership = yield* currentMembership(c);
+          const member = yield* households.addPlaceholderMember(
+            membership.householdId,
+            c.req.valid("json").displayName,
+          );
+          return created(c, { member }, `/api/households/${membership.householdId}/members/${member.userId}`);
+        }),
+      ),
   );
 
   /**
@@ -73,16 +76,19 @@ export function registerMemberRoutes(router: Hono<AppEnv>): void {
     requireHouseholdRole("admin"),
     requireVerifiedEmail(),
     validate("json", UpdatePlaceholderMemberRequestSchema),
-    async (c) => {
-      const membership = requireMembership(c);
-      const member = await renamePlaceholderMember(
-        db,
-        membership.householdId,
-        c.req.param("userId"),
-        c.req.valid("json").name,
-      );
-      return json(c, { member });
-    },
+    (c) =>
+      runtime.runPromise(
+        Effect.gen(function* () {
+          const households = yield* Households;
+          const membership = yield* currentMembership(c);
+          const member = yield* households.renamePlaceholderMember(
+            membership.householdId,
+            c.req.param("userId"),
+            c.req.valid("json").name,
+          );
+          return json(c, { member });
+        }),
+      ),
   );
 
   /**
@@ -94,16 +100,19 @@ export function registerMemberRoutes(router: Hono<AppEnv>): void {
     requireSession(),
     requireHouseholdRole("admin"),
     validate("json", UpdateMemberRoleRequestSchema),
-    async (c) => {
-      const membership = requireMembership(c);
-      const member = await updateMemberRole(
-        db,
-        membership,
-        c.req.param("userId"),
-        c.req.valid("json").role,
-      );
-      return json(c, { member });
-    },
+    (c) =>
+      runtime.runPromise(
+        Effect.gen(function* () {
+          const households = yield* Households;
+          const membership = yield* currentMembership(c);
+          const member = yield* households.updateMemberRole(
+            membership,
+            c.req.param("userId"),
+            c.req.valid("json").role,
+          );
+          return json(c, { member });
+        }),
+      ),
   );
 
   /**
@@ -112,14 +121,14 @@ export function registerMemberRoutes(router: Hono<AppEnv>): void {
    * which is why this route only requires `member` and delegates the rank rules
    * to removeMember(). Removing a placeholder also deletes its user row (ADR 0006).
    */
-  router.delete(
-    "/:householdId/members/:userId",
-    requireSession(),
-    requireHouseholdRole("member"),
-    async (c) => {
-      const membership = requireMembership(c);
-      await removeMember(db, membership, c.req.param("userId"));
-      return noContent(c);
-    },
+  router.delete("/:householdId/members/:userId", requireSession(), requireHouseholdRole("member"), (c) =>
+    runtime.runPromise(
+      Effect.gen(function* () {
+        const households = yield* Households;
+        const membership = yield* currentMembership(c);
+        yield* households.removeMember(membership, c.req.param("userId"));
+        return noContent(c);
+      }),
+    ),
   );
 }

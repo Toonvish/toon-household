@@ -35,24 +35,18 @@ import {
   CreateHouseholdRequestSchema,
   UpdateHouseholdRequestSchema,
 } from "@toon/shared";
+import { Effect } from "effect";
 import { Hono } from "hono";
-import { db } from "../../db/client.ts";
 import { created, json, noContent } from "../../lib/http.ts";
 import type { AppEnv } from "../../lib/types.ts";
-import { requireMembership, requireUser } from "../../lib/types.ts";
+import { currentMembership, currentUser } from "../../lib/types.ts";
 import { requireHouseholdRole } from "../../middleware/household.ts";
 import { requireSession } from "../../middleware/session.ts";
 import { requireVerifiedEmail } from "../../middleware/verifiedEmail.ts";
-import { HOUSEHOLD_CREATE_RULE, enforceRateLimit } from "../services/auth/rateLimit.ts";
-import {
-  createHousehold,
-  deleteHousehold,
-  getHouseholdWithRole,
-  listHouseholdsForUser,
-  listMembers,
-  updateHousehold,
-} from "../services/households/households.service.ts";
+import { HOUSEHOLD_CREATE_RULE, RateLimiter } from "../services/auth/rateLimit.ts";
+import { Households } from "../services/households/households.service.ts";
 import { validate } from "../../lib/validate.ts";
+import { runtime } from "../../runtime.ts";
 import { registerHouseholdInviteRoutes, registerInviteTokenRoutes } from "./invites.ts";
 import { registerMemberRoutes } from "./members.ts";
 import { registerModuleRoutes } from "./modules.ts";
@@ -67,10 +61,15 @@ registerInviteTokenRoutes(householdRoutes);
 /* -------------------------------------------------------------------------- */
 
 /** GET /api/households — every household of the caller incl. role + counts + modules. */
-householdRoutes.get("/", requireSession(), async (c) => {
-  const user = requireUser(c);
-  return json(c, { items: await listHouseholdsForUser(db, user.id) });
-});
+householdRoutes.get("/", requireSession(), (c) =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const households = yield* Households;
+      const user = yield* currentUser(c);
+      return json(c, { items: yield* households.listHouseholdsForUser(user.id) });
+    }),
+  ),
+);
 
 /** POST /api/households — the caller becomes owner and the household becomes active. */
 householdRoutes.post(
@@ -78,12 +77,17 @@ householdRoutes.post(
   requireSession(),
   requireVerifiedEmail(),
   validate("json", CreateHouseholdRequestSchema),
-  async (c) => {
-    const user = requireUser(c);
-    enforceRateLimit(c, "household-create", user.id, HOUSEHOLD_CREATE_RULE);
-    const household = await createHousehold(db, user.id, c.req.valid("json"));
-    return created(c, { household }, `/api/households/${household.id}`);
-  },
+  (c) =>
+    runtime.runPromise(
+      Effect.gen(function* () {
+        const households = yield* Households;
+        const rateLimiter = yield* RateLimiter;
+        const user = yield* currentUser(c);
+        yield* rateLimiter.enforce("household-create", user.id, HOUSEHOLD_CREATE_RULE);
+        const household = yield* households.createHousehold(user.id, c.req.valid("json"));
+        return created(c, { household }, `/api/households/${household.id}`);
+      }),
+    ),
 );
 
 /* -------------------------------------------------------------------------- */
@@ -91,14 +95,22 @@ householdRoutes.post(
 /* -------------------------------------------------------------------------- */
 
 /** GET /api/households/:householdId — household + members. */
-householdRoutes.get("/:householdId", requireSession(), requireHouseholdRole("member"), async (c) => {
-  const membership = requireMembership(c);
-  const [household, members] = await Promise.all([
-    getHouseholdWithRole(db, membership.householdId, membership.role),
-    listMembers(db, membership.householdId),
-  ]);
-  return json(c, { household, members });
-});
+householdRoutes.get("/:householdId", requireSession(), requireHouseholdRole("member"), (c) =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const households = yield* Households;
+      const membership = yield* currentMembership(c);
+      const [household, members] = yield* Effect.all(
+        [
+          households.getHouseholdWithRole(membership.householdId, membership.role),
+          households.listMembers(membership.householdId),
+        ],
+        { concurrency: "unbounded" },
+      );
+      return json(c, { household, members });
+    }),
+  ),
+);
 
 /** PATCH /api/households/:householdId — rename/describe (admin+). */
 householdRoutes.patch(
@@ -107,11 +119,15 @@ householdRoutes.patch(
   requireHouseholdRole("admin"),
   requireVerifiedEmail(),
   validate("json", UpdateHouseholdRequestSchema),
-  async (c) => {
-    const membership = requireMembership(c);
-    const household = await updateHousehold(db, membership.householdId, membership.role, c.req.valid("json"));
-    return json(c, { household });
-  },
+  (c) =>
+    runtime.runPromise(
+      Effect.gen(function* () {
+        const households = yield* Households;
+        const membership = yield* currentMembership(c);
+        const household = yield* households.updateHousehold(membership.householdId, membership.role, c.req.valid("json"));
+        return json(c, { household });
+      }),
+    ),
 );
 
 /** DELETE /api/households/:householdId — owner only; all content cascades. */
@@ -120,11 +136,15 @@ householdRoutes.delete(
   requireSession(),
   requireHouseholdRole("owner"),
   requireVerifiedEmail(),
-  async (c) => {
-    const membership = requireMembership(c);
-    await deleteHousehold(db, membership.householdId);
-    return noContent(c);
-  },
+  (c) =>
+    runtime.runPromise(
+      Effect.gen(function* () {
+        const households = yield* Households;
+        const membership = yield* currentMembership(c);
+        yield* households.deleteHousehold(membership.householdId);
+        return noContent(c);
+      }),
+    ),
 );
 
 /* -------------------------------------------------------------------------- */
