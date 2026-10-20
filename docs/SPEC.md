@@ -176,29 +176,50 @@ directories knows its tables, routes or screens except through the manifest.
 export const MODULE_IDS = ["recipe", "finance"] as const
 export type ModuleId = (typeof MODULE_IDS)[number]
 
-// apps/api/src/modules/<id>/index.ts
+// apps/api/src/modules/types.ts (since E2: the hooks are Effects; docs/EFFECT.md E7)
+type HookError = ApiErrorFamily | DatabaseError   // a refusal of the API error family, or a database failure
 export interface ApiModule {
   id: ModuleId
   householdRouter?: Hono          // mounted at /api/households/:householdId/<id>, after requireModule(id)
   userRouter?: Hono               // mounted at /api/<id> (user-scoped, e.g. recipe cards)
   schema: Record<string, Table>   // drizzle tables, all prefixed `<id>_`
-  healthFeatures?(): Record<string, boolean>   // merged into /api/health features
-  onHouseholdCreated?(householdId, tx): Promise<void>   // e.g. finance seeds its 21 categories
-  onEnable?(householdId, settings, tx): Promise<void>   // e.g. finance validates its two participants;
+  healthFeatures?(): Record<string, boolean>   // merged into /api/health features (synchronous)
+  layer?: Layer<never, never, AppConfig | Database>   // the module's own services (E3, E4), merged into the
+                                              // runtime's AppLayer by moduleLayers(); absent for both in E2
+  // Every hook below that writes reads its executor from the `Database` service: the current executor is the
+  // transaction the core opened around the operation (household creation, enabling, removeMember), else the root.
+  onHouseholdCreated?(householdId): Effect<void, HookError, Database>   // e.g. finance seeds its 21 categories
+  onEnable?(householdId, settings): Effect<void, HookError, Database>   // e.g. finance validates its two participants;
                                               // `settings` is the body of the enable POST ({ settings? }), null without one
-  onMemberRemoving?(householdId, userId, tx): Promise<void>   // runs in removeMember before the row is deleted; may veto
-                                              // by throwing (finance: 409 member_has_ledger, D13)
-  afterMigrate?(database): Promise<void>      // runs after every migrate() in runMigrations (db:migrate, seed, tests);
-                                              // idempotent, no transaction; e.g. recipe's folded-column backfill
-  start?(): Promise<void>                     // once at boot in index.ts, after `await dbReady`, never under test;
-                                              // e.g. finance's boot catch-up and 6-hour accrual tick; a rejection is logged
-  shutdown?(): Promise<void>                  // SIGTERM/SIGINT in index.ts; e.g. recipe stops its OCR worker,
+  onMemberRemoving?(householdId, userId): Effect<void, HookError, Database>   // runs in removeMember before the row
+                                              // is deleted; may veto by failing (finance: 409 member_has_ledger, D13)
+  afterMigrate?(): Effect<void, HookError, Database>   // runs after every migrate() in runMigrations (db:migrate, seed,
+                                              // tests), on the database just migrated; idempotent, no transaction;
+                                              // e.g. recipe's folded-column backfill
+  start?(): Effect<void, unknown>             // once at boot in index.ts, after `await dbReady`, never under test;
+                                              // e.g. finance's boot catch-up and 6-hour accrual tick; a failure is logged
+  shutdown?(): Effect<void, unknown>          // SIGTERM/SIGINT in index.ts; e.g. recipe stops its OCR worker,
                                               // finance stops the accrual tick
-  seedDemo?(database, { householdId, userId, demoPassword }): Promise<void>   // the module's part of `bun run seed`,
-                                              // idempotent; every login it creates uses `demoPassword`
+  seedDemo?({ householdId, userId, demoPassword }): Effect<void, HookError, Database>   // the module's part of
+                                              // `bun run seed`, idempotent; every login it creates uses `demoPassword`
                                               // (SEED_PASSWORD, else demo1234; plan m3b decision 17)
-  uploadReferences?(database): Promise<string[]>   // every stored upload value the module's rows hold;
+  uploadReferences?(): Effect<string[], HookError, Database>   // every stored upload value the module's rows hold;
                                               // uploads:gc keeps a file iff the core or any module references it
+}
+
+// apps/api/src/modules/types.ts: the Promise-based contract of M0 to M7, which the recipe and finance manifests
+// (apps/api/src/modules/<id>/index.ts) implement until E3 and E4; src/modules/index.ts wraps each with
+// fromPromiseModule (apps/api/src/modules/adapter.ts)
+export interface PromiseApiModule {
+  // id, householdRouter, userRouter, schema, healthFeatures as above; the hooks take the executor as an argument:
+  onHouseholdCreated?(householdId, tx): Promise<void>
+  onEnable?(householdId, settings, tx): Promise<void>
+  onMemberRemoving?(householdId, userId, tx): Promise<void>
+  afterMigrate?(database): Promise<void>
+  start?(): Promise<void>
+  shutdown?(): Promise<void>
+  seedDemo?(database, { householdId, userId, demoPassword }): Promise<void>
+  uploadReferences?(database): Promise<string[]>
 }
 
 // apps/web/src/modules/<id>/index.ts
@@ -241,6 +262,14 @@ Rules:
   registry (`session.ts` → `auth/users.ts` → `households/modules.ts` → `modules/index.ts` → a
   manifest → its routers → `session.ts`; `import-order.test.ts` loads each real entry point first in
   a fresh process).
+- The hooks became Effects in E2 (docs/EFFECT.md E7; plan `docs/plans/e2-api-core-services.md` P11). A hook reads
+  the transaction it runs in from the `Database` service's current executor, not from a parameter.
+  `fromPromiseModule` (`apps/api/src/modules/adapter.ts`) adapts a `PromiseApiModule`: each hook reads the current
+  executor and calls the Promise hook with exactly that executor; a rejection from the API error family becomes
+  the typed failure unchanged (the same object), anything else a defect. `runModuleHook(effect, executor)` runs a
+  hook on the bare drizzle executor a Promise-based core caller holds (`runMigrations`, `initializeHousehold`,
+  `enableModule`, `removeMember`, `collectUploadReferences`, `seed`) and rejects with the hook's own error; it never
+  imports `apps/api/src/runtime.ts`. `start` and `shutdown` run on the app runtime in `apps/api/src/index.ts`.
 - `NavItem.trailing?: ComponentType<{ isActive: boolean }>` (M4) is a SIDEBAR-ONLY slot: `SideNav`
   renders it at the end of the item's row (`ml-auto`), the phone tab bar ignores it. It carries what
   toon-recipe drew in its sidebar and the core cannot compute because it cannot count a module's rows
@@ -270,7 +299,7 @@ Rules:
 - A `household_modules` row IS the enabled state. `POST` / `DELETE
   /api/households/:householdId/modules/:moduleId` (owner/admin, verified e-mail) upsert or delete
   it; disabling keeps the module's own data, so enabling again brings it back. The build module's
-  `onEnable` runs before the row is written and may refuse by throwing an `ApiError`. Every new
+  `onEnable` runs before the row is written and may refuse by failing with an API error. Every new
   household gets a row per `DEFAULT_ENABLED_MODULES` (`recipe`) through `initializeHousehold`, and
   each build module's `onHouseholdCreated` runs after it.
 - A module's drizzle migration is a normal file in `apps/api/drizzle/`; the module prefix is the

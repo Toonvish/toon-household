@@ -9,6 +9,7 @@ import { DEFAULT_ENABLED_MODULES, MODULE_IDS, type ModuleId, isModuleId } from "
 import { and, eq, inArray } from "drizzle-orm";
 import type { Database } from "../../../db/client.ts";
 import { householdModules } from "../../../db/schema.ts";
+import { runModuleHook } from "../../../modules/adapter.ts";
 import { API_MODULES } from "../../../modules/index.ts";
 import type { ApiModule } from "../../../modules/types.ts";
 import { type DbLike, nowMs, withTransaction } from "./support.ts";
@@ -42,14 +43,18 @@ export async function initializeHousehold(db: DbLike, householdId: string, modul
     .insert(householdModules)
     .values(DEFAULT_ENABLED_MODULES.map((moduleId) => ({ householdId, moduleId, enabledAt: now, settings: null })))
     .onConflictDoNothing();
-  for (const module of modules) await module.onHouseholdCreated?.(householdId, db);
+  // The hooks are Effects (plan e2 P11); each runs on `db`, the executor this caller holds (the creation's
+  // transaction inside `createHousehold`), which a Promise-based manifest receives as its `tx`.
+  for (const module of modules) {
+    if (module.onHouseholdCreated) await runModuleHook(module.onHouseholdCreated(householdId), db);
+  }
 }
 
 /**
  * Enables `moduleId` for a household (POST /api/households/:householdId/modules/:moduleId).
  *
  * ORDER IS LOAD-BEARING: the build module's `onEnable` hook runs BEFORE the row is written. A
- * hook may refuse by throwing an `ApiError` (finance validates its two participants, SPEC D3);
+ * hook may refuse by failing with an API error (finance validates its two participants, SPEC D3);
  * "a refusal writes nothing" holds because nothing was written yet, and it must keep holding
  * on a memory DB, where `withTransaction` runs without a transaction (see support.ts; `bun
  * test` itself runs on a temp file DB with real transactions since ADR 0009).
@@ -67,7 +72,8 @@ export async function enableModule(
 ): Promise<void> {
   const module = modules.find((candidate) => candidate.id === moduleId);
   await withTransaction(db, async (tx) => {
-    await module?.onEnable?.(householdId, settings ?? null, tx);
+    // The Effect hook runs on the `tx` opened here (plan e2 P11), still BEFORE the upsert.
+    if (module?.onEnable) await runModuleHook(module.onEnable(householdId, settings ?? null), tx);
     const insert = tx.insert(householdModules).values({
       householdId,
       moduleId,

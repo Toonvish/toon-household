@@ -47,6 +47,7 @@ const { initializeHousehold } = await import("../src/core/services/households/mo
 const { client, db } = await import("../src/db/client.ts");
 const { runMigrations } = await import("../src/db/migrate.ts");
 const { householdMembers, households, users } = await import("../src/db/schema.ts");
+const { runModuleHook } = await import("../src/modules/adapter.ts");
 const { API_MODULES } = await import("../src/modules/index.ts");
 
 await runMigrations();
@@ -104,8 +105,10 @@ if (!householdId) {
 // Module demo content (SPEC §2, plan M2 decision 4): recipe's tags, courses, demo recipes,
 // plan entries, cook log and shopping list (toon-recipe scripts/seed.ts) arrive through its
 // `seedDemo`; the core names no module here.
+// The hooks are Effects (plan e2 P11): each runs on `db` through `runModuleHook`, and a
+// Promise-based manifest receives `db` as its `database` argument as before.
 for (const module of API_MODULES) {
-  await module.seedDemo?.(db, { householdId, userId, demoPassword: DEMO_PASSWORD });
+  if (module.seedDemo) await runModuleHook(module.seedDemo({ householdId, userId, demoPassword: DEMO_PASSWORD }), db);
 }
 
 console.log("[seed] done");

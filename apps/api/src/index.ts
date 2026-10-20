@@ -166,7 +166,8 @@ if (env.webDistDir !== null) {
  *
  * Registered once, guarded so a repeated signal cannot start a second teardown,
  * and never in tests — bun's test runner owns the process there. A module whose
- * shutdown rejects is logged and the others still run. After every module, the one
+ * shutdown fails is logged and the others still run (the hooks are Effects run on the
+ * one runtime, plan e2 P11; a failure rejects with the module's own error value). After every module, the one
  * Effect runtime is disposed (runtime.ts, docs/EFFECT.md E7): that closes its layer
  * scope; a failed dispose is logged and the process still exits 0.
  */
@@ -179,7 +180,7 @@ if (!env.isTest) {
     await Promise.allSettled(
       API_MODULES.map(async (module) => {
         try {
-          await module.shutdown?.();
+          if (module.shutdown) await runtime.runPromise(module.shutdown());
         } catch (error: unknown) {
           console.warn(`[api] shutdown of module ${module.id} failed:`, error);
         }
@@ -206,7 +207,7 @@ if (!env.isTest) {
   await dbReady;
   for (const module of API_MODULES) {
     try {
-      await module.start?.();
+      if (module.start) await runtime.runPromise(module.start());
     } catch (error) {
       console.error(`[api] start of module ${module.id} failed:`, error);
     }
