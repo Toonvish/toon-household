@@ -242,3 +242,17 @@ generator, and a refusal is `return yield* new <TaggedError>(…)`, which `runPr
 - A fire-and-forget export runs `runtime.runFork(effect.pipe(Effect.ignoreCause))` and returns `void` (`warmThumbnail`).
 - A `Context.Service` class is itself an `Effect` of its shape, so `runtime.runPromise(Passwords.use((p) => p.hashPassword(x)))` is the
   one-liner a bridge needs; the fewer places that read a service class at module scope the fewer TDZ crashes (`effect-services.md`).
+
+**In this repo (E2 example):** `apps/api/src/core/routes/members.ts`, a route is one `runtime.runPromise` over a generator; the Hono context
+is read inside it, the service is a `yield*`, and nothing throws:
+```ts
+router.get("/:householdId/members", requireSession(), requireHouseholdRole("member"), (c) =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const households = yield* Households;
+      const membership = yield* currentMembership(c);
+      return json(c, { items: yield* households.listMembers(membership.householdId) });
+    }),
+  ),
+);
+```

@@ -166,11 +166,11 @@ Source: `migration/error-handling.md`, `migration/cause.md`.
 ## 7. In this repo
 
 - `apps/api/src/lib/errors.ts`: today's `ApiError` (a class with `status`, `code`, `text`, `toBody(locale)`, static helpers, thrown and caught by
-  Hono's `onError`). E2 turns it into a family of `Schema.TaggedError` classes with the same `status`, `code`, `text`, plus one `toApiError` /
+  Hono's `onError`). E2 turned it into a family of `Schema.TaggedError` classes with the same `status`, `code`, `text`, plus one `toApiError` /
   `errorBody` mapper at the HTTP boundary (`ERROR_CODES` in `packages/shared` stays the wire contract; "As built (E2)" below).
 - `apps/api/src/core/services/**` and `apps/api/src/modules/<id>/services/**`: methods are `Effect.fn("Service.method")` with the failures in
   the signature; handlers recover with `Effect.catchTag(s)`. `apps/api/src/runtime.ts` (E0, new) is where `runPromiseExit` meets Hono until E7.
-- `apps/api/test/effect-idioms.test.ts` (E0, new) pins "no `throw new ApiError`" after E2 and "no `Context.Tag(`".
+- `apps/api/test/effect-idioms.test.ts` pins "no `Context.Tag(`" and, since E2, rule (10) "no `throw ApiError` outside the recipe and finance prefixes".
 - Tests assert a failure with `Effect.flip` or `Effect.exit` + `Exit.isFailure`; a defect shows up as `Cause.hasDies`.
 
 Rule served: **E6** ("Errors are tagged, typed and mapped once"; defects logged in English and answered as the same `500 internal_error`;
@@ -235,3 +235,19 @@ wrong in review, so keep them in mind when converting a `try { … } catch`: `Ef
 throw or an `Effect.promise` rejection (defects); the OAuth callback, `sendVerificationLinkQuietly`, `verifyPassword`, `trySendMail`,
 the expired-token sweeps and the thumbnail generation all use `Effect.catchCause` / `Effect.ignoreCause` and `Cause.squash(cause)` for
 the old `catch (error)` value. `apps/api/test/oauth-callback.test.ts` pins the callback (a defect still redirects with `oauth_failed`).
+
+**As built (E2, review):** a 5xx family member logs the line the pre-E2 handler logged, `[api] <METHOD> <path> -> <status> <code>: <English
+message>` plus its stack (`apps/api/src/lib/errors.ts` `onErrorHandler`; a tagged error passed to `console.error` alone prints Bun's object
+dump, not a line); a raw defect and a `DatabaseError` (its `cause`) log as before. `apps/api/test/errors.test.ts` pins it.
+
+**In this repo (E2 example):** `apps/api/src/core/services/households/households.service.ts`, a refusal is the tagged error returned from
+the generator, with the catalog key as `text` and, where the wire code is not the class default, the `code`:
+```ts
+const loadHouseholdRow = Effect.fn("Households.loadHouseholdRow")(function* (householdId: string) {
+  const [row] = yield* database.use((db) => db.select().from(households).where(eq(households.id, householdId)).limit(1));
+  if (!row) return yield* new NotFound({ text: "server.group.notFound" });
+  return row;
+});
+// elsewhere: return yield* new Conflict({ code: "group_name_taken", text: "server.group.nameTaken" });
+```
+A test reads the failure with `Effect.flip` (`apps/api/test/modules.test.ts`: `expect(await runTest(Effect.flip(enable(undefined)))).toBe(refusal)`).

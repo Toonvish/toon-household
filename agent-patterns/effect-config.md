@@ -263,3 +263,7 @@ does instead, and why:
 - Tests: `Effect.runSyncExit(Effect.provide(Effect.gen(function* () { return yield* AppConfig }), layer))`; a
   `Config` is an `Effect`, so `Effect.provide(AppConfig.config, ConfigProvider.layer(provider))` reads an installed
   provider (`apps/api/test/config.test.ts`).
+
+**In this repo (E2 example):** `apps/api/test/config.test.ts` reads the config the way the layer does, against an explicit provider:
+`Effect.runSyncExit(Effect.provide(Effect.gen(function* () { return yield* AppConfig }), AppConfig.layerFrom(values)))`; a bad value is a
+`Config.ConfigError` whose `configErrorLines` are the lines `apps/api/test/env-parse.test.ts` pins.

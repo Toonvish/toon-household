@@ -208,8 +208,7 @@ Where it will be applied:
   SIGTERM/SIGINT handlers), the module manifests (`layer` field), `apps/api/scripts/*.ts` (`BunRuntime.runMain`), and
   `apps/api/test/support/effect.ts` (`runTest` = `Effect.provide` of the test `AppLayer`, `Layer.mock` for fakes).
 - `apps/web/src/lib/runtime.ts`: the web's single `ManagedRuntime` behind `queryFn` / `mutationFn` (E11).
-- In this repo (since E0-T05): `apps/api/src/runtime.ts` exports `AppLayer` (`Layer.empty`, typed `Layer.Layer<never>`
-  until E2 widens it), `appMemoMap` and the one `runtime`; `apps/api/src/core/health.ts` `healthResponse` is the
+- In this repo (since E0-T05; E2 widened `AppLayer` to the core services, see "As built (E2)"): `apps/api/src/runtime.ts` exports `AppLayer` (`Layer.empty` at E0), `appMemoMap` and the one `runtime`; `apps/api/src/core/health.ts` `healthResponse` is the
   first effect run through it (`GET /api/health`), and the SIGTERM/SIGINT handler of `apps/api/src/index.ts` awaits
   `runtime.dispose()` after the modules' `shutdown()`. A run after `dispose` rejects with the plain string
   `"ManagedRuntime disposed"` (the squashed `Effect.die` defect, not an `Error`); `apps/api/test/runtime.test.ts`
@@ -270,3 +269,23 @@ route definition); when E7 replaces Hono the decoding moves into `HttpApi` paylo
   anywhere in the import cycle: its module scope reads only `Layer` and `ManagedRuntime`.
 - A pure helper that sits in a service's file (`mailDeliveryOf`, `redactAddress`, `generateInviteToken`, `INVITE_TTL_MS`) is not a bridge
   and never goes away; say so in a comment above it so a later prune does not delete it.
+
+**In this repo (E2 example):** `apps/api/src/core/services/auth/passwords.ts`, the smallest complete service: a `Context.Service` class
+with its shape spelled out, a static `layer` whose methods are `Effect.fn("Service.method")`, a catch-all as an extra `Effect.fn` argument
+(never `.pipe` on the function), and `Passwords.of({ … })` at the end:
+```ts
+export class Passwords extends Context.Service<Passwords, {
+  readonly hashPassword: (password: string) => Effect.Effect<string>;
+  readonly verifyPassword: (password: string, hash: string | null | undefined) => Effect.Effect<boolean>;
+  readonly fakeVerifyPassword: (password: string) => Effect.Effect<void>;
+}>()("toon/api/core/services/auth/passwords/Passwords") {
+  static readonly layer = Layer.effect(this, Effect.gen(function* () {
+    const verifyPassword = Effect.fn("Passwords.verifyPassword")(
+      function* (password: string, hash: string | null | undefined) { /* Effect.tryPromise over Bun.password.verify */ },
+      Effect.catchCause(() => Effect.succeed(false)), // a malformed hash is `false`, never a 500
+    );
+    /* hashPassword, fakeVerifyPassword */
+    return Passwords.of({ hashPassword, verifyPassword, fakeVerifyPassword });
+  }));
+}
+```

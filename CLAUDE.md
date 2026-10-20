@@ -119,7 +119,7 @@ module (`docs/plans/m2-recipe-module.md`), M3 finance module (`docs/plans/m3-fin
 and M7 harden (`docs/plans/m7-harden.md`), 2026-10-13 to 2026-10-15; each plan's last sections are its
 integration record and "what changed vs plan". Two modules are built (`API_MODULES` and `WEB_MODULES` are
 `[recipe, finance]`, `/api/health` reports `modules: ["recipe","finance"]`). The tree typechecks, builds and tests
-green (`bun test`: 14657 pass in 158 files, 69.96 s on the temp file DB after E2 (measured under a host load average of 14 to 50; 39.79 s at E2's quiet baseline), where 11357 of them are
+green (`bun test`: 14658 pass in 158 files, 69.96 s on the temp file DB after E2 (measured under a host load average of 14 to 50; 39.79 s at E2's quiet baseline), where 11357 of them are
 the golden parity cases of `packages/shared/test/parity/`; 14508 pass in 150 files after the E1 review; 2463 pass in 141 files at the end of E0; `i18n:check` exits 1 with
 the 147 classified false positives (the 146 and the `Effect.die` stopword hit in `apps/api/src/modules/adapter.ts`); M7's integration record, `docs/plans/m7-harden.md` section 9, has the gate logs,
 the walkthrough, the `migrate:legacy` fixture run and the print-to-PDF proof). Milestone E0 of the Effect migration
@@ -234,8 +234,8 @@ Run from the repo root. Bun 1.4.2 (`.bun-version`); `bun install --frozen-lockfi
   overrides it). `bunfig.toml` keeps the vendored `repos/` out of discovery.
 - `bun run build`: Vite build plus the generated PWA service worker into `apps/web/dist`.
 - `bun run i18n:check`: German catalog parity plus no German left in ported source. Exits 1 by design: parity
-  OK, and about 146 leftover-German hits, all false positives (German quoted in doc comments, 10 lines of recipe
-  content vocabulary). Classify each hit, never suppress the check. `apps/api/scripts` is not scanned.
+  OK, and about 147 leftover-German hits, all false positives (German quoted in doc comments, 10 lines of recipe
+  content vocabulary, and `Effect.die(` in `apps/api/src/modules/adapter.ts`, which matches the stopword "die"). Classify each hit, never suppress the check. `apps/api/scripts` is not scanned.
 - `bun run db:generate`: drizzle-kit generates a migration from `apps/api/src/db/schema`.
 - `bun run db:migrate`: applies the migrations to `DATABASE_URL` (e.g. `file:./data/m2.db`) and every build
   module's `afterMigrate`. `bun run db:studio`: drizzle-kit studio on the configured DB.
@@ -389,7 +389,8 @@ ones; the module gotchas are indexed below and live in the module docs.
   `ApiError` class and its ten static helpers stay for the modules until E3/E4 (`x instanceof ApiError` is true for
   every family member; idioms rule (10) allows `throw ApiError` only under `apps/api/src/modules/recipe/` and
   `finance/`). `DatabaseError` and `MailError` are tagged errors OUTSIDE the family: a database failure is a `500
-  internal_error` whose log line shows its `cause`, never an API error to module code.
+  internal_error` whose log line shows its `cause`, never an API error to module code. A 5xx family member logs
+  `[api] <METHOD> <path> -> <status> <code>: <English message>` and its stack (the pre-E2 line; `apps/api/test/errors.test.ts`).
 - **The `Database` service and the shared client (E2, plan P6, ADR 0014).** `apps/api/src/db/client.ts` still creates
   the process-wide instance at import (recipe, finance and the scripts import `db` until E3 to E5); the `Database`
   service (`apps/api/src/db/database.ts`) owns its lifetime: acquire awaits `dbReady` (the D7 pragmas), release closes

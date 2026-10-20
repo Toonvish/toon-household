@@ -249,3 +249,14 @@ rule (a key ending in `/` is a path prefix, any other key one file), a failure o
 sample line, and a stale-entry test (an allow-list entry that no longer matches a hit fails, so a fixed file leaves the list in the same
 commit). The pinned test files of an exit criterion (`db-pragmas`, `middleware`, `import-order`, `placeholders`, `security` and the
 rate-limit block of `auth`) are verified unchanged with `git diff <base> -- <files>`, not by reading them.
+
+**In this repo (E2 example):** `apps/api/test/modules.test.ts`, a service test runs the call on the app runtime through `runTest` and reads a
+refusal with `Effect.flip`; the assertions are the ones the Promise version had:
+```ts
+const enable = (settings: Record<string, unknown> | undefined) =>
+  HouseholdModules.use((modules) =>
+    modules.enableModule(owner.householdId, "finance", settings, [fromPromiseModule(refusing)]),
+  );
+expect(await runTest(Effect.flip(enable(undefined)))).toBe(refusal);
+expect(await moduleRow(owner.householdId, "finance")).toBeUndefined();
+```

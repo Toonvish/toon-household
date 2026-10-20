@@ -3,7 +3,7 @@
 **Status: DONE (2026-10-20), planned and revised once after the three critics (feasibility, behaviour preservation,
 Effect v4 idioms).** Base commit `6991769c9` (the three Learn-phase pattern files `effect-config`, `effect-stream`,
 `effect-datetime-clock`). Sections 9 and 10 (the integration record and "what changed vs plan") were written by
-E2-T13.
+E2-T13; the review and the documentation sync that followed are section 9.5 and items 13 to 15 of section 10.
 
 E2 is the third milestone of the Effect migration (`docs/EFFECT.md` §4 E2; decisions E5, E6, E7 for the core, E9
 for the tests, E12 for the idioms). The core of the API becomes Effect underneath while Hono stays on top: the
@@ -1431,6 +1431,30 @@ and the script printed `server_exit=0`. The 429 line of the server log is `[api]
 attempts. Please try again in 3600 seconds.` (development logging, as before). The boot log's first line is `[api] toon-household API on
 http://localhost:3902 (db: file, origins: http://127.0.0.1:3902, mail: console, web: extern)`.
 
+### 9.5 Review and documentation sync
+
+Review (2026-10-20, after `3b2ef5e38`): E2 meets its exit criteria; no behaviour change and no v3 construct found. Gates re-read
+from the separate run: frozen install, typecheck, build and the idioms test (25 pass, rules (10) and (11) on) exit 0; `bun test` gave
+**14658 pass, 0 fail in 158 files** (the floor was 14508; 14657 at T13 plus the one test the review fix added); `i18n:check` gave
+147 hits (the known 146 plus `Effect.die(` in `apps/api/src/modules/adapter.ts`, section 9.1), parity OK; `git status --porcelain
+repos/` empty. `git diff 6991769c9..HEAD` is empty for `packages/shared`, `apps/web`, `docs/API.md`, `apps/api/drizzle`,
+`apps/api/src/db/schema*` and the pinned tests `db-pragmas`, `middleware`, `import-order`, `placeholders`, `security`; the rate-limit
+block of `auth.test.ts` is identical to the base; `env-parse.test.ts` is unchanged. Recipe and finance changed by one type annotation each
+(`PromiseApiModule`). The boot, walkthrough and SIGTERM were run again by the reviewer: health 200, `/me` 401, a bad register 422 with the E1
+details, register 201, create household 201, invite 201, accept 200 (`memberCount` 2), a foreign Origin 403, and after SIGTERM
+`[api] SIGTERM — stopping modules …`, `[db] database closed`, `[api] runtime disposed`, exit 0.
+
+The one fix the review made (`20517e03b`): `onErrorHandler` logged a 5xx tagged error as `console.error(prefix, error)`, which Bun prints
+as an object dump; it again logs `[api] <METHOD> <path> -> <status> <code>: <English message>` and the stack, as before E2 (raw defects and
+`DatabaseError` unchanged), pinned in `apps/api/test/errors.test.ts`. Remaining findings are low severity (idiom and record gaps).
+
+Documentation sync (this commit): CLAUDE.md (pass count 14658, the `i18n:check` count 147, the 5xx log line in the error-family gotcha),
+the pattern files `agent-patterns/effect-{core,services,errors,testing,datetime-clock,config}.md` (one "In this repo (E2 example)" each from the
+code of this milestone, the stale future-tense lines of `effect-errors.md` and `effect-services.md` corrected, the review's log fix in
+`effect-errors.md`), this section. No ADR was added: every deviation that survived review (section 10, items 1 to 9) is inside ADR 0014's
+scope or inside the plan's own decisions and changes neither a SPEC §1 decision nor an EFFECT.md §1 decision (the SPEC §2 contract edit is the
+one E7 calls for, recorded in ADR 0014).
+
 ## 10. What changed vs plan
 
 Everything section 7 expected happened as written; in order, what else differs from the plan, and what each task recorded:
@@ -1472,3 +1496,7 @@ Everything section 7 expected happened as written; in order, what else differs f
 12. **Left for later milestones** (section 8, unchanged): the recipe and finance services, routes and tests (E3, E4), the scripts as
     Effect programs (E5; the bridges of section 9.2 end there), the web (E6), Hono (E7). The `PENDING_RULES` comment of the idioms
     test keeps only E7's rule (no `hono`).
+13. **The review fixed the 5xx log line** (`20517e03b`, section 9.5): E2-T12 had changed what a 5xx family error prints; E2 is behaviour-frozen,
+    so the handler prints the pre-E2 line again.
+14. **Pass count 14658** (section 9.5), one more than item 10, from the test of item 13.
+15. **No new ADR**: item 1 to 9 deviate from the plan, not from SPEC §1 or EFFECT.md §1; ADR 0014 already records the transitional doors.

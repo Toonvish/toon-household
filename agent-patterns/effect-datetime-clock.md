@@ -238,3 +238,11 @@ until E3/E4) and `apps/api/src/modules/recipe/services/` (E3); and `nowMs(` may 
 (it reads `Date.now()`, so a call bypasses the `Clock` as surely as the literal; the core uses `yield* Clock.currentTimeMillis`). Finance's
 services hold no `Date.now(` today, so the stale-entry test of the rule refuses an E4 entry. `lib/` (`cookies.ts`, `http.ts`,
 `uploadUrls.ts`) is outside the rule and keeps `Date`.
+
+**In this repo (E2 example):** `apps/api/src/core/services/media/thumbnails.ts`, the failure cache reads the `Clock` in the method body, and
+`apps/api/test/thumbnails.test.ts` moves it with `TestClock.adjust("11 minutes")` inside one `runTest(..., { clock: "test" })`:
+```ts
+failedAt.set(thumbnailPath, yield* Clock.currentTimeMillis);
+// …later, on the next request:
+if (failure !== undefined && (yield* Clock.currentTimeMillis) - failure < FAILURE_TTL_MS) return false;
+```
