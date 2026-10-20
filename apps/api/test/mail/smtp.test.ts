@@ -19,6 +19,9 @@ import { connect as netConnect, createServer, type Server, type Socket } from "n
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { TLSSocket, createServer as createTlsServer, type Server as TlsServer } from "node:tls";
+import { Effect } from "effect";
+import { TestClock } from "effect/testing";
+import { MailerService } from "../../src/core/services/mail/index.ts";
 import {
   SmtpMailer,
   addressOf,
@@ -350,6 +353,36 @@ describe("SmtpMailer session", () => {
       expect(headerOf(raw, "Date")).toMatch(/^[A-Z][a-z]{2}, \d{2} [A-Z][a-z]{2} \d{4} .* \+0000$/);
       expect(headerOf(raw, "Message-ID")).toMatch(/^<.+@rezepte\.test>$/);
       expect(decodedBody(raw)).toContain("https://rezepte.test/invite/abc");
+    } finally {
+      await relay.close();
+    }
+  });
+
+  test("send(message, now) stamps the Date header with the given instant", async () => {
+    const relay = await startRelay();
+    try {
+      await new SmtpMailer({ host: "127.0.0.1", port: relay.port, security: "none", from: FROM }).send(
+        { to: "a@b.de", subject: "Test", text: "x" },
+        new Date("2026-08-04T09:30:00Z"),
+      );
+      expect(headerOf(relay.messages[0] ?? "", "Date")).toBe("Tue, 04 Aug 2026 09:30:00 +0000");
+    } finally {
+      await relay.close();
+    }
+  });
+
+  test("the Mailer service stamps the Date header from the Clock (TestClock)", async () => {
+    const relay = await startRelay();
+    try {
+      const layer = MailerService.layerSmtp({ host: "127.0.0.1", port: relay.port, security: "none", from: FROM });
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          yield* TestClock.setTime(Date.UTC(2026, 7, 4, 9, 30, 0));
+          const mailer = yield* MailerService;
+          yield* mailer.send({ to: "a@b.de", subject: "Test", text: "x" });
+        }).pipe(Effect.provide(layer), Effect.provide(TestClock.layer())),
+      );
+      expect(headerOf(relay.messages[0] ?? "", "Date")).toBe("Tue, 04 Aug 2026 09:30:00 +0000");
     } finally {
       await relay.close();
     }

@@ -4,10 +4,17 @@
  *
  * No test here opens a socket. `ResendMailer` is exercised against a stubbed
  * `fetch`, everything else against the ConsoleMailer.
+ *
+ * `trySendMail` is exercised through the `MailerService` (E2-T04) and, once, through the sync-adapter bridge that the
+ * routes still call; the `setMailer` seam is what installs a fake in both.
  */
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { Effect, Layer } from "effect";
+import { AppConfig } from "../src/config.ts";
+import { VerifiedEmail, setVerifiedEmailRequired } from "../src/core/services/auth/verifiedEmail.ts";
 import {
   ConsoleMailer,
+  MailerService,
   ResendMailer,
   getMailer,
   inviteMail,
@@ -20,6 +27,7 @@ import {
   verifyEmailMail,
 } from "../src/core/services/mail/index.ts";
 import type { MailMessage, Mailer } from "../src/core/services/mail/index.ts";
+import { recordingMailer, runTest, withMailer } from "./support/effect.ts";
 
 // Every file shares one process, so restore the configured adapter around each
 // test instead of trusting whatever ran before.
@@ -53,12 +61,23 @@ describe("mailer selection", () => {
   });
 });
 
+/** A mailer whose `send` THROWS synchronously instead of returning a rejected promise. */
+class ThrowingMailer implements Mailer {
+  readonly name = "throwing";
+  send(): Promise<void> {
+    throw new Error("sofort kaputt");
+  }
+}
+
+const trySend = (message: MailMessage) => MailerService.use((mailer) => mailer.trySendMail(message));
+
 describe("trySendMail", () => {
   test("reports delivery and records the message", async () => {
     const recorder = new ConsoleMailer(() => undefined);
-    setMailer(recorder);
 
-    const result = await trySendMail({ to: "a@b.de", subject: "Hallo", text: "Text" });
+    const result = await runTest(
+      withMailer(recorder, trySend({ to: "a@b.de", subject: "Hallo", text: "Text" })),
+    );
 
     expect(result).toEqual({ delivered: true, transport: "console" });
     expect(recorder.sent).toHaveLength(1);
@@ -66,13 +85,79 @@ describe("trySendMail", () => {
   });
 
   test("NEVER throws — a broken transport is data, not an exception", async () => {
-    setMailer(new BrokenMailer());
-
-    const result = await trySendMail({ to: "a@b.de", subject: "Hallo", text: "Text" });
+    const result = await runTest(
+      withMailer(new BrokenMailer(), trySend({ to: "a@b.de", subject: "Hallo", text: "Text" })),
+    );
 
     expect(result.delivered).toBe(false);
     expect(result.transport).toBe("broken");
     expect(result.error).toContain("verifiziert");
+  });
+
+  test("survives a transport whose send() THROWS synchronously, and logs the [mail] line", async () => {
+    const logged = spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const result = await runTest(
+        withMailer(new ThrowingMailer(), trySend({ to: "maxine@b.de", subject: "Hallo", text: "Text" })),
+      );
+
+      expect(result).toEqual({ delivered: false, transport: "throwing", error: "sofort kaputt" });
+      expect(logged).toHaveBeenCalledWith("[mail] Sending to m***@b.de failed (throwing): sofort kaputt");
+
+      // The bridge the routes still call has the same contract.
+      setMailer(new ThrowingMailer());
+      expect(await trySendMail({ to: "a@b.de", subject: "Hallo", text: "Text" })).toEqual({
+        delivered: false,
+        transport: "throwing",
+        error: "sofort kaputt",
+      });
+    } finally {
+      logged.mockRestore();
+    }
+  });
+
+  test("a rejection with a non-Error value is reported as its string", async () => {
+    const odd: Mailer = { name: "odd", send: () => Promise.reject("nur ein Text") };
+    const logged = spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const result = await runTest(withMailer(odd, trySend({ to: "a@b.de", subject: "s", text: "t" })));
+      expect(result).toEqual({ delivered: false, transport: "odd", error: "nur ein Text" });
+    } finally {
+      logged.mockRestore();
+    }
+  });
+
+  test("send() fails with a MailError carrying the transport and the reason (outside the API family)", async () => {
+    const failing = recordingMailer({ name: "relay", fail: "relay down" });
+    const error = await runTest(
+      withMailer(failing, Effect.flip(MailerService.use((mailer) => mailer.send({ to: "a@b.de", subject: "s", text: "t" })))),
+    );
+    expect(error._tag).toBe("MailError");
+    expect(error.transport).toBe("relay");
+    expect(error.reason).toBe("relay down");
+    expect(failing.messages).toHaveLength(1);
+  });
+
+  test("the service reports the name of the installed transport", async () => {
+    const name = await runTest(withMailer(recordingMailer({ name: "relay" }), MailerService.use((mailer) => Effect.succeed(mailer.name))));
+    expect(name).toBe("relay");
+    expect(await runTest(MailerService.use((mailer) => Effect.succeed(mailer.name)))).toBe("console");
+  });
+});
+
+describe("MailerService layers", () => {
+  const BASE = { DATABASE_URL: "file:./data/x.db", SESSION_SECRET: "0123456789abcdef", NODE_ENV: "development" };
+  const nameUnder = (values: Record<string, string>) =>
+    Effect.runPromise(
+      MailerService.use((mailer) => Effect.succeed(mailer.name)).pipe(
+        Effect.provide(MailerService.layer.pipe(Layer.provide(AppConfig.layerFrom({ ...BASE, ...values })))),
+      ),
+    );
+
+  test("MAIL_TRANSPORT picks the transport; unset is the console", async () => {
+    expect(await nameUnder({})).toBe("console");
+    expect(await nameUnder({ MAIL_TRANSPORT: "smtp", MAIL_HOST: "smtp.test", MAIL_FROM: "a@b.de" })).toBe("smtp");
+    expect(await nameUnder({ MAIL_TRANSPORT: "resend", MAIL_API_KEY: "re_k", MAIL_FROM: "a@b.de" })).toBe("resend");
   });
 });
 
@@ -204,5 +289,45 @@ describe("templates", () => {
 
     expect(message.html).not.toContain("<img src=x");
     expect(message.html).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");
+  });
+});
+
+describe("VerifiedEmail follows the mailer (E2-T04)", () => {
+  const BASE = { DATABASE_URL: "file:./data/x.db", SESSION_SECRET: "0123456789abcdef", NODE_ENV: "development" };
+  const requiredUnder = (values: Record<string, string>) =>
+    Effect.runPromise(
+      VerifiedEmail.use((gate) => gate.isRequired).pipe(
+        Effect.provide(
+          VerifiedEmail.layer.pipe(
+            Layer.provide(MailerService.layer),
+            Layer.provideMerge(AppConfig.layerFrom({ ...BASE, ...values })),
+          ),
+        ),
+      ),
+    );
+
+  afterEach(() => setVerifiedEmailRequired(null));
+
+  test("off for the console transport, on once a transport that can deliver is configured", async () => {
+    expect(await requiredUnder({})).toBe(false);
+    expect(await requiredUnder({ MAIL_TRANSPORT: "smtp", MAIL_HOST: "smtp.test", MAIL_FROM: "a@b.de" })).toBe(true);
+  });
+
+  test("always off under the test env, even with a transport installed", async () => {
+    const required = await runTest(
+      withMailer(recordingMailer({ name: "relay" }), VerifiedEmail.use((gate) => gate.isRequired)),
+    );
+    expect(required).toBe(false);
+  });
+
+  test("the override seam wins: assertVerified fails with 403 email_unverified for an unconfirmed account", async () => {
+    setVerifiedEmailRequired(true);
+    const error = await runTest(
+      Effect.flip(VerifiedEmail.use((gate) => gate.assertVerified({ emailVerifiedAt: null }))),
+    );
+    expect(error._tag).toBe("ApiFailure");
+    expect(error.status).toBe(403);
+    expect(error.code).toBe("email_unverified");
+    await runTest(VerifiedEmail.use((gate) => gate.assertVerified({ emailVerifiedAt: 1 })));
   });
 });

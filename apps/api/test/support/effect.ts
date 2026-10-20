@@ -11,11 +11,14 @@
  * effect must be built inside the test (after a `beforeAll`). A typed failure rejects with the error itself (the
  * squashed cause); assert one with `await runTest(Effect.flip(effect))`.
  *
- * E2-T04 adds `recordingMailer()` and `withMailer(mailer, effect)`.
+ * `recordingMailer()` is a mail transport that records every message (and can be told to fail), `withMailer(mailer,
+ * effect)` installs it through the `setMailer` seam for the length of one run and restores the configured adapter
+ * afterwards, however the run ends (plan e2 P8, P13).
  */
 import { test } from "bun:test";
 import { Effect, type Exit } from "effect";
 import { TestClock } from "effect/testing";
+import { type MailMessage, type Mailer, setMailer } from "../../src/core/services/mail/index.ts";
 import { type AppLayerError, type AppServices, runtime } from "../../src/runtime.ts";
 
 export type { AppServices };
@@ -55,5 +58,37 @@ export function itEffect<A, E>(
       await runTest(Effect.isEffect(effect) ? effect : effect(), options);
     },
     timeoutMs,
+  );
+}
+
+/** A mail transport that records what it was asked to send. */
+export interface RecordingMailer extends Mailer {
+  /** Every message handed to `send`, in order, the failed ones included. */
+  readonly messages: MailMessage[];
+}
+
+/**
+ * A `Mailer` transport that records `MailMessage`s. `fail` makes `send` reject with `Error(fail)` (a string) or with
+ * the given error; `name` defaults to `"recording"` (a non-console name, so `isMailConfigured()` is true while it is
+ * installed).
+ */
+export function recordingMailer(options: { readonly name?: string; readonly fail?: string | Error } = {}): RecordingMailer {
+  const messages: MailMessage[] = [];
+  return {
+    name: options.name ?? "recording",
+    messages,
+    async send(message: MailMessage): Promise<void> {
+      messages.push(message);
+      if (options.fail !== undefined) throw typeof options.fail === "string" ? new Error(options.fail) : options.fail;
+    },
+  };
+}
+
+/** Runs `effect` with `mailer` installed through `setMailer`, and restores the configured adapter afterwards. */
+export function withMailer<A, E, R>(mailer: Mailer, effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> {
+  return Effect.acquireUseRelease(
+    Effect.sync(() => setMailer(mailer)),
+    () => effect,
+    () => Effect.sync(() => setMailer(null)),
   );
 }

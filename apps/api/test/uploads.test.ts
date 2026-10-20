@@ -19,7 +19,8 @@ import { and, eq } from "drizzle-orm";
 import { db } from "../src/db/client.ts";
 import { runMigrations } from "../src/db/migrate.ts";
 import { householdMembers, importDrafts, recipes } from "../src/db/schema.ts";
-import { storeUploadedImage } from "../src/core/services/media/uploads.ts";
+import { Effect } from "effect";
+import { Uploads, storeUploadedImage } from "../src/core/services/media/uploads.ts";
 import { ApiError } from "../src/lib/errors.ts";
 import { app } from "../src/index.ts";
 import { SESSION_COOKIE } from "../src/lib/cookies.ts";
@@ -33,6 +34,7 @@ import {
   uploadSignature,
   verifyUploadSignature,
 } from "../src/lib/uploadUrls.ts";
+import { runTest } from "./support/effect.ts";
 import { removeUpload } from "./support/files.ts";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
@@ -117,7 +119,7 @@ async function createRecipeWithImage(
 async function storeImage(): Promise<{ filename: string; signedUrl: string }> {
   const form = new FormData();
   form.append("file", new File([PNG], "foto.png", { type: "image/png" }));
-  const { filename, url } = await storeUploadedImage(form);
+  const { filename, url } = await runTest(Uploads.use((uploads) => uploads.storeUploadedImage(form)));
   return { filename, signedUrl: url };
 }
 
@@ -499,18 +501,45 @@ describe("storeUploadedImage", () => {
   });
 
   test("an empty file answers 400", async () => {
-    const error = await storeUploadedImage(
-      formWith(new File([], "leer.png", { type: "image/png" })),
-    ).catch((caught: unknown) => caught);
+    const error = await runTest(
+      Effect.flip(
+        Uploads.use((uploads) => uploads.storeUploadedImage(formWith(new File([], "leer.png", { type: "image/png" })))),
+      ),
+    );
     expect(error).toBeInstanceOf(ApiError);
-    expect((error as ApiError).status).toBe(400);
+    expect(error._tag).toBe("BadRequest");
+    expect(error.status).toBe(400);
   });
 
   test("a text file answers 415", async () => {
-    const error = await storeUploadedImage(
-      formWith(new File(["kein Bild"], "notiz.txt", { type: "text/plain" })),
-    ).catch((caught: unknown) => caught);
+    const error = await runTest(
+      Effect.flip(
+        Uploads.use((uploads) =>
+          uploads.storeUploadedImage(formWith(new File(["kein Bild"], "notiz.txt", { type: "text/plain" }))),
+        ),
+      ),
+    );
     expect(error).toBeInstanceOf(ApiError);
-    expect((error as ApiError).status).toBe(415);
+    expect(error._tag).toBe("UnsupportedMediaType");
+    expect(error.status).toBe(415);
+  });
+
+  test("a missing field answers 400 and names the field", async () => {
+    const error = await runTest(
+      Effect.flip(Uploads.use((uploads) => uploads.storeUploadedImage(new FormData(), "bild"))),
+    );
+    expect(error._tag).toBe("BadRequest");
+    expect(error.status).toBe(400);
+    expect(error.message).toContain("bild");
+  });
+
+  test("the Promise bridge stores the same way and rejects with the family error", async () => {
+    const stored = await storeUploadedImage(formWith(new File([PNG], "foto.png", { type: "image/png" })));
+    expect(stored.filename).toMatch(/^[0-9a-f-]{36}\.png$/);
+    await removeUpload(stored.filename);
+
+    const error = await storeUploadedImage(formWith(new File([], "leer.png"))).catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).status).toBe(400);
   });
 });

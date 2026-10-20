@@ -38,32 +38,67 @@
  * process, so a file that overrides this MUST hand it back
  * (`afterAll(() => setVerifiedEmailRequired(null))`) or the next file inherits it.
  */
+import { Context, Effect, Layer } from "effect";
+import { AppConfig } from "../../../config.ts";
 import type { UserRow } from "../../../db/schema.ts";
 import { env } from "../../../env.ts";
-import { ApiError } from "../../../lib/errors.ts";
-import { isMailConfigured } from "../mail/index.ts";
+import { ApiFailure } from "../../../lib/errors.ts";
+import { MailerService, isMailConfigured } from "../mail/index.ts";
 
 /** Test override; `null` means "ask the mailer". */
 let override: boolean | null = null;
 
 /**
- * True when this deployment holds unconfirmed accounts to read-only.
- *
- * Follows {@link isMailConfigured} rather than an env variable — see the file
- * header for why an operator must not be able to switch this on without a
- * transport that can deliver the link it demands.
+ * The rule itself, on plain values so the service and the sync bridge share it. OFF under `bun test` unless a file
+ * asks for it. Deriving an AUTHORISATION rule from the installed mailer is right in production and poison in the
+ * suite: `bun test` runs every file in one process, so any file that installs a non-console transport for its own
+ * reasons (uploads.test.ts uses one named "test") would otherwise switch this gate on for every test after it and
+ * turn unrelated writes into 403s. Same `isTest` escape services/mail/index.ts already takes to force a silent
+ * ConsoleMailer.
  */
-export function isVerifiedEmailRequired(): boolean {
+function requiredWhen(isTest: boolean, mailConfigured: () => boolean): boolean {
   if (override !== null) return override;
-  // OFF under `bun test` unless a file asks for it. Deriving an AUTHORISATION
-  // rule from the installed mailer is right in production and poison in the
-  // suite: `bun test` runs every file in one process, so any file that installs
-  // a non-console transport for its own reasons (uploads.test.ts uses one named
-  // "test") would otherwise switch this gate on for every test after it and turn
-  // unrelated writes into 403s. Same `env.isTest` escape services/mail/index.ts
-  // already takes to force a silent ConsoleMailer.
-  if (env.isTest) return false;
-  return isMailConfigured();
+  if (isTest) return false;
+  return mailConfigured();
+}
+
+/**
+ * The gate as a service (plan e2 P2 table: depends on `AppConfig` and `Mailer`). `isRequired` follows the mailer that
+ * would send right now (`MailerService.name` honours `setMailer`), `assertVerified` fails with `403
+ * email_unverified` for an unconfirmed account where the gate is on.
+ */
+export class VerifiedEmail extends Context.Service<
+  VerifiedEmail,
+  {
+    /** True when this deployment holds unconfirmed accounts to read-only. */
+    readonly isRequired: Effect.Effect<boolean>;
+    /** Fails with `403 email_unverified` when `user` may not write on this deployment. */
+    readonly assertVerified: (user: { emailVerifiedAt?: number | string | null }) => Effect.Effect<void, ApiFailure>;
+  }
+>()("toon/api/core/services/auth/verifiedEmail/VerifiedEmail") {
+  static readonly layer = Layer.effect(
+    VerifiedEmail,
+    Effect.gen(function* () {
+      const config = yield* AppConfig;
+      const mailer = yield* MailerService;
+      const isRequired = Effect.sync(() => requiredWhen(config.isTest, () => mailer.name !== "console"));
+      return VerifiedEmail.of({
+        isRequired,
+        assertVerified: (user) => Effect.flatMap(isRequired, (required) => verifyIn(required, user)),
+      });
+    }),
+  );
+}
+
+/** `403 email_unverified` unless the gate is off or the account is confirmed. */
+function verifyIn(
+  required: boolean,
+  user: { emailVerifiedAt?: number | string | null },
+): Effect.Effect<void, ApiFailure> {
+  if (!required || hasVerifiedEmail(user)) return Effect.void;
+  return Effect.fail(
+    new ApiFailure({ status: 403, code: "email_unverified", text: "server.auth.emailUnverified" }),
+  );
 }
 
 /**
@@ -92,20 +127,31 @@ export function hasVerifiedEmail(user: {
   return user.emailVerifiedAt != null;
 }
 
+/** Narrowing helper so callers holding a full row read the same way. */
+export type VerifiableUser = Pick<UserRow, "emailVerifiedAt">;
+
+/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
+
 /**
- * Throws 403 `email_unverified` when `user` may not write on this deployment.
+ * True when this deployment holds unconfirmed accounts to read-only.
+ *
+ * Follows {@link isMailConfigured} rather than an env variable — see the file
+ * header for why an operator must not be able to switch this on without a
+ * transport that can deliver the link it demands. Synchronous, as before.
+ * Callers: `apps/api/src/core/health.ts`, recipe's import `capabilities.ts`, `assertEmailVerified`, the tests.
+ */
+export function isVerifiedEmailRequired(): boolean {
+  return requiredWhen(env.isTest, isMailConfigured);
+}
+
+/**
+ * Throws 403 `email_unverified` (synchronously) when `user` may not write on this deployment.
  *
  * Takes the DTO shape as well as the row, because the middleware only ever has
  * `c.get("user")` (an ISO string) while a service may hold a {@link UserRow}
  * (unix ms). Both are non-null exactly when the address is confirmed.
+ * Callers: `apps/api/src/middleware/verifiedEmail.ts`.
  */
-export function assertEmailVerified(user: {
-  emailVerifiedAt?: number | string | null;
-}): void {
-  if (!isVerifiedEmailRequired()) return;
-  if (hasVerifiedEmail(user)) return;
-  throw new ApiError(403, "email_unverified", "server.auth.emailUnverified");
+export function assertEmailVerified(user: { emailVerifiedAt?: number | string | null }): void {
+  Effect.runSync(verifyIn(isVerifiedEmailRequired(), user));
 }
-
-/** Narrowing helper so callers holding a full row read the same way. */
-export type VerifiableUser = Pick<UserRow, "emailVerifiedAt">;

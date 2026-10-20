@@ -37,6 +37,7 @@ import { randomUUID } from "node:crypto";
 import { createConnection, isIP, type Socket } from "node:net";
 import { StringDecoder } from "node:string_decoder";
 import { connect as connectTls, type TLSSocket } from "node:tls";
+import { DateTime } from "effect";
 import type { MailMessage, Mailer } from "./types.ts";
 
 /** How TLS is obtained. `none` is only for a relay on a private network. */
@@ -84,12 +85,17 @@ export class SmtpMailer implements Mailer {
 
   constructor(private readonly config: SmtpConfig) {}
 
-  async send(message: MailMessage): Promise<void> {
+  /**
+   * `now` is the instant of the `Date:` header. The `Mailer` service passes the `Clock`'s time (plan e2 P8); a direct
+   * call (the transport tests, a caller through `getMailer()`) leaves it out and gets the wall clock.
+   */
+  async send(message: MailMessage, now?: Date): Promise<void> {
     const timeout = this.config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const stamp = now ?? DateTime.toDateUtc(DateTime.nowUnsafe());
     let deadline: Timer | undefined;
     try {
       await Promise.race([
-        this.deliver(message),
+        this.deliver(message, stamp),
         new Promise<never>((_resolve, reject) => {
           deadline = setTimeout(
             () => reject(new Error(`SMTP timeout after ${timeout} ms`)),
@@ -102,10 +108,10 @@ export class SmtpMailer implements Mailer {
     }
   }
 
-  private async deliver(message: MailMessage): Promise<void> {
+  private async deliver(message: MailMessage, now: Date): Promise<void> {
     const to = requireHeaderSafe(message.to, "recipient address");
     const from = requireHeaderSafe(this.config.from, "sender address");
-    const payload = buildMessage({ ...message, to }, from);
+    const payload = buildMessage({ ...message, to }, from, now);
 
     const wire = await Wire.open(this.config);
     try {
@@ -510,7 +516,7 @@ function rfc5322Date(now: Date): string {
 export function buildMessage(
   message: MailMessage,
   from: string,
-  now: Date = new Date(),
+  now: Date,
   id: string = randomUUID(),
 ): string {
   const subject = encodeHeaderValue(requireHeaderSafe(message.subject, "subject"));
