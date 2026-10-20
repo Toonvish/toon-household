@@ -232,3 +232,34 @@ every `ConfigError`, and the fallback's result replaces the original failure.
   today; at E2 / E5 they take values from `AppConfig`.
 - Rule served: E7 (`AppConfig` is one of the cross-cutting services, built with `Config`, keeping eager
   validation, the dotenv rules and the test temp-DB rule); a bad configuration stays fatal at boot, as today.
+
+**As built (E2, plan `docs/plans/e2-api-core-services.md` P5, task E2-T02).** The sketch above (`Config.all` of
+typed constructors, `Config.Redacted`, a dotenv provider chain) was NOT what parity allowed; what `apps/api/src/config.ts`
+does instead, and why:
+
+- The variable schema stays ONE `Schema` struct (`EnvFields` piped into the derived `EnvValue` with the six cross-field
+  checks), decoded with `ALL_ISSUES`. `Config.schema` stops at the first issue and the typed constructors word their
+  own messages, and `apps/api/test/env-parse.test.ts` pins every line, so `Config` only READS:
+  `AppConfig.config = Config.all(EffectRecord.fromIterableWith(keys, (k) => [k, Config.option(Config.String(k))]))`
+  over the struct's own keys, `Config.map(EffectRecord.getSomes)` (an absent variable is left out of the map, exactly
+  like an unset one), then `Config.mapEffect` running `Schema.decodeUnknownEffect(EnvSchema, ALL_ISSUES)` with
+  `Effect.mapError((e) => new Config.ConfigError(e))`. `configErrorLines(error)` formats a `ConfigError` exactly like
+  `parseEnv` (one `  - KEY: message` line per issue, `(env)` for a cross-field rule); `Config.ConfigError` is a plain
+  class with `_tag = "ConfigError"` and `cause: SourceError | SchemaError` (`Schema.isSchemaError(error.cause)`).
+- Explicit values go through `ConfigProvider.fromUnknown(values, { preserveEmptyStrings: true })`: without the flag
+  `""` would be MISSING (§6) and `WEB_ORIGIN=""` would take the default instead of failing like `parseEnv`.
+  `fromUnknown` reads `KEY_WITH_UNDERSCORES` as one flat key; `fromEnv` / `fromEnvRecord` would split it on `_`.
+- `AppConfig extends Context.Service<AppConfig, Env>()("toon/api/config/AppConfig")` with `static config`,
+  `static layer = Layer.sync(AppConfig, resolveProcessEnv)` and `static layerFrom(values)` =
+  `Layer.effect(AppConfig, AppConfig.config.parse(provider))` (a `Layer<AppConfig, Config.ConfigError>`). A static
+  initializer may name the class itself (as in LLMS.md's `Database.layer`).
+- The process value is a memoized plain function, not a provider chain: `resolveProcessEnv()` loads the root `.env` /
+  `.env.local` with the old hand-written loader (process env wins, nothing under `NODE_ENV=test`; its quoting and
+  `#` rules are not `fromDotEnvContents`'), drops blank values, applies the ADR 0009 test rules (temp DB,
+  placeholder secret), runs `Effect.runSyncExit(AppConfig.config.parse(fromUnknown(raw)))` and on failure prints the
+  old block and `process.exit(1)`. It is memoized because `apps/api/src/env.ts` (`export const env =
+  resolveProcessEnv()`) and every `AppConfig.layer` build must see the SAME object (tests mutate `env` fields as
+  seams) and one temp test DB per process. Importing `config.ts` has no side effect; only the first resolution does.
+- Tests: `Effect.runSyncExit(Effect.provide(Effect.gen(function* () { return yield* AppConfig }), layer))`; a
+  `Config` is an `Effect`, so `Effect.provide(AppConfig.config, ConfigProvider.layer(provider))` reads an installed
+  provider (`apps/api/test/config.test.ts`).
