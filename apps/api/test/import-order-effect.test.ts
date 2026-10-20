@@ -43,6 +43,18 @@ describe("import order does not matter for the Effect composition", () => {
     // E2-T05: the module adapter (imported by db/migrate.ts and the registry) and the first core service
     "./src/modules/adapter.ts",
     "./src/core/services/media/references.ts",
+    // E2-T12: the middlewares (factories the routers call at module scope), the core routes, the services they
+    // reach and the two module manifests
+    "./src/middleware/household.ts",
+    "./src/middleware/module.ts",
+    "./src/middleware/verifiedEmail.ts",
+    "./src/middleware/originGuard.ts",
+    "./src/core/routes/auth.ts",
+    "./src/core/routes/households.ts",
+    "./src/core/services/households/households.service.ts",
+    "./src/core/services/auth/sessions.ts",
+    "./src/modules/finance/index.ts",
+    "./src/modules/recipe/index.ts",
   ]) {
     test(`${entry} loads first in a fresh process and the AppLayer builds after it`, async () => {
       const { code, stderr } = await importThenBuildInFreshProcess(entry);

@@ -22,16 +22,24 @@
  * (`and(eq(t.id, id), eq(t.householdId, membership.householdId))`) and answer 404
  * `not_found` otherwise; each module resource gets a test addressing another
  * household's id. Binding on M2/M3.
+ *
+ * Since E2-T12 the lookups are effects over `Database`, run as ONE `runtime.runPromise` before `next()` (plan
+ * e2 P12); a refusal fails the effect with the tagged error (same texts, same statuses), which reaches
+ * `onErrorHandler` as the rejection. Every exported factory is a hoisted function declaration that reads no
+ * imported binding until a request arrives (the routers call them at module scope, inside the import cycle).
  */
 import type { HouseholdRole } from "@toon/shared";
 import { roleAtLeast } from "@toon/shared";
 import { and, eq } from "drizzle-orm";
+import { Effect } from "effect";
 import type { MiddlewareHandler } from "hono";
-import { db } from "../db/client.ts";
+import { Database } from "../db/database.ts";
 import { householdInvites, householdMembers, households } from "../db/schema.ts";
-import { ApiError } from "../lib/errors.ts";
+import { BadRequest, type DatabaseError, Forbidden, NotFound } from "../lib/errors.ts";
 import type { AppContext, AppEnv, Membership } from "../lib/types.ts";
-import { requireUser } from "../lib/types.ts";
+import { currentUser } from "../lib/types.ts";
+import { toHouseholdRole } from "../core/services/households/membership.ts";
+import { runtime } from "../runtime.ts";
 
 /** Route params that identify a household-scoped resource, in resolution order. */
 const RESOURCE_PARAMS = ["inviteId"] as const;
@@ -46,33 +54,31 @@ export interface HouseholdRoleOptions {
   via?: ResourceParam;
 }
 
-/** Unknown role strings in the DB degrade to the weakest role. */
-function toRole(value: string): HouseholdRole {
-  return value === "owner" || value === "admin" ? value : "member";
-}
-
 /** Looks up the owning household of a resource id, or null when it does not exist. */
-async function householdIdOfResource(param: ResourceParam, id: string): Promise<string | null> {
+const householdIdOfResource = Effect.fn("Household.idOfResource")(function* (param: ResourceParam, id: string) {
+  const database = yield* Database;
   switch (param) {
     case "inviteId": {
-      const rows = await db
-        .select({ householdId: householdInvites.householdId })
-        .from(householdInvites)
-        .where(eq(householdInvites.id, id))
-        .limit(1);
+      const rows = yield* database.use((db) =>
+        db
+          .select({ householdId: householdInvites.householdId })
+          .from(householdInvites)
+          .where(eq(householdInvites.id, id))
+          .limit(1),
+      );
       return rows[0]?.householdId ?? null;
     }
   }
-}
+});
 
 /**
- * Determines which household the request targets. Throws 404 when the addressed
+ * Determines which household the request targets. Fails with 404 when the addressed
  * resource does not exist and 400 when the route carries no usable id at all.
  */
-export async function resolveHouseholdId(
+export const resolveHouseholdId = Effect.fn("Household.resolveId")(function* (
   c: AppContext,
   options: HouseholdRoleOptions = {},
-): Promise<string> {
+) {
   if (!options.via) {
     const direct = c.req.param("householdId");
     if (direct && direct.length > 0) return direct;
@@ -82,37 +88,68 @@ export async function resolveHouseholdId(
   for (const param of candidates) {
     const id = c.req.param(param);
     if (!id || id.length === 0) continue;
-    const householdId = await householdIdOfResource(param, id);
-    if (!householdId) throw ApiError.notFound();
+    const householdId = yield* householdIdOfResource(param, id);
+    if (!householdId) return yield* new NotFound();
     return householdId;
   }
 
-  throw ApiError.badRequest("server.group.groupIdMissing");
+  return yield* new BadRequest({ text: "server.group.groupIdMissing" });
+});
+
+/** The outcome of the membership lookup: household unknown, known but not a member, or a member with a role. */
+export interface MembershipAccess {
+  exists: boolean;
+  membership?: Membership;
 }
 
 /**
  * Membership + role of `userId` in `householdId`, distinguishing "household
  * unknown" from "not a member" in a single query.
  */
-export async function resolveMembership(
+export const resolveMembership = Effect.fn("Household.resolveMembership")(function* (
   householdId: string,
   userId: string,
-): Promise<{ exists: boolean; membership?: Membership }> {
-  const rows = await db
-    .select({ id: households.id, role: householdMembers.role })
-    .from(households)
-    .leftJoin(
-      householdMembers,
-      and(eq(householdMembers.householdId, households.id), eq(householdMembers.userId, userId)),
-    )
-    .where(eq(households.id, householdId))
-    .limit(1);
+): Effect.fn.Return<MembershipAccess, DatabaseError, Database> {
+  const database = yield* Database;
+  const rows = yield* database.use((db) =>
+    db
+      .select({ id: households.id, role: householdMembers.role })
+      .from(households)
+      .leftJoin(
+        householdMembers,
+        and(eq(householdMembers.householdId, households.id), eq(householdMembers.userId, userId)),
+      )
+      .where(eq(households.id, householdId))
+      .limit(1),
+  );
 
   const row = rows[0];
   if (!row) return { exists: false };
   if (row.role === null) return { exists: true };
-  return { exists: true, membership: { householdId, userId, role: toRole(row.role) } };
-}
+  return { exists: true, membership: { householdId, userId, role: toHouseholdRole(row.role) } };
+});
+
+/** The 404 / 403 / role ladder of a request: sets `membership` on `c` or fails with the refusal. */
+const authorize = Effect.fn("Household.authorize")(function* (
+  c: AppContext,
+  required: HouseholdRole,
+  options: HouseholdRoleOptions,
+) {
+  const user = yield* currentUser(c);
+  const householdId = yield* resolveHouseholdId(c, options);
+  const access = yield* resolveMembership(householdId, user.id);
+
+  if (!access.exists) return yield* new NotFound({ text: "server.group.notFound" });
+  if (!access.membership) return yield* new Forbidden({ text: "server.group.noAccess" });
+
+  if (!roleAtLeast(access.membership.role, required)) {
+    return yield* new Forbidden({
+      text: required === "owner" ? "server.group.ownerOnly" : "server.group.adminOnly",
+    });
+  }
+
+  c.set("membership", access.membership);
+});
 
 /**
  * Factory: middleware that requires at least `required` in the addressed household.
@@ -123,25 +160,18 @@ export function requireHouseholdRole(
   options: HouseholdRoleOptions = {},
 ): MiddlewareHandler<AppEnv> {
   return async (c, next) => {
-    const user = requireUser(c);
-    const householdId = await resolveHouseholdId(c, options);
-    const access = await resolveMembership(householdId, user.id);
-
-    if (!access.exists) throw ApiError.notFound("server.group.notFound");
-    if (!access.membership) throw ApiError.forbidden("server.group.noAccess");
-
-    if (!roleAtLeast(access.membership.role, required)) {
-      throw ApiError.forbidden(
-        required === "owner" ? "server.group.ownerOnly" : "server.group.adminOnly",
-      );
-    }
-
-    c.set("membership", access.membership);
+    await runtime.runPromise(authorize(c, required, options));
     await next();
   };
 }
 
 /** Convenience aliases so call sites read like the docs' auth levels. */
-export const requireHouseholdMember = (): MiddlewareHandler<AppEnv> => requireHouseholdRole("member");
-export const requireHouseholdAdmin = (): MiddlewareHandler<AppEnv> => requireHouseholdRole("admin");
-export const requireHouseholdOwner = (): MiddlewareHandler<AppEnv> => requireHouseholdRole("owner");
+export function requireHouseholdMember(): MiddlewareHandler<AppEnv> {
+  return requireHouseholdRole("member");
+}
+export function requireHouseholdAdmin(): MiddlewareHandler<AppEnv> {
+  return requireHouseholdRole("admin");
+}
+export function requireHouseholdOwner(): MiddlewareHandler<AppEnv> {
+  return requireHouseholdRole("owner");
+}

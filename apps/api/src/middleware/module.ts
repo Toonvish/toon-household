@@ -12,18 +12,21 @@
  */
 import type { ModuleId } from "@toon/shared";
 import { and, eq } from "drizzle-orm";
+import { Effect } from "effect";
 import type { MiddlewareHandler } from "hono";
-import { db } from "../db/client.ts";
+import { Database } from "../db/database.ts";
 import { householdModules } from "../db/schema.ts";
-import { ApiError } from "../lib/errors.ts";
-import type { AppEnv } from "../lib/types.ts";
-import { requireMembership } from "../lib/types.ts";
+import { ApiFailure } from "../lib/errors.ts";
+import type { AppContext, AppEnv } from "../lib/types.ts";
+import { currentMembership } from "../lib/types.ts";
+import { runtime } from "../runtime.ts";
 
-/** 404 `module_disabled` unless the addressed household has enabled module `id`. */
-export function requireModule(id: ModuleId): MiddlewareHandler<AppEnv> {
-  return async (c, next) => {
-    const membership = requireMembership(c);
-    const rows = await db
+/** The gate as one effect: 404 `module_disabled` unless the household row for `id` exists. */
+const checkModuleEnabled = Effect.fn("Module.check")(function* (c: AppContext, id: ModuleId) {
+  const membership = yield* currentMembership(c);
+  const database = yield* Database;
+  const rows = yield* database.use((db) =>
+    db
       .select({ moduleId: householdModules.moduleId })
       .from(householdModules)
       .where(
@@ -32,10 +35,20 @@ export function requireModule(id: ModuleId): MiddlewareHandler<AppEnv> {
           eq(householdModules.moduleId, id),
         ),
       )
-      .limit(1);
-    if (rows.length === 0) {
-      throw new ApiError(404, "module_disabled", "server.module.disabled");
-    }
+      .limit(1),
+  );
+  if (rows.length === 0) {
+    return yield* new ApiFailure({ status: 404, code: "module_disabled", text: "server.module.disabled" });
+  }
+});
+
+/**
+ * 404 `module_disabled` unless the addressed household has enabled module `id`. A hoisted declaration that reads
+ * no imported binding until a request arrives (plan e2 P12; the routers' import cycle).
+ */
+export function requireModule(id: ModuleId): MiddlewareHandler<AppEnv> {
+  return async (c, next) => {
+    await runtime.runPromise(checkModuleEnabled(c, id));
     await next();
   };
 }

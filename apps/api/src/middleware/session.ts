@@ -10,24 +10,30 @@
  *   router.use("*", requireSession());
  *   router.use("*", requireSession);
  *   router.get("/x", requireSession(), handler);
+ *
+ * The session lookup is ONE effect run through the runtime before `next()` (plan e2 P12): `next()` is never
+ * called inside an effect, and a refusal fails the effect with `Unauthorized`, which reaches `onErrorHandler`
+ * as the rejection of the run.
  */
+import { Effect } from "effect";
 import type { MiddlewareHandler, Next } from "hono";
-import { db } from "../db/client.ts";
 import { clearSessionCookie, readSessionCookie, setSessionCookie } from "../lib/cookies.ts";
-import { ApiError } from "../lib/errors.ts";
+import { Unauthorized } from "../lib/errors.ts";
 import type { AppContext, AppEnv } from "../lib/types.ts";
-import { resolveSession } from "../core/services/auth/sessions.ts";
-import { toUserDto } from "../core/services/auth/users.ts";
+import { Sessions } from "../core/services/auth/sessions.ts";
+import { userDto } from "../core/services/auth/users.ts";
+import { runtime } from "../runtime.ts";
 
 /**
- * Loads the session if the cookie is present and valid.
- * Returns true when `c.var.user` was set.
+ * Loads the session if the cookie is present and valid, as an effect over `Sessions.resolveSession` and `userDto`.
+ * Succeeds with true when `c.var.user` was set; the cookie writes happen on `c`.
  */
-export async function loadSession(c: AppContext): Promise<boolean> {
+export const loadSession = Effect.fn("Session.load")(function* (c: AppContext) {
   const sessionId = readSessionCookie(c);
   if (!sessionId) return false;
 
-  const resolved = await resolveSession(db, sessionId);
+  const sessions = yield* Sessions;
+  const resolved = yield* sessions.resolveSession(sessionId);
   if (!resolved) {
     // Stale cookie (expired/revoked/unknown): get rid of it right away.
     clearSessionCookie(c);
@@ -36,10 +42,16 @@ export async function loadSession(c: AppContext): Promise<boolean> {
 
   if (resolved.renewed) setSessionCookie(c, sessionId, resolved.session.expiresAt);
 
-  c.set("user", toUserDto(resolved.user));
+  c.set("user", yield* userDto(resolved.user));
   c.set("sessionId", sessionId);
   return true;
-}
+});
+
+/** `loadSession`, then 401 `unauthorized` when no valid session came out of it. */
+const authenticate = Effect.fn("Session.authenticate")(function* (c: AppContext) {
+  const authenticated = yield* loadSession(c);
+  if (!authenticated) return yield* new Unauthorized();
+});
 
 /*
  * The two handlers are function DECLARATIONS on purpose (hoisted, initialised at module
@@ -48,16 +60,16 @@ export async function loadSession(c: AppContext): Promise<boolean> {
  * calls `requireSession()` at module scope while this file is still evaluating. With `const` that
  * call hit the temporal dead zone ("Cannot access 'requireHandler' before initialization") whenever
  * the entry point reached this file before the manifest did (the real server did; the tests'
- * import order hid it).
+ * import order hid it). Since E2-T12 the same holds for `runtime.ts` and the effects above: the
+ * handlers read them only when a request arrives.
  */
 async function requireHandler(c: AppContext, next: Next): Promise<void> {
-  const authenticated = await loadSession(c);
-  if (!authenticated) throw ApiError.unauthorized();
+  await runtime.runPromise(authenticate(c));
   await next();
 }
 
 async function optionalHandler(c: AppContext, next: Next): Promise<void> {
-  await loadSession(c);
+  await runtime.runPromise(loadSession(c));
   await next();
 }
 

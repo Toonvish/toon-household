@@ -9,14 +9,14 @@
  */
 import { existsSync } from "node:fs";
 import { join, normalize } from "node:path";
+import { Effect } from "effect";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { authRoutes } from "./core/routes/auth.ts";
 import { healthResponse } from "./core/health.ts";
 import { householdRoutes } from "./core/routes/households.ts";
-import { resolveThumbnail } from "./core/services/media/thumbnails.ts";
-import { dbReady } from "./db/client.ts";
+import { Thumbnails } from "./core/services/media/thumbnails.ts";
 import { env } from "./env.ts";
 import { notFoundHandler, onErrorHandler } from "./lib/errors.ts";
 import { localeMiddleware } from "./lib/locale.ts";
@@ -94,7 +94,7 @@ app.get("/api/health", async (c) => c.json(await runtime.runPromise(healthRespon
  * Path traversal is blocked by normalising and re-checking the prefix.
  *
  * `<name>.thumb.webp` is the list thumbnail of `<name>` and is generated here on
- * first request (services/media/thumbnails.ts).
+ * first request (the `Thumbnails` service, services/media/thumbnails.ts, run on the one runtime).
  */
 app.get("/uploads/:filename", async (c) => {
   const requested = normalize(c.req.param("filename"));
@@ -117,7 +117,9 @@ app.get("/uploads/:filename", async (c) => {
   let path = absolute;
   let derivedFallback = false;
   if (!existsSync(absolute)) {
-    const resolved = await resolveThumbnail(requested);
+    const resolved = await runtime.runPromise(
+      Thumbnails.use((thumbnails) => thumbnails.resolveThumbnail(requested)),
+    );
     if (resolved === undefined) return c.notFound();
     path = resolved.path;
     derivedFallback = resolved.fallback;
@@ -199,12 +201,12 @@ if (!env.isTest) {
 }
 
 if (!env.isTest) {
-  // The connection PRAGMAs (WAL etc., see db/client.ts) are queued before the first
-  // query either way; awaiting them here means a database that cannot be opened at
-  // all fails at BOOT with a readable message instead of on the first request. Not
-  // done under `bun test`, where this module is imported for `app.fetch` and a
+  // Building the whole `AppLayer` here (configuration, the database acquire that awaits the
+  // connection PRAGMAs of db/client.ts, the mailer and the rest) means a database that cannot be
+  // opened at all fails at BOOT with a readable message instead of on the first request (plan e2
+  // P18). Not done under `bun test`, where this module is imported for `app.fetch` and a
   // top-level await would serialise every test file behind it.
-  await dbReady;
+  await runtime.runPromise(Effect.void);
   for (const module of API_MODULES) {
     try {
       if (module.start) await runtime.runPromise(module.start());

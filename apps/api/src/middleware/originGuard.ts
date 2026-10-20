@@ -31,12 +31,15 @@
  *      always sends `Origin` on a cross-origin unsafe request, the only case this file
  *      is for.
  *
- * Pure functions plus a factory, nothing at module scope that calls into a core
- * service (CLAUDE.md "API import cycle").
+ * Pure functions plus a hoisted factory that reads no imported binding until a request
+ * arrives (CLAUDE.md "API import cycle", plan e2 P12). The refusal is the only effect: it
+ * fails with `Forbidden` through the runtime and reaches `onErrorHandler` as the rejection.
  */
+import { Effect } from "effect";
 import type { MiddlewareHandler } from "hono";
-import { ApiError } from "../lib/errors.ts";
+import { Forbidden } from "../lib/errors.ts";
 import type { AppEnv } from "../lib/types.ts";
+import { runtime } from "../runtime.ts";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -105,7 +108,7 @@ export function originGuard(trustedOrigins: readonly string[]): MiddlewareHandle
         trustedOrigins,
       )
     ) {
-      throw ApiError.forbidden("server.error.originMismatch");
+      await runtime.runPromise(Effect.fail(new Forbidden({ text: "server.error.originMismatch" })));
     }
     await next();
   };

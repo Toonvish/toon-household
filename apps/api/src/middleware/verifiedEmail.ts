@@ -25,22 +25,32 @@
  * non-member should be told they are a non-member (404/403 `forbidden`) rather
  * than being handed a confirmation prompt for a household they cannot see anyway.
  */
+import { Effect } from "effect";
 import type { MiddlewareHandler } from "hono";
-import type { AppEnv } from "../lib/types.ts";
-import { requireUser } from "../lib/types.ts";
-import { assertEmailVerified } from "../core/services/auth/verifiedEmail.ts";
+import type { AppContext, AppEnv } from "../lib/types.ts";
+import { currentUser } from "../lib/types.ts";
+import { VerifiedEmail } from "../core/services/auth/verifiedEmail.ts";
+import { runtime } from "../runtime.ts";
 
 /** Methods that never change anything, so the gate lets them past. */
 const READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
+/** The gate as one effect: `VerifiedEmail.assertVerified` for the session user. */
+const checkVerified = Effect.fn("VerifiedEmail.check")(function* (c: AppContext) {
+  const user = yield* currentUser(c);
+  const verifiedEmail = yield* VerifiedEmail;
+  yield* verifiedEmail.assertVerified(user);
+});
+
 /**
  * 403 `email_unverified` on a write from an account with an unconfirmed address.
- * A no-op on this deployment when no mail transport is configured.
+ * A no-op on this deployment when no mail transport is configured. A hoisted declaration that reads no imported
+ * binding until a request arrives (plan e2 P12; the routers call it at module scope inside the import cycle).
  */
 export function requireVerifiedEmail(): MiddlewareHandler<AppEnv> {
   return async (c, next) => {
     if (!READ_METHODS.has(c.req.method)) {
-      assertEmailVerified(requireUser(c));
+      await runtime.runPromise(checkVerified(c));
     }
     await next();
   };
