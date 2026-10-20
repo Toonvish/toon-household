@@ -18,6 +18,7 @@ import type { Database } from "../../../db/client.ts";
 import { householdMembers, households, users } from "../../../db/schema.ts";
 import type { HouseholdRow } from "../../../db/schema.ts";
 import { ApiError } from "../../../lib/errors.ts";
+import { runModuleHook } from "../../../modules/adapter.ts";
 import { API_MODULES } from "../../../modules/index.ts";
 import type { ApiModule } from "../../../modules/types.ts";
 import type { Membership } from "../../../lib/types.ts";
@@ -408,7 +409,10 @@ export async function removeMember(
   const placeholder = await isPlaceholderMember(db, householdId, targetUserId);
 
   await withTransaction(db, async (tx) => {
-    for (const module of modules) await module.onMemberRemoving?.(householdId, targetUserId, tx);
+    // The Effect hooks run on this `tx` (plan e2 P11); a refusal rejects with the hook's own error.
+    for (const module of modules) {
+      if (module.onMemberRemoving) await runModuleHook(module.onMemberRemoving(householdId, targetUserId), tx);
+    }
 
     await tx
       .delete(householdMembers)

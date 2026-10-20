@@ -9,6 +9,9 @@
  * in middleware.test.ts. `bun test` runs every file in one process, so the verified-e-mail
  * override is handed back in `afterAll`.
  *
+ * The fake modules of "module hooks" are Promise-based manifests (`PromiseApiModule`), wrapped by
+ * `fromPromiseModule` as `src/modules/index.ts` wraps the real ones (plan e2 P11).
+ *
  * Since M3 `finance` is a real build module whose `onEnable` needs two participants (SPEC D3,
  * plan M3 decision 4): every enable of finance that must succeed sends a participants body
  * (`financeSettings`) for the owner plus a second member; (g') pins the refusal.
@@ -29,7 +32,8 @@ import { localeMiddleware } from "../src/lib/locale.ts";
 import type { AppEnv } from "../src/lib/types.ts";
 import { requireMembership } from "../src/lib/types.ts";
 import { mountModules } from "../src/modules/mount.ts";
-import type { ApiModule, DbExecutor } from "../src/modules/types.ts";
+import { fromPromiseModule } from "../src/modules/adapter.ts";
+import type { ApiModule, DbExecutor, PromiseApiModule } from "../src/modules/types.ts";
 
 /* -------------------------------- helpers -------------------------------- */
 
@@ -386,7 +390,7 @@ describe("module hooks", () => {
     const owner = await register("Owner");
     const refusal = new ApiError(409, "participants_missing", "server.error.conflict");
     const calls: { householdId: string; settings: unknown }[] = [];
-    const refusing: ApiModule = {
+    const refusing: PromiseApiModule = {
       id: "finance",
       schema: {},
       async onEnable(householdId: string, settings: unknown, _tx: DbExecutor) {
@@ -395,12 +399,12 @@ describe("module hooks", () => {
       },
     };
 
-    await expect(enableModule(db, owner.householdId, "finance", undefined, [refusing])).rejects.toBe(refusal);
+    await expect(enableModule(db, owner.householdId, "finance", undefined, [fromPromiseModule(refusing)])).rejects.toBe(refusal);
     expect(calls).toEqual([{ householdId: owner.householdId, settings: null }]);
     expect(await moduleRow(owner.householdId, "finance")).toBeUndefined();
 
     // Settings reach the hook as sent, and a refusal with settings writes nothing either.
-    await expect(enableModule(db, owner.householdId, "finance", { a: 1 }, [refusing])).rejects.toBe(refusal);
+    await expect(enableModule(db, owner.householdId, "finance", { a: 1 }, [fromPromiseModule(refusing)])).rejects.toBe(refusal);
     expect(calls[1]).toEqual({ householdId: owner.householdId, settings: { a: 1 } });
     expect(await moduleRow(owner.householdId, "finance")).toBeUndefined();
   });
@@ -408,14 +412,14 @@ describe("module hooks", () => {
   test("(h') an accepting onEnable runs once and the row is written", async () => {
     const owner = await register("Owner");
     let runs = 0;
-    const accepting: ApiModule = {
+    const accepting: PromiseApiModule = {
       id: "finance",
       schema: {},
       async onEnable() {
         runs += 1;
       },
     };
-    await enableModule(db, owner.householdId, "finance", undefined, [accepting]);
+    await enableModule(db, owner.householdId, "finance", undefined, [fromPromiseModule(accepting)]);
     expect(runs).toBe(1);
     expect(await moduleRow(owner.householdId, "finance")).toBeDefined();
   });
@@ -424,14 +428,14 @@ describe("module hooks", () => {
     const owner = await register("Owner");
     await db.delete(householdModules).where(eq(householdModules.householdId, owner.householdId));
     const seen: string[] = [];
-    const recording: ApiModule = {
+    const recording: PromiseApiModule = {
       id: "finance",
       schema: {},
       async onHouseholdCreated(householdId: string) {
         seen.push(householdId);
       },
     };
-    await initializeHousehold(db, owner.householdId, [recording]);
+    await initializeHousehold(db, owner.householdId, [fromPromiseModule(recording)]);
     expect(seen).toEqual([owner.householdId]);
     expect(await moduleRow(owner.householdId, "recipe")).toBeDefined();
   });

@@ -23,7 +23,7 @@
  * `seedDemo` (`./seed.ts`): two participants, a non-participant, ~8 transactions, one
  * settlement and the fixed-cost plan; idempotent.
  */
-import type { ApiModule } from "../types.ts";
+import type { PromiseApiModule } from "../types.ts";
 import { financeHouseholdRouter } from "./routes/index.ts";
 import { financeTables } from "./schema.ts";
 import { seedFinanceDemo } from "./seed.ts";
@@ -31,7 +31,7 @@ import { onFinanceEnable, onFinanceHouseholdCreated } from "./setup.ts";
 import { assertParticipantMayLeave } from "./services/participants/participants.service.ts";
 import { runBootCatchUp, startAccrualScheduler, stopAccrualScheduler } from "./services/plan/scheduler.ts";
 
-export const financeModule: ApiModule = {
+export const financeModule: PromiseApiModule = {
   id: "finance",
   householdRouter: financeHouseholdRouter,
   schema: financeTables,

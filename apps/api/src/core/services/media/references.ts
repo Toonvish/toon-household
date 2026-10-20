@@ -4,6 +4,12 @@
  * decision 4): the core knows its own two columns, every module reports its own
  * through the manifest's `uploadReferences` hook.
  *
+ * The collect step is the `UploadReferences` service (docs/EFFECT.md E7; plan e2 P10, P11):
+ * it reads the core columns through `Database` and runs each module's Effect
+ * `uploadReferences` hook on the same current executor. `collectUploadReferences(database)`
+ * stays as the Promise bridge for `scripts/uploads-gc.ts` and the module tests; it runs the
+ * service on that database through `runModuleHook` (no runtime import).
+ *
  * WHAT COUNTS AS REFERENCED — missing one deletes a live image:
  *   users.avatar_url        avatars                       (core)
  *   households.image_url    household covers              (core)
@@ -26,11 +32,14 @@
  * `--min-age-hours`; here it is kept. Over-keeping is the safe direction for a GC.
  */
 import { basename } from "node:path";
-import type { Database } from "../../../db/client.ts";
+import { Context, Effect, Layer } from "effect";
+import type { Database as DrizzleDatabase } from "../../../db/client.ts";
+import { Database } from "../../../db/database.ts";
 import { households, users } from "../../../db/schema.ts";
 import { normalizeStoredUploadUrl } from "../../../lib/uploadUrls.ts";
+import { runModuleHook } from "../../../modules/adapter.ts";
 import { API_MODULES } from "../../../modules/index.ts";
-import type { ApiModule } from "../../../modules/types.ts";
+import type { ApiModule, HookError } from "../../../modules/types.ts";
 
 /** Any stored media value -> the bare filename it points at, or undefined. */
 export function filenameOf(value: unknown): string | undefined {
@@ -47,26 +56,65 @@ function isPlainFilename(value: string): boolean {
   return !value.startsWith(".") && value === basename(value) && !/[\\/:?#]/.test(value);
 }
 
-/**
- * The bare filenames every core and module row references. `modules` defaults to
- * the build's `API_MODULES`, read at call time.
- */
-export async function collectUploadReferences(
-  database: Database,
+/** The upload references of every row (plan e2 P10). */
+export class UploadReferences extends Context.Service<
+  UploadReferences,
+  {
+    /**
+     * The bare filenames every core and module row references. `modules` defaults to the
+     * build's `API_MODULES`, read at call time.
+     */
+    readonly collectUploadReferences: (modules?: readonly ApiModule[]) => Effect.Effect<Set<string>, HookError>;
+  }
+>()("toon/api/core/services/media/references/UploadReferences") {
+  static readonly layer = Layer.effect(
+    this,
+    Effect.gen(function* () {
+      const database = yield* Database;
+
+      const collectUploadReferences = Effect.fn("UploadReferences.collectUploadReferences")(function* (
+        modules: readonly ApiModule[] = API_MODULES,
+      ) {
+        const referenced = new Set<string>();
+        const keep = (value: unknown): void => {
+          const filename = filenameOf(value);
+          if (filename !== undefined) referenced.add(filename);
+        };
+
+        for (const row of yield* database.use((db) => db.select({ url: households.imageUrl }).from(households))) {
+          keep(row.url);
+        }
+        for (const row of yield* database.use((db) => db.select({ url: users.avatarUrl }).from(users))) {
+          keep(row.url);
+        }
+
+        for (const module of modules) {
+          if (!module.uploadReferences) continue;
+          for (const value of yield* module.uploadReferences().pipe(Effect.provideService(Database, database))) {
+            keep(value);
+          }
+        }
+
+        return referenced;
+      });
+
+      return UploadReferences.of({ collectUploadReferences });
+    }),
+  );
+}
+
+/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
+
+/** `scripts/uploads-gc.ts`, `apps/api/test/recipe-module.test.ts`: the service on `database`. */
+export function collectUploadReferences(
+  database: DrizzleDatabase,
   modules: readonly ApiModule[] = API_MODULES,
 ): Promise<Set<string>> {
-  const referenced = new Set<string>();
-  const keep = (value: unknown): void => {
-    const filename = filenameOf(value);
-    if (filename !== undefined) referenced.add(filename);
-  };
-
-  for (const row of await database.select({ url: households.imageUrl }).from(households)) keep(row.url);
-  for (const row of await database.select({ url: users.avatarUrl }).from(users)) keep(row.url);
-
-  for (const module of modules) {
-    for (const value of (await module.uploadReferences?.(database)) ?? []) keep(value);
-  }
-
-  return referenced;
+  return runModuleHook(
+    Effect.gen(function* () {
+      const references = yield* UploadReferences;
+      return yield* references.collectUploadReferences(modules);
+    }).pipe(Effect.provide(UploadReferences.layer)),
+    database,
+  );
 }

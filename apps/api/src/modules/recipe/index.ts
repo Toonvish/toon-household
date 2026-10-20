@@ -19,7 +19,7 @@ import { seedRecipeDemo } from "./seed.ts";
 import { isOcrImportEnabled, isPdfImportEnabled } from "./services/import/capabilities.ts";
 import { shutdownOcr } from "./services/ocr/index.ts";
 import type { Database } from "../../db/client.ts";
-import type { ApiModule } from "../types.ts";
+import type { PromiseApiModule } from "../types.ts";
 
 /**
  * Every upload a recipe row references, as stored (the caller normalises bare,
@@ -49,7 +49,7 @@ async function uploadReferences(database: Database): Promise<string[]> {
   return values;
 }
 
-export const recipeModule: ApiModule = {
+export const recipeModule: PromiseApiModule = {
   id: "recipe",
   householdRouter: recipeHouseholdRouter,
   userRouter: recipeUserRouter,

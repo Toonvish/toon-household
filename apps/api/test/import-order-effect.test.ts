@@ -8,7 +8,7 @@
  * '…' before initialization".
  *
  * E2-T03 lists the composition (`config`, `database`, `infra`, the core services layer, `runtime`); E2-T05 adds
- * `./src/modules/adapter.ts`, E2-T12 the middlewares, the core routes and the services they reach.
+ * `./src/modules/adapter.ts` and `./src/core/services/media/references.ts` (`UploadReferences`), E2-T12 the middlewares, the core routes and the services they reach.
  */
 import { describe, expect, test } from "bun:test";
 import { resolve } from "node:path";
@@ -40,6 +40,9 @@ describe("import order does not matter for the Effect composition", () => {
     "./src/infra.ts",
     "./src/core/services/layer.ts",
     "./src/runtime.ts",
+    // E2-T05: the module adapter (imported by db/migrate.ts and the registry) and the first core service
+    "./src/modules/adapter.ts",
+    "./src/core/services/media/references.ts",
   ]) {
     test(`${entry} loads first in a fresh process and the AppLayer builds after it`, async () => {
       const { code, stderr } = await importThenBuildInFreshProcess(entry);

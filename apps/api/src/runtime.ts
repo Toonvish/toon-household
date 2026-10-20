@@ -31,18 +31,32 @@
  */
 import { Layer, ManagedRuntime } from "effect";
 import { coreServicesLayer } from "./core/services/layer.ts";
+import type { UploadReferences } from "./core/services/media/references.ts";
 import { type InfraServices, infraLayer } from "./infra.ts";
 import type { DatabaseError } from "./lib/errors.ts";
+import { API_MODULES } from "./modules/index.ts";
+import type { ModuleLayer } from "./modules/types.ts";
 
 /** Every service the runtime provides. */
-export type AppServices = InfraServices;
+export type AppServices = InfraServices | UploadReferences;
 
 /** What building the `AppLayer` can fail with (the database's acquire at boot). */
 export type AppLayerError = DatabaseError;
 
-/** The whole composition (plan e2 P3): the core services over the infrastructure. Read at build, never at import. */
+/**
+ * The whole composition (plan e2 P3): the core services and the modules' own layers over the infrastructure. Read at
+ * build, never at import.
+ */
 function appLayer(): Layer.Layer<AppServices, AppLayerError, never> {
-  return Layer.mergeAll(coreServicesLayer()).pipe(Layer.provideMerge(infraLayer()));
+  return Layer.mergeAll(coreServicesLayer(), ...moduleLayers()).pipe(Layer.provideMerge(infraLayer()));
+}
+
+/**
+ * Each build module's own `layer` (E3, E4; absent for both modules in E2, so this is `[]` today). `API_MODULES` is read
+ * here, inside the function, never at import (CLAUDE.md "API import cycle").
+ */
+function moduleLayers(): ModuleLayer[] {
+  return API_MODULES.flatMap((module) => (module.layer === undefined ? [] : [module.layer]));
 }
 
 export const AppLayer: Layer.Layer<AppServices, AppLayerError, never> = Layer.suspend(appLayer);

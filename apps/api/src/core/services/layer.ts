@@ -6,13 +6,15 @@
  * (`Layer.provideMerge`), never beside it. Requirements left open here (`Database`, `AppConfig`, …) travel outward
  * to `src/runtime.ts`, which satisfies them from `infraLayer()`.
  *
- * E2-T03 stubs every tier with `Layer.empty`; E2-T05 to E2-T09 fill them (P3 spells out each final form).
+ * E2-T03 stubbed every tier with `Layer.empty`; E2-T05 to E2-T09 fill them (P3 spells out each final form). Since
+ * E2-T05 the base tier is `UploadReferences.layer`.
  *
  * Import cycle (CLAUDE.md "API import cycle"): hoisted functions only; nothing runs at import.
  */
 import { Layer } from "effect";
 import { authServicesLayer } from "./auth/layer.ts";
 import { householdServicesLayer } from "./households/layer.ts";
+import { UploadReferences } from "./media/references.ts";
 
 /** The core services: the auth and households tiers over the base tier. */
 export function coreServicesLayer() {
@@ -21,5 +23,5 @@ export function coreServicesLayer() {
 
 /** The base tier (E2-T05 `UploadReferences`; E2-T06 `HouseholdModules`, `Passwords`, `Users`; E2-T07 the rest). */
 export function baseServicesLayer() {
-  return Layer.empty;
+  return UploadReferences.layer;
 }
