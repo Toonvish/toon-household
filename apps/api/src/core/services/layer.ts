@@ -14,11 +14,14 @@
  * Import cycle (CLAUDE.md "API import cycle"): hoisted functions only; nothing runs at import.
  */
 import { Layer } from "effect";
+import type { AuthBootstrap } from "./auth/bootstrap.ts";
 import { type AuthServices, authServicesLayer } from "./auth/layer.ts";
 import { AuthInvites } from "./auth/invites.ts";
 import { Passwords } from "./auth/passwords.ts";
 import { Sessions } from "./auth/sessions.ts";
 import { Users } from "./auth/users.ts";
+import type { Households } from "./households/households.service.ts";
+import type { HouseholdInvites } from "./households/invites.service.ts";
 import { householdServicesLayer } from "./households/layer.ts";
 import { HouseholdModules } from "./households/modules.ts";
 import { UploadReferences } from "./media/references.ts";
@@ -31,7 +34,10 @@ export type CoreServices =
   | Users
   | Sessions
   | AuthInvites
-  | AuthServices;
+  | AuthServices
+  | Households
+  | HouseholdInvites
+  | AuthBootstrap;
 
 /** The core services: the auth and households tiers over the base tier. */
 export function coreServicesLayer() {

@@ -7,42 +7,79 @@
  *
  * NOTE: `GET /api/households` (households service) returns the same `HouseholdWithRole`
  * shape; both read it through `listHouseholdsForUser`, so the two stay in step.
+ *
+ * The `AuthBootstrap` service (docs/EFFECT.md E7; plan `docs/plans/e2-api-core-services.md` P2, P3) stands on
+ * `Households` and `Users`; the Promise bridges at the end of the file keep the old exports working for the routes
+ * until E2-T10.
  */
 import type { AuthSessionResponse, HouseholdWithRole } from "@toon/shared";
-import type { Database } from "../../../db/client.ts";
+import { Context, Effect, Layer } from "effect";
+import type { Database as DrizzleDatabase } from "../../../db/client.ts";
+import { Database } from "../../../db/database.ts";
 import type { UserRow } from "../../../db/schema.ts";
-import { listHouseholdsForUser } from "../households/households.service.ts";
-import { setActiveHousehold, toUserDto } from "./users.ts";
+import type { DatabaseError, Unauthorized } from "../../../lib/errors.ts";
+import { runtime } from "../../../runtime.ts";
+import { Households } from "../households/households.service.ts";
+import { Users } from "./users.ts";
 
-/** Every household of a user, alphabetically, with role, member count and enabled modules. */
-export async function loadUserHouseholds(
-  database: Database,
-  userId: string,
-): Promise<HouseholdWithRole[]> {
-  return listHouseholdsForUser(database, userId);
+/** The bootstrap payload of register, login and `GET /api/auth/me`. */
+export class AuthBootstrap extends Context.Service<
+  AuthBootstrap,
+  {
+    /** Every household of a user, alphabetically, with role, member count and enabled modules. */
+    readonly loadUserHouseholds: (userId: string) => Effect.Effect<HouseholdWithRole[], DatabaseError>;
+    /**
+     * The one bootstrap payload used by register, login and GET /api/auth/me.
+     * A stale `users.active_household_id` (household deleted, membership removed) is healed
+     * here: it falls back to the first household and is persisted.
+     */
+    readonly buildAuthSession: (user: UserRow) => Effect.Effect<AuthSessionResponse, Unauthorized | DatabaseError>;
+  }
+>()("toon/api/core/services/auth/bootstrap/AuthBootstrap") {
+  static readonly layer = Layer.effect(
+    this,
+    Effect.gen(function* () {
+      const households = yield* Households;
+      const usersService = yield* Users;
+
+      const loadUserHouseholds = Effect.fn("AuthBootstrap.loadUserHouseholds")(function* (userId: string) {
+        return yield* households.listHouseholdsForUser(userId);
+      });
+
+      const buildAuthSession = Effect.fn("AuthBootstrap.buildAuthSession")(function* (user: UserRow) {
+        const userHouseholds = yield* loadUserHouseholds(user.id);
+        const stored = user.activeHouseholdId ?? null;
+        const isValid = stored !== null && userHouseholds.some((household) => household.id === stored);
+        const effective = isValid ? stored : (userHouseholds[0]?.id ?? null);
+
+        if (effective !== stored) {
+          yield* usersService.setActiveHousehold(user.id, effective);
+        }
+
+        return {
+          user: yield* usersService.userDto(user, effective),
+          households: userHouseholds,
+          activeHouseholdId: effective,
+        } satisfies AuthSessionResponse;
+      });
+
+      return AuthBootstrap.of({ loadUserHouseholds, buildAuthSession });
+    }),
+  );
 }
 
-/**
- * The one bootstrap payload used by register, login and GET /api/auth/me.
- * A stale `users.active_household_id` (household deleted, membership removed) is healed
- * here: it falls back to the first household and is persisted.
- */
-export async function buildAuthSession(
-  database: Database,
-  user: UserRow,
-): Promise<AuthSessionResponse> {
-  const userHouseholds = await loadUserHouseholds(database, user.id);
-  const stored = user.activeHouseholdId ?? null;
-  const isValid = stored !== null && userHouseholds.some((household) => household.id === stored);
-  const effective = isValid ? stored : (userHouseholds[0]?.id ?? null);
+/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
 
-  if (effective !== stored) {
-    await setActiveHousehold(database, user.id, effective);
-  }
+/** Callers: `core/services/auth/index.ts` (re-export), `core/routes/auth.ts` (E2-T10). */
+export function loadUserHouseholds(database: DrizzleDatabase, userId: string): Promise<HouseholdWithRole[]> {
+  return runtime.runPromise(
+    AuthBootstrap.use((service) => service.loadUserHouseholds(userId)).pipe(Database.withExecutor(database)),
+  );
+}
 
-  return {
-    user: toUserDto(user, effective),
-    households: userHouseholds,
-    activeHouseholdId: effective,
-  };
+/** Callers: `core/routes/auth.ts` (E2-T10). */
+export function buildAuthSession(database: DrizzleDatabase, user: UserRow): Promise<AuthSessionResponse> {
+  return runtime.runPromise(
+    AuthBootstrap.use((service) => service.buildAuthSession(user)).pipe(Database.withExecutor(database)),
+  );
 }

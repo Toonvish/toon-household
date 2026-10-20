@@ -6,17 +6,18 @@
  *
  * The `/me` 401 is not reachable through HTTP (no login path can produce a session for a
  * placeholder), so the `Users` service's `userDto` / `accountEmail` (the effects behind the sync
- * `toUserDto` / `requireAccountEmail` bridges) are run directly on the app runtime (plan e2 P14).
+ * `toUserDto` / `requireAccountEmail` bridges) are run directly on the app runtime (plan e2 P14), and so are the
+ * `Households` and `HouseholdInvites` services behind `listMembers` and `previewInvite`.
  */
 import { describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
-import { Effect } from "effect";
+import { Clock, Effect } from "effect";
 import { db } from "../src/db/client.ts";
 import { runMigrations } from "../src/db/migrate.ts";
 import { type UserRow, householdInvites, householdMembers, households, users } from "../src/db/schema.ts";
 import { Users, isPlaceholderUser } from "../src/core/services/auth/users.ts";
-import { listMembers } from "../src/core/services/households/households.service.ts";
-import { previewInvite } from "../src/core/services/households/invites.service.ts";
+import { Households } from "../src/core/services/households/households.service.ts";
+import { HouseholdInvites } from "../src/core/services/households/invites.service.ts";
 import { toHouseholdInvite } from "../src/core/services/households/mappers.ts";
 import { ApiError } from "../src/lib/errors.ts";
 import { runTest } from "./support/effect.ts";
@@ -94,7 +95,7 @@ describe("wire shapes for placeholders and claim invites (decision 5)", () => {
       { id: crypto.randomUUID(), householdId, userId: placeholderId, role: "member", createdAt: 3 },
     ]);
 
-    const members = await listMembers(db, householdId);
+    const members = await runTest(Effect.flatMap(Households, (households) => households.listMembers(householdId)));
     expect(members.map((member) => [member.user.name, member.user.email === null, member.hasAccount])).toEqual([
       ["Owner", false, true],
       ["OAuth", false, true],
@@ -118,11 +119,12 @@ describe("wire shapes for placeholders and claim invites (decision 5)", () => {
     });
     const [row] = await db.select().from(householdInvites).where(eq(householdInvites.id, inviteId));
     if (!row) throw new Error("invite row missing");
-    const invite = toHouseholdInvite(row, "Owner");
+    const now = await runTest(Clock.currentTimeMillis);
+    const invite = toHouseholdInvite(row, "Owner", now);
     expect(invite.email).toBeNull();
     expect(invite.claimsUserId).toBe(placeholderId);
 
-    const preview = await previewInvite(db, token);
+    const preview = await runTest(Effect.flatMap(HouseholdInvites, (invites) => invites.previewInvite(token)));
     expect(preview.email).toBeNull();
     expect(preview.claimsDisplayName).toBe("Pia");
     expect(preview.householdName).toBe("Platzhalter");
