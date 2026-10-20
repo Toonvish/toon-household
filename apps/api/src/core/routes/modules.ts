@@ -19,41 +19,42 @@
  * rows stay in its tables, so enabling again brings them back unchanged.
  */
 import { EnableModuleRequestSchema, isModuleId, type ModuleId } from "@toon/shared";
+import { Effect, Schema } from "effect";
 import type { Hono } from "hono";
-import { db } from "../../db/client.ts";
-import { ApiError } from "../../lib/errors.ts";
+import { NotFound, ValidationFailed } from "../../lib/errors.ts";
 import { json, noContent } from "../../lib/http.ts";
 import type { AppContext, AppEnv } from "../../lib/types.ts";
-import { requireMembership } from "../../lib/types.ts";
+import { currentMembership } from "../../lib/types.ts";
 import { requireHouseholdRole } from "../../middleware/household.ts";
 import { requireSession } from "../../middleware/session.ts";
 import { requireVerifiedEmail } from "../../middleware/verifiedEmail.ts";
-import { getHouseholdWithRole } from "../services/households/households.service.ts";
-import { disableModule, enableModule } from "../services/households/modules.ts";
-import { decodeOrThrow } from "../../lib/validate.ts";
+import { Households } from "../services/households/households.service.ts";
+import { HouseholdModules } from "../services/households/modules.ts";
+import { decode } from "../../lib/validate.ts";
+import { runtime } from "../../runtime.ts";
 
 /** The `:moduleId` param as a `ModuleId`, or 404 `not_found`. */
-function moduleIdParam(c: AppContext): ModuleId {
+const moduleIdParam = Effect.fnUntraced(function* (c: AppContext): Effect.fn.Return<ModuleId, NotFound> {
   const moduleId = c.req.param("moduleId");
-  if (!moduleId || !isModuleId(moduleId)) throw ApiError.notFound();
+  if (!moduleId || !isModuleId(moduleId)) return yield* new NotFound();
   return moduleId;
-}
+});
 
 /**
  * The optional JSON body. An empty body means `{}`; anything else goes through
  * `EnableModuleRequestSchema` and answers 422 `validation_failed` like every validate() here.
  */
-async function enableBody(c: AppContext): Promise<{ settings?: Record<string, unknown> }> {
-  const text = await c.req.text();
+const enableBody = Effect.fnUntraced(function* (
+  c: AppContext,
+): Effect.fn.Return<{ settings?: Record<string, unknown> }, ValidationFailed | Schema.SchemaError> {
+  const text = yield* Effect.promise(() => c.req.text());
   if (text.trim() === "") return {};
-  let raw: unknown;
-  try {
-    raw = JSON.parse(text);
-  } catch {
-    throw ApiError.validationFailed(undefined);
-  }
-  return decodeOrThrow(EnableModuleRequestSchema, raw);
-}
+  const raw = yield* Effect.try({
+    try: (): unknown => JSON.parse(text),
+    catch: () => new ValidationFailed({ details: undefined }),
+  });
+  return yield* decode(EnableModuleRequestSchema, raw);
+});
 
 export function registerModuleRoutes(router: Hono<AppEnv>): void {
   /** POST /api/households/:householdId/modules/:moduleId — enable (admin+, verified e-mail). */
@@ -62,13 +63,20 @@ export function registerModuleRoutes(router: Hono<AppEnv>): void {
     requireSession(),
     requireHouseholdRole("admin"),
     requireVerifiedEmail(),
-    async (c) => {
-      const membership = requireMembership(c);
-      const moduleId = moduleIdParam(c);
-      const { settings } = await enableBody(c);
-      await enableModule(db, membership.householdId, moduleId, settings);
-      return json(c, { household: await getHouseholdWithRole(db, membership.householdId, membership.role) });
-    },
+    (c) =>
+      runtime.runPromise(
+        Effect.gen(function* () {
+          const households = yield* Households;
+          const modules = yield* HouseholdModules;
+          const membership = yield* currentMembership(c);
+          const moduleId = yield* moduleIdParam(c);
+          const { settings } = yield* enableBody(c);
+          yield* modules.enableModule(membership.householdId, moduleId, settings);
+          return json(c, {
+            household: yield* households.getHouseholdWithRole(membership.householdId, membership.role),
+          });
+        }),
+      ),
   );
 
   /** DELETE /api/households/:householdId/modules/:moduleId — disable (admin+, verified e-mail). */
@@ -77,11 +85,15 @@ export function registerModuleRoutes(router: Hono<AppEnv>): void {
     requireSession(),
     requireHouseholdRole("admin"),
     requireVerifiedEmail(),
-    async (c) => {
-      const membership = requireMembership(c);
-      const moduleId = moduleIdParam(c);
-      await disableModule(db, membership.householdId, moduleId);
-      return noContent(c);
-    },
+    (c) =>
+      runtime.runPromise(
+        Effect.gen(function* () {
+          const modules = yield* HouseholdModules;
+          const membership = yield* currentMembership(c);
+          const moduleId = yield* moduleIdParam(c);
+          yield* modules.disableModule(membership.householdId, moduleId);
+          return noContent(c);
+        }),
+      ),
   );
 }
