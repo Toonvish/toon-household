@@ -5,10 +5,18 @@
  * endpoints (login, register, OAuth callback). Single-process only — that is
  * fine for a self-hosted family app; a multi-instance deployment would move the
  * bucket into the DB or Redis.
+ *
+ * The `RateLimiter` service (docs/EFFECT.md E7; plan e2 P9) and the three synchronous bridges
+ * (`checkRateLimit`, `enforceRateLimit`, `resetRateLimits`, see the end of the file) share ONE
+ * module-level store. The core is service-free: `checkIn` reads only the `Clock`, `enforceIn` takes
+ * `enabled` as a plain value, so a bridge can run it with `Effect.runSync` and recipe's unawaited
+ * `enforceRateLimit(...)` statements keep throwing synchronously.
  */
-import type { Context } from "hono";
-import { ApiError } from "../../../lib/errors.ts";
+import { Clock, Context, Effect, Layer } from "effect";
+import type { Context as HonoContext } from "hono";
+import { AppConfig } from "../../../config.ts";
 import { env } from "../../../env.ts";
+import { RateLimited } from "../../../lib/errors.ts";
 
 export interface RateLimitRule {
   /** Allowed attempts inside the window. */
@@ -88,9 +96,9 @@ export interface RateLimitResult {
   retryAfterSeconds: number;
 }
 
-/** Records an attempt for `key` and reports whether it is allowed. */
-export function checkRateLimit(key: string, rule: RateLimitRule): RateLimitResult {
-  const now = Date.now();
+/** Records an attempt for `key` and reports whether it is allowed. Time comes from the `Clock`. */
+const checkIn = Effect.fnUntraced(function* (key: string, rule: RateLimitRule): Effect.fn.Return<RateLimitResult> {
+  const now = yield* Clock.currentTimeMillis;
   const cutoff = now - rule.windowMs;
   const hits = (buckets.get(key) ?? []).filter((at) => at > cutoff);
 
@@ -108,7 +116,7 @@ export function checkRateLimit(key: string, rule: RateLimitRule): RateLimitResul
   if (buckets.size > MAX_BUCKETS) pruneBuckets(cutoff);
   buckets.set(key, hits);
   return { allowed: true, remaining: rule.limit - hits.length, retryAfterSeconds: 0 };
-}
+});
 
 function pruneBuckets(cutoff: number): void {
   for (const [key, hits] of buckets) {
@@ -118,10 +126,56 @@ function pruneBuckets(cutoff: number): void {
   }
 }
 
-/** Drops all buckets (tests, and after a successful login). */
-export function resetRateLimits(key?: string): void {
+/** Drops one bucket, or all of them (tests, and after a successful login). */
+function resetBuckets(key?: string): void {
   if (key === undefined) buckets.clear();
   else buckets.delete(key);
+}
+
+/**
+ * Fails with `RateLimited` (429, `Retry-After`) when the bucket of `scope:identifier` (lower-cased) is exhausted and
+ * returns the bucket key otherwise. `enabled = false` returns the key and records nothing (today's `NODE_ENV=test`
+ * no-op, which keeps integration tests deterministic).
+ */
+const enforceIn = Effect.fnUntraced(function* (
+  scope: string,
+  identifier: string,
+  rule: RateLimitRule,
+  enabled: boolean,
+): Effect.fn.Return<string, RateLimited> {
+  const key = `${scope}:${identifier.toLowerCase()}`;
+  if (!enabled) return key;
+  const result = yield* checkIn(key, rule);
+  if (!result.allowed) return yield* new RateLimited({ retryAfterSeconds: result.retryAfterSeconds });
+  return key;
+});
+
+/**
+ * The rate limiter as a service (plan e2 P9). `enforce` is on unless `NODE_ENV=test` (the `AppConfig` captured at
+ * build); `check` and `reset` act on the same store as the bridges.
+ */
+export class RateLimiter extends Context.Service<
+  RateLimiter,
+  {
+    /** Records an attempt for `key` and reports whether it is allowed. */
+    readonly check: (key: string, rule: RateLimitRule) => Effect.Effect<RateLimitResult>;
+    /** Returns the lower-cased `scope:identifier` key, or fails with `RateLimited`; a no-op under `NODE_ENV=test`. */
+    readonly enforce: (scope: string, identifier: string, rule: RateLimitRule) => Effect.Effect<string, RateLimited>;
+    /** Drops the bucket `key`, or every bucket. */
+    readonly reset: (key?: string) => Effect.Effect<void>;
+  }
+>()("toon/api/core/services/auth/rateLimit/RateLimiter") {
+  static readonly layer = Layer.effect(
+    RateLimiter,
+    Effect.gen(function* () {
+      const config = yield* AppConfig;
+      return RateLimiter.of({
+        check: checkIn,
+        enforce: (scope, identifier, rule) => enforceIn(scope, identifier, rule, !config.isTest),
+        reset: (key) => Effect.sync(() => resetBuckets(key)),
+      });
+    }),
+  );
 }
 
 /**
@@ -137,7 +191,7 @@ export function resetRateLimits(key?: string): void {
  * only if even that is unavailable do we fall back to "unknown" — a single shared
  * bucket, which throttles rather than opens up.
  */
-export function clientIp(c: Context): string {
+export function clientIp(c: HonoContext): string {
   if (env.trustProxy) {
     // The LAST entry, not the first (toon-finance 1715207, gotchas 18 and 74). The
     // trusted proxy is the one hop we believe, and whatever it appended is the address
@@ -158,7 +212,7 @@ export function clientIp(c: Context): string {
 }
 
 /** Peer address straight off the Bun socket, or undefined (e.g. in tests). */
-function socketAddress(c: Context): string | undefined {
+function socketAddress(c: HonoContext): string | undefined {
   const server = c.env as { requestIP?: (request: Request) => { address?: string } | null } | undefined;
   if (!server || typeof server.requestIP !== "function") return undefined;
   try {
@@ -169,25 +223,38 @@ function socketAddress(c: Context): string | undefined {
   }
 }
 
+
+/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
+
+// The three bridges stay SYNCHRONOUS with their old return types (plan e2 P1, P9): recipe's `imports.ts` calls
+// `enforceRateLimit` as a plain unawaited statement, so a Promise would typecheck there, stay green under test (a
+// no-op) and drop the import limit in production. Each runs a service-free effect with `Effect.runSync`.
+
+/** Callers: `apps/api/test/auth.test.ts` (rate-limit block, pinned), core routes until E2-T10. */
+export function checkRateLimit(key: string, rule: RateLimitRule): RateLimitResult {
+  return Effect.runSync(checkIn(key, rule));
+}
+
+/** Callers: `apps/api/test/auth.test.ts` (pinned), modules.test.ts, finance-module.test.ts, core routes. */
+export function resetRateLimits(key?: string): void {
+  resetBuckets(key);
+}
+
 /**
- * Throws 429 `rate_limited` when the bucket is exhausted.
- * Disabled under NODE_ENV=test so integration tests stay deterministic.
+ * Throws `RateLimited` (429 `rate_limited`) synchronously when the bucket is exhausted and sets `Retry-After` on `c`;
+ * returns the bucket key otherwise. `enabled` defaults to "not under NODE_ENV=test"; a test passes `true` to switch the
+ * limiter on. Callers: `apps/api/src/modules/recipe/routes/imports.ts` (unawaited), core routes until E2-T10.
  */
 export function enforceRateLimit(
-  c: Context,
+  c: HonoContext,
   scope: string,
   identifier: string,
   rule: RateLimitRule,
+  enabled: boolean = !env.isTest,
 ): string {
-  const key = `${scope}:${identifier.toLowerCase()}`;
-  if (env.isTest) return key;
-  const result = checkRateLimit(key, rule);
-  if (!result.allowed) {
-    c.header("Retry-After", String(result.retryAfterSeconds));
-    throw new ApiError(429, "rate_limited", {
-      key: "server.error.tooManyAttempts",
-      values: { seconds: result.retryAfterSeconds },
-    });
-  }
-  return key;
+  return Effect.runSync(
+    enforceIn(scope, identifier, rule, enabled).pipe(
+      Effect.tapError((error) => Effect.sync(() => c.header("Retry-After", String(error.retryAfterSeconds)))),
+    ),
+  );
 }

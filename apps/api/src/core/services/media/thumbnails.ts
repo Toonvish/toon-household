@@ -28,8 +28,11 @@
 import { existsSync } from "node:fs";
 import { mkdir, rename, unlink } from "node:fs/promises";
 import { basename, join } from "node:path";
+import { Cause, Clock, Context, Deferred, Effect, Exit, Layer, Predicate, Semaphore } from "effect";
+import { AppConfig } from "../../../config.ts";
 import { env } from "../../../env.ts";
 import { normalizeStoredUploadUrl } from "../../../lib/uploadUrls.ts";
+import { runtime } from "../../../runtime.ts";
 
 /** sharp's callable default export (the namespace itself is not callable). */
 type SharpFactory = typeof import("sharp").default;
@@ -115,120 +118,175 @@ export interface ResolvedThumbnail {
 }
 
 /**
- * Path to serve for a `<original>.thumb.webp` request, building the file if needed.
+ * The thumbnails as a service (docs/EFFECT.md E7; plan e2 P10). State lives in the layer: `inFlight` shares one
+ * conversion between concurrent requests, `failedAt` is the failure cache (the `Clock`'s time, so a `TestClock` can
+ * run out the TTL), a `Semaphore` is the two-at-a-time concurrency gate, and sharp loads lazily.
  *
- * Returns undefined when the name is not a derivative or the original is gone — the
- * caller answers 404 for both, exactly as it does for a missing upload.
+ * Neither method fails: the generation keeps its catch-all (plan e2 P2), ANY failure of sharp or the disk, a
+ * synchronous throw included, records the failure time and answers "fall back to the original".
  */
-export async function resolveThumbnail(filename: string): Promise<ResolvedThumbnail | undefined> {
-  const original = originalOfThumbnail(filename);
-  if (original === undefined) return undefined;
+export class Thumbnails extends Context.Service<
+  Thumbnails,
+  {
+    /**
+     * Path to serve for a `<original>.thumb.webp` request, building the file if needed; `undefined` when the name is
+     * not a derivative or the original is gone (the caller answers 404 for both, as for a missing upload).
+     */
+    readonly resolveThumbnail: (filename: string) => Effect.Effect<ResolvedThumbnail | undefined>;
+    /** Builds the derivative for a freshly stored upload; a no-op under `NODE_ENV=test`. Never fails. */
+    readonly warm: (filename: string) => Effect.Effect<void>;
+  }
+>()("toon/api/core/services/media/thumbnails/Thumbnails") {
+  static readonly layer = Layer.effect(
+    Thumbnails,
+    Effect.gen(function* () {
+      const config = yield* AppConfig;
+      const slots = yield* Semaphore.make(MAX_CONCURRENT);
+      /** Keyed by thumbnail path, so two concurrent requests share one conversion. */
+      const inFlight = new Map<string, Deferred.Deferred<boolean>>();
+      /** Thumbnail path -> when the last attempt failed. Keeps a HEIC list off the CPU. */
+      const failedAt = new Map<string, number>();
 
-  const originalPath = join(env.uploadDir, original);
-  if (!originalPath.startsWith(env.uploadDir) || !existsSync(originalPath)) return undefined;
+      const generate = Effect.fnUntraced(function* (
+        originalPath: string,
+        thumbnailPath: string,
+      ): Effect.fn.Return<boolean> {
+        const sharp = yield* loadSharp;
+        if (sharp === undefined) return false;
 
-  const thumbnailPath = join(env.uploadDir, filename);
-  const built = await ensureThumbnail(originalPath, thumbnailPath);
-  return built ? { path: thumbnailPath, fallback: false } : { path: originalPath, fallback: true };
+        // Written under a temp name and renamed: a concurrent reader must never be handed
+        // a half-written WebP, and rename() within one directory is atomic.
+        const temporaryPath = `${thumbnailPath}.${crypto.randomUUID().slice(0, 8)}.tmp`;
+        return yield* Effect.tryPromise({
+          try: async () => {
+            const bytes = await sharp(originalPath, { failOn: "none", limitInputPixels: MAX_INPUT_PIXELS })
+              // Phones store portrait as EXIF; without this the thumbnail lies on its side.
+              .rotate()
+              .resize({ width: THUMBNAIL_WIDTH, withoutEnlargement: true })
+              .webp({ quality: 72 })
+              .toBuffer();
+            await mkdir(config.uploadDir, { recursive: true });
+            await Bun.write(temporaryPath, bytes);
+            await rename(temporaryPath, thumbnailPath);
+          },
+          catch: (cause) => cause,
+        }).pipe(
+          Effect.tap(() => Effect.sync(() => failedAt.delete(thumbnailPath))),
+          Effect.as(true),
+          // The WHOLE cause: the old `try/catch` took everything sharp or the disk could throw (plan e2 P2).
+          Effect.catchCause((cause) =>
+            Effect.gen(function* () {
+              failedAt.set(thumbnailPath, yield* Clock.currentTimeMillis);
+              yield* Effect.promise(() => unlink(temporaryPath).catch(() => undefined));
+              if (!config.isTest) {
+                const error = Cause.squash(cause);
+                const reason = Predicate.isError(error) ? error.message : String(error);
+                console.warn(`[thumbs] ${basename(thumbnailPath)}: ${reason.slice(0, 160)}`);
+              }
+              return false;
+            }),
+          ),
+        );
+      });
+
+      const ensureThumbnail = Effect.fnUntraced(function* (
+        originalPath: string,
+        thumbnailPath: string,
+      ): Effect.fn.Return<boolean> {
+        if (existsSync(thumbnailPath)) return true;
+
+        const pending = inFlight.get(thumbnailPath);
+        if (pending !== undefined) return yield* Deferred.await(pending);
+
+        const failure = failedAt.get(thumbnailPath);
+        if (failure !== undefined && (yield* Clock.currentTimeMillis) - failure < FAILURE_TTL_MS) return false;
+
+        // The conversion runs in a detached fiber, so a requester that goes away (an aborted request) does not take
+        // the shared work with it; every requester awaits the same `Deferred`.
+        const done = yield* Deferred.make<boolean>();
+        inFlight.set(thumbnailPath, done);
+        yield* slots.withPermits(1)(generate(originalPath, thumbnailPath)).pipe(
+          Effect.onExit((exit) =>
+            Effect.sync(() => inFlight.delete(thumbnailPath)).pipe(
+              Effect.andThen(Deferred.done(done, Exit.isSuccess(exit) ? exit : Exit.succeed(false))),
+              Effect.asVoid,
+            ),
+          ),
+          Effect.forkDetach,
+        );
+        return yield* Deferred.await(done);
+      });
+
+      const resolveThumbnail = Effect.fn("Thumbnails.resolveThumbnail")(function* (
+        filename: string,
+      ): Effect.fn.Return<ResolvedThumbnail | undefined> {
+        const original = originalOfThumbnail(filename);
+        if (original === undefined) return undefined;
+
+        const originalPath = join(config.uploadDir, original);
+        if (!originalPath.startsWith(config.uploadDir) || !existsSync(originalPath)) return undefined;
+
+        const thumbnailPath = join(config.uploadDir, filename);
+        const built = yield* ensureThumbnail(originalPath, thumbnailPath);
+        return built ? { path: thumbnailPath, fallback: false } : { path: originalPath, fallback: true };
+      });
+
+      const warm = Effect.fn("Thumbnails.warm")(function* (filename: string) {
+        // Off under `bun test`: an unawaited write into the shared UPLOAD_DIR lands AFTER the test that triggered it
+        // has cleaned up, which leaves an orphan behind on every run. The route path this delegates to is covered
+        // directly (test/thumbnails.test.ts).
+        if (config.isTest) return;
+        const url = thumbnailUrlFor(`${UPLOADS_PREFIX}${filename}`);
+        if (url === null) return;
+        yield* resolveThumbnail(url.slice(UPLOADS_PREFIX.length));
+      });
+
+      return Thumbnails.of({ resolveThumbnail, warm });
+    }),
+  );
+}
+
+/* -------------------------------- internals ------------------------------- */
+
+let sharpModule: SharpFactory | undefined;
+let sharpMissing = false;
+
+/** Lazy, cached, and never fails: a server without sharp still serves originals. */
+const loadSharp: Effect.Effect<SharpFactory | undefined> = Effect.suspend(() => {
+  if (sharpModule !== undefined) return Effect.succeed(sharpModule);
+  if (sharpMissing) return Effect.succeed(undefined);
+  return Effect.tryPromise({ try: () => import("sharp"), catch: () => undefined }).pipe(
+    Effect.map((loaded) => {
+      sharpModule = loaded.default;
+      return sharpModule;
+    }),
+    Effect.catch(() =>
+      Effect.sync(() => {
+        sharpMissing = true;
+        return undefined;
+      }),
+    ),
+  );
+});
+
+/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
+
+/**
+ * Path to serve for a `<original>.thumb.webp` request (see `Thumbnails.resolveThumbnail`).
+ * Callers: `apps/api/src/index.ts` (the `/uploads` route) until E2-T12.
+ */
+export function resolveThumbnail(filename: string): Promise<ResolvedThumbnail | undefined> {
+  return runtime.runPromise(Thumbnails.use((thumbnails) => thumbnails.resolveThumbnail(filename)));
 }
 
 /**
  * Builds the derivative for a freshly stored upload without making the caller wait.
  *
- * Never throws and never rejects: the upload response must not depend on it, and if
- * this loses a race against the first `GET`, {@link ensureThumbnail} de-duplicates
- * the work anyway.
+ * Stays `void` (plan e2 P1, P10): returns before any work, never throws and never rejects. The upload response must
+ * not depend on it, and if this loses a race against the first `GET`, the in-flight sharing de-duplicates the work
+ * anyway. Callers: `apps/api/src/modules/recipe/services/import/url/image.ts` (unawaited).
  */
 export function warmThumbnail(filename: string): void {
-  // Off under `bun test`: an unawaited write into the shared UPLOAD_DIR lands AFTER
-  // the test that triggered it has cleaned up, which leaves an orphan behind on every
-  // run. The route path this delegates to is covered directly (test/thumbnails.test.ts).
   if (env.isTest) return;
-  const url = thumbnailUrlFor(`${UPLOADS_PREFIX}${filename}`);
-  if (url === null) return;
-  void resolveThumbnail(url.slice(UPLOADS_PREFIX.length)).catch(() => undefined);
-}
-
-/* -------------------------------- internals ------------------------------- */
-
-/** Keyed by thumbnail path, so two concurrent requests share one conversion. */
-const inFlight = new Map<string, Promise<boolean>>();
-/** Thumbnail path -> when the last attempt failed. Keeps a HEIC list off the CPU. */
-const failedAt = new Map<string, number>();
-
-async function ensureThumbnail(originalPath: string, thumbnailPath: string): Promise<boolean> {
-  if (existsSync(thumbnailPath)) return true;
-
-  const pending = inFlight.get(thumbnailPath);
-  if (pending !== undefined) return await pending;
-
-  const failure = failedAt.get(thumbnailPath);
-  if (failure !== undefined && Date.now() - failure < FAILURE_TTL_MS) return false;
-
-  const task = withSlot(() => generate(originalPath, thumbnailPath)).finally(() => {
-    inFlight.delete(thumbnailPath);
-  });
-  inFlight.set(thumbnailPath, task);
-  return await task;
-}
-
-async function generate(originalPath: string, thumbnailPath: string): Promise<boolean> {
-  const sharp = await loadSharp();
-  if (sharp === undefined) return false;
-
-  // Written under a temp name and renamed: a concurrent reader must never be handed
-  // a half-written WebP, and rename() within one directory is atomic.
-  const temporaryPath = `${thumbnailPath}.${crypto.randomUUID().slice(0, 8)}.tmp`;
-  try {
-    const bytes = await sharp(originalPath, { failOn: "none", limitInputPixels: MAX_INPUT_PIXELS })
-      // Phones store portrait as EXIF; without this the thumbnail lies on its side.
-      .rotate()
-      .resize({ width: THUMBNAIL_WIDTH, withoutEnlargement: true })
-      .webp({ quality: 72 })
-      .toBuffer();
-    await mkdir(env.uploadDir, { recursive: true });
-    await Bun.write(temporaryPath, bytes);
-    await rename(temporaryPath, thumbnailPath);
-    failedAt.delete(thumbnailPath);
-    return true;
-  } catch (error) {
-    failedAt.set(thumbnailPath, Date.now());
-    await unlink(temporaryPath).catch(() => undefined);
-    if (!env.isTest) {
-      const reason = error instanceof Error ? error.message : String(error);
-      console.warn(`[thumbs] ${basename(thumbnailPath)}: ${reason.slice(0, 160)}`);
-    }
-    return false;
-  }
-}
-
-let active = 0;
-const waiting: Array<() => void> = [];
-
-async function withSlot<T>(task: () => Promise<T>): Promise<T> {
-  if (active >= MAX_CONCURRENT) await new Promise<void>((resolve) => waiting.push(resolve));
-  active += 1;
-  try {
-    return await task();
-  } finally {
-    active -= 1;
-    waiting.shift()?.();
-  }
-}
-
-let sharpModule: SharpFactory | undefined;
-let sharpMissing = false;
-
-/** Lazy, cached, and never throws — a server without sharp still serves originals. */
-async function loadSharp(): Promise<SharpFactory | undefined> {
-  if (sharpModule !== undefined) return sharpModule;
-  if (sharpMissing) return undefined;
-  try {
-    const module = await import("sharp");
-    sharpModule = module.default;
-    return sharpModule;
-  } catch {
-    sharpMissing = true;
-    return undefined;
-  }
+  runtime.runFork(Thumbnails.use((thumbnails) => thumbnails.warm(filename)).pipe(Effect.ignoreCause));
 }

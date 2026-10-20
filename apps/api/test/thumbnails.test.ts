@@ -13,6 +13,9 @@ import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, describe, expect, test } from "bun:test";
+import { Effect, Layer } from "effect";
+import { TestClock } from "effect/testing";
+import { AppConfig } from "../src/config.ts";
 import { env } from "../src/env.ts";
 import { app } from "../src/index.ts";
 import { currentExpiry, signUploadUrl, uploadSignature } from "../src/lib/uploadUrls.ts";
@@ -21,9 +24,12 @@ import {
   THUMBNAIL_WIDTH,
   isThumbnailName,
   originalOfThumbnail,
+  Thumbnails,
   listImageUrlFor,
   thumbnailUrlFor,
+  warmThumbnail,
 } from "../src/core/services/media/thumbnails.ts";
+import { runTest } from "./support/effect.ts";
 import { removeUpload } from "./support/files.ts";
 
 const written: string[] = [];
@@ -212,5 +218,92 @@ describe("GET /uploads/<name>.thumb.webp", () => {
     const sharp = (await import("sharp")).default;
     const onDisk = await sharp(join(env.uploadDir, thumbnail)).metadata();
     expect(onDisk.width).toBe(THUMBNAIL_WIDTH);
+  }, SHARP_TEST_TIMEOUT_MS);
+});
+
+/* -------------------------------------------------------------------------- */
+/* the service                                                                */
+/* -------------------------------------------------------------------------- */
+
+const resolve = (filename: string) => Thumbnails.use((thumbnails) => thumbnails.resolveThumbnail(filename));
+
+describe("Thumbnails service", () => {
+  test("builds the derivative and reports it as not a fallback", async () => {
+    const original = await storePng(1600, 1200);
+    const thumbnail = `${original}${THUMBNAIL_SUFFIX}`;
+    written.push(thumbnail);
+
+    const resolved = await runTest(resolve(thumbnail));
+    expect(resolved).toEqual({ path: join(env.uploadDir, thumbnail), fallback: false });
+    expect(existsSync(join(env.uploadDir, thumbnail))).toBe(true);
+  }, SHARP_TEST_TIMEOUT_MS);
+
+  test("undefined for a name that is no derivative and for a vanished original", async () => {
+    expect(await runTest(resolve("a.jpg"))).toBeUndefined();
+    expect(await runTest(resolve(`${crypto.randomUUID()}.jpg${THUMBNAIL_SUFFIX}`))).toBeUndefined();
+  });
+
+  test("concurrent requests share one conversion", async () => {
+    const original = await storePng(1000, 800);
+    const thumbnail = `${original}${THUMBNAIL_SUFFIX}`;
+    written.push(thumbnail);
+
+    const all = await runTest(Effect.all(Array.from({ length: 4 }, () => resolve(thumbnail)), { concurrency: "unbounded" }));
+    expect(all.map((resolved) => resolved?.fallback)).toEqual([false, false, false, false]);
+  }, SHARP_TEST_TIMEOUT_MS);
+
+  test("ANY failure is remembered for ten minutes of Clock time, then the build is attempted again", async () => {
+    const original = await storeBytes(Buffer.from("nicht wirklich ein Bild"), "png");
+    const thumbnail = `${original}${THUMBNAIL_SUFFIX}`;
+    written.push(thumbnail);
+    const sharp = (await import("sharp")).default;
+    const real = await sharp({ create: { width: 800, height: 600, channels: 3, background: "#c0553a" } })
+      .png()
+      .toBuffer();
+
+    const outcome = await runTest(
+      Effect.gen(function* () {
+        const failed = yield* resolve(thumbnail);
+        // The file is a real image now, but the failure is cached: no second attempt inside the TTL.
+        yield* Effect.promise(() => writeFile(join(env.uploadDir, original), real));
+        yield* TestClock.adjust("9 minutes");
+        const cached = yield* resolve(thumbnail);
+        yield* TestClock.adjust("2 minutes");
+        const healed = yield* resolve(thumbnail);
+        return { failed, cached, healed };
+      }),
+      { clock: "test" },
+    );
+
+    expect(outcome.failed).toEqual({ path: join(env.uploadDir, original), fallback: true });
+    expect(outcome.cached?.fallback).toBe(true);
+    expect(outcome.healed).toEqual({ path: join(env.uploadDir, thumbnail), fallback: false });
+  }, SHARP_TEST_TIMEOUT_MS);
+
+  test("warm is a no-op under the test env and warmThumbnail returns undefined synchronously", async () => {
+    const result: unknown = warmThumbnail("missing.png");
+    expect(result).toBeUndefined();
+    expect(typeof (result as { then?: unknown } | undefined)?.then).not.toBe("function");
+    await runTest(Thumbnails.use((thumbnails) => thumbnails.warm("missing.png")));
+  });
+
+  test("warm builds the derivative where the config is not the test env", async () => {
+    const original = await storePng(900, 600);
+    const thumbnail = `${original}${THUMBNAIL_SUFFIX}`;
+    written.push(thumbnail);
+    const layer = Thumbnails.layer.pipe(
+      Layer.provide(
+        AppConfig.layerFrom({
+          NODE_ENV: "development",
+          DATABASE_URL: "file:./data/x.db",
+          SESSION_SECRET: "0123456789abcdef0123456789abcdef",
+          UPLOAD_DIR: env.uploadDir,
+        }),
+      ),
+    );
+    await Effect.runPromise(
+      Thumbnails.use((thumbnails) => thumbnails.warm(original)).pipe(Effect.provide(layer)),
+    );
+    expect(existsSync(join(env.uploadDir, thumbnail))).toBe(true);
   }, SHARP_TEST_TIMEOUT_MS);
 });

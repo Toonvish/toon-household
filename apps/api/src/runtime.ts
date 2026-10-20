@@ -30,14 +30,12 @@
  * process and one runtime.
  */
 import { Layer, ManagedRuntime } from "effect";
-import type { AppConfig } from "./config.ts";
 import { coreServicesLayer } from "./core/services/layer.ts";
-import type { Database } from "./db/database.ts";
-import { infraLayer } from "./infra.ts";
+import { type InfraServices, infraLayer } from "./infra.ts";
 import type { DatabaseError } from "./lib/errors.ts";
 
 /** Every service the runtime provides. */
-export type AppServices = AppConfig | Database;
+export type AppServices = InfraServices;
 
 /** What building the `AppLayer` can fail with (the database's acquire at boot). */
 export type AppLayerError = DatabaseError;
