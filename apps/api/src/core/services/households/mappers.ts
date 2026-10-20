@@ -65,20 +65,21 @@ export function toInvitableRole(value: string): InvitableRole {
   return value === "admin" ? "admin" : "member";
 }
 
-export function toInviteStatus(value: string, expiresAt: number, now = Date.now()): InviteStatus {
+/** `now` is the Clock's unix ms, read by the caller (plan e2 P7): this mapper reads no time itself. */
+export function toInviteStatus(value: string, expiresAt: number, now: number): InviteStatus {
   if (value === "accepted" || value === "revoked") return value;
   if (value === "expired" || expiresAt <= now) return "expired";
   return "pending";
 }
 
-export function toHouseholdInvite(row: HouseholdInviteRow, invitedByName: string): HouseholdInvite {
+export function toHouseholdInvite(row: HouseholdInviteRow, invitedByName: string, now: number): HouseholdInvite {
   return {
     id: row.id,
     householdId: row.householdId,
     email: row.email,
     role: toInvitableRole(row.role),
     token: row.token,
-    status: toInviteStatus(row.status, row.expiresAt),
+    status: toInviteStatus(row.status, row.expiresAt, now),
     invitedBy: row.invitedBy,
     invitedByName,
     expiresAt: toIso(row.expiresAt),
