@@ -167,7 +167,7 @@ Source: `migration/error-handling.md`, `migration/cause.md`.
 
 - `apps/api/src/lib/errors.ts`: today's `ApiError` (a class with `status`, `code`, `text`, `toBody(locale)`, static helpers, thrown and caught by
   Hono's `onError`). E2 turns it into a family of `Schema.TaggedError` classes with the same `status`, `code`, `text`, plus one `toApiError` /
-  `errorResponse` mapper at the HTTP boundary (`ERROR_CODES` in `packages/shared` stays the wire contract).
+  `errorBody` mapper at the HTTP boundary (`ERROR_CODES` in `packages/shared` stays the wire contract; "As built (E2)" below).
 - `apps/api/src/core/services/**` and `apps/api/src/modules/<id>/services/**`: methods are `Effect.fn("Service.method")` with the failures in
   the signature; handlers recover with `Effect.catchTag(s)`. `apps/api/src/runtime.ts` (E0, new) is where `runPromiseExit` meets Hono until E7.
 - `apps/api/test/effect-idioms.test.ts` (E0, new) pins "no `throw new ApiError`" after E2 and "no `Context.Tag(`".
@@ -196,3 +196,35 @@ Effect message (E4: the wording is the catalog's). `Schema.decodeUnknownResult` 
 for callers that must not throw (tests, web forms). Never log a `SchemaError` built with `reportInput: true` (it can carry
 secrets). E2 puts the tagged `ApiError` family beside this branch and turns the `instanceof ApiError` line into `catchTag`;
 the `SchemaError` branch stays and becomes the `422 validation_failed` arm.
+
+**As built (E2):** `apps/api/src/lib/errors.ts` holds the family (plan `docs/plans/e2-api-core-services.md` P4): `BadRequest`,
+`Unauthorized`, `InvalidCredentials`, `Forbidden`, `NotFound`, `Conflict`, `PayloadTooLarge`, `UnsupportedMediaType`,
+`ValidationFailed`, `Internal`, `RateLimited` and the generic `ApiFailure` (`status`, `code`, `text`, `details`), the union type
+`ApiErrorFamily`, `isApiError` (a `Predicate` over the tags, no `instanceof`), `toApiError(unknown, locale)`, `errorBody(error,
+locale)`, `onErrorHandler`, `notFoundHandler`; `DatabaseError` (`cause: Schema.Defect()`) sits OUTSIDE the family. Raise with
+`return yield* new NotFound()` / `new NotFound({ text })` / `new Conflict({ code: "email_taken", text })` / `new ApiFailure({ status,
+code, text })` / `new RateLimited({ retryAfterSeconds })` (the mapper sets `Retry-After`). What the source showed while building it:
+- **A `Schema.TaggedError` constructor validates and THROWS** (`makeClass` in `Schema.ts` calls `struct.make(input, options)`; a
+  failure is `Error("Schema validation failed")` with the issue as `cause`). Inside an error path that would turn into a 500, so the
+  field schemas are permissive: `Schema.Number`, `Schema.String`, `text` a `Schema.declare<ErrorText>` that accepts any string or
+  object, `details: Schema.optional(Schema.Unknown)` (an explicit `undefined` included).
+- **`{ disableChecks: true }` (the second constructor argument, `MakeOptions`) skips only `.check(...)` refinements**, not the field
+  TYPES: `new E({ n: "x" }, { disableChecks: true })` with `n: Schema.Number` still throws. Permissive schemas are the real guarantee.
+- **Constructor defaults:** `text: Text.pipe(Schema.withConstructorDefault(Effect.succeed("server.error.notFound")))` makes the key
+  optional in the constructor input (`new NotFound()` works) while the instance type keeps it required; no `optionalKey` needed.
+- **Fixed per-class values are plain class fields** (`readonly status = 404; readonly code = "not_found"`), never schema fields, and
+  never a bare `readonly x: T` redeclaration of a schema field (with ES2022 class fields it would overwrite the constructor's value
+  with `undefined`).
+- **`message`:** the class passes `args.message` to `Error`, so a family without a `message` field has none of its own; an
+  `override get message(): string { return serverText("en", this.text) }` on each class gives the English log text (TS accepts the
+  accessor because `Error.message` is declared in an interface). The class `name` is the identifier (the tag).
+- **The legacy `ApiError extends ApiFailure`** keeps the positional constructor (it calls `super({ status, code, text, details },
+  { disableChecks: true })`), the ten helpers and `toBody`, sets `name = "ApiError"`, and has `static override
+  [Symbol.hasInstance](u): u is ApiError { return isApiError(u) }`, so `x instanceof ApiError` holds for every family member (TS
+  5.3+ narrows through it; only a legacy instance really has `toBody`, so code that may see a tagged member uses `errorBody`).
+- **The sync bridges:** `Effect.runSync(effect)` throws `Cause.squash(cause)`, i.e. the tagged error itself
+  (`internal/effect.ts` `runSyncWith`); `requireUser(c)` is `Effect.runSync(currentUser(c))` with the explicit return type `User`.
+- **Hono's `compose` passes only `Error` instances to `onError`**; a thrown non-`Error` (the string `"ManagedRuntime disposed"`)
+  is rethrown by Hono, so `toApiError` maps it to `Internal` for callers outside Hono, and a route never lets one escape.
+- **Bun's `expect(() => new X()).not.toThrow()` fails when the arrow RETURNS an Error**; construct outside the arrow
+  (`apps/api/test/errors.test.ts`).

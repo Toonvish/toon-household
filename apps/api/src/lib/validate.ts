@@ -2,17 +2,18 @@
  * The API's one decode path (docs/EFFECT.md E4, plan e1 P8/P9).
  *
  * Every request body, query and route param a router validates goes through `validate(target, schema)`, and every
- * other decode of untrusted input in a handler or service through `decodeOrThrow` / `decodeOption`. A failure is
+ * other decode of untrusted input in a handler or service through `decodeOrThrow` / `decodeOption`, or, inside an
+ * Effect, through `decode` (plan e2 P19), which fails with the same `Schema.SchemaError`. A failure is
  * thrown as `Schema.SchemaError` and mapped ONCE, by `toApiError` in `./errors.ts`, to `422 validation_failed`
  * with `details` from `toValidationIssues` (`{ path, code, message, i18n }`, the message in the negotiated
  * locale, docs/API.md "Conventions"). No route builds its own `details` (ADR 0013).
  *
  * Import cycle (CLAUDE.md "API import cycle"): `validate(...)` runs at route definition, at module scope of a
- * router. This file therefore imports only `hono/validator`, `effect` and `@toon/shared`, never a core
- * middleware or service.
+ * router. This file therefore imports only `hono/validator`, `effect` and `@toon/shared`, never `runtime.ts`, a core
+ * middleware or a service (plan e2 P12).
  */
 import { ALL_ISSUES } from "@toon/shared";
-import { Option, Schema, type Types } from "effect";
+import { type Effect, Option, Schema, type Types } from "effect";
 import type { Env, MiddlewareHandler } from "hono";
 import { validator } from "hono/validator";
 
@@ -32,6 +33,14 @@ export type ValidationTarget = "json" | "query" | "param";
  */
 export function decodeOrThrow<S extends Decodable>(schema: S, value: unknown): Decoded<S> {
   return Schema.decodeUnknownSync(schema, ALL_ISSUES)(value) as Decoded<S>;
+}
+
+/**
+ * The Effect form of `decodeOrThrow`: succeeds with the decoded value or fails with the `Schema.SchemaError` (every
+ * issue collected, `ALL_ISSUES`), which the boundary maps to `422 validation_failed` like a thrown one.
+ */
+export function decode<S extends Decodable>(schema: S, value: unknown): Effect.Effect<Decoded<S>, Schema.SchemaError> {
+  return Schema.decodeUnknownEffect(schema, ALL_ISSUES)(value) as Effect.Effect<Decoded<S>, Schema.SchemaError>;
 }
 
 /**
