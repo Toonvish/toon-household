@@ -19,7 +19,7 @@ import type { AppEnv } from "../src/lib/types.ts";
 import { requireHouseholdRole } from "../src/middleware/household.ts";
 import { safeNextPath, webUrl } from "../src/lib/oauth.ts";
 import { requireSession } from "../src/middleware/session.ts";
-import { acceptInvite, generateInviteToken } from "../src/core/services/auth/invites.ts";
+import { AuthInvites, generateInviteToken } from "../src/core/services/auth/invites.ts";
 import {
   linkOAuthAccount,
   loginWithOAuthProfile,
@@ -31,8 +31,6 @@ import { sessionHandle } from "../src/core/services/auth/sessions.ts";
 import {
   type CreateUserInput,
   Users,
-  createOwnedHousehold,
-  createUser,
   updateUser,
 } from "../src/core/services/auth/users.ts";
 import { runTest } from "./support/effect.ts";
@@ -111,8 +109,8 @@ async function registeredUser(): Promise<{ id: string; email: string; cookie: st
 }
 
 /**
- * Creates a user and a household they own through the `Users` service on the app runtime (plan e2 P14); the OAuth
- * and invite parts below still use the bridges until E2-T07/E2-T08.
+ * Creates a user and a household they own through the `Users` service on the app runtime (plan e2 P14); the invite
+ * part uses it since E2-T07, the OAuth part still uses the bridges until E2-T08.
  */
 function userOwningHousehold(input: CreateUserInput, householdName: string) {
   return runTest(
@@ -710,8 +708,10 @@ describe("OAuth", () => {
 
 describe("household invites", () => {
   async function createInvite(options: { role?: "admin" | "member"; expiresAt?: number } = {}) {
-    const inviter = await createUser(db, { email: uniqueEmail("inviter"), name: "Einladende" });
-    const { householdId } = await createOwnedHousehold(db, inviter.id, "Einladungsgruppe");
+    const { user: inviter, householdId } = await userOwningHousehold(
+      { email: uniqueEmail("inviter"), name: "Einladende" },
+      "Einladungsgruppe",
+    );
     const token = generateInviteToken();
     await db.insert(householdInvites).values({
       id: crypto.randomUUID(),
@@ -752,13 +752,18 @@ describe("household invites", () => {
 
   test("accepting twice is idempotent and keeps the role", async () => {
     const { token, householdId } = await createInvite({ role: "member" });
-    const user = await createUser(db, { email: uniqueEmail("joiner"), name: "Beitreter" });
-
-    const first = await acceptInvite(db, token, user.id);
+    const { user, first, second } = await runTest(
+      Effect.gen(function* () {
+        const user = yield* (yield* Users).createUser({ email: uniqueEmail("joiner"), name: "Beitreter" });
+        const invites = yield* AuthInvites;
+        const first = yield* invites.acceptInvite(token, user.id);
+        const second = yield* invites.acceptInvite(token, user.id);
+        return { user, first, second };
+      }),
+    );
     expect(first.alreadyMember).toBe(false);
     expect(first.householdId).toBe(householdId);
 
-    const second = await acceptInvite(db, token, user.id);
     expect(second.alreadyMember).toBe(true);
     expect(second.memberId).toBe(first.memberId);
 
@@ -791,11 +796,17 @@ describe("household invites", () => {
 
   test("a token already redeemed by somebody else is invalid", async () => {
     const { token } = await createInvite();
-    const first = await createUser(db, { email: uniqueEmail("first"), name: "Erste" });
-    await acceptInvite(db, token, first.id);
+    const error = await runTest(
+      Effect.gen(function* () {
+        const users = yield* Users;
+        const invites = yield* AuthInvites;
+        const first = yield* users.createUser({ email: uniqueEmail("first"), name: "Erste" });
+        yield* invites.acceptInvite(token, first.id);
 
-    const second = await createUser(db, { email: uniqueEmail("second"), name: "Zweite" });
-    const error = await acceptInvite(db, token, second.id).catch((err: unknown) => err);
+        const second = yield* users.createUser({ email: uniqueEmail("second"), name: "Zweite" });
+        return yield* Effect.flip(invites.acceptInvite(token, second.id));
+      }),
+    );
     expect(error).toBeInstanceOf(ApiError);
     expect((error as ApiError).code).toBe("invite_invalid");
   });
