@@ -204,10 +204,12 @@ describe("ImportHttp.fetchImage", () => {
     expect(scripted.requests).toHaveLength(1);
   });
 
-  test("answers undefined for a page labelled as HTML", async () => {
+  test("hands the bytes over whatever the Content-Type label says (the caller sniffs the magic bytes)", async () => {
     setImportGuardForTests({ resolve: createResolver() });
-    const scripted = createScriptedFetch({ "https://cdn.example/x.png": { body: "<html>error</html>" } });
-    expect(await imageOf(scripted.fetch, "https://cdn.example/x.png")).toBeUndefined();
+    for (const label of ["text/plain", "application/xml", "text/xml", "text/html"]) {
+      const recorder = recordingFetch(() => new Response(png, { headers: { "content-type": label } }));
+      expect(await imageOf(recorder.fetch, "https://cdn.example/x.png"), label).toEqual(png);
+    }
   });
 
   test("answers undefined for a guard refusal and never requests it", async () => {

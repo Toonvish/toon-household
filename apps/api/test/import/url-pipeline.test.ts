@@ -191,6 +191,24 @@ describe("downloadHeroImage", () => {
     expect(await downloadHeroImage("https://cdn.example/x.png", fetchImpl)).toBeUndefined();
   });
 
+  test("stores a real image served with a text-like Content-Type (the magic bytes decide, not the label)", async () => {
+    const png = await makeTestPng(64, 64);
+    for (const label of ["text/plain", "application/xml", "text/xml", "text/html", "application/octet-stream"]) {
+      const fetchImpl = (async () =>
+        new Response(png, { headers: { "content-type": label } })) as unknown as typeof fetch;
+      const result = await downloadHeroImage("https://cdn.example/x.png", fetchImpl);
+      expect(result?.size, label).toBe(png.byteLength);
+    }
+  });
+
+  test("refuses an HTML error page served as text/html or text/plain", async () => {
+    for (const label of ["text/html", "text/plain"]) {
+      const fetchImpl = (async () =>
+        new Response("<html>404</html>", { headers: { "content-type": label } })) as unknown as typeof fetch;
+      expect(await downloadHeroImage("https://cdn.example/x.png", fetchImpl), label).toBeUndefined();
+    }
+  });
+
   test("refuses an image from a private host", async () => {
     const fetchImpl = (async () => {
       throw new Error("should never be called");

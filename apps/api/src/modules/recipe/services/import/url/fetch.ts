@@ -346,9 +346,9 @@ const fetchImageBytes = Effect.fnUntraced(function* (
   // The guard checks the FIRST URL only: the CDN redirects of an image are followed by fetch itself.
   const target = yield* checkPublicUrl(url, guard);
   const response = yield* send(client, imageRequest(target.href, options.refererUrl), "follow");
-  // A non-2xx status or a page labelled HTML (an error page served with 200) is no photo; the bytes of anything else
-  // are judged by their magic bytes, by the caller, not by the label.
-  if (!isSuccess(response) || HTML_CONTENT_TYPE_RE.test(response.headers["content-type"] ?? "")) {
+  // A non-2xx status is no photo; the bytes of anything else are judged by their magic bytes, by the caller, never by
+  // the Content-Type label (a real JPEG served as `text/plain` by a misconfigured bucket is still stored, as before).
+  if (!isSuccess(response)) {
     yield* discard(response);
     return undefined;
   }
