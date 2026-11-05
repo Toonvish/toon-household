@@ -32,14 +32,22 @@
  *
  * No module-scope code beyond imports and constants (decision 5); the library takes the target
  * from the context and never uses the shared `db`.
+ *
+ * On Effect (docs/EFFECT.md E7, E10; plan `docs/plans/e5-scripts.md` P9): `migrateUsersEffect` is the
+ * step, `migrateUsers` its Promise bridge. Every database call goes through `legacyTry` / `readAll` /
+ * `loadAll` / `copyTable` / `writeEntries`, so a driver failure is a `DatabaseError` that propagates
+ * (the bridge rejects with the raw driver error, as before); this file recovers from nothing
+ * (`legacy-users.test.ts` reads its text).
  */
-import { copyTable, type WriteEntry, writeEntries } from "./copy.ts";
+import { Effect } from "effect";
+import { copyTable, type CopyProgrammingError, type WriteEntry, writeEntries } from "./copy.ts";
 import { loadAll } from "./ledger.ts";
 import { readAll } from "./sources.ts";
 import { emailVerificationTokens, oauthAccounts, passwordResetTokens, users } from "../../src/db/schema.ts";
+import type { DatabaseError } from "../../src/lib/errors.ts";
 import { normalizeStoredUploadUrl } from "../../src/lib/uploadUrls.ts";
 import type { LegacySource, MigrationContext, Row, TableCount, UserCollision } from "./types.ts";
-import { runLegacy } from "./io.ts";
+import { legacyTry, runLegacy } from "./io.ts";
 
 /** The note of a collision whose recipe account has no password (decision 9). */
 export const OAUTH_ONLY_NOTE = "finance password not carried (recipe account is OAuth-only; use password reset)";
@@ -136,17 +144,24 @@ function financeUserRow(row: Row, id: string, email: string): Row {
   };
 }
 
-async function readUsers(ctx: MigrationContext, source: LegacySource): Promise<Row[]> {
+const readUsers = Effect.fnUntraced(function* (
+  ctx: MigrationContext,
+  source: LegacySource,
+): Effect.fn.Return<Row[], DatabaseError> {
   const legacy = ctx[source];
-  return legacy ? runLegacy(readAll(legacy, "SELECT * FROM users ORDER BY rowid")) : [];
-}
+  return legacy ? yield* readAll(legacy, "SELECT * FROM users ORDER BY rowid") : [];
+});
 
-async function scalar(ctx: MigrationContext, source: LegacySource, sql: string): Promise<number> {
+const scalar = Effect.fnUntraced(function* (
+  ctx: MigrationContext,
+  source: LegacySource,
+  sql: string,
+): Effect.fn.Return<number, DatabaseError> {
   const legacy = ctx[source];
   if (!legacy) return 0;
-  const rows = await runLegacy(readAll(legacy, sql));
+  const rows = yield* readAll(legacy, sql);
   return Number(rows[0]?.n ?? 0);
-}
+});
 
 /**
  * Migrates `users` of both sources (union by e-mail), then R's `oauth_accounts`,
@@ -154,13 +169,15 @@ async function scalar(ctx: MigrationContext, source: LegacySource, sql: string):
  * of the report and the "not migrated by design" entries for the sessions and F's reset tokens.
  * Idempotent: users already in the ledger only fill the id maps.
  */
-export async function migrateUsers(ctx: MigrationContext): Promise<void> {
+export const migrateUsersEffect = Effect.fn("legacy.migrateUsers")(function* (
+  ctx: MigrationContext,
+): Effect.fn.Return<void, CopyProgrammingError | DatabaseError> {
   const { target, report } = ctx;
-  const recipeRows = await readUsers(ctx, "recipe");
-  const financeRows = await readUsers(ctx, "finance");
+  const recipeRows = yield* readUsers(ctx, "recipe");
+  const financeRows = yield* readUsers(ctx, "finance");
   const ledger: Record<LegacySource, Map<string, string>> = {
-    recipe: await runLegacy(loadAll(target.client, "users", "recipe")),
-    finance: await runLegacy(loadAll(target.client, "users", "finance")),
+    recipe: yield* loadAll(target.client, "users", "recipe"),
+    finance: yield* loadAll(target.client, "users", "finance"),
   };
 
   // Union by normalised e-mail. Map order = every recipe user first, then the finance-only ones.
@@ -188,11 +205,12 @@ export async function migrateUsers(ctx: MigrationContext): Promise<void> {
   const entries: WriteEntry[] = [];
   const collisions: { group: UserGroup; entry: WriteEntry | null; knownTarget: string | null; note?: string }[] = [];
 
-  const idTaken = async (id: string): Promise<boolean> => {
-    if (claimed.has(id)) return true;
-    const result = await target.client.execute({ sql: "SELECT 1 FROM users WHERE id = ? LIMIT 1", args: [id] });
-    return result.rows.length > 0;
-  };
+  const idTaken = (id: string): Effect.Effect<boolean, DatabaseError> =>
+    claimed.has(id)
+      ? Effect.succeed(true)
+      : legacyTry(() => target.client.execute({ sql: "SELECT 1 FROM users WHERE id = ? LIMIT 1", args: [id] })).pipe(
+          Effect.map((result) => result.rows.length > 0),
+        );
 
   for (const group of groups.values()) {
     const refs: LegacyRef[] = [
@@ -220,10 +238,12 @@ export async function migrateUsers(ctx: MigrationContext): Promise<void> {
       const recipeArrives = unmapped.some((ref) => ref.source === "recipe");
       const recipeMapped = mapped.some((ref) => ref.source === "recipe");
       if (recipeArrives && !recipeMapped) {
-        const targetRow = await target.client.execute({
-          sql: "SELECT email_verified_at FROM users WHERE id = ? LIMIT 1",
-          args: [known],
-        });
+        const targetRow = yield* legacyTry(() =>
+          target.client.execute({
+            sql: "SELECT email_verified_at FROM users WHERE id = ? LIMIT 1",
+            args: [known],
+          }),
+        );
         const verifiedAt = targetRow.rows[0]?.email_verified_at;
         if (targetRow.rows[0] && (verifiedAt === null || verifiedAt === undefined)) {
           const reason = `unverified target account ${group.email} blocks the merge`;
@@ -249,10 +269,12 @@ export async function migrateUsers(ctx: MigrationContext): Promise<void> {
       continue;
     }
 
-    const existing = await target.client.execute({
-      sql: "SELECT id, email_verified_at FROM users WHERE lower(email) = ? LIMIT 1",
-      args: [group.email],
-    });
+    const existing = yield* legacyTry(() =>
+      target.client.execute({
+        sql: "SELECT id, email_verified_at FROM users WHERE lower(email) = ? LIMIT 1",
+        args: [group.email],
+      }),
+    );
     const existingRow = existing.rows[0];
     if (existingRow) {
       if (existingRow.email_verified_at === null || existingRow.email_verified_at === undefined) {
@@ -284,7 +306,7 @@ export async function migrateUsers(ctx: MigrationContext): Promise<void> {
     const primary = group.recipe[0];
     const preferred = primary ? str(primary.id) : str(group.finance?.id);
     let id = preferred;
-    if (await idTaken(preferred)) {
+    if (yield* idTaken(preferred)) {
       id = crypto.randomUUID();
       const origin = primary ? "recipe" : "finance";
       report.warnings.push(
@@ -326,7 +348,7 @@ export async function migrateUsers(ctx: MigrationContext): Promise<void> {
       continue;
     }
     let id = legacyId;
-    if (await idTaken(legacyId)) {
+    if (yield* idTaken(legacyId)) {
       id = crypto.randomUUID();
       report.warnings.push(`placeholder ${legacyId} (finance id): the id is already taken in the target, new id ${id}`);
     }
@@ -345,7 +367,7 @@ export async function migrateUsers(ctx: MigrationContext): Promise<void> {
   const skippedBefore = report.skipped.length;
   const errorsBefore = report.errors.length;
   const scratch = newCount("recipe");
-  const written = await runLegacy(writeEntries(ctx, users, entries, scratch));
+  const written = yield* writeEntries(ctx, users, entries, scratch);
   const failureReasons = new Map<string, string>();
   for (const row of report.skipped.splice(skippedBefore)) failureReasons.set(row.legacyId, row.reason);
   report.errors.length = errorsBefore;
@@ -402,7 +424,7 @@ export async function migrateUsers(ctx: MigrationContext): Promise<void> {
   if (ctx.recipe) {
     const mapUser = (row: Row): string | null => ctx.ids.users.recipe.get(str(row.user_id)) ?? null;
     const unmapped = (row: Row) => ({ skip: `user ${str(row.user_id)} not migrated`, error: true });
-    await runLegacy(copyTable(ctx, {
+    yield* copyTable(ctx, {
       source: "recipe",
       legacyTable: "oauth_accounts",
       target: oauthAccounts,
@@ -410,12 +432,12 @@ export async function migrateUsers(ctx: MigrationContext): Promise<void> {
         const userId = mapUser(row);
         return userId === null ? unmapped(row) : { ...row, user_id: userId };
       },
-    }));
+    });
     for (const [legacyTable, table] of [
       ["password_reset_tokens", passwordResetTokens],
       ["email_verification_tokens", emailVerificationTokens],
     ] as const) {
-      await runLegacy(copyTable(ctx, {
+      yield* copyTable(ctx, {
         source: "recipe",
         legacyTable,
         target: table,
@@ -423,24 +445,35 @@ export async function migrateUsers(ctx: MigrationContext): Promise<void> {
           const userId = mapUser(row);
           return userId === null ? unmapped(row) : { ...row, user_id: userId };
         },
-      }));
+      });
     }
   }
 
-  // Not migrated by design (decision 12); replaced, not appended, on a second call.
-  const notMigrated = [
-    ...(ctx.recipe
-      ? [{ table: "sessions", source: "recipe" as const, rows: await scalar(ctx, "recipe", "SELECT count(*) AS n FROM sessions"), reason: "everyone logs in again" }]
-      : []),
-    ...(ctx.finance
-      ? [
-          { table: "sessions", source: "finance" as const, rows: await scalar(ctx, "finance", "SELECT count(*) AS n FROM sessions"), reason: "everyone logs in again" },
-          { table: "password_reset_tokens", source: "finance" as const, rows: await scalar(ctx, "finance", "SELECT count(*) AS n FROM password_reset_tokens"), reason: "short-lived tokens; request a new reset link" },
-        ]
-      : []),
-  ];
+  // Not migrated by design (decision 12); replaced, not appended, on a second call. Read in the
+  // old order: recipe sessions, finance sessions, finance reset tokens.
+  const notMigrated: { table: string; source: LegacySource; rows: number; reason: string }[] = [];
+  if (ctx.recipe) {
+    notMigrated.push({ table: "sessions", source: "recipe", rows: yield* scalar(ctx, "recipe", "SELECT count(*) AS n FROM sessions"), reason: "everyone logs in again" });
+  }
+  if (ctx.finance) {
+    notMigrated.push(
+      { table: "sessions", source: "finance", rows: yield* scalar(ctx, "finance", "SELECT count(*) AS n FROM sessions"), reason: "everyone logs in again" },
+      { table: "password_reset_tokens", source: "finance", rows: yield* scalar(ctx, "finance", "SELECT count(*) AS n FROM password_reset_tokens"), reason: "short-lived tokens; request a new reset link" },
+    );
+  }
   report.notMigrated = report.notMigrated.filter(
     (item) => !notMigrated.some((n) => n.table === item.table && n.source === item.source),
   );
   report.notMigrated.push(...notMigrated);
+});
+
+/* legacy bridges: the pinned legacy-cli and legacy-placeholders tests and legacy-harness.ts; E8 removes them */
+
+/**
+ * The Promise form of {@link migrateUsersEffect}. Callers: `apps/api/test/legacy-cli.test.ts`,
+ * `apps/api/test/legacy-users.test.ts`, `apps/api/test/legacy-households.test.ts`, `apps/api/test/legacy-recipe.test.ts`,
+ * `apps/api/test/legacy-finance.test.ts`, `apps/api/test/finance-scheduler.test.ts`.
+ */
+export function migrateUsers(ctx: MigrationContext): Promise<void> {
+  return runLegacy(migrateUsersEffect(ctx));
 }

@@ -26,16 +26,21 @@
  * No module-scope code beyond imports and constants (plan m5 decision 5); the target comes from the
  * context, never the shared `db`. `invites.ts` is imported after the CLI's redirect like every
  * library file (the CLI loads this file dynamically through `run.ts`).
+ *
+ * On Effect (docs/EFFECT.md E7, E10; plan `docs/plans/e5-scripts.md` P6, P9): `migrateClaimInvites` is an
+ * Effect function in place (no Promise bridge: no test calls it); the run time comes from the `Clock`.
  */
+import { Clock, Effect } from "effect";
 import { generateInviteToken, INVITE_TTL_MS } from "../../src/core/services/auth/invites.ts";
 import { householdInvites } from "../../src/db/schema.ts";
-import { recordSkip, type WriteEntry, writeEntries } from "./copy.ts";
+import type { DatabaseError } from "../../src/lib/errors.ts";
+import { type CopyProgrammingError, recordSkip, type WriteEntry, writeEntries } from "./copy.ts";
 import { lookupMany } from "./ledger.ts";
 import { addCount } from "./report.ts";
 import { readAll } from "./sources.ts";
 import { isLegacyPlaceholder } from "./users.ts";
 import type { MigrationContext, PlaceholderEntry, Row, TableCount } from "./types.ts";
-import { runLegacy } from "./io.ts";
+import { legacyTry } from "./io.ts";
 
 /** The ledger's `table` of a claim invite (the target table's SQL name). */
 const LEDGER_TABLE = "household_invites";
@@ -69,13 +74,15 @@ interface Planned {
  * Migrates one claim invite per placeholder and fills `ctx.report.placeholders`. Idempotent through
  * the ledger; a second apply writes nothing and re-reads the pending link.
  */
-export async function migrateClaimInvites(ctx: MigrationContext): Promise<void> {
+export const migrateClaimInvites = Effect.fn("legacy.migrateClaimInvites")(function* (
+  ctx: MigrationContext,
+): Effect.fn.Return<void, CopyProgrammingError | DatabaseError> {
   const { finance, target, report } = ctx;
   if (!finance) return;
-  const runTime = Date.now();
+  const runTime = yield* Clock.currentTimeMillis;
   const showLinks = ctx.mode === "apply" && ctx.webOrigin !== undefined && ctx.webOrigin !== "";
 
-  const placeholderRows = (await runLegacy(readAll(finance, "SELECT id, password_hash FROM users ORDER BY rowid"))).filter(
+  const placeholderRows = (yield* readAll(finance, "SELECT id, password_hash FROM users ORDER BY rowid")).filter(
     isLegacyPlaceholder,
   );
   const count: TableCount = {
@@ -88,35 +95,39 @@ export async function migrateClaimInvites(ctx: MigrationContext): Promise<void> 
   };
   report.placeholders = [];
   if (placeholderRows.length > 0) {
-    const memberRows = await runLegacy(readAll(
+    const memberRows = yield* readAll(
       finance,
       "SELECT household_id, user_id, member_slot, joined_at FROM household_members ORDER BY joined_at, household_id",
-    ));
-    const claimRows = await runLegacy(readAll(
+    );
+    const claimRows = yield* readAll(
       finance,
       "SELECT * FROM invites WHERE claims_user_id IS NOT NULL ORDER BY created_at DESC, rowid DESC",
-    ));
-    const ledger = await runLegacy(lookupMany(
+    );
+    const ledger = yield* lookupMany(
       target.client,
       LEDGER_TABLE,
       "finance",
       placeholderRows.map((row) => claimLedgerKey(str(row.id))),
-    ));
-    const ownerOf = async (householdId: string): Promise<string | undefined> => {
-      const result = await target.client.execute({
-        sql: "SELECT user_id FROM household_members WHERE household_id = ? AND role = 'owner' ORDER BY created_at, id LIMIT 1",
-        args: [householdId],
-      });
-      const owner = result.rows[0]?.user_id;
-      return owner === undefined || owner === null ? undefined : str(owner);
-    };
-    const exists = async (column: "id" | "token", value: string): Promise<boolean> => {
-      const result = await target.client.execute({
-        sql: `SELECT 1 FROM household_invites WHERE ${column} = ? LIMIT 1`,
-        args: [value],
-      });
-      return result.rows.length > 0;
-    };
+    );
+    const ownerOf = (householdId: string): Effect.Effect<string | undefined, DatabaseError> =>
+      legacyTry(() =>
+        target.client.execute({
+          sql: "SELECT user_id FROM household_members WHERE household_id = ? AND role = 'owner' ORDER BY created_at, id LIMIT 1",
+          args: [householdId],
+        }),
+      ).pipe(
+        Effect.map((result) => {
+          const owner = result.rows[0]?.user_id;
+          return owner === undefined || owner === null ? undefined : str(owner);
+        }),
+      );
+    const exists = (column: "id" | "token", value: string): Effect.Effect<boolean, DatabaseError> =>
+      legacyTry(() =>
+        target.client.execute({
+          sql: `SELECT 1 FROM household_invites WHERE ${column} = ? LIMIT 1`,
+          args: [value],
+        }),
+      ).pipe(Effect.map((result) => result.rows.length > 0));
     const claimedIds = new Set<string>(); // invite ids decided in this run
     const claimedTokens = new Set<string>();
     const planned: Planned[] = [];
@@ -146,10 +157,12 @@ export async function migrateClaimInvites(ctx: MigrationContext): Promise<void> 
         count.alreadyMigrated += 1;
         entry.inviteId = knownInviteId;
         if (showLinks) {
-          const result = await target.client.execute({
-            sql: "SELECT token, status, expires_at FROM household_invites WHERE id = ?",
-            args: [knownInviteId],
-          });
+          const result = yield* legacyTry(() =>
+            target.client.execute({
+              sql: "SELECT token, status, expires_at FROM household_invites WHERE id = ?",
+              args: [knownInviteId],
+            }),
+          );
           const invite = result.rows[0];
           if (invite && str(invite.status) === "pending" && num(invite.expires_at) > runTime) {
             entry.inviteUrl = claimInviteUrl(ctx.webOrigin as string, str(invite.token));
@@ -164,7 +177,7 @@ export async function migrateClaimInvites(ctx: MigrationContext): Promise<void> 
         recordSkip(ctx, count, key, `placeholder ${legacyUserId}: none of its finance households was migrated, no claim invite`, false);
         continue;
       }
-      const owner = await ownerOf(targetHouseholdId);
+      const owner = yield* ownerOf(targetHouseholdId);
       if (owner === undefined) {
         entry.claimInvite = "failed";
         recordSkip(ctx, count, key, `placeholder ${legacyUserId}: target household ${targetHouseholdId} has no owner`, true);
@@ -185,14 +198,14 @@ export async function migrateClaimInvites(ctx: MigrationContext): Promise<void> 
       if (legacy) {
         const legacyInviteId = str(legacy.id);
         let id = legacyInviteId;
-        if (claimedIds.has(id) || (await exists("id", id))) {
+        if (claimedIds.has(id) || (yield* exists("id", id))) {
           id = crypto.randomUUID();
           report.warnings.push(
             `claim invite ${legacyInviteId} (finance id) of placeholder ${legacyUserId}: the id is already taken in the target, new id ${id}`,
           );
         }
         let token = str(legacy.token);
-        if (claimedTokens.has(token) || (await exists("token", token))) {
+        if (claimedTokens.has(token) || (yield* exists("token", token))) {
           token = generateInviteToken();
           report.warnings.push(
             `claim invite ${legacyInviteId} (finance id) of placeholder ${legacyUserId}: its token is already used in the target, a fresh token was minted (the old link no longer works)`,
@@ -241,7 +254,7 @@ export async function migrateClaimInvites(ctx: MigrationContext): Promise<void> 
       });
     }
 
-    const written = new Set(await runLegacy(writeEntries(ctx, householdInvites, planned.map((p) => p.entry), count)));
+    const written = new Set(yield* writeEntries(ctx, householdInvites, planned.map((p) => p.entry), count));
     for (const item of planned) {
       if (!written.has(item.entry)) {
         item.report.claimInvite = "failed";
@@ -260,8 +273,8 @@ export async function migrateClaimInvites(ctx: MigrationContext): Promise<void> 
 
   // F's other invites stay "not migrated by design"; a legacy claim invite reused as a placeholder's
   // claim invite (in this run or an earlier one: its ledger entry) is migrated and not counted.
-  const inviteIds = (await runLegacy(readAll(finance, "SELECT id FROM invites"))).map((row) => str(row.id));
-  const migrated = await runLegacy(lookupMany(target.client, LEDGER_TABLE, "finance", inviteIds));
+  const inviteIds = (yield* readAll(finance, "SELECT id FROM invites")).map((row) => str(row.id));
+  const migrated = yield* lookupMany(target.client, LEDGER_TABLE, "finance", inviteIds);
   const notMigrated = report.notMigrated.find((item) => item.table === "invites" && item.source === "finance");
   if (notMigrated) notMigrated.rows = inviteIds.length - migrated.size;
-}
+});
