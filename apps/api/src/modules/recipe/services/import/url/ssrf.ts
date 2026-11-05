@@ -4,7 +4,7 @@
  * The user controls the URL we fetch, so the API must never be turned into a
  * proxy into the private network (cloud metadata endpoints, internal admin
  * panels, `file://`, …). Every candidate URL — the original one AND every
- * redirect Location — goes through `assertPublicUrl()`.
+ * redirect Location — goes through `checkPublicUrl()` (a service-free Effect; `assertPublicUrl()` is its Promise form).
  *
  * Two layers:
  *   1. syntactic — scheme allow-list, hostname deny-list, literal IP checks,
@@ -16,24 +16,26 @@
  * pinned-IP HTTP client; the deny-list above blocks every realistic attack.
  */
 import { serverText } from "@toon/shared";
+import { Effect, Predicate, Schema } from "effect";
 import { lookup } from "node:dns/promises";
 import { env } from "../../../../../env.ts";
-import { ApiError, type ErrorText } from "../../../../../lib/errors.ts";
+import type { ErrorText } from "../../../../../lib/errors.ts";
 
-export class SsrfError extends Error {
-  readonly reason: string;
-  readonly text: ErrorText;
-  constructor(reason: string, text: ErrorText) {
-    // English: this is what lands in the log, same rule as ApiError.
-    super(serverText("en", text));
-    this.name = "SsrfError";
-    this.reason = reason;
-    this.text = text;
-  }
+/** The `text` field: an `ErrorText`, accepted as any string or object at runtime like the family's own (`lib/errors.ts`). */
+const SsrfText = Schema.declare<ErrorText>((u): u is ErrorText => Predicate.isString(u) || Predicate.isObject(u));
 
-  /** Maps to a 400 `fetch_failed` — the URL is unusable, not our bug. */
-  toApiError(): ApiError {
-    return new ApiError(400, "fetch_failed", this.text, { reason: this.reason });
+/**
+ * The guard refused a URL (`reason` is the stable machine token, `text` the catalog message). A tagged error OUTSIDE the
+ * API family (docs/EFFECT.md E6; plan `docs/plans/e3-recipe-services.md` P8): `ImportHttp` maps it once to a 400
+ * `fetch_failed` with `details: { reason }`; `assertPublicUrl` rejects with it as is.
+ */
+export class SsrfError extends Schema.TaggedError<SsrfError>()("SsrfError", {
+  reason: Schema.String,
+  text: SsrfText,
+}) {
+  // English: this is what lands in the log, same rule as the API family.
+  override get message(): string {
+    return serverText("en", this.text);
   }
 }
 
@@ -247,89 +249,139 @@ export function isBlockedHostname(hostname: string): boolean {
   return BLOCKED_SUFFIXES.some((suffix) => host.endsWith(suffix));
 }
 
+/** What a DNS resolver answers; injectable, must behave like `dns.promises.lookup(host, { all: true })`. */
+export type Resolver = (hostname: string) => Promise<Array<{ address: string; family: number }>>;
+
 export interface AssertPublicUrlOptions {
-  /**
-   * DNS resolver, injectable for tests. Must behave like
-   * `dns.promises.lookup(host, { all: true })`.
-   */
-  resolve?: (hostname: string) => Promise<Array<{ address: string; family: number }>>;
+  /** DNS resolver, injectable for tests. */
+  resolve?: Resolver;
   /** Skip DNS entirely (used when the caller already resolved the host). */
   skipDns?: boolean;
 }
 
-const defaultResolve = async (hostname: string): Promise<Array<{ address: string; family: number }>> =>
-  await lookup(hostname, { all: true, verbatim: true });
+/** What `checkPublicUrl` runs under (plan e3 P10): the options of the Promise entry point plus the two allowances. */
+export interface SsrfGuard {
+  /**
+   * The development-only escape hatch (`AppConfig.allowPrivateImportHosts`): the guard returns right after the
+   * scheme, credential and empty-host checks and skips every host check, whatever the host.
+   */
+  readonly allowPrivateHosts: boolean;
+  /**
+   * An exact-host allow list (the test seam of `fetch.ts`): a URL whose lower-cased, bracket-stripped hostname is listed
+   * passes after the same three checks; EVERY OTHER host still runs every check.
+   */
+  readonly allowHosts: ReadonlySet<string>;
+  readonly resolve?: Resolver;
+  readonly skipDns?: boolean;
+}
+
+const defaultResolve: Resolver = async (hostname) => await lookup(hostname, { all: true, verbatim: true });
+
+/** The URL `input` parses to, or `undefined` for a malformed one. */
+function parseUrl(input: string): URL | undefined {
+  try {
+    return new URL(input);
+  } catch {
+    return undefined;
+  }
+}
 
 /**
- * Validates a user-supplied URL for outbound fetching.
+ * Validates a user-supplied URL for outbound fetching: the same checks, in the same order, with the same reasons and
+ * texts as the Promise form. Service-free (R = never); the DNS lookup is the only asynchronous step.
  *
- * @throws SsrfError when the URL is malformed, uses a forbidden scheme, points
- *   at a denied hostname, or resolves to a private/link-local address.
- * @returns the parsed URL (normalised) when it is safe to fetch.
+ * Fails with `SsrfError` when the URL is malformed, uses a forbidden scheme, points at a denied hostname, or resolves
+ * to a private/link-local address; succeeds with the parsed URL (normalised) when it is safe to fetch.
  */
-export async function assertPublicUrl(input: string, options: AssertPublicUrlOptions = {}): Promise<URL> {
-  let url: URL;
-  try {
-    url = new URL(input);
-  } catch {
-    throw new SsrfError("invalid_url", "server.import.urlInvalid");
-  }
+export const checkPublicUrl = Effect.fnUntraced(function* (input: string, guard: SsrfGuard) {
+  const url = parseUrl(input);
+  if (url === undefined) return yield* new SsrfError({ reason: "invalid_url", text: "server.import.urlInvalid" });
 
   if (!ALLOWED_PROTOCOLS.has(url.protocol)) {
-    throw new SsrfError("bad_scheme", { key: "server.import.schemeNotAllowed", values: { protocol: url.protocol } });
+    return yield* new SsrfError({
+      reason: "bad_scheme",
+      text: { key: "server.import.schemeNotAllowed", values: { protocol: url.protocol } },
+    });
   }
 
   // Credentials in the URL are a classic way to confuse redirect targets.
   if (url.username.length > 0 || url.password.length > 0) {
-    throw new SsrfError("credentials_in_url", "server.import.credentialsInUrl");
+    return yield* new SsrfError({ reason: "credentials_in_url", text: "server.import.credentialsInUrl" });
   }
 
   const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  if (hostname.length === 0) throw new SsrfError("no_host", "server.import.noHostname");
+  if (hostname.length === 0) return yield* new SsrfError({ reason: "no_host", text: "server.import.noHostname" });
 
   /**
    * Development-only escape hatch (`IMPORT_ALLOW_PRIVATE_HOSTS=1`, ignored when
    * NODE_ENV=production, never set under `bun test`): allows importing from a
    * fixture served on 127.0.0.1. Scheme and credential checks above still apply.
    */
-  if (env.allowPrivateImportHosts) {
-    warnPrivateHostsAllowed();
+  if (guard.allowPrivateHosts) {
+    yield* Effect.sync(warnPrivateHostsAllowed);
     return url;
   }
 
+  // The test seam's exact-host list: this host only, never a pattern, never another host.
+  if (guard.allowHosts.has(hostname)) return url;
+
   if (isBlockedHostname(hostname)) {
-    throw new SsrfError("blocked_host", { key: "server.import.blockedHost", values: { hostname } });
+    return yield* new SsrfError({
+      reason: "blocked_host",
+      text: { key: "server.import.blockedHost", values: { hostname } },
+    });
   }
   if (isPrivateAddress(hostname)) {
-    throw new SsrfError("private_ip", { key: "server.import.privateIp", values: { hostname } });
+    return yield* new SsrfError({
+      reason: "private_ip",
+      text: { key: "server.import.privateIp", values: { hostname } },
+    });
   }
 
   // Anything numeric-looking that got this far is refused: an IP literal is
   // never a legitimate recipe URL, and the octal/hex/decimal shorthands
   // (0177.0.0.1, 2130706433, 0x7f000001) exist only to smuggle past filters.
   if (/^[0-9]+$/.test(hostname) || /^0[xX][0-9a-fA-F]+$/.test(hostname) || /^[0-9.]+$/.test(hostname)) {
-    throw new SsrfError("suspicious_host", { key: "server.import.suspiciousHost", values: { hostname } });
+    return yield* new SsrfError({
+      reason: "suspicious_host",
+      text: { key: "server.import.suspiciousHost", values: { hostname } },
+    });
   }
 
-  if (options.skipDns === true) return url;
+  if (guard.skipDns === true) return url;
 
-  const resolver = options.resolve ?? defaultResolve;
-  let records: Array<{ address: string; family: number }>;
-  try {
-    records = await resolver(hostname);
-  } catch {
-    throw new SsrfError("dns_failed", { key: "server.import.dnsFailed", values: { hostname } });
-  }
-  if (records.length === 0) {
-    throw new SsrfError("dns_failed", { key: "server.import.dnsFailed", values: { hostname } });
-  }
+  const resolver = guard.resolve ?? defaultResolve;
+  const dnsFailed = () =>
+    new SsrfError({ reason: "dns_failed", text: { key: "server.import.dnsFailed", values: { hostname } } });
+  const records = yield* Effect.tryPromise({ try: () => resolver(hostname), catch: dnsFailed });
+  if (records.length === 0) return yield* dnsFailed();
   for (const record of records) {
     if (isPrivateAddress(record.address)) {
-      throw new SsrfError("private_ip", {
-        key: "server.import.dnsPointsToPrivateIp",
-        values: { hostname, address: record.address },
+      return yield* new SsrfError({
+        reason: "private_ip",
+        text: { key: "server.import.dnsPointsToPrivateIp", values: { hostname, address: record.address } },
       });
     }
   }
   return url;
+});
+
+/** The guard of the Promise entry points (outside the runtime, so `env`): the configured escape hatch, no allow list. */
+export function entryGuard(options: AssertPublicUrlOptions): SsrfGuard {
+  return {
+    allowPrivateHosts: env.allowPrivateImportHosts,
+    allowHosts: new Set(),
+    ...(options.resolve === undefined ? {} : { resolve: options.resolve }),
+    ...(options.skipDns === undefined ? {} : { skipDns: options.skipDns }),
+  };
+}
+
+/**
+ * Promise entry point of `checkPublicUrl` (the pinned `ssrf.test.ts`, `image.ts` until E3-T05): runs it outside the
+ * runtime, so it reads `env.allowPrivateImportHosts` itself.
+ *
+ * Rejects with the `SsrfError` itself; resolves with the parsed URL when it is safe to fetch.
+ */
+export function assertPublicUrl(input: string, options: AssertPublicUrlOptions = {}): Promise<URL> {
+  return Effect.runPromise(checkPublicUrl(input, entryGuard(options)));
 }

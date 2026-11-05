@@ -219,8 +219,27 @@ Applied at (milestone in brackets; paths exist now unless marked new):
 
 - `apps/api/src/lib/oauth.ts` (Google userinfo, GitHub user and emails) and `apps/api/src/core/services/mail/resend.ts` (Resend POST):
   today `fetch`, to a service-held `HttpClient` with `filterStatusOk` and a mapped `Schema.TaggedError` (EFFECT.md names no milestone for these two; E3 to E5 or later).
-- `apps/api/src/modules/recipe/services/import/` (URL fetch, `url/`, image localisation): an SSRF-guarded client built with
-  `HttpClient.mapRequestEffect` over `FetchHttpClient.layer`, refusals as tagged errors the ssrf tests pin [E3].
+- `apps/api/src/modules/recipe/services/import/url/fetch.ts` and `ssrf.ts` (BUILT, E3-T03): the `ImportHttp` service. NOT a
+  `mapRequestEffect` guard and NOT `HttpClient.followRedirects`: the hop loop is the module's own, because every hop must
+  re-run the SSRF guard BEFORE its request. Per hop: `checkPublicUrl(url, guard)` (a service-free `Effect.fnUntraced`; the DNS
+  lookup is an `Effect.tryPromise` of an injectable resolver; failures are `SsrfError`, a `Schema.TaggedError` outside the API
+  family, mapped once to a 400 `fetch_failed` `ApiFailure` with `details.reason`), then ONE `client.execute(HttpClientRequest.get(...))`
+  wrapped in `Effect.provideService(FetchHttpClient.RequestInit, { redirect: "manual" })` (the per-call form of 2(e): the
+  layer merges the fiber's context over its own, so a service provided around the call wins) and
+  `Effect.provideService(HttpClient.TracerPropagationEnabled, false)` (no `traceparent` / `b3` to a third-party site; the test
+  asserts the five headers and nothing else reach the fetch). The layer is `Layer.effect(ImportHttp, gen).pipe(Layer.provide(
+  FetchHttpClient.layer))`; the core (`fetchHtmlWith(client, guard, url, limits)`, `fetchImageWith`) is service-free and also
+  runs behind the Promise entry point `fetchHtml` with `Effect.provide(FetchHttpClient.layer)` and `Effect.provideService(
+  FetchHttpClient.Fetch, fetchImpl)`; tests provide the scripted fetch the same way (the client hands `fetch` a `URL`, and its
+  `init.headers` is a plain lower-cased record: `new Headers(init.headers)` reads it). Facts found while building it:
+  a 3xx with `redirect: "manual"` is a SUCCESS (status 302, `response.headers["location"]`); a response body is read from
+  `response.stream` with `Stream.runForEachWhile` (return `false` to stop: the reader is cancelled and the request aborted when
+  the stream's scope closes), a null body fails the stream with an `EmptyBodyError` reason that the reader turns into empty
+  bytes; `Stream.take(0)` does NOT open the stream, so it cancels nothing: to discard a response pull one chunk and stop
+  (`runForEachWhile(() => Effect.succeed(false))`, bounded with `Effect.timeout`); the overall budget is `Effect.timeoutOrElse`
+  over the hop loop (interruption aborts the fetch through the client's signal). The seam `setImportGuardForTests({ allowHosts,
+  resolve } | null)` is an exact-host allow list and has deliberately no "allow private hosts" switch (it would skip the metadata
+  address's refusal too). Image localisation (`image.ts`) moves onto `ImportHttp.fetchImage` in E3-T05.
 - `apps/web/src/lib/api.ts`, `apps/web/src/modules/finance/lib/api.ts`, `apps/web/src/modules/recipe/features/import/lib/importApi.ts`
   (and a new `apps/web/src/lib/runtime.ts`): one client layer with `credentials: "include"` (2(e)), responses decoded with the shared
   `Schema`, the 401 handler as a `tap`/`catchTag` [E6].
