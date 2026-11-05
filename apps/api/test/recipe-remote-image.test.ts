@@ -2,25 +2,29 @@
  * Remote recipe images become local copies — `services/recipes/remoteImage.ts` on
  * every write path: recipe create and PATCH, the import commit, collection covers.
  *
- * The downloader is the real `downloadHeroImage` over a scripted `fetch` and a stub
- * DNS resolver (fully offline); a failing download keeps the remote URL. Stored
- * images are cleaned up.
+ * The downloader is the real `HeroImages.downloadHeroImage` over a scripted `fetch`
+ * (provided as `FetchHttpClient.Fetch`) and a stub DNS resolver (the `setImportGuardForTests`
+ * seam), fully offline; a failing download keeps the remote URL. Stored images are cleaned up.
  */
 import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, afterEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
+import { Effect } from "effect";
+import { FetchHttpClient } from "effect/http";
 import { db } from "../src/db/client.ts";
 import { runMigrations } from "../src/db/migrate.ts";
 import { collections, importDrafts, recipes, sessions, users } from "../src/db/schema.ts";
 import { env } from "../src/env.ts";
 import { app } from "../src/index.ts";
-import { downloadHeroImage } from "../src/modules/recipe/services/import/url/image.ts";
+import { setImportGuardForTests } from "../src/modules/recipe/services/import/url/fetch.ts";
+import { HeroImages } from "../src/modules/recipe/services/import/url/image.ts";
 import {
-  localizeImageUrl,
+  RemoteImages,
   setRemoteImageDownloaderForTests,
 } from "../src/modules/recipe/services/recipes/remoteImage.ts";
 import { createResolver, makeTestPng } from "./import/helpers.ts";
+import { runTest } from "./support/effect.ts";
 
 await runMigrations(db);
 
@@ -35,7 +39,7 @@ let requested: string[] = [];
 
 function installDownloader(): void {
   requested = [];
-  const resolve = createResolver();
+  setImportGuardForTests({ resolve: createResolver() });
   const fetchImpl = (async (input: string | URL | Request) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     if (url === REMOTE) return new Response(PNG, { headers: { "Content-Type": "image/png" } });
@@ -43,13 +47,23 @@ function installDownloader(): void {
   }) as typeof fetch;
   setRemoteImageDownloaderForTests(async (url) => {
     requested.push(url);
-    const image = await downloadHeroImage(url, { fetchImpl, resolve });
+    const image = await runTest(
+      HeroImages.use((images) => images.downloadHeroImage(url)).pipe(Effect.provideService(FetchHttpClient.Fetch, fetchImpl)),
+    );
     if (image) stored.add(image.filename);
     return image;
   });
 }
 
-afterEach(() => setRemoteImageDownloaderForTests(null));
+afterEach(() => {
+  setRemoteImageDownloaderForTests(null);
+  setImportGuardForTests(null);
+});
+
+/** `RemoteImages.localizeImageUrl` on the app runtime. */
+function localizeImageUrl(value: string | null | undefined, previous?: string | null) {
+  return runTest(RemoteImages.use((images) => images.localizeImageUrl(value, previous)));
+}
 afterAll(() => {
   for (const filename of stored) {
     rmSync(join(env.uploadDir, filename), { force: true });

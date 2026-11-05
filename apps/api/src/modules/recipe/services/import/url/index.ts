@@ -21,15 +21,17 @@ import type {
   ParsedRecipeConfidence,
   RecipeIngredient,
 } from "@toon/shared";
-import { ApiError } from "../../../../../lib/errors.ts";
+import { Clock, Context, Effect, Layer } from "effect";
+import { ApiFailure } from "../../../../../lib/errors.ts";
 import { type ElementNode, parseHtml } from "../html/parse.ts";
 import { type ParsedFields, adoptIngredientSections, finalizeParsed, mergeParsedFields } from "../parsed.ts";
 import { adaptersFor, normalizeHost } from "./adapters/index.ts";
-import { type FetchHtmlOptions, fetchHtml } from "./fetch.ts";
+import { type FetchLimits, ImportHttp } from "./fetch.ts";
 import { buildIdIndex, findRecipeNodes, extractJsonLd, resolveNodeReferences } from "./jsonld.ts";
 import { extractMetaFields, siteNameFromHost } from "./meta.ts";
 import { findMicrodataRecipe } from "./microdata.ts";
-import { downloadHeroImage, type DownloadHeroImageOptions } from "./image.ts";
+import { type DownloadHeroImageOptions, HeroImages } from "./image.ts";
+import { runtime } from "../../../../../runtime.ts";
 import { mapSchemaRecipe, scoreStructuredFields } from "./schema-map.ts";
 
 /** How many hero-image candidates may be tried before giving up. */
@@ -216,10 +218,10 @@ function safeHost(url: string): string {
   }
 }
 
-export interface ImportFromUrlOptions extends FetchHtmlOptions {
+export interface ImportFromUrlOptions extends FetchLimits {
   /** Set to false to keep the remote image URL instead of downloading it. */
-  downloadImage?: boolean;
-  imageOptions?: DownloadHeroImageOptions;
+  readonly downloadImage?: boolean | undefined;
+  readonly imageOptions?: DownloadHeroImageOptions | undefined;
 }
 
 export interface UrlImportResult {
@@ -231,54 +233,92 @@ export interface UrlImportResult {
   sourceUrl: string;
 }
 
-/**
- * Fetches a recipe page and returns everything the draft row needs.
- *
- * @throws ApiError 400 `fetch_failed` (network/SSRF/non-HTML),
- *   422 `parse_failed` when the page yields neither ingredients nor steps.
- */
-export async function importFromUrl(rawUrl: string, options: ImportFromUrlOptions = {}): Promise<UrlImportResult> {
-  const startedAt = Date.now();
-  const fetched = await fetchHtml(rawUrl, options);
-  const extraction = extractRecipeFromHtml(fetched.html, { url: fetched.url });
-
-  const parsed = extraction.parsed;
-  if (parsed.ingredients.length === 0 && parsed.steps.length === 0) {
-    throw new ApiError(422, "parse_failed", "server.import.noRecipeFound", {
-      host: extraction.host,
-      layers: extraction.layers,
-    });
+/** The URL importer as a service (docs/EFFECT.md E7, E12; plan `docs/plans/e3-recipe-services.md` P8, P9, P12). */
+export class UrlImporter extends Context.Service<
+  UrlImporter,
+  {
+    /**
+     * Fetches a recipe page and returns everything the draft row needs.
+     *
+     * Fails with `ApiFailure` 400 `fetch_failed` (network/SSRF/non-HTML), 422 `parse_failed` when the page yields
+     * neither ingredients nor steps.
+     */
+    readonly importFromUrl: (
+      rawUrl: string,
+      options?: ImportFromUrlOptions,
+    ) => Effect.Effect<UrlImportResult, ApiFailure>;
   }
+>()("toon/api/modules/recipe/services/import/url/index/UrlImporter") {
+  static readonly layer = Layer.effect(
+    UrlImporter,
+    Effect.gen(function* () {
+      const http = yield* ImportHttp;
+      const heroImages = yield* HeroImages;
 
-  // Store the hero image locally so the recipe keeps working if the site changes.
-  // Tried in rank order and capped at MAX_IMAGE_ATTEMPTS: each attempt owns its own
-  // 8 s budget, so an unbounded list would let one page stall the whole import.
-  if (options.downloadImage !== false) {
-    for (const candidate of extraction.imageCandidates.slice(0, MAX_IMAGE_ATTEMPTS)) {
-      const stored = await downloadHeroImage(candidate, {
-        refererUrl: fetched.url,
-        ...(options.resolve === undefined ? {} : { resolve: options.resolve }),
-        ...(options.fetchImpl === undefined ? {} : { fetchImpl: options.fetchImpl }),
-        ...(options.imageOptions ?? {}),
+      const importFromUrl = Effect.fn("UrlImporter.importFromUrl")(function* (
+        rawUrl: string,
+        options: ImportFromUrlOptions = {},
+      ) {
+        const startedAt = yield* Clock.currentTimeMillis;
+        const fetched = yield* http.fetchHtml(rawUrl, {
+          timeoutMs: options.timeoutMs,
+          maxBytes: options.maxBytes,
+          maxRedirects: options.maxRedirects,
+        });
+        const extraction = extractRecipeFromHtml(fetched.html, { url: fetched.url });
+
+        const parsed = extraction.parsed;
+        if (parsed.ingredients.length === 0 && parsed.steps.length === 0) {
+          return yield* new ApiFailure({
+            status: 422,
+            code: "parse_failed",
+            text: "server.import.noRecipeFound",
+            details: { host: extraction.host, layers: extraction.layers },
+          });
+        }
+
+        // Store the hero image locally so the recipe keeps working if the site changes.
+        // Tried in rank order and capped at MAX_IMAGE_ATTEMPTS: each attempt owns its own
+        // 8 s budget, so an unbounded list would let one page stall the whole import.
+        if (options.downloadImage !== false) {
+          for (const candidate of extraction.imageCandidates.slice(0, MAX_IMAGE_ATTEMPTS)) {
+            const stored = yield* heroImages.downloadHeroImage(candidate, {
+              refererUrl: fetched.url,
+              ...(options.imageOptions ?? {}),
+            });
+            if (stored) {
+              parsed.imageUrl = stored.url;
+              break;
+            }
+          }
+        }
+
+        const sourceMeta: ImportSourceMeta = {
+          method: extraction.method,
+          host: extraction.host.slice(0, 200),
+          durationMs: (yield* Clock.currentTimeMillis) - startedAt,
+        };
+
+        return {
+          parsed,
+          confidence: parsed.confidence,
+          rawText: extraction.rawText,
+          sourceMeta,
+          sourceUrl: fetched.url,
+        } satisfies UrlImportResult;
       });
-      if (stored) {
-        parsed.imageUrl = stored.url;
-        break;
-      }
-    }
-  }
 
-  const sourceMeta: ImportSourceMeta = {
-    method: extraction.method,
-    host: extraction.host.slice(0, 200),
-    durationMs: Date.now() - startedAt,
-  };
+      return UrlImporter.of({ importFromUrl });
+    }),
+  );
+}
 
-  return {
-    parsed,
-    confidence: parsed.confidence,
-    rawText: extraction.rawText,
-    sourceMeta,
-    sourceUrl: fetched.url,
-  };
+/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
+
+/**
+ * `UrlImporter.importFromUrl` for Promise code. Callers: `apps/api/src/modules/recipe/routes/imports.ts` (until
+ * E3-T11). A failure rejects with the tagged `ApiFailure` itself.
+ */
+export function importFromUrl(rawUrl: string, options: ImportFromUrlOptions = {}): Promise<UrlImportResult> {
+  return runtime.runPromise(UrlImporter.use((importer) => importer.importFromUrl(rawUrl, options)));
 }

@@ -377,7 +377,7 @@ export function entryGuard(options: AssertPublicUrlOptions): SsrfGuard {
 }
 
 /**
- * Promise entry point of `checkPublicUrl` (the pinned `ssrf.test.ts`, `image.ts` until E3-T05): runs it outside the
+ * Promise entry point of `checkPublicUrl` (the pinned `ssrf.test.ts`): runs it outside the
  * runtime, so it reads `env.allowPrivateImportHosts` itself.
  *
  * Rejects with the `SsrfError` itself; resolves with the parsed URL when it is safe to fetch.

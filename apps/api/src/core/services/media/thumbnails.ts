@@ -276,7 +276,7 @@ const loadSharp: Effect.Effect<SharpFactory | undefined> = Effect.suspend(() => 
  *
  * Stays `void` (plan e2 P1, P10): returns before any work, never throws and never rejects. The upload response must
  * not depend on it, and if this loses a race against the first `GET`, the in-flight sharing de-duplicates the work
- * anyway. Callers: `apps/api/src/modules/recipe/services/import/url/image.ts` (unawaited).
+ * anyway. Callers: `apps/api/test/thumbnails.test.ts` (`HeroImages` starts `Thumbnails.warm` in a detached fiber instead).
  */
 export function warmThumbnail(filename: string): void {
   if (env.isTest) return;

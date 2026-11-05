@@ -13,8 +13,7 @@
  * has no business seeing this server's trace ids.
  *
  * `fetchHtmlWith` and `fetchImageWith` are service-free (they take the client and the guard); `ImportHttp` binds them to
- * the layer's client and the configuration, and the Promise entry point `fetchHtml` (the pinned `ssrf.test.ts`,
- * `url/index.ts` until E3-T05) runs the same core outside the runtime.
+ * the layer's client and the configuration, and the Promise entry point `fetchHtml` (the pinned `ssrf.test.ts`) runs the same core outside the runtime.
  */
 import { Context, Effect, Layer, Predicate, Stream } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest, type HttpClientError, type HttpClientResponse } from "effect/http";
@@ -37,7 +36,7 @@ export const IMPORT_USER_AGENT =
 export const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
 export const MAX_HTML_BYTES = 5 * 1024 * 1024;
 export const MAX_REDIRECTS = 5;
-/** The hero image budget (`image.ts` keeps its own copies until E3-T05 moves the download here). */
+/** The hero image budget. */
 export const IMAGE_FETCH_TIMEOUT_MS = 8_000;
 export const MAX_IMAGE_FETCH_BYTES = 4 * 1024 * 1024;
 
@@ -416,8 +415,7 @@ export class ImportHttp extends Context.Service<
 
 /**
  * Fetches a public web page as HTML outside the runtime, on the same core as `ImportHttp.fetchHtml`
- * (`fetchHtmlWith`). Callers: `apps/api/test/import/ssrf.test.ts` (pinned; stays to E8), `url/index.ts` `importFromUrl`
- * (until E3-T05).
+ * (`fetchHtmlWith`). Callers: `apps/api/test/import/ssrf.test.ts` (pinned; stays to E8).
  *
  * @throws ApiFailure 400 `fetch_failed` (the failure itself, `instanceof ApiError`) for SSRF violations, network
  *   errors, timeouts, non-2xx responses, redirect loops and non-HTML content types.

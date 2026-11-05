@@ -9,7 +9,7 @@
  * AS A SERVICE (docs/EFFECT.md E7; plan `docs/plans/e3-recipe-services.md` P2, P8): `ImportFiles` reads the upload
  * directory from `AppConfig`; its refusals are the tagged family (`BadRequest`, `PayloadTooLarge`,
  * `UnsupportedMediaType`). The sniffing and the MIME lists stay pure exports. The bridge section keeps the Promise
- * functions `routes/imports.ts` and `url/image.ts` still call, until E3-T11 and E3-T05.
+ * functions `routes/imports.ts` still calls, until E3-T11.
  */
 import { mkdir, unlink } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
@@ -295,11 +295,6 @@ export function readUploadedFile(
   options: { accept?: readonly ImportFileKind[]; fieldName?: string } = {},
 ): Promise<UploadedFile> {
   return runtime.runPromise(ImportFiles.use((files) => files.readUploadedFile(request, options)));
-}
-
-/** Writes bytes to UPLOAD_DIR. Callers: `apps/api/src/modules/recipe/services/import/url/image.ts` (E3-T05). */
-export function storeUpload(bytes: Uint8Array, mimeType: SniffedMime): Promise<StoredUpload> {
-  return runtime.runPromise(ImportFiles.use((files) => files.storeUpload(bytes, mimeType)));
 }
 
 /** Deletes a stored upload; never rejects. Callers: `apps/api/src/modules/recipe/routes/imports.ts` (E3-T11). */
