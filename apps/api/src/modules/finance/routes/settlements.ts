@@ -4,16 +4,17 @@
  * IS a transaction with `splitMode: "SETTLEMENT"`, so `GET /` is the exact
  * same reader `GET .../transactions?splitMode=SETTLEMENT` would give.
  */
+import { Effect } from "effect";
+import { runtime } from "../../../runtime.ts";
 import { CreateSettlementRequestSchema, FinancePaginationQuerySchema as PaginationQuerySchema } from "@toon/shared";
 import { Hono } from "hono";
-import { db } from "../../../db/client.ts";
 import { created, json } from "../../../lib/http.ts";
 import type { AppEnv } from "../../../lib/types.ts";
-import { requireFinanceParticipant, requireFinanceParticipantContext as requireHouseholdContext } from "../middleware.ts";
+import { requireFinanceParticipant, currentFinanceParticipant } from "../middleware.ts";
 import { validate } from "../../../lib/validate.ts";
 import { requireVerifiedEmail } from "../../../middleware/verifiedEmail.ts";
-import { createSettlement } from "../services/ledger/settlements.service.ts";
-import { listTransactions } from "../services/ledger/transactions.service.ts";
+import { FinanceSettlements } from "../services/ledger/settlements.service.ts";
+import { FinanceTransactions } from "../services/ledger/transactions.service.ts";
 
 export const settlementRoutes = new Hono<AppEnv>();
 
@@ -21,10 +22,13 @@ settlementRoutes.use("*", requireVerifiedEmail());
 settlementRoutes.use("*", requireFinanceParticipant());
 
 /** GET / — every SETTLEMENT transaction, newest first. */
-settlementRoutes.get("/", validate("query", PaginationQuerySchema), async (c) => {
-  const household = requireHouseholdContext(c);
+settlementRoutes.get("/", validate("query", PaginationQuerySchema), (c) =>
+runtime.runPromise(
+Effect.gen(function* () {
+  const transactionsService = yield* FinanceTransactions;
+  const household = yield* currentFinanceParticipant(c);
   const query = c.req.valid("query");
-  const payload = await listTransactions(db, household.householdId, household.userId, {
+  const payload = yield* transactionsService.listTransactions(household.householdId, household.userId, {
     splitMode: "SETTLEMENT",
     includeAggregates: true,
     sort: "-bookedAt",
@@ -32,7 +36,9 @@ settlementRoutes.get("/", validate("query", PaginationQuerySchema), async (c) =>
     offset: query.offset,
   });
   return json(c, payload);
-});
+}),
+),
+);
 
 /**
  * POST / — "Jetzt ausgleichen". `expectedBalanceCents` is REQUIRED; a stale
@@ -40,10 +46,15 @@ settlementRoutes.get("/", validate("query", PaginationQuerySchema), async (c) =>
  * (docs/spec.md §3.9 — the one race in this app that costs real money).
  * `201` on a fresh booking, `200` on a replayed `mutationId`.
  */
-settlementRoutes.post("/", validate("json", CreateSettlementRequestSchema), async (c) => {
-  const household = requireHouseholdContext(c);
-  const outcome = await createSettlement(db, household.householdId, household.userId, household.memberSlot, c.req.valid("json"));
+settlementRoutes.post("/", validate("json", CreateSettlementRequestSchema), (c) =>
+runtime.runPromise(
+Effect.gen(function* () {
+  const settlementsService = yield* FinanceSettlements;
+  const household = yield* currentFinanceParticipant(c);
+  const outcome = yield* settlementsService.createSettlement(household.householdId, household.userId, household.memberSlot, c.req.valid("json"));
   return outcome.applied ? created(c, outcome.response) : json(c, outcome.response);
-});
+}),
+),
+);
 
 export default settlementRoutes;
