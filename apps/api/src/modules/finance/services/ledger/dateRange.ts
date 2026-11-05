@@ -5,16 +5,26 @@
  * "what does an out-of-range or garbled value do" has one answer.
  */
 import { isPeriod, nextPeriod, periodStartMs } from "@toon/shared";
-import { ApiError } from "../../../../lib/errors.ts";
+import { Effect } from "effect";
+import { ValidationFailed } from "../../../../lib/errors.ts";
 
-/** A query-string date/period bound -> a unix-ms edge, inclusive on both sides of the range. */
-export function parseRangeBound(value: string, edge: "from" | "to"): number {
+/**
+ * A query-string date/period bound -> a unix-ms edge, inclusive on both sides of the range. Service-free (docs/EFFECT.md
+ * E7; plan `docs/plans/e4-finance-services.md` P2): an unparseable value fails `ValidationFailed` with today's details
+ * byte for byte (`{ path, code: "invalid_date", message }`, no `i18n`).
+ */
+export const parseRangeBound = Effect.fnUntraced(function* (
+  value: string,
+  edge: "from" | "to",
+): Effect.fn.Return<number, ValidationFailed> {
   if (isPeriod(value)) {
     return edge === "from" ? periodStartMs(value) : periodStartMs(nextPeriod(value)) - 1;
   }
   const ms = Date.parse(value);
   if (Number.isNaN(ms)) {
-    throw ApiError.validationFailed([{ path: edge, code: "invalid_date", message: `"${edge}" is not a valid date or period` }]);
+    return yield* new ValidationFailed({
+      details: [{ path: edge, code: "invalid_date", message: `"${edge}" is not a valid date or period` }],
+    });
   }
   return ms;
-}
+});

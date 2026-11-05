@@ -9,9 +9,12 @@
  * of the run (case (c) installs a trigger):
  *
  * (a) a finance `withTransaction` that throws after an insert leaves no row;
- * (b) `createSettlement` with a `mutationId`, twice, books one row and holds one claim;
- * (c) a `createTransaction` whose tag insert fails leaves neither the transaction nor its
+ * (b) `FinanceSettlements.createSettlement` with a `mutationId`, twice, books one row and holds one claim;
+ * (c) a `FinanceTransactions.createTransaction` whose tag insert fails leaves neither the transaction nor its
  *     claim, and the same `mutationId` can be delivered again afterwards;
+ *
+ * (b) and (c) run the services of the app runtime on this file's database through `Database.withExecutor`
+ * (docs/EFFECT.md E9; plan `docs/plans/e4-finance-services.md` P11).
  * (d) on the SHARED client the same holds: a throw inside the finance and the core
  *     `withTransaction` rolls the insert back (under ADR 0003 this case documented the
  *     opposite: on `file::memory:` the insert survived).
@@ -21,7 +24,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
+import { Effect } from "effect";
 import { type CreatedDatabase, createDatabase, db as sharedDb } from "../src/db/client.ts";
+import { Database } from "../src/db/database.ts";
 import { runMigrations } from "../src/db/migrate.ts";
 import { householdMembers, households, users } from "../src/db/schema.ts";
 import {
@@ -30,14 +35,15 @@ import {
   financeTags,
   financeTransactions,
 } from "../src/modules/finance/schema.ts";
-import { createSettlement } from "../src/modules/finance/services/ledger/settlements.service.ts";
-import { createTransaction } from "../src/modules/finance/services/ledger/transactions.service.ts";
+import { FinanceSettlements } from "../src/modules/finance/services/ledger/settlements.service.ts";
+import { FinanceTransactions } from "../src/modules/finance/services/ledger/transactions.service.ts";
 import {
   withTransaction as coreWithTransaction,
   transactionsSupported,
 } from "../src/core/services/households/support.ts";
 import { withTransaction } from "../src/modules/finance/services/support.ts";
 import { ensureFinanceHousehold } from "../src/modules/finance/setup.ts";
+import { runTest } from "./support/effect.ts";
 
 await runMigrations(sharedDb);
 
@@ -46,6 +52,11 @@ let created: CreatedDatabase;
 let householdId = "";
 const user1 = crypto.randomUUID();
 const user2 = crypto.randomUUID();
+
+/** The finance services of the app runtime, on this file's own database (`Database.withExecutor`). */
+function onCreated<A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> {
+  return Database.withExecutor(created.db)(effect);
+}
 
 function transactionCount(): Promise<number> {
   return created.db
@@ -129,21 +140,29 @@ describe("finance withTransaction on a real file database", () => {
   });
 
   test("(b) createSettlement with the same mutationId twice books one row and holds one claim", async () => {
-    const booked = await createTransaction(created.db, {
-      householdId,
-      viewerId: user1,
-      createdBy: user1,
-      kind: "MINE_SPLIT",
-      amountCents: 1_000,
-      description: "Einkauf",
-    });
+    const booked = await runTest(
+      onCreated(
+        FinanceTransactions.use((service) =>
+          service.createTransaction({
+            householdId,
+            viewerId: user1,
+            createdBy: user1,
+            kind: "MINE_SPLIT",
+            amountCents: 1_000,
+            description: "Einkauf",
+          }),
+        ),
+      ),
+    );
     expect(booked.applied).toBe(true);
 
     const mutationId = crypto.randomUUID();
     const request = { expectedBalanceCents: 500, mutationId };
-    const first = await createSettlement(created.db, householdId, user1, 1, request);
+    const settle = () =>
+      runTest(onCreated(FinanceSettlements.use((service) => service.createSettlement(householdId, user1, 1, request))));
+    const first = await settle();
     expect(first.applied).toBe(true);
-    const second = await createSettlement(created.db, householdId, user1, 1, request);
+    const second = await settle();
     expect(second.applied).toBe(false);
     expect(second.response.transaction.id).toBe(first.response.transaction.id);
 
@@ -181,7 +200,9 @@ describe("finance withTransaction on a real file database", () => {
       mutationId,
     };
     try {
-      await expect(createTransaction(created.db, input)).rejects.toThrow();
+      await expect(
+        runTest(onCreated(FinanceTransactions.use((service) => service.createTransaction(input)))),
+      ).rejects.toThrow();
       expect(await transactionCount()).toBe(transactionsBefore);
       expect(await claimCount()).toBe(claimsBefore);
       expect(await created.db.select().from(financeTags).where(eq(financeTags.nameKey, "boom"))).toHaveLength(0);
@@ -190,7 +211,7 @@ describe("finance withTransaction on a real file database", () => {
     }
 
     // The same mutationId is still deliverable: the failed attempt left no claim behind.
-    const retried = await createTransaction(created.db, input);
+    const retried = await runTest(onCreated(FinanceTransactions.use((service) => service.createTransaction(input))));
     expect(retried.applied).toBe(true);
     expect(await transactionCount()).toBe(transactionsBefore + 1);
     expect(await claimCount()).toBe(claimsBefore + 1);
