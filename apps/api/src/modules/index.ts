@@ -4,16 +4,11 @@
  * routers, and `runMigrations`, `seed`, `uploads:gc` and the shutdown handler call
  * their hooks. Recipe joined in M2, finance joins in M3.
  *
- * The core sees only the Effect contract `ApiModule` (docs/EFFECT.md E7; plan e2 P11). Recipe
- * implements it directly since E3 (plan e3 P3) and is listed unwrapped; finance is the one
- * Promise manifest left (`PromiseApiModule`, until E4-T07), wrapped once here by `fromPromiseModule`
- * (./adapter.ts). `ModuleServices` names every service the modules' own layers provide; the
- * runtime (`src/runtime.ts`) adds it to `AppServices` (E4 adds `FinanceServices`).
- *
- * Until E4-T07 the finance entry is the wrapped Promise manifest PLUS the module's own layer
- * (`Layer.suspend(financeLayer)`, plan `docs/plans/e4-finance-services.md` P3): the routes and the
- * middleware yield the finance services from the `AppLayer` while the hooks still come from the
- * Promise manifest. E4-T07 lists `financeModule` unwrapped (`ApiModule<FinanceServices>`).
+ * The core sees only the Effect contract `ApiModule` (docs/EFFECT.md E7; plan e2 P11). Both
+ * manifests implement it directly and are listed unwrapped: recipe since E3 (plan e3 P3), finance
+ * since E4 (`ApiModule<FinanceServices>`, plan `docs/plans/e4-finance-services.md` P3). Each brings
+ * its own `layer`; `ModuleServices` names every service those layers provide, and the runtime
+ * (`src/runtime.ts`) adds it to `AppServices`.
  *
  * Read `API_MODULES` inside functions only, never at module load: a manifest's own
  * imports (services → core/services/households/modules.ts, db/migrate.ts, and since E2-T12 the
@@ -25,10 +20,8 @@
  * (`.map`, `for…of`, `.length`, …), which is always inside a function after every manifest has
  * evaluated. A read at module scope during that window still fails loudly, as a `const` array did.
  */
-import { Layer } from "effect";
-import { fromPromiseModule } from "./adapter.ts";
 import { financeModule } from "./finance/index.ts";
-import { type FinanceServices, financeLayer } from "./finance/layer.ts";
+import type { FinanceServices } from "./finance/layer.ts";
 import { recipeModule } from "./recipe/index.ts";
 import type { RecipeServices } from "./recipe/layer.ts";
 import type { ApiModule } from "./types.ts";
@@ -36,11 +29,11 @@ import type { ApiModule } from "./types.ts";
 /** Every service the build modules' own layers provide. */
 export type ModuleServices = RecipeServices | FinanceServices;
 
-/** The manifests (finance wrapped, with its layer until E4-T07), built once on first use. */
+/** The manifests, built once on first use. */
 let built: readonly ApiModule[] | undefined;
 
 function builtModules(): readonly ApiModule[] {
-  built ??= [recipeModule, { ...fromPromiseModule(financeModule), layer: Layer.suspend(financeLayer) }];
+  built ??= [recipeModule, financeModule];
   return built;
 }
 

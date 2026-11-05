@@ -15,119 +15,177 @@
  *   household created before M3), the settings row and the plan row (`enabled: false`,
  *   payer = slot 1, start period = the current period).
  *
+ * AS A SERVICE (docs/EFFECT.md E7, E12; plan `docs/plans/e4-finance-services.md` P2, P5, P6, P7). `FinanceSetup` keeps
+ * the old function names with the leading executor parameter dropped; it reads the current executor of `Database` on
+ * every call (inside the core's transaction for a hook: the manifest runs it through `withFinanceServices`, `./layer.ts`),
+ * the deployment default locale from `AppConfig`, and refuses with the API error family (same status, code and text).
+ *
  * TIME: the module clock `./lib/clock.ts` is the ONLY time source here (every
- * `created_at`/`updated_at` and the plan's `start_period`), never the wall clock directly
- * or the core helper, so a test that calls `setClockForTest` before creating a household
- * pins the plan's start period exactly as in toon-finance.
+ * `created_at`/`updated_at` and the plan's `start_period`; `financeTimeMillis`: the `setClockForTest` override, else
+ * the `Clock`), never the wall clock directly or the core helper, so a test that calls `setClockForTest` before
+ * creating a household pins the plan's start period exactly as in toon-finance.
  */
-import { currentPeriod, FinanceEnableSettingsSchema, isLocale, type Locale } from "@toon/shared";
+import { currentPeriod, FinanceEnableSettingsSchema, isLocale } from "@toon/shared";
 import { eq } from "drizzle-orm";
-import { Option } from "effect";
+import { Context, Effect, Layer, Option, Predicate } from "effect";
+import { AppConfig } from "../../config.ts";
+import { Database } from "../../db/database.ts";
 import { households, users } from "../../db/schema.ts";
-import { env } from "../../env.ts";
-import { ApiError } from "../../lib/errors.ts";
+import { ApiFailure } from "../../lib/errors.ts";
+import type { Conflict, DatabaseError, Internal, ValidationFailed } from "../../lib/errors.ts";
 import { decodeOption } from "../../lib/validate.ts";
-import type { DbExecutor } from "../types.ts";
-import { nowMs } from "./lib/clock.ts";
+import { financeTimeMillis } from "./lib/clock.ts";
 import { financeCategories, financeFixedCostPlans, financeParticipants } from "./schema.ts";
 import { defaultCategorySeeds } from "./services/categories/defaults.ts";
-import { assignParticipants, slot1UserId } from "./services/participants/participants.service.ts";
-import { ensureFinanceSettings } from "./services/settings/settings.service.ts";
-import type { DbLike } from "./services/support.ts";
+import { FinanceParticipants } from "./services/participants/participants.service.ts";
+import { FinanceSettings } from "./services/settings/settings.service.ts";
 
-/** Inserts the 21 default categories unless the household already has a category. */
-export async function seedDefaultCategories(tx: DbLike, householdId: string): Promise<void> {
-  const existing = await tx
-    .select({ id: financeCategories.id })
-    .from(financeCategories)
-    .where(eq(financeCategories.householdId, householdId))
-    .limit(1);
-  if (existing.length > 0) return;
-  const timestamp = nowMs();
-  await tx.insert(financeCategories).values(
-    defaultCategorySeeds().map((seed) => ({
-      id: crypto.randomUUID(),
-      householdId,
-      slug: seed.slug,
-      customLabel: null,
-      isSystem: seed.isSystem,
-      isHidden: false,
-      position: seed.position,
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    })),
-  );
-}
-
-/** The creator's `users.locale` when it is `de`/`en`, else the deployment default. */
-async function creatorLocale(tx: DbLike, householdId: string): Promise<Locale> {
-  const rows = await tx
-    .select({ locale: users.locale })
-    .from(households)
-    .innerJoin(users, eq(users.id, households.createdBy))
-    .where(eq(households.id, householdId))
-    .limit(1);
-  const locale = rows[0]?.locale;
-  return isLocale(locale) ? locale : env.defaultLocale;
-}
-
-/** `onHouseholdCreated`: categories + `finance_settings` on every new household (SPEC §2). */
-export async function onFinanceHouseholdCreated(householdId: string, tx: DbExecutor): Promise<void> {
-  await seedDefaultCategories(tx, householdId);
-  await ensureFinanceSettings(tx, householdId, await creatorLocale(tx, householdId));
-}
-
-/**
- * Completes a household for the ledger (idempotent): the default categories if it has
- * none, the `finance_settings` row, and the fixed-cost plan row if missing (`enabled:
- * false`, `payer_id` = the slot-1 participant, `start_period` = the module clock's current
- * period — F `createHousehold`). Requires a slot-1 participant.
- */
-export async function ensureFinanceHousehold(tx: DbLike, householdId: string): Promise<void> {
-  await seedDefaultCategories(tx, householdId);
-  await ensureFinanceSettings(tx, householdId, await creatorLocale(tx, householdId));
-  const plans = await tx
-    .select({ householdId: financeFixedCostPlans.householdId })
-    .from(financeFixedCostPlans)
-    .where(eq(financeFixedCostPlans.householdId, householdId))
-    .limit(1);
-  if (plans.length > 0) return;
-  const timestamp = nowMs();
-  await tx.insert(financeFixedCostPlans).values({
-    householdId,
-    enabled: false,
-    payerId: await slot1UserId(tx, householdId),
-    startPeriod: currentPeriod(timestamp),
-    lastBookedPeriod: null,
-    createdAt: timestamp,
-    updatedAt: timestamp,
+/** `422 finance_participants_required` without details (the enable hook's refusal). */
+function participantsRequired(): ApiFailure {
+  return new ApiFailure({
+    status: 422,
+    code: "finance_participants_required",
+    text: "server.finance.participantsRequired",
   });
 }
 
-function participantsRequired(): ApiError {
-  return new ApiError(422, "finance_participants_required", "server.finance.participantsRequired");
-}
-
-/**
- * `onEnable`. Settings carrying `participants` must parse as `FinanceEnableSettingsSchema`
- * and are applied with the PUT rules (`assignParticipants`); a malformed `participants`
- * value is refused like a missing one. Without `participants`, the household must already
- * have its two participant rows (a re-enable after a disable, D2). The core stores the
- * settings JSON in `household_modules.settings`; finance never reads it back
- * (`finance_participants` is the truth).
- */
-export async function onFinanceEnable(householdId: string, settings: unknown, tx: DbExecutor): Promise<void> {
-  const hasParticipants = typeof settings === "object" && settings !== null && "participants" in settings;
-  if (hasParticipants) {
-    const parsed = decodeOption(FinanceEnableSettingsSchema, settings);
-    if (Option.isNone(parsed)) throw participantsRequired();
-    await assignParticipants(tx, householdId, parsed.value.participants);
-  } else {
-    const seated = await tx
-      .select({ memberSlot: financeParticipants.memberSlot })
-      .from(financeParticipants)
-      .where(eq(financeParticipants.householdId, householdId));
-    if (seated.length !== 2) throw participantsRequired();
+/** The household hooks of the finance module: categories, settings, the plan row, the enable gate. */
+export class FinanceSetup extends Context.Service<
+  FinanceSetup,
+  {
+    /** Inserts the 21 default categories unless the household already has a category. */
+    readonly seedDefaultCategories: (householdId: string) => Effect.Effect<void, DatabaseError>;
+    /** `onHouseholdCreated`: categories + `finance_settings` on every new household (SPEC §2). */
+    readonly onFinanceHouseholdCreated: (householdId: string) => Effect.Effect<void, DatabaseError>;
+    /**
+     * Completes a household for the ledger (idempotent): the default categories if it has
+     * none, the `finance_settings` row, and the fixed-cost plan row if missing (`enabled:
+     * false`, `payer_id` = the slot-1 participant, `start_period` = the module clock's current
+     * period — F `createHousehold`). Requires a slot-1 participant.
+     */
+    readonly ensureFinanceHousehold: (householdId: string) => Effect.Effect<void, Internal | DatabaseError>;
+    /**
+     * `onEnable`. Settings carrying `participants` must parse as `FinanceEnableSettingsSchema`
+     * and are applied with the PUT rules (`assignParticipants`); a malformed `participants`
+     * value is refused like a missing one. Without `participants`, the household must already
+     * have its two participant rows (a re-enable after a disable, D2). The core stores the
+     * settings JSON in `household_modules.settings`; finance never reads it back
+     * (`finance_participants` is the truth).
+     */
+    readonly onFinanceEnable: (
+      householdId: string,
+      settings: unknown,
+    ) => Effect.Effect<void, ApiFailure | ValidationFailed | Conflict | Internal | DatabaseError>;
   }
-  await ensureFinanceHousehold(tx, householdId);
+>()("toon/api/modules/finance/setup/FinanceSetup") {
+  static readonly layer = Layer.effect(
+    this,
+    Effect.gen(function* () {
+      const database = yield* Database;
+      const config = yield* AppConfig;
+      const participants = yield* FinanceParticipants;
+      const settings = yield* FinanceSettings;
+
+      const seedDefaultCategories = Effect.fn("FinanceSetup.seedDefaultCategories")(function* (householdId: string) {
+        const existing = yield* database.use((db) =>
+          db
+            .select({ id: financeCategories.id })
+            .from(financeCategories)
+            .where(eq(financeCategories.householdId, householdId))
+            .limit(1),
+        );
+        if (existing.length > 0) return;
+        const timestamp = yield* financeTimeMillis;
+        yield* database.use((db) =>
+          db.insert(financeCategories).values(
+            defaultCategorySeeds().map((seed) => ({
+              id: crypto.randomUUID(),
+              householdId,
+              slug: seed.slug,
+              customLabel: null,
+              isSystem: seed.isSystem,
+              isHidden: false,
+              position: seed.position,
+              createdAt: timestamp,
+              updatedAt: timestamp,
+            })),
+          ),
+        );
+      });
+
+      /** The creator's `users.locale` when it is `de`/`en`, else the deployment default. */
+      const creatorLocale = Effect.fnUntraced(function* (householdId: string) {
+        const rows = yield* database.use((db) =>
+          db
+            .select({ locale: users.locale })
+            .from(households)
+            .innerJoin(users, eq(users.id, households.createdBy))
+            .where(eq(households.id, householdId))
+            .limit(1),
+        );
+        const locale = rows[0]?.locale;
+        return isLocale(locale) ? locale : config.defaultLocale;
+      });
+
+      const onFinanceHouseholdCreated = Effect.fn("FinanceSetup.onFinanceHouseholdCreated")(function* (
+        householdId: string,
+      ) {
+        yield* seedDefaultCategories(householdId);
+        yield* settings.ensureFinanceSettings(householdId, yield* creatorLocale(householdId));
+      });
+
+      const ensureFinanceHousehold = Effect.fn("FinanceSetup.ensureFinanceHousehold")(function* (householdId: string) {
+        yield* seedDefaultCategories(householdId);
+        yield* settings.ensureFinanceSettings(householdId, yield* creatorLocale(householdId));
+        const plans = yield* database.use((db) =>
+          db
+            .select({ householdId: financeFixedCostPlans.householdId })
+            .from(financeFixedCostPlans)
+            .where(eq(financeFixedCostPlans.householdId, householdId))
+            .limit(1),
+        );
+        if (plans.length > 0) return;
+        const timestamp = yield* financeTimeMillis;
+        const payerId = yield* participants.slot1UserId(householdId);
+        yield* database.use((db) =>
+          db.insert(financeFixedCostPlans).values({
+            householdId,
+            enabled: false,
+            payerId,
+            startPeriod: currentPeriod(timestamp),
+            lastBookedPeriod: null,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          }),
+        );
+      });
+
+      const onFinanceEnable = Effect.fn("FinanceSetup.onFinanceEnable")(function* (
+        householdId: string,
+        enableSettings: unknown,
+      ) {
+        if (Predicate.hasProperty(enableSettings, "participants")) {
+          const parsed = decodeOption(FinanceEnableSettingsSchema, enableSettings);
+          if (Option.isNone(parsed)) return yield* participantsRequired();
+          yield* participants.assignParticipants(householdId, parsed.value.participants);
+        } else {
+          const seated = yield* database.use((db) =>
+            db
+              .select({ memberSlot: financeParticipants.memberSlot })
+              .from(financeParticipants)
+              .where(eq(financeParticipants.householdId, householdId)),
+          );
+          if (seated.length !== 2) return yield* participantsRequired();
+        }
+        yield* ensureFinanceHousehold(householdId);
+      });
+
+      return FinanceSetup.of({
+        seedDefaultCategories,
+        onFinanceHouseholdCreated,
+        ensureFinanceHousehold,
+        onFinanceEnable,
+      });
+    }),
+  );
 }

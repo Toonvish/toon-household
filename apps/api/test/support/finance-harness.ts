@@ -13,14 +13,18 @@
  *   the API) for exactly one F regression test (transactions "…only one participant").
  *
  * Every helper uses the shared process `db` (the routes read it; `file::memory:` is per
- * client). Test files still call `runMigrations(db)` in their own `beforeAll`.
+ * client). Test files still call `runMigrations(db)` in their own `beforeAll`. The two direct
+ * finance calls (`FinanceParticipants.assignParticipants`, `FinanceSetup.ensureFinanceHousehold`) run
+ * on the app runtime through `runTest`, whose `Database` is that shared `db` (docs/EFFECT.md E9; plan
+ * `docs/plans/e4-finance-services.md` P11); a refusal rejects with the API error itself, as before.
  */
 import { db } from "../../src/db/client.ts";
 import { householdModules, sessions, users } from "../../src/db/schema.ts";
 import { nowMs } from "../../src/modules/finance/lib/clock.ts";
 import { financeParticipants } from "../../src/modules/finance/schema.ts";
-import { assignParticipants } from "../../src/modules/finance/services/participants/participants.service.ts";
-import { ensureFinanceHousehold } from "../../src/modules/finance/setup.ts";
+import { FinanceParticipants } from "../../src/modules/finance/services/participants/participants.service.ts";
+import { FinanceSetup } from "../../src/modules/finance/setup.ts";
+import { runTest } from "./effect.ts";
 
 export interface TestUser {
   id: string;
@@ -162,10 +166,14 @@ export async function createHousehold(owner: TestUser, name: string): Promise<st
  */
 export async function joinAsSecondMember(owner: TestUser, householdId: string, member: TestUser): Promise<void> {
   await addMember(owner, householdId, member);
-  await assignParticipants(db, householdId, [
-    { userId: owner.id, memberSlot: 1 },
-    { userId: member.id, memberSlot: 2 },
-  ]);
+  await runTest(
+    FinanceParticipants.use((participants) =>
+      participants.assignParticipants(householdId, [
+        { userId: owner.id, memberSlot: 1 },
+        { userId: member.id, memberSlot: 2 },
+      ]),
+    ),
+  );
 }
 
 /**
@@ -184,6 +192,6 @@ export async function createSoloFinanceHousehold(user: TestUser, name: string): 
     joinedAt: nowMs(),
   });
   await db.insert(householdModules).values({ householdId, moduleId: "finance", enabledAt: nowMs(), settings: null });
-  await ensureFinanceHousehold(db, householdId);
+  await runTest(FinanceSetup.use((setup) => setup.ensureFinanceHousehold(householdId)));
   return householdId;
 }

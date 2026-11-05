@@ -1,18 +1,18 @@
 /**
  * The finance module's composition, the setup area (docs/EFFECT.md E7; plan `docs/plans/e4-finance-services.md` P4).
  *
- * E4-T01 creates it empty (`Layer.empty`, `SetupServices = never`); E4-T07 fills it with `FinanceSetup`. Inside the
- * area a service that needs a sibling goes in an outer `Layer.provideMerge` step, never beside it in one
- * `Layer.mergeAll`; requirements stay open and are satisfied by `financeLayer()`
- * (`apps/api/src/modules/finance/layer.ts`) and the core under it.
+ * `FinanceSetup` (`apps/api/src/modules/finance/setup.ts`) needs `Database`, `AppConfig`, `FinanceParticipants` and
+ * `FinanceSettings`; the participants area is a sibling, so `financeLayer()` (`apps/api/src/modules/finance/layer.ts`)
+ * nests this area in an OUTER `Layer.provideMerge` step over it, never beside it in one `Layer.mergeAll`. Requirements
+ * stay open and are satisfied there and by the core under it.
  *
  * Import cycle (CLAUDE.md "API import cycle"): a hoisted function only; nothing runs at import.
  */
-import { Layer } from "effect";
+import { FinanceSetup } from "../../setup.ts";
 
 /** Every service `setupLayer()` provides. */
-export type SetupServices = never;
+export type SetupServices = FinanceSetup;
 
 export function setupLayer() {
-  return Layer.empty;
+  return FinanceSetup.layer;
 }
