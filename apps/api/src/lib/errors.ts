@@ -367,38 +367,3 @@ export function logBoundaryFailure(failure: {
 export function routeUnknown(method: string, path: string): NotFound {
   return new NotFound({ text: { key: "server.error.routeUnknown", values: { method, path } } });
 }
-
-/* Hono (E7 transition): E7-T12 deletes this section */
-import type { Context, ErrorHandler, NotFoundHandler } from "hono";
-import { HTTPException } from "hono/http-exception";
-import type { ContentfulStatusCode } from "hono/utils/http-status";
-import { requestLocale } from "./locale.ts";
-
-/** A Hono `HTTPException` (Hono's malformed-JSON `400`) as its status with `server.error.requestFailed`. */
-export function honoExceptionToApiError(error: HTTPException): ApiErrorFamily {
-  const status = error.status;
-  const code =
-    status === 401 ? "unauthorized" : status === 403 ? "forbidden" : status === 404 ? "not_found" : "bad_request";
-  // The framework's own message is dropped, not forwarded: it is an arbitrary
-  // string out of Hono's internals and may carry things we do not want on
-  // the wire. It still reaches the log via `console.error`/`console.warn`
-  // below, keyed on the ORIGINAL error, not this replacement.
-  return new ApiFailure({ status, code, text: "server.error.requestFailed" });
-}
-
-/** Hono `app.onError` handler. */
-export const onErrorHandler: ErrorHandler = (error, c: Context) => {
-  const locale = requestLocale(c);
-  const apiError = error instanceof HTTPException ? honoExceptionToApiError(error) : toApiError(error, locale);
-  logBoundaryFailure({ method: c.req.method, path: c.req.path, error, apiError });
-  if (Predicate.isTagged(apiError, "RateLimited")) {
-    c.header("Retry-After", String(apiError.retryAfterSeconds));
-  }
-  return c.json(errorBody(apiError, locale), apiError.status as ContentfulStatusCode);
-};
-
-/** Hono `app.notFound` handler — same envelope as every other error. */
-export const notFoundHandler: NotFoundHandler = (c: Context) => {
-  const locale = requestLocale(c);
-  return c.json(errorBody(routeUnknown(c.req.method, c.req.path), locale), 404);
-};

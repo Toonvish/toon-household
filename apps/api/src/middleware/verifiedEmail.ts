@@ -56,30 +56,3 @@ export const RequireVerifiedEmailLayer = Layer.effect(
     );
   }),
 );
-
-/* Hono (E7 transition): E7-T12 deletes this section */
-import type { MiddlewareHandler } from "hono";
-import type { AppContext, AppEnv } from "../lib/types.ts";
-import { currentUser } from "../lib/types.ts";
-import { runtime } from "../runtime.ts";
-
-/** The gate as one effect: `VerifiedEmail.assertVerified` for the session user. */
-const checkVerified = Effect.fn("VerifiedEmail.check")(function* (c: AppContext) {
-  const user = yield* currentUser(c);
-  const verifiedEmail = yield* VerifiedEmail;
-  yield* verifiedEmail.assertVerified(user);
-});
-
-/**
- * 403 `email_unverified` on a write from an account with an unconfirmed address.
- * A no-op on this deployment when no mail transport is configured. A hoisted declaration that reads no imported
- * binding until a request arrives (plan e2 P12; the routers call it at module scope inside the import cycle).
- */
-export function requireVerifiedEmail(): MiddlewareHandler<AppEnv> {
-  return async (c, next) => {
-    if (!READ_METHODS.has(c.req.method)) {
-      await runtime.runPromise(checkVerified(c));
-    }
-    await next();
-  };
-}

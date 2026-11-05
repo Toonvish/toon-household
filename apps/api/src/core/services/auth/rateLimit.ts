@@ -229,23 +229,3 @@ export function checkRateLimit(key: string, rule: RateLimitRule): RateLimitResul
 export function resetRateLimits(key?: string): void {
   resetBuckets(key);
 }
-
-/* Hono (E7 transition): E7-T12 deletes this section */
-import type { Context as HonoContext } from "hono";
-
-/** `clientIpFrom` over a Hono context: its headers and the Bun socket address. */
-export function clientIp(c: HonoContext): string {
-  return clientIpFrom({ header: (name) => c.req.header(name), socketAddress: honoSocketAddress(c) });
-}
-
-/** Peer address straight off the Bun socket, or undefined (e.g. in tests). */
-function honoSocketAddress(c: HonoContext): string | undefined {
-  const server = c.env as { requestIP?: (request: Request) => { address?: string } | null } | undefined;
-  if (!server || typeof server.requestIP !== "function") return undefined;
-  try {
-    const address = server.requestIP(c.req.raw)?.address;
-    return address && address.length > 0 ? address : undefined;
-  } catch {
-    return undefined;
-  }
-}

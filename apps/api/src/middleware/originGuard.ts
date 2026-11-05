@@ -117,23 +117,3 @@ export function originGuardMiddleware(trustedOrigins: readonly string[]): Global
         : httpEffect,
     );
 }
-
-/* Hono (E7 transition): E7-T12 deletes this section */
-import type { MiddlewareHandler } from "hono";
-import type { AppEnv } from "../lib/types.ts";
-import { runtime } from "../runtime.ts";
-
-/** Hono middleware: 403 `forbidden` (`server.error.originMismatch`) for a foreign-origin unsafe request. */
-export function originGuard(trustedOrigins: readonly string[]): MiddlewareHandler<AppEnv> {
-  return async (c, next) => {
-    if (
-      isForeignOrigin(
-        { method: c.req.method, url: c.req.url, header: (name) => c.req.header(name) },
-        trustedOrigins,
-      )
-    ) {
-      await runtime.runPromise(Effect.fail(new Forbidden({ text: "server.error.originMismatch" })));
-    }
-    await next();
-  };
-}

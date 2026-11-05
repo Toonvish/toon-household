@@ -58,26 +58,3 @@ export const RequireModuleLayer = Layer.effect(
     );
   }),
 );
-
-/* Hono (E7 transition): E7-T12 deletes this section */
-import type { MiddlewareHandler } from "hono";
-import type { AppContext, AppEnv } from "../lib/types.ts";
-import { currentMembership } from "../lib/types.ts";
-import { runtime } from "../runtime.ts";
-
-/** `checkModuleEnabled` for the membership of the Hono request `c`. */
-const checkModuleEnabledOn = Effect.fn("Module.checkOn")(function* (c: AppContext, id: ModuleId) {
-  const membership = yield* currentMembership(c);
-  yield* checkModuleEnabled(membership.householdId, id);
-});
-
-/**
- * 404 `module_disabled` unless the addressed household has enabled module `id`. A hoisted declaration that reads
- * no imported binding until a request arrives (plan e2 P12; the routers' import cycle).
- */
-export function requireModule(id: ModuleId): MiddlewareHandler<AppEnv> {
-  return async (c, next) => {
-    await runtime.runPromise(checkModuleEnabledOn(c, id));
-    await next();
-  };
-}

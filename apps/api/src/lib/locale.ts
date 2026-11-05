@@ -15,22 +15,3 @@ import { env } from "../env.ts";
 export function negotiateRequestLocale(acceptLanguage: string | undefined): Locale {
   return negotiateLocale(acceptLanguage, env.defaultLocale);
 }
-
-/* Hono (E7 transition): E7-T12 deletes this section */
-import type { Context, MiddlewareHandler } from "hono";
-import type { AppEnv } from "./types.ts";
-
-export const localeMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
-  c.set("locale", negotiateRequestLocale(c.req.header("accept-language")));
-  await next();
-};
-
-/**
- * Falls back to the configured default if the middleware did not run —
- * `onError`/`notFound` can fire before an `app.use("*")` middleware has, so
- * this `??` is load-bearing. Do not "fix" `AppVariables.locale` to be
- * non-optional; that would make this dead code and invite someone to delete it.
- */
-export function requestLocale(c: Context<AppEnv>): Locale {
-  return c.get("locale") ?? env.defaultLocale;
-}

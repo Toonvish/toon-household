@@ -159,14 +159,3 @@ function serve(method: string, absolutePath: string, pathname: string): Response
   }
   return new Response(file, { headers });
 }
-
-/* Hono (E7 transition): E7-T12 deletes this section */
-import type { MiddlewareHandler } from "hono";
-
-/** Hono middleware serving `distDir` (`resolveStatic`), with an SPA fallback to `index.html`. */
-export function webAppMiddleware(distDir: string): MiddlewareHandler {
-  return async (c, next) => {
-    const response = resolveStatic(distDir, c.req.method, new URL(c.req.url).pathname);
-    return response ?? next();
-  };
-}

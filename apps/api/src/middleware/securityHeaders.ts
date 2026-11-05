@@ -131,33 +131,3 @@ export function securityHeadersMiddleware(headers: ReadonlyArray<readonly [strin
       Effect.succeed(HttpServerResponse.setHeaders(response, record)),
     );
 }
-
-/* Hono (E7 transition): E7-T12 deletes this section */
-import type { MiddlewareHandler } from "hono";
-import { secureHeaders } from "hono/secure-headers";
-
-export function securityHeaders(webDistDir: string | null): MiddlewareHandler {
-  const scriptSrc = ["'self'", "'wasm-unsafe-eval'", ...scriptHashesFor(webDistDir)];
-  return secureHeaders({
-    strictTransportSecurity: false,
-    referrerPolicy: "strict-origin-when-cross-origin",
-    xFrameOptions: "DENY",
-    crossOriginResourcePolicy: "same-site",
-    contentSecurityPolicy: {
-      defaultSrc: ["'self'"],
-      scriptSrc,
-      styleSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "blob:", "https:"],
-      mediaSrc: ["'self'", "blob:"],
-      fontSrc: ["'self'"],
-      // Presumes PUBLIC_API_URL="" at build time (relative API URLs); see the header comment.
-      connectSrc: ["'self'"],
-      manifestSrc: ["'self'"],
-      workerSrc: ["'self'"],
-      frameAncestors: ["'none'"],
-      baseUri: ["'self'"],
-      formAction: ["'self'"],
-      objectSrc: ["blob:"],
-    },
-  });
-}

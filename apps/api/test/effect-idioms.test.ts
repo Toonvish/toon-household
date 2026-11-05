@@ -9,8 +9,7 @@
 //
 // PENDING_RULES (switched on by the milestone named; each is a new `describe` in the same commit as the
 // migration that makes it true):
-//   E7  (http-api)       No `hono` import or dependency (the HttpApi server replaces it; docs/EFFECT.md E7).
-// (E1 switched on rule (9), E2 rules (10) and (11), E5 rule (12), E6 rule (13) below.)
+// (E1 switched on rule (9), E2 rules (10) and (11), E5 rule (12), E6 rule (13), E7 rule (14) below.)
 //
 // Comment lines (trimmed line starting with `*`, `//`, `/*`, `{/*`) are never scanned. No test reads git history.
 import { describe, expect, test } from "bun:test";
@@ -600,5 +599,39 @@ describe("(13) Effect stays at the edge of the web app (E11, E12)", () => {
     expect(FETCH_CALL.test("  queryClient.fetchQuery(opts);")).toBe(false);
     expect(XHR_CALL.test("  const xhr = new XMLHttpRequest();")).toBe(true);
     expect(importsEffect({ file: "", n: 1, text: 'import { Option } from "effect/Option";' })).toBe(true);
+  });
+});
+
+// --- (14) no hono (E7, E8) ------------------------------------------------------------------------
+
+const isHonoPackage = (spec: string) => spec === "hono" || spec.startsWith("hono/");
+
+const ALLOW_HONO: Record<string, string> = {};
+
+describe("(14) no hono (E7, E8)", () => {
+  test("no hono or hono/* specifier in a scanned file", () => {
+    expectNone(
+      "the API is served by effect/http-api on BunHttpServer; hono is gone (docs/EFFECT.md E8)",
+      scan(ALL_FILES, (l) => hasSpecifier(l, isHonoPackage) && !allowed(ALLOW_HONO)(l)),
+    );
+  });
+
+  test("hono is in no dependency section of a package.json", () => {
+    const problems: string[] = [];
+    for (const path of PACKAGE_JSONS) {
+      const json = readJson(path);
+      for (const section of DEP_SECTIONS) {
+        for (const name of Object.keys(json[section] ?? {})) {
+          if (isHonoPackage(name) && !(path in ALLOW_HONO)) problems.push(`${path}: ${section}.${name}`);
+        }
+      }
+    }
+    expectNoProblems("the API is served by effect/http-api on BunHttpServer; hono is gone (docs/EFFECT.md E8)", problems);
+  });
+
+  test('bun.lock has no "hono" key', () => {
+    const lock = readFileSync(join(ROOT, "bun.lock"), "utf8");
+    const problems = [...lock.matchAll(/"(hono)(?:@[^"]*)?"\s*:/g)].map((m) => `bun.lock: "${m[1]}"`);
+    expectNoProblems("the API is served by effect/http-api on BunHttpServer; hono is gone (docs/EFFECT.md E8)", problems);
   });
 });

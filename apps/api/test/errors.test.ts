@@ -11,7 +11,6 @@ import { ALL_ISSUES, serverText } from "@toon/shared";
 import { afterEach, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { Effect, Schema } from "effect";
 import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/http-api";
-import { HTTPException } from "hono/http-exception";
 import {
   ApiError,
   type ApiErrorFamily,
@@ -29,7 +28,6 @@ import {
   Unauthorized,
   ValidationFailed,
   errorBody,
-  honoExceptionToApiError,
   isApiError,
   toApiError,
 } from "../src/lib/errors.ts";
@@ -400,15 +398,6 @@ describe("toApiError, the one mapper", () => {
         ],
       },
     });
-  });
-
-  test("honoExceptionToApiError: an HTTPException(403) keeps its status with server.error.requestFailed; Hono's message is dropped", () => {
-    const mapped = honoExceptionToApiError(new HTTPException(403, { message: "secret" }));
-    expect(mapped.status).toBe(403);
-    for (const locale of LOCALES) expect(errorBody(mapped, locale)).toEqual(REQUEST_FAILED_403[locale]);
-    const teapot = honoExceptionToApiError(new HTTPException(418, { message: "secret" }));
-    expect(teapot.status).toBe(418);
-    expect(errorBody(teapot, "en")).toEqual({ error: { code: "bad_request", message: "Request failed" } });
   });
 
   test("a DatabaseError, a plain Error and the string \"ManagedRuntime disposed\" are Internal", () => {

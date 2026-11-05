@@ -21,22 +21,3 @@ export function parseCsvParam(value: string | undefined): string[] {
   if (!value) return [];
   return [...new Set(value.split(",").map((part) => part.trim()).filter((part) => part.length > 0))];
 }
-
-/* Hono (E7 transition): E7-T12 deletes this section */
-import type { Context } from "hono";
-
-/** 200 + JSON. */
-export function json<T>(c: Context, data: T): Response {
-  return c.json(data as never, 200);
-}
-
-/** 201 + JSON (optionally with a Location header). */
-export function created<T>(c: Context, data: T, location?: string): Response {
-  if (location) c.header("Location", location);
-  return c.json(data as never, 201);
-}
-
-/** 204, no body. */
-export function noContent(c: Context): Response {
-  return c.body(null, 204);
-}
