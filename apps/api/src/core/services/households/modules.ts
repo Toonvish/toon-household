@@ -11,9 +11,9 @@
  * Both build manifests (recipe since E3, finance since E4) implement the Effect contract `ApiModule` directly, so a
  * hook reads that open transaction as the current executor of `Database` (finance builds its own services over it,
  * `modules/finance/layer.ts` `withFinanceServices`). `modules` defaults to the build's `API_MODULES`, read when a
- * method is called, never at import (CLAUDE.md "API import cycle"). The one Promise bridge at the end of the file
- * (`initializeHousehold`) keeps the seed script working until E5; the finance seed enables finance through the service
- * since E4 (plan `docs/plans/e4-finance-services.md` P16).
+ * method is called, never at import (CLAUDE.md "API import cycle"). The seed script (E5) yields the service and calls
+ * `initializeHousehold` on the value; the finance seed enables finance through the service since E4 (plan
+ * `docs/plans/e4-finance-services.md` P16).
  */
 import { DEFAULT_ENABLED_MODULES, MODULE_IDS, type ModuleId, isModuleId } from "@toon/shared";
 import { and, eq, inArray } from "drizzle-orm";
@@ -23,8 +23,6 @@ import { householdModules } from "../../../db/schema.ts";
 import type { DatabaseError } from "../../../lib/errors.ts";
 import { API_MODULES } from "../../../modules/index.ts";
 import type { ApiModule, HookError } from "../../../modules/types.ts";
-import { runtime } from "../../../runtime.ts";
-import type { DbLike } from "./support.ts";
 
 /** The module rows of households: reading, initialising, enabling and disabling (SPEC D2, D3, §2). */
 export class HouseholdModules extends Context.Service<
@@ -157,21 +155,5 @@ export class HouseholdModules extends Context.Service<
 
       return HouseholdModules.of({ enabledModulesFor, initializeHousehold, enableModule, disableModule });
     }),
-  );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/**
- * Runs on `db`, the executor the caller holds (the creation's transaction inside `createHousehold`).
- * Callers: `scripts/seed.ts` (E5). Promise.
- */
-export function initializeHousehold(
-  db: DbLike,
-  householdId: string,
-  modules: readonly ApiModule[] = API_MODULES,
-): Promise<void> {
-  return runtime.runPromise(
-    HouseholdModules.use((service) => service.initializeHousehold(householdId, modules)).pipe(Database.withExecutor(db)),
   );
 }

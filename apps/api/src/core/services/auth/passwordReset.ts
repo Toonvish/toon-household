@@ -17,16 +17,13 @@
  * The `PasswordReset` service (docs/EFFECT.md E6, E7; plan `docs/plans/e2-api-core-services.md` P2, P7) reads the
  * current executor of `Database` on every call and its time from the `Clock`, inside each method; the token lookup
  * runs through `spendableToken` (`tokens.ts`). The expired-token sweep stays fire-and-forget and catch-all (a
- * detached fiber whose whole cause is ignored, plan e2 P2). The one Promise bridge at the end of the file
- * (`createPasswordResetToken`) keeps `scripts/reset-password.ts` working until E5.
+ * detached fiber whose whole cause is ignored, plan e2 P2). `scripts/reset-password.ts` (E5) yields the service and calls the method on the value.
  */
 import { and, eq, isNull, lt } from "drizzle-orm";
 import { Clock, Context, Effect, Layer } from "effect";
-import type { DrizzleDatabase } from "../../../db/client.ts";
 import { Database } from "../../../db/database.ts";
 import { type PasswordResetTokenRow, passwordResetTokens, users } from "../../../db/schema.ts";
 import { ApiFailure, type DatabaseError } from "../../../lib/errors.ts";
-import { runtime } from "../../../runtime.ts";
 import { Passwords } from "./passwords.ts";
 import { Sessions } from "./sessions.ts";
 import { generateOpaqueToken, hashToken, spendableToken } from "./tokens.ts";
@@ -195,20 +192,5 @@ export class PasswordReset extends Context.Service<
         sweepExpiredResetTokens,
       });
     }),
-  );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/** Callers: `scripts/reset-password.ts` (E5). Promise. */
-export function createPasswordResetToken(
-  database: DrizzleDatabase,
-  userId: string,
-  options: { requestedIp?: string | null } = {},
-): Promise<CreatedPasswordReset> {
-  return runtime.runPromise(
-    PasswordReset.use((service) => service.createPasswordResetToken(userId, options)).pipe(
-      Database.withExecutor(database),
-    ),
   );
 }
