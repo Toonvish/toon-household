@@ -183,16 +183,17 @@ ranges, `If-None-Match` / `If-Modified-Since` `304`s, and with `spa: true` serve
 
 ## 7. In this repo
 
-Applied by milestone E7 (`docs/EFFECT.md` section 4, decision E8: Hono goes last): `apps/api/src/index.ts` (the `export default { port, fetch,
-maxRequestBodySize }` and the signal handlers become `BunHttpServer.layer({ port: env.API_PORT, ... })` + `Layer.launch` over the one
-`AppLayer`), `apps/api/src/middleware/{originGuard,securityHeaders,session,household,module,verifiedEmail,staticWeb}.ts` (global
-middleware and pre-response handlers with the load-bearing order: security headers, cors, origin guard, health, `/uploads`, modules,
-`/api/auth`, `/api/households`, static web by specificity plus an `/api/*` JSON `404`), `apps/api/src/lib/errors.ts` (the one
-`HttpServerRespondable` mapping of the tagged errors to the `docs/API.md` envelope), `apps/api/src/core/routes/auth.ts` (the session
-cookie: `HttpOnly`, `SameSite=Lax`, `Path=/`, `Secure` as today) and `apps/api/src/lib/uploadUrls.ts` consumers (`/uploads/:filename` via
-`HttpServerResponse.file` with the signature check first). Until E7 nothing here is imported; tests move from `app.request` to
-`HttpRouter.toWebHandler`.
+Applied by milestone E7 (`docs/EFFECT.md` decision E8, ADR 0015, plan `docs/plans/e7-http-api.md`); Bun's auto-serve of a Hono default export is gone.
 
-Rule served: **E8** (the observable contract is frozen: every `docs/API.md` row, status, body and header including `Set-Cookie`, CSP,
-CORS and `Location`, and the middleware order) together with **E12** (`Effect.gen` / `Effect.fn`, `return yield*` for failures,
-`Schema` for bodies instead of manual parsing, `Effect.catchTag(s)` instead of `instanceof`).
+- **The server** is `apps/api/src/http/server.ts`: `HttpRouter.serve(appRoutesLayer(), { disableLogger: true, disableListenLog: true })` provided with `BunHttpServer.layer({ hostname: "0.0.0.0", port: env.API_PORT, maxRequestBodySize: 20 * 1024 * 1024, gracefulShutdownTimeout: Duration.seconds(4) })`. The hostname is explicit because the layer's own default is
+  `"::"` (Bun's auto-serve bound `0.0.0.0`); the request log is our global middleware, Effect's logger and its "Listening on" line are off. `appRoutesLayer()` (`apps/api/src/http/app.ts`) is the one route layer: `globalHttpLayer()`, `SystemApi` (health, uploads), `AuthApi`, `HouseholdsApi`, `moduleRoutesLayer(API_MODULES)`, `fallbackRoutesLayer()`, over
+  `httpMiddlewareLayer()` with `Layer.provideMerge`.
+- **The lifecycle** is `apps/api/src/index.ts`: after the `AppLayer` is built and each module's `start()` has run, the server fiber is `Effect.runForkWith(await runtime.context())(Layer.launch(serverLayer().pipe(Layer.tap(() => Deferred.succeed(listening, undefined)))))`. **Never `runtime.runFork` for it:** `ManagedRuntime.dispose` interrupts and awaits every fiber it
+  forked, and the layer scope's finalizer (`server.stop()`, `Effect.promise`, no timeout) waits for every request in flight, so a managed server fiber holds the dispose, the database close and the exit for as long as the slowest (uninterruptible) handler runs; `gracefulShutdownTimeout` bounds only the serve scope's pre-emptive stop. SIGTERM/SIGINT run
+  `Fiber.interrupt(serverFiber)` under `Effect.timeoutOrElse` (5 s), the modules' `shutdown`, `runtime.dispose()` and `process.exit(0)`. A bind failure rejects the boot (exit 1). Measured: 23 to 48 ms idle, 5.03 s with a slow upload in flight, 354 ms through `docker compose stop`.
+- **Routing facts that bit:** the router is find-my-way (specificity, not registration order); a path ending in `/*` is registered twice (`/x/*` and the bare `/x`), so register only the `/*` form; a method-`"*"` route enters the `HEAD` tree and shadows the `HEAD` → `GET` fallback, so every catch-all (the fallback on `*`, the module catch-alls on `…/<id>/*`) is added once per explicit
+  method but `HEAD`. Global middleware is applied first-registered-outermost; register in one generator.
+- **The request** is a path in `request.url` (read `request.source.url` for the full URL); `request.remoteAddress` is the socket address (`clientIp` in `apps/api/src/http/request.ts`); the body is read once (`HttpServerRequest.text` is cached per request: never mix it with `request.source.text()`).
+- **Cookies** go through `apps/api/src/http/cookies.ts` (pre-response handlers on the final response, `Max-Age` as `Duration.seconds(n)`, a deleted cookie is `Max-Age=0` without `Expires`).
+- **Tests** run the same layers through `HttpRouter.toWebHandler` (`apps/api/src/http/in-memory.ts`, never disposed, a child memo map of `appMemoMap` per handler so no two handlers share a router) and a real socket through `BunHttpServer.layerTest` (`apps/api/test/http-server.test.ts`).
+- Rule served: **E8** (the observable contract is frozen: every `docs/API.md` row, status, body and header including `Set-Cookie`, CSP, CORS and `Location`, and the middleware order) with **E12** (`Effect.gen` / `Effect.fn`, `return yield*` for failures, `Schema` for bodies, `Effect.catchTag(s)` instead of `instanceof`).

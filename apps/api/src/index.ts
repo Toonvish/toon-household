@@ -91,8 +91,14 @@ if (!env.isTest) {
   // The server fiber, forked on the one runtime (plan P12, P21): `Layer.launch` builds the server layer and keeps it
   // until the fiber is interrupted. The boot waits until the server listens; a failure to bind (or to build the routes)
   // rejects here and fails the boot with exit 1.
+  //
+  // The fiber is forked with the runtime's context, NOT through `runtime.runFork`: `runtime.dispose()` interrupts and
+  // AWAITS every fiber it forked, and this one's finalizer (`server.stop()`, which waits for each request in flight, the
+  // handlers being uninterruptible, P9) would hold the dispose, the database close and the exit for as long as the
+  // slowest request takes (measured by E7-T13: 8.9 s with a slow upload in flight, the 5 s bound above notwithstanding).
+  // Forked on its own, a request still running after the bound is abandoned, as deviation D4 says.
   const listening = Deferred.makeUnsafe<void>();
-  serverFiber = runtime.runFork(
+  serverFiber = Effect.runForkWith(await runtime.context())(
     Layer.launch(serverLayer().pipe(Layer.tap(() => Deferred.succeed(listening, undefined)))),
   );
   await runtime.runPromise(Effect.raceFirst(Deferred.await(listening), Fiber.join(serverFiber)));

@@ -1,6 +1,6 @@
 # CLAUDE.md — toon-household
 
-The household app: `toon-recipe` and `toon-finance` merged into one modular Bun/Hono/React PWA, with room for
+The household app: `toon-recipe` and `toon-finance` merged into one modular Bun/Effect/React PWA, with room for
 more modules. The next session has no memory of this one, so the docs are the spec. This file holds the core and
 the cross-cutting rules; each module's knowledge lives in its own doc (`docs/modules/<id>.md`).
 
@@ -46,7 +46,11 @@ framework (E1–E12; amends D10's wording); 0013 validation details come from th
 `docs/plans/e1-shared-schema.md` P7, P9, P10: every route's `details` carry the catalog message and `i18n`, a
 struct's own checks do not run while one of its fields fails); 0014 transitional bridges while the core moves onto
 Effect (E5, E7; plan `docs/plans/e2-api-core-services.md` P1, P6, P11, P17: the process-wide database instance, the
-legacy bridges with their calling conventions, the Promise module contract, the test seams).
+legacy bridges with their calling conventions, the Promise module contract, the test seams); 0015 the HttpApi server:
+what E7 does differently from `docs/EFFECT.md` (E8; plan `docs/plans/e7-http-api.md` D1 to D7, P3, P12: CORS, the origin
+guard, the security headers and the request log are global router middleware and there is no locale middleware, a module
+contributes `HttpApi`s that wrap its groups, endpoints declare no payload or success schema, the bounded stop with the
+server fiber outside the runtime's fiber scope).
 
 `docs/EFFECT.md` §1 (E1–E12) is fixed in the same way as D1–D15: it changes only through an ADR, and a task that
 forces a deviation makes the smallest one and records it (ADR 0012, `docs/adr/0012-effect-application-framework.md`).
@@ -119,9 +123,9 @@ module (`docs/plans/m2-recipe-module.md`), M3 finance module (`docs/plans/m3-fin
 and M7 harden (`docs/plans/m7-harden.md`), 2026-10-13 to 2026-10-15; each plan's last sections are its
 integration record and "what changed vs plan". Two modules are built (`API_MODULES` and `WEB_MODULES` are
 `[recipe, finance]`, `/api/health` reports `modules: ["recipe","finance"]`). The tree typechecks, builds and tests
-green (`bun test`: 14993 pass, 1 skip (the snapshot sweep's `describe.skipIf`), 0 fail in 177 files on the temp file DB at E6 (51.57 s under a host load average of about 4 to 5); 14785 pass in 170 files at E5 (45.40 s under a host load average of about 3 to 10); 14725 pass in 163 files at E4 (37.07 s under a host load average of about 3.7); 14686 pass in 160 files after the E3 review (14684 at E3-T13, 32.88 s on a quiet host); 14658 pass in 158 files after E2 (69.96 s under a host load average of 14 to 50; 39.79 s at E2's quiet baseline), where 11357 of them are
+green (`bun test`: 15191 pass, 1 skip (the snapshot sweep's `describe.skipIf`), 0 fail in 181 files on the temp file DB at E7 (61.22 s on the final tree; 15175 pass in 58.05 s before E7-T13's 16 added import-order entries); 14993 pass in 177 files at E6 (51.57 s under a host load average of about 4 to 5); 14785 pass in 170 files at E5 (45.40 s under a host load average of about 3 to 10); 14725 pass in 163 files at E4 (37.07 s under a host load average of about 3.7); 14686 pass in 160 files after the E3 review (14684 at E3-T13, 32.88 s on a quiet host); 14658 pass in 158 files after E2 (69.96 s under a host load average of 14 to 50; 39.79 s at E2's quiet baseline), where 11357 of them are
 the golden parity cases of `packages/shared/test/parity/`; 14508 pass in 150 files after the E1 review; 2463 pass in 141 files at the end of E0; `i18n:check` exits 1 with
-the 145 classified false positives at E4, at E5 and again at E6 (the same 145 lines at the E5 base, at its end and at E6's end, compared line-number-free; the 146 of before E2, 147 with the `Effect.die` stopword hit of the old module adapter file, since deleted; E4 deleted that line and reworded one comment line of `apps/api/src/modules/finance/lib/clock.ts`, no new hit); M7's integration record, `docs/plans/m7-harden.md` section 9, has the gate logs,
+the 148 classified false positives at E7 (the 145 below plus three `Effect.die` stopword hits in `apps/api/src/modules/mount.ts`: the check's stopword "die" matches the Effect constructor; no German string was added); the 145 at E4, at E5 and again at E6 (the same 145 lines at the E5 base, at its end and at E6's end, compared line-number-free; the 146 of before E2, 147 with the `Effect.die` stopword hit of the old module adapter file, since deleted; E4 deleted that line and reworded one comment line of `apps/api/src/modules/finance/lib/clock.ts`, no new hit); M7's integration record, `docs/plans/m7-harden.md` section 9, has the gate logs,
 the walkthrough, the `migrate:legacy` fixture run and the print-to-PDF proof). Milestone E0 of the Effect migration
 (foundation: the vendored source fenced off, the pinned Effect packages, the one `ManagedRuntime` serving
 `/api/health`, the idioms test, ADR 0012) is done; its integration record is `docs/plans/e0-foundation.md` sections
@@ -154,7 +158,13 @@ on explicit values, the `migrate:legacy` library is Effect functions behind the 
 decodes the response with the shared `Schema` and fails with the tagged `ApiError`, every `queryFn` is `runPromise` of one of those effects, and
 three contract tests prove the decode is the identity on the wire, one of them over the migrated legacy fixtures plus an owner-run snapshot sweep;
 idioms rule (13) is on; gzip bundle 402.54 kB to 419.99 kB, growth 17.45 kB, no ADR needed) is done; its integration record is
-`docs/plans/e6-web-client.md` sections 9 and 10. What is left is the owner's (see "Open work", which now holds the E6 decode sweep over a production snapshot).
+`docs/plans/e6-web-client.md` sections 9 and 10. Milestone E7 (http-api: Hono is gone; the API is `effect/http-api` definitions (`X.api.ts` per route file) with their
+handler layers, the `HttpApiMiddleware`s of `apps/api/src/http/middleware.ts` in the pinned order, the global layer (request log, security headers, CORS, origin
+guard) and `BunHttpServer` on the same port; the module contract is `householdApi` / `userApi` (`HttpApi`s plus a handler layer); `app.request` runs on the
+in-memory handler; `hono` is out of every `package.json` and `bun.lock`, idioms rule (14); the web, the Dockerfile, the compose file and the Caddyfile are
+untouched; ADR 0015) is done; its integration record is `docs/plans/e7-http-api.md` sections 9 and 10 (the gates, the live boot and in-flight SIGTERM
+checks, the local stack test with a fresh image, the OpenAPI counts). What is left is the owner's (see "Open work", which now holds the E6 decode sweep over a
+production snapshot and the E7 follow-ups: declared payload and success schemas, a typed `HttpApiClient`).
 
 ## Layout (as built)
 
@@ -172,21 +182,33 @@ Package names are `@toon/shared`, `@toon/api`, `@toon/web`; the root is `toon-ho
   `packages/shared/test/`, beside `packages/shared/test/support/schema.ts` (the schema test helpers),
   `packages/shared/test/fixtures/schema-golden/` (the golden JSON corpus, the parity oracle) and
   `packages/shared/test/parity/` (the three parity tests over it).
-- `apps/api/src/index.ts` wires health, `/uploads/:filename`, `mountModules`, `/api/auth`, `/api/households`,
-  SIGTERM/SIGINT calling each module's `shutdown`, the static web LAST. Beside it: `apps/api/src/env.ts`,
+- `apps/api/src/index.ts` is the process: the boot (the `AppLayer`, each module's `start`, the server fiber), SIGTERM/SIGINT (bounded server
+  stop, each module's `shutdown`, the runtime dispose) and `export { app }` (the in-memory handler the tests call). The application is
+  `apps/api/src/http/app.ts` (`appRoutesLayer()`: the global layer, `SystemApi`, `AuthApi`, `HouseholdsApi`, the module APIs, the fallback; `httpApiRoutes()`,
+  the api-doc test's route list) served by `apps/api/src/http/server.ts` (`BunHttpServer`, `0.0.0.0:API_PORT`, 20 MiB body cap). The rest of
+  `apps/api/src/http/` is the vocabulary (E7): `middleware.ts` (the `HttpApiMiddleware` tags, `chain`, `coreApi`, `householdModuleApi`, `userModuleApi`, `ModuleId`),
+  `context.ts` (`CurrentUser`, `CurrentSession`, `MaybeSession`, `CurrentMembership`), `request.ts` (`jsonBody`, `queryParams`, `rawJsonOr`, `clientIp`, …),
+  `response.ts` (`json`, `created`, `noContent`, `errorResponse`, `ApiErrorBoundaryLayer`), `cookies.ts`, `global.ts` (`globalHttpLayer()`, `fallbackRoutesLayer()`),
+  `middleware-layer.ts` (`httpMiddlewareLayer()`) and `in-memory.ts` (`inMemoryHandler`). Beside it: `apps/api/src/env.ts`,
   `apps/api/src/db/{client,migrate,schema}.ts` plus `apps/api/src/db/schema/core.ts`, `apps/api/src/lib/` (`apps/api/src/lib/validate.ts` is the one decode path),
-  `apps/api/src/middleware/{session,household,module,verifiedEmail,staticWeb,originGuard,securityHeaders}.ts`,
-  `apps/api/src/modules/{index,types,mount}.ts` (the registry, the contract, the mount chain),
+  `apps/api/src/middleware/{session,household,module,verifiedEmail}.ts` (the `HttpApiMiddleware` implementations) and
+  `apps/api/src/middleware/{staticWeb,originGuard,securityHeaders,cors,requestLog}.ts` (the global ones),
+  `apps/api/src/modules/{index,types,mount}.ts` (the registry, the contract, `moduleRoutesLayer`),
   `apps/api/src/runtime.ts` (`AppLayer`, the shared memo map and the one `ManagedRuntime`, E0) and
   `apps/api/src/core/health.ts` (`healthResponse`, the `/api/health` payload as an Effect).
-- Core API: `apps/api/src/core/routes/{auth,households,members,invites,modules}.ts` (the last three export
-  `register…Routes(router)` onto the one `householdRoutes` of `households.ts`) and
+- Core API: `apps/api/src/core/routes/{auth,households,members,invites,modules,system}.ts` with a leaf `X.api.ts` beside `auth`,
+  `households` and `system` (`apps/api/src/core/routes/households.api.ts` holds the four groups `invites`, `households`, `members`, `modules` of
+  `/api/households`; the handler layers are `invitesHandlers`, `householdGroupHandlers`, `membersHandlers`, `modulesHandlers`, merged by `householdsHandlers`) and
   `apps/api/src/core/services/{auth,households,mail,media}/`;
   `apps/api/src/core/services/households/modules.ts` holds `enabledModulesFor`, `initializeHousehold`,
   `enableModule`, `disableModule`; `apps/api/src/core/services/media/` holds the uploads, the module reference
   scan and the sharp thumbnails.
 - Module APIs: `apps/api/src/modules/recipe/` and `apps/api/src/modules/finance/` (manifest `index.ts`,
-  `schema.ts`, `routes/`, `services/`, seed; details in the module docs).
+  `schema.ts`, `routes/`, `services/`, seed; details in the module docs). Each `routes/X.ts` has a leaf `routes/X.api.ts`
+  (the `HttpApiGroup` and its `HttpApi`: method, path, `params`, middleware; no payload or success schema) and `routes/index.ts` holds the
+  hoisted `…HouseholdApis()` / `…HouseholdHandlers()` (and recipe's `…UserApis()` / `…UserHandlers()`) the manifest reads lazily;
+  finance's gate is `apps/api/src/modules/finance/http.ts` (the leaf tag `RequireFinanceParticipant`, `CurrentFinanceParticipant`) with its
+  layer in `apps/api/src/modules/finance/middleware.ts`.
 - Migrations: `apps/api/drizzle/{0000_core,0001_recipe,0002_finance,0003_placeholder_members}.sql`, generated by
   drizzle-kit (`0003` has three generator defects corrected by hand, ADR 0006).
 - Scripts:
@@ -226,6 +248,12 @@ Package names are `@toon/shared`, `@toon/api`, `@toon/web`; the root is `toon-ho
   `repos/`), `repos/effect/` (the vendored Effect source, read-only; "Vendored reference code") and `agent-patterns/`
   (the `effect-<topic>.md` pattern files); the gate is `apps/api/test/effect-idioms.test.ts`, and
   `apps/api/test/runtime.test.ts` pins the runtime and the health route served through it.
+- HTTP layer (E7): tests `apps/api/test/http-contract.test.ts` (the table-driven contract over the `docs/plans/m7-harden.md` §9.3 walkthrough
+  plus the header rows, captured from the Hono app and unchanged by the cutover), `apps/api/test/http-foundation.test.ts` (the vocabulary:
+  middleware order, request and response helpers, router isolation), `apps/api/test/http-global.test.ts` (the global layer: preflight,
+  origin guard, fallback) and `apps/api/test/http-server.test.ts` (`BunHttpServer.layerTest`: a real socket); the mini-app helper is
+  `apps/api/test/support/http.ts` (`testHttpApp`). A new route gets its `X.api.ts` endpoint, its handler, a `docs/API.md` row
+  (`apps/api/test/api-doc.test.ts` reads `httpApiRoutes()`) and, for a by-id route, its case in the cross-household sweep.
 - Recipe services (E3): `apps/api/src/modules/recipe/layer.ts` (`recipeLayer()`, the areas nested by dependency; `RecipeServices`),
   the area files `apps/api/src/modules/recipe/services/{ocr,import,import/url,recipes,shopping,plan,cards}/layer.ts`, and the
   `Context.Service` classes `Ocr`, `PdfText`, `ImportCapabilities`, `ImportFiles`, `OcrImporter`, `ImportDrafts`, `ImportCommit`,
@@ -252,8 +280,8 @@ Package names are `@toon/shared`, `@toon/api`, `@toon/web`; the root is `toon-ho
   `apps/api/src/infra.ts` (`infraLayer()`: config, database, mailer, thumbnails, uploads, rate limiter, verified-email),
   `apps/api/src/core/services/layer.ts` (`coreServicesLayer()`, `baseServicesLayer()`) with
   `apps/api/src/core/services/auth/layer.ts` and `apps/api/src/core/services/households/layer.ts` (one hoisted
-  composition function each), `apps/api/src/lib/errors.ts` (the tagged error family, `ApiError` kept for the modules,
-  `toApiError`, `errorBody`, `onErrorHandler`), `apps/api/test/support/effect.ts` (`runTest`, `runTestExit`, `itEffect`, `recordingMailer`,
+  composition function each), `apps/api/src/lib/errors.ts` (the tagged error family, `ApiError` kept for the tests,
+  `toApiError`, `errorBody`, `logBoundaryFailure`, `routeUnknown`), `apps/api/test/support/effect.ts` (`runTest`, `runTestExit`, `itEffect`, `recordingMailer`,
   `withMailer`) and `apps/api/test/import-order-effect.test.ts` (the fresh-process import guard for the files the
   runtime pulls into the cycle). Core services (`Context.Service` classes): `Mailer` (`mail/index.ts`, exported as
   `MailerService`), `RateLimiter`, `VerifiedEmail`, `Thumbnails`, `Uploads`, `UploadReferences`, `HouseholdModules`,
@@ -289,7 +317,7 @@ Run from the repo root. Bun 1.4.2 (`.bun-version`); `bun install --frozen-lockfi
   overrides it). `bunfig.toml` keeps the vendored `repos/` out of discovery.
 - `bun run build`: Vite build plus the generated PWA service worker into `apps/web/dist`.
 - `bun run i18n:check`: German catalog parity plus no German left in ported source. Exits 1 by design: parity
-  OK, and about 145 leftover-German hits, all false positives (German quoted in doc comments and 10 lines of recipe
+  OK, and about 148 leftover-German hits, all false positives (German quoted in doc comments and 10 lines of recipe
   content vocabulary; a line that merely contains a German stopword such as "die" is one too). Classify each hit, never suppress the check. `apps/api/scripts` is not scanned.
 - `bun run db:generate`: drizzle-kit generates a migration from `apps/api/src/db/schema`.
 - `bun run db:migrate`: applies the migrations to `DATABASE_URL` (e.g. `file:./data/m2.db`) and every build
@@ -391,18 +419,26 @@ ones; the module gotchas are indexed below and live in the module docs.
 
 ### Database and API
 
-- **One runtime, disposed on shutdown (E0, E2).** `apps/api/src/runtime.ts` is the only file that calls
+- **One runtime, disposed on shutdown (E0, E2, E7).** `apps/api/src/runtime.ts` is the only file that calls
   `ManagedRuntime.make` (`AppLayer`, the whole composition below; the shared `appMemoMap`). Nothing runs
   an effect on it at module scope: the layer builds lazily on the first run, and a run at import time would
-  re-enter the API import cycle (below). `GET /api/health` is `runtime.runPromise(healthResponse)`
-  (`apps/api/src/core/health.ts`; `AppConfig`, `VerifiedEmail` and the registry are read inside the generator, key
+  re-enter the API import cycle (below). `GET /api/health` is the `SystemApi` handler over
+  `healthResponse` (`apps/api/src/core/health.ts`; `AppConfig`, `VerifiedEmail` and the registry are read inside the generator, key
   order `ok, status, version, time, database, modules, features`). Boot (`apps/api/src/index.ts`): `await
   runtime.runPromise(Effect.void)` builds the whole `AppLayer` first, so a database that cannot be opened fails the
-  boot, then each module's `start()` effect (a failure logs `[api] start of module <id> failed:`). On SIGTERM/SIGINT
-  (never in tests) it logs `[api] <signal> — stopping modules …`, runs every module's `shutdown` effect, THEN `await
-  runtime.dispose()`, which runs `Database.layer`'s release and logs `[db] database closed`, then logs `[api] runtime
-  disposed` (a failed dispose logs `[api] runtime dispose failed:`), and `process.exit(0)` last in every case. Never
-  dispose the runtime in a test: the tests share one process and one runtime.
+  boot, then each module's `start()` effect (a failure logs `[api] start of module <id> failed:`), then the server fiber
+  (`Layer.launch(serverLayer())`) until it listens (a bind failure fails the boot with exit 1), then the boot line.
+  **The server fiber is forked with `Effect.runForkWith(await runtime.context())`, never `runtime.runFork`:**
+  `runtime.dispose()` interrupts and AWAITS every fiber it forked, and `BunHttpServer`'s `server.stop()` finalizer waits for
+  every request in flight (the handlers are `UNINTERRUPTIBLE`), so a managed server fiber made a slow upload hold the whole
+  teardown (8.9 s measured at E7-T13, ADR 0015). On SIGTERM/SIGINT (never in tests) it logs `[api] <signal> — stopping
+  modules …`, interrupts the server fiber BOUNDED to 5 s (`Fiber.interrupt` under `Effect.timeoutOrElse`; a request still
+  running is abandoned), runs every module's `shutdown` effect, THEN `await runtime.dispose()`, which runs
+  `Database.layer`'s release and logs `[db] database closed`, then logs `[api] runtime disposed` (a failed dispose logs
+  `[api] runtime dispose failed:`), and `process.exit(0)` last in every case. Measured: 23 to 48 ms idle, 5.03 s with a
+  slow upload in flight, 354 ms through `docker compose stop` (`docs/plans/e7-http-api.md` 9.4). `index.ts` never
+  `export default`s an object with `fetch` (Bun would auto-serve it a second time). Never dispose the runtime in a test: the
+  tests share one process and one runtime.
 - **One composition point, evaluated lazily, siblings nested explicitly (E2, plan P3).** `AppLayer` is
   `Layer.suspend(appLayer)` over hoisted functions only (`infraLayer()`, `coreServicesLayer()`, `baseServicesLayer()`,
   `authServicesLayer()`, `householdServicesLayer()`, `moduleLayers()`), annotated `Layer.Layer<AppServices,
@@ -474,19 +510,19 @@ ones; the module gotchas are indexed below and live in the module docs.
   "allow private hosts" switch (`IMPORT_ALLOW_PRIVATE_HOSTS` skips every host check, the metadata address included, so a test
   behind it could not prove a refusal and would send a real request to `169.254.169.254`). `apps/api/test/import/url-import-local.test.ts`
   runs the real client against a `Bun.serve` fixture under it, with an explicit `URL_IMPORT_TEST_TIMEOUT_MS` on every test.
-  `routes/recipes.ts` and `routes/imports.ts` are not entries of `apps/api/test/import-order-effect.test.ts`: imported FIRST
-  they die on the base tree (`routes/index.ts` reads them at module scope), a router redesign that belongs to E7
-  (`docs/open-work.md`); `apps/api/src/modules/recipe/index.ts` covers them in the real order.
+  The recipe route files are entries of `apps/api/test/import-order-effect.test.ts` since E7-T13 (the Hono routers they used to
+  build at module scope are gone).
 - **The error family and the one boundary mapper (E2, plan P4).** `apps/api/src/lib/errors.ts` has one
   `Schema.TaggedError` per HTTP refusal (`BadRequest`, `Unauthorized`, `InvalidCredentials`, `Forbidden`, `NotFound`,
   `Conflict`, `PayloadTooLarge`, `UnsupportedMediaType`, `ValidationFailed`, `Internal`, `RateLimited` with
   `Retry-After`, the generic `ApiFailure`), permissive field schemas (a constructor never throws on a value today's
   code passes) and `isApiError` (a `Predicate`, no `instanceof`). Services and routes fail with them
-  (`return yield* new NotFound()`), `toApiError` / `errorBody` / `onErrorHandler` render the envelope once. The old
+  (`return yield* new NotFound()`), `toApiError` / `errorBody` render the envelope once, at the one boundary (`ApiErrorBoundary`, outermost on every `HttpApi`, in
+  `apps/api/src/http/response.ts`, and `errorResponse` for the global middlewares). The old
   `ApiError` class and its ten static helpers stay for the tests (`errors.test.ts` and others) until E8 (`x instanceof ApiError` is true for
   every family member; idioms rule (10) allows no `throw ApiError` anywhere under `apps/api/src` since E4). `DatabaseError` and `MailError` are tagged errors OUTSIDE the family: a database failure is a `500
   internal_error` whose log line shows its `cause`, never an API error to module code. A 5xx family member logs
-  `[api] <METHOD> <path> -> <status> <code>: <English message>` and its stack (the pre-E2 line; `apps/api/test/errors.test.ts`).
+  `[api] <METHOD> <path> -> <status> <code>: <English message>` and its stack (the pre-E2 line, `logBoundaryFailure`; a 4xx warns outside production; `apps/api/test/errors.test.ts`).
 - **The `Database` service and the shared client (E2, plan P6, ADR 0014).** `apps/api/src/db/client.ts` still creates
   the process-wide instance at import, after E5 too (the tests' shared `db` of ADR 0009 and `migrate-legacy.ts`'s pinned import order read it;
   E8 decides whether the layer creates the client, ADR 0014 "Status after E5's integration"); the `Database`
@@ -525,18 +561,23 @@ ones; the module gotchas are indexed below and live in the module docs.
   after the start, as `setInterval`; `Effect.repeat` would run at once), `stopAccrualSchedule` interrupts it before the runtime is
   disposed, and `apps/api/test/finance-scheduler.test.ts` drives it with a `TestClock` (a bounded real-time poll for the catch-up's
   real database I/O). A failed tick logs `[plan] interval catch-up failed:` and the schedule goes on. The module clock is
-  `financeTimeMillis` (the `setClockForTest` override, else the `Clock`); the finance route files import the runtime and, like recipe's,
-  die when imported first (`docs/open-work.md` O-6).
-- **Middleware factories are TDZ-safe (E2, plan P12, P21).** The runtime imports `modules/index.ts`, which imports
-  the routers, which call `requireHouseholdRole("admin")`, `requireVerifiedEmail()`, `requireModule(id)` at module
-  scope, possibly while the middleware file is still evaluating. So every exported middleware factory
-  (`requireSession`, `optionalSession`, `requireHouseholdRole`, `requireHouseholdMember/Admin/Owner`,
-  `requireModule`, `requireVerifiedEmail`, `originGuard`) is a hoisted `function` declaration whose body reads NO
-  imported binding and no module-level `const` until a request arrives (the returned handler reads `runtime`, the
-  services and the tables). A middleware does its service and database work as ONE `await runtime.runPromise(...)`
-  before `await next()`; `next()` is never called inside an effect. `lib/errors.ts`, `lib/types.ts` and
-  `lib/validate.ts` import neither the runtime nor a service. `apps/api/test/import-order.test.ts` stays pinned;
-  `apps/api/test/import-order-effect.test.ts` covers the files E2 added to the cycle.
+  `financeTimeMillis` (the `setClockForTest` override, else the `Clock`); the finance route files are entries of
+  `apps/api/test/import-order-effect.test.ts` since E7-T13.
+- **Middleware, APIs and handler layers are TDZ-safe (E2, plan P12, P21; E7, plan P15).** The runtime imports `modules/index.ts`,
+  which imports each module's `routes/index.ts`, which builds `HttpApi`s and handler layers while the middleware files may still
+  be evaluating. The leaves import nothing in the cycle: every `*.api.ts`, `apps/api/src/http/{middleware,context}.ts` and
+  `apps/api/src/modules/finance/http.ts` (the `HttpApiMiddleware` tags and the `HttpApi` values) import only `effect`,
+  `effect/http-api`, types and `lib/errors.ts`. A class-valued tag is a TDZ binding, unlike the hoisted middleware factories of the
+  Hono era, so what depends on one is built lazily: a handler layer at module scope references only `effect` exports, its leaf
+  API and its own build function (services are yielded inside the handlers); a middleware layer at module scope references only
+  its leaf tag (`Layer.effect(RequireSession, Effect.gen(...))`, its services yielded inside); every LIST of layers or APIs the
+  server builds is computed in a hoisted function (`appRoutesLayer()`, `moduleRoutesLayer()`, `httpMiddlewareLayer()`,
+  `globalHttpLayer()`, `recipeHouseholdApis()`, `financeHouseholdHandlers()`, …), the manifests read them lazily (a getter,
+  `Layer.suspend`), and `apps/api/src/http/app.ts`'s one module-scope statement calls the hoisted `inMemoryHandler`, which builds
+  nothing until the first request. `lib/errors.ts`, `lib/types.ts` and `lib/validate.ts` import neither the runtime nor a service.
+  `apps/api/test/import-order.test.ts` and `apps/api/test/import-order-effect.test.ts` pin it: every route file is an entry that
+  loads FIRST in a fresh process, then the `AppLayer` builds and one request is served (E7-T13 added the 16 route files the pre-E7
+  tree could not take as a first import, `docs/open-work.md` O-6 retired).
 
 - **D7 pragmas.** `apps/api/src/db/client.ts` sends WAL + `synchronous = FULL` (finance's ledger choice, not
   recipe's `NORMAL`), `foreign_keys = ON` and the busy timeout on every connection to a local `file:` DB, never
@@ -547,17 +588,24 @@ ones; the module gotchas are indexed below and live in the module docs.
   hand; DDL is verified through `@libsql/client` (`bun:sqlite` is a newer SQLite). `db:migrate` needs only
   `DATABASE_URL`: it supplies a placeholder `SESSION_SECRET` (never overriding a real one) and imports the db
   modules dynamically so `apps/api/src/env.ts` validates after that.
-- **Middleware chain order is load-bearing.** `mountModules` (`apps/api/src/modules/mount.ts`) applies
-  `requireSession()` → `requireHouseholdRole("member")` → `requireModule(id)`: no cookie is 401 first, a
-  non-member is 403 before the module row is read (a foreign household's enabled modules never leak), a disabled
-  module is `404 module_disabled`. `apps/api/test/middleware.test.ts` pins the order. A module's
-  `householdRouter` therefore has no `requireSession()` / `requireHouseholdRole("member")` of its own; it adds
-  `requireVerifiedEmail()` itself and `requireHouseholdRole("admin")` per route where needed. A `userRouter`
-  (`/api/recipe/cards`) runs `requireSession()` itself and is NOT behind `requireModule`. Mount order in
-  `apps/api/src/index.ts` (pinned by tests; `docs/API.md` "Middleware chain and mount order"): security headers,
-  `cors()`, the origin guard on `/api/*`, health, `/uploads`, `mountModules`, `/api/auth`, `/api/households`,
-  static web LAST; module routers stay before `/api/households`, and inside `householdRoutes` the invite-token
-  routes (`/invites/:token`, `/invites/accept`) come before `/:householdId`.
+- **Middleware chain order is load-bearing (E7: HttpApi terms).** A module's `householdApi` is built by `householdModuleApi(id, api)`
+  (`apps/api/src/http/middleware.ts`), which attaches `ApiErrorBoundary` → `RequireSession` → `RequireHouseholdMember` →
+  `RequireModule` (annotated with the group's `ModuleId`), then the group's chain, then the endpoint's: no cookie is 401 first, a
+  non-member is 403 before the module row is read (a foreign household's enabled modules never leak), a disabled module is
+  `404 module_disabled`. **The middleware attached LAST runs FIRST** (`HttpApiBuilder.ts` `applyMiddleware`; HTTPAPI.md's prose
+  suggests the opposite): attach through `chain(A, B, C)`, which takes the middlewares in EXECUTION order and attaches them
+  reversed, never `.middleware(...)` by hand. `apps/api/test/middleware.test.ts` and `apps/api/test/http-foundation.test.ts` pin the
+  order. A module's endpoints have no `RequireSession` / `RequireHouseholdMember` of their own; a group adds `RequireVerifiedEmail`
+  and an endpoint `RequireHouseholdAdmin` where needed. A `userApi` (`userModuleApi`: `/api/recipe/cards`) runs `RequireSession`
+  itself and is NOT behind `RequireModule`. `moduleRoutesLayer` (`apps/api/src/modules/mount.ts`) ASSERTS the four outermost
+  middlewares and the prefix at layer build (`Effect.die` naming the module and the endpoint) and registers a catch-all per household module on
+  `…/<id>/*` that runs session → member → module and answers the JSON 404 (once per explicit method but `HEAD`: a `*`-method route enters the
+  `HEAD` tree and would shadow the `HEAD` → `GET` fallback). The router matches by SPECIFICITY, not registration order: the
+  invite-token routes beside `/:householdId`, `…/shopping-lists/bought` beside `…/:listId` need no order; the order that remains
+  load-bearing is the GLOBAL one (`docs/API.md` "Middleware chain and mount order"): the request log, the security headers, CORS and
+  the origin guard, registered in ONE generator in `globalHttpLayer()` (never a `Layer.mergeAll`, which builds concurrently), then the
+  routes, the static web last as the fallback route (`fallbackRoutesLayer()`: the path `*` once per explicit method but `HEAD`, never
+  `/*`, which the router would also register as the bare path).
 - **A `household_modules` row is the enabled state.** Every household-creation path (register, OAuth sign-up,
   `POST /api/households`, seed) goes through `initializeHousehold(db, id)`, which writes the
   `DEFAULT_ENABLED_MODULES` rows (even for a module the build lacks; the UI filters by `WEB_MODULES`) and then
@@ -593,15 +641,14 @@ ones; the module gotchas are indexed below and live in the module docs.
   `apps/api/test/recipe-cross-household.test.ts` and `apps/api/test/finance-cross-household.test.ts` address
   every by-id route with another household's id (cards: another user's card). A new by-id route gets its case
   in the same commit.
-- **API import cycle: read the registry inside functions, declare handlers as functions.**
-  `apps/api/src/middleware/session.ts` → `apps/api/src/core/services/auth/users.ts` →
-  `apps/api/src/core/services/households/modules.ts` → `apps/api/src/modules/index.ts` → recipe manifest →
-  `apps/api/src/modules/recipe/routes/cards.ts` calls `requireSession()` at module scope while `session.ts` is
-  still evaluating. `requireHandler` / `optionalHandler` are therefore hoisted function declarations (as `const`
-  arrows the real server died with "Cannot access 'requireHandler' before initialization" while every in-process
-  test passed); so is finance's `requireFinanceParticipant`. `apps/api/test/import-order.test.ts` imports each
-  real entry point first, in a fresh process. A new module-scope call into a core middleware or service needs
-  the same care, and `API_MODULES` is never read at module top level.
+- **API import cycle: read the registry inside functions, hoist what the cycle touches (E7: see "Middleware, APIs and handler layers are
+  TDZ-safe").** `apps/api/src/middleware/session.ts` → `apps/api/src/core/services/auth/users.ts` →
+  `apps/api/src/core/services/households/modules.ts` → `apps/api/src/modules/index.ts` → the recipe manifest →
+  `apps/api/src/modules/recipe/routes/index.ts` reaches the route files while `session.ts` may still be evaluating. The Hono-era
+  failure ("Cannot access 'requireHandler' before initialization" in the real server while every in-process test passed) is the
+  shape to avoid: a module-scope read of something still being evaluated. `API_MODULES` is never read at module top level
+  (`initializeHousehold` and `appRoutesLayer()` read it inside functions). `apps/api/test/import-order.test.ts` imports each
+  real entry point first, in a fresh process. A new module-scope call into a core middleware or service needs the same care.
 - **Placeholders and claim invites (ADR 0006, plan m3b decisions 1-6).** A placeholder is a core user row with
   `email IS NULL AND password_hash IS NULL`: `isPlaceholderUser` (`apps/api/src/core/services/auth/users.ts`) is
   the one predicate (an OAuth-only account also has a NULL hash). It has no OAuth link, session or avatar and
@@ -617,15 +664,17 @@ ones; the module gotchas are indexed below and live in the module docs.
   its placeholder users. `removeMember` runs every build module's `onMemberRemoving` veto first (finance's:
   "A seated participant cannot leave while the ledger has rows." in `docs/modules/finance.md`).
 - **The origin guard trusts `WEB_ORIGIN` (plan m3b decision 15, F gotcha 66).**
-  `apps/api/src/middleware/originGuard.ts` runs on `/api/*` for unsafe methods before the routers: an `Origin`
+  `apps/api/src/middleware/originGuard.ts` runs on `/api/*` for unsafe methods before the routes: an `Origin`
   listed in `WEB_ORIGIN` (`env.webOrigins`) passes (the dev setup calls the API from `:5173`, the same SITE,
   which F's rule would refuse); otherwise `Sec-Fetch-Site: cross-site|same-site`, `Origin: null` and an `Origin`
   host other than the request host answer `403` with `server.error.originMismatch`; no `Origin` (curl, tests)
-  passes; only the host is compared (TLS ends at the Caddy). It sits after `cors()` and before `mountModules`,
-  and `readJson` in `apps/api/src/core/routes/auth.ts` wants `Content-Type: application/json`. A second origin
+  passes; only the host is compared (TLS ends at the Caddy). It is the fourth global middleware (after CORS, before any
+  route, `originGuardMiddleware` registered by `globalHttpLayer()`; its refusal is `errorResponse(new Forbidden(…))` and still
+  carries the security and CORS headers), and `readJson` in `apps/api/src/core/routes/auth.ts` wants `Content-Type: application/json`. A second origin
   that legitimately calls the API must be listed in `WEB_ORIGIN`, comma-separated.
 - **The CSP and the baked API URL (plan m3b decision 16, F gotchas 67 and 50, ADR 0007).**
-  `apps/api/src/middleware/securityHeaders.ts` hashes every inline `<script>` of the built `index.html` at boot
+  `apps/api/src/middleware/securityHeaders.ts` (a pre-response handler of the global layer: every response, errors and the
+  preflight included; the literal header set is `docs/API.md` "Security headers and the CSP") hashes every inline `<script>` of the built `index.html` at boot
   and sends `script-src 'self' 'wasm-unsafe-eval' <hashes>` (zxing-wasm), `style-src 'self'`, `img-src 'self'
   data: blob: https:`, `media-src 'self' blob:`, `connect-src 'self'`, `frame-ancestors 'none'`,
   `X-Frame-Options: DENY`, `nosniff`; no HSTS (the Caddy's, D11), no `Permissions-Policy` (it would block the
@@ -800,9 +849,10 @@ ones; the module gotchas are indexed below and live in the module docs.
   specifier under non-test `apps/web/src` is exactly `"effect"` or `"effect/http"`, (b) only the files of `WEB_EFFECT_ALLOW_LIST` import
   `effect`, (c) `\bfetch\(` only in `apps/web/src/lib/runtime.ts` and `\bnew XMLHttpRequest\b` only in
   `apps/web/src/modules/recipe/features/import/lib/importApi.ts` (two separate allow lists). Rules (10) to (13) fail a stale allow-list entry (a fixed file leaves the list in the same commit).
-  The one rule a later milestone switches on (no `hono` at E7) is a `PENDING_RULES` comment in the file, never a
-  skipped test, and becomes a `describe` in the commit of the migration that makes it true. Never relax a rule to
-  get green.
+  Rule (14) (E7) is "no hono": no `hono` / `hono/*` specifier in a scanned file, no `hono` key in a dependency section of a
+  `package.json`, no `"hono"` key in `bun.lock`, allow list EMPTY. A rule a later milestone switches on is a `PENDING_RULES`
+  comment in the file (none is left after E7), never a skipped test, and becomes a `describe` in the commit of the migration that makes it
+  true. Never relax a rule to get green.
 - **The web contract tests and the snapshot sweep (E6, plan P7, P7b).** `apps/api/test/web-contract-core-recipe.test.ts`,
   `apps/api/test/web-contract-finance.test.ts` and `apps/api/test/web-contract-legacy.test.ts` decode every response the web clients decode
   with `{ disableChecks: true }` and assert the decoded value `toEqual` the body (83 JSON rows and 27 void rows, 49 finance rows; the legacy
@@ -997,6 +1047,14 @@ gotchas 62, 63, 65)."; "F gotcha numbers are F's numbering at `1715207`."
   `toValidationIssues`, and `zod` and `@hono/zod-validator` are not dependencies (idioms rule (9)). What remains of the
   old gotcha: a form-facing 422 carries `i18n` and the catalog text on every route, and `readJson` in
   `apps/api/src/core/routes/auth.ts` still wants `Content-Type: application/json`.
+- **Hono-era API rules (middleware factories as hoisted function declarations; one `await runtime.runPromise(...)` before
+  `await next()`; mount order in `apps/api/src/index.ts`; `mountModules`; `requireHandler` / `optionalHandler`).** Retired by E7
+  and ADR 0015: nothing is a Hono middleware any more. What remains of each: the leaves and the lazily built lists of the TDZ gotcha
+  above, the chain order as `chain(...)` and `householdModuleApi` (the Middleware chain gotcha), the global order in
+  `globalHttpLayer()`, and the rule that the first request builds the router, never an import (`apps/api/src/http/in-memory.ts`).
+- **`routes/recipes.ts`, `routes/imports.ts` and the eight finance route files die when imported first (`docs/open-work.md` O-6).**
+  Retired by E7-T13: the Hono routers that read the still-evaluating route bindings at module scope are gone; all 20 route files
+  load first in a fresh process and serve a request (`apps/api/test/import-order-effect.test.ts`).
 - **A missed shared-type alias compiles silently through the web's `request<T>` (finance gotcha "Finance TS identifiers carry a
   `finance` prefix", the web half).** Retired by E6: `request<T>` and its unvalidated cast are deleted; each endpoint names its
   response schema once (`getJson(url, Schema)` in `CoreApi` / `RecipeApi` / `FinanceApi`), the response is decoded with it, and the

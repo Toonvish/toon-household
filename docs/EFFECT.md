@@ -95,9 +95,22 @@ in `docs/adr/`, the ADR edits this text in the same commit.
   `/api/households`, static web LAST; invite-token routes before `/:householdId`), the signed `/uploads`,
   `requireSession` → `requireHouseholdRole("member")` → `requireModule(id)` as `HttpApiMiddleware`s with the
   same names and the same 401/403/404 order, and the `ApiModule` contract's shape (a module contributes
-  `HttpApiGroup`s plus their handler layer instead of a `Hono` router; `userRouter` likewise). The api-doc
-  test enumerates routes from the `HttpApi` definition instead of `app.routes`. The tree after E6 is a
-  supported stopping point: the owner may defer E7 by not running it.
+  `HttpApi`s that wrap its `HttpApiGroup`s plus their handler layer instead of a `Hono` router; `userRouter`
+  likewise; ADR 0015). The api-doc test enumerates routes from the `HttpApi` definition instead of `app.routes`.
+  The tree after E6 is a supported stopping point: the owner may defer E7 by not running it.
+  **As built (E7, ADR 0015, plan `docs/plans/e7-http-api.md`):** `apps/api/src/http/` holds the vocabulary
+  (`middleware.ts` the `HttpApiMiddleware` tags with `chain(...)`, which takes the middlewares in EXECUTION order
+  because the one attached LAST runs FIRST; `context.ts`, `request.ts`, `response.ts`, `cookies.ts`), the global layer
+  (`global.ts`: the request log, the security headers, CORS and the origin guard as router middleware registered in ONE
+  generator, plus the fallback route), the in-memory handler (`in-memory.ts`: `app.request` for the tests, built on a
+  child memo map of `appMemoMap`), `app.ts` (`appRoutesLayer()`, `httpApiRoutes()`) and `server.ts` (`BunHttpServer` on
+  `0.0.0.0:API_PORT`, 20 MiB body cap). Every route file has an `X.api.ts` leaf (endpoints with method, path, `params`
+  and middleware; no payload or success schema, so the wire stays byte-identical) and the handlers beside it; the
+  boundary (`ApiErrorBoundary`, outermost on every API) renders every failure through the one mapper of `lib/errors.ts`.
+  `index.ts` forks the server on the runtime's context (not through `runtime.runFork`) so that the 5 s bounded stop
+  holds. The OpenAPI document is generated for the record only (130 operations over 87 paths) and `/docs` is not
+  mounted. Hono is out of every `package.json` and `bun.lock` (idioms rule (14)); the pass count went from 14993 to
+  15191 and the gzipped web bundle stayed at 419.99 kB.
 - **E9 — `bun test` stays; Effect tests run through layers.** No vitest, no `@effect/vitest`. A support
   module `apps/api/test/support/effect.ts` gives `runTest(effect)` (the test `AppLayer` with the shared test
   database of ADR 0009, a `TestClock` from `effect/testing` where a test today fakes time, a recording
@@ -212,10 +225,11 @@ apps/api/src/
   db/{client,migrate,schema}.ts   Database service and layer (E5); migrate as an Effect; schema unchanged
   lib/errors.ts              the tagged error family (E6) + the one boundary mapper
   lib/…                      cookies, uploadUrls, timingSafe… as pure helpers or small services
-  middleware/*.ts            E2–E6: Hono middlewares that run effects through the runtime;
-                             E7: HttpApiMiddleware with the same names and order
+  http/*.ts                  E7: the HttpApi vocabulary, the global layer, the in-memory handler, `app.ts`, `server.ts`
+  middleware/*.ts            E7: the `HttpApiMiddleware` implementations (session, household, module, verifiedEmail) and
+                             the global middlewares (originGuard, securityHeaders, cors, requestLog, staticWeb)
   core/services/<area>/*.ts  Context.Service classes with static layers
-  core/routes/*.ts           E2–E6: Hono routes calling runtime.runPromise; E7: HttpApiGroup definitions + handlers
+  core/routes/*.ts           E7: `X.api.ts` (HttpApiGroup + HttpApi leaf) and `X.ts` (handlers as a group layer)
   modules/<id>/{index,schema,routes/,services/,seed}.ts   manifest with `layer`, hooks as Effects
   modules/{index,types,mount}.ts   registry, the ApiModule contract (E7, E8), the mount chain
 ```
@@ -247,7 +261,7 @@ lives in `docs/plans/e<N>-<name>.md` with the integration record and "what chang
 | E4 | finance-services | The finance module likewise: participants, transactions, categories, tags, plan (`plan:run` as an Effect with `Schedule` for the 6-hour tick, `Clock`-driven so "The `start` hook and the clock" gets a `TestClock` test), balance, settlements, the `onMemberRemoving` veto, `onEnable` (two participants), `onHouseholdCreated` (21 categories), seed, upload references; finance routes and `requireFinanceParticipant` on the runtime; finance tests rewritten where they call a service directly. `docs/modules/finance.md` gotchas F1–F74 stay binding. | gates green; pass count ≥ E3's; `halfForOther`, the plan rounding, `balance_stale`, `member_has_ledger` and the cross-household tests pass unchanged; the fixed-cost boot catch-up still books the two fixture rows (M6 gotcha). |
 | E5 | scripts | E10: `migrate`, `seed`, `reset-password`, `uploads-gc`, `plan-run`, `localize-images`, `finance-import-xlsx`, `migrate-legacy` (with `scripts/legacy/*` and `scripts/finance-import/*` as services on explicit layers) as Effect programs; the dev/typecheck/i18n-check/icons root scripts stay plain Bun. | gates green; the fixture run of `migrate:legacy` (CLAUDE.md "Commands") prints the same report and exit codes, dry run writes no file, a second `--apply` says "already migrated"; `legacy-cli.test.ts` (import order, subprocess) passes unchanged; `seed` refuses production as before. |
 | E6 | web-client | E11: `apps/web/src/lib/runtime.ts`, the core `api.ts` and both module `api.ts` on `HttpClient` + `Schema`, `ApiError` as a tagged error with the same fields, the 401 handler and the cache purge wired through the runtime, `queries.ts` files switched to `runtime.runPromise`, the offline outbox tests and `persist.test.ts` unchanged, `apps/web/src/lib/api.test.ts` extended with a decode-failure case; bundle size recorded before and after. | gates green (the three web tsconfigs); the headless checks of CLAUDE.md (login via `fetch`, a shopping-list offline replay, a finance capture replay after a reload while offline) pass; gzipped bundle growth recorded and under 60 kB, else an ADR explains it. |
-| E7 | http-api | E8: the `HttpApi` definition per `docs/API.md` section (core groups, one group per module router), `HttpApiMiddleware` for session, household role, module, verified e-mail, locale, origin guard, security headers, cors, with the pinned order; `BunHttpServer` serving on the same port with the same `/uploads` signing, static web last, `/api/health`; the `ApiModule` contract moved to groups + handler layer (SPEC §2 text and `docs/modules/*.md` updated in the same commit); `app.request`-based tests moved to the in-memory handler; the api-doc test enumerating the `HttpApi`; `hono` removed from `package.json`; the Dockerfile and compose unchanged except what the record names. | gates green; pass count ≥ E6's; every `docs/API.md` row served with the same status/headers (a table-driven contract test over the walkthrough of `docs/plans/m7-harden.md` §9); the local stack test of `docs/deployment.md` passes with the image; the CSP hashes still match the built `index.html`. |
+| E7 | http-api | E8: the `HttpApi` definition per `docs/API.md` section (core groups, one group per module router), `HttpApiMiddleware` for session, household role, module and verified e-mail with the pinned order, and the origin guard, security headers, cors and the request log as global router middleware (an `HttpApiMiddleware` would miss the preflight, the static web and every unmatched request; the locale is negotiated where a message is rendered; ADR 0015); `BunHttpServer` serving on the same port with the same `/uploads` signing, static web last, `/api/health`; the `ApiModule` contract moved to `HttpApi`s wrapping the groups + handler layer (SPEC §2 text and `docs/modules/*.md` updated in the same commit; ADR 0015); `app.request`-based tests moved to the in-memory handler; the api-doc test enumerating the `HttpApi`; `hono` removed from `package.json`; the Dockerfile and compose unchanged except what the record names. | gates green; pass count ≥ E6's; every `docs/API.md` row served with the same status/headers (a table-driven contract test over the walkthrough of `docs/plans/m7-harden.md` §9); the local stack test of `docs/deployment.md` passes with the image; the CSP hashes still match the built `index.html`. |
 | E8 | harden | Review findings of E0–E7 closed, CLAUDE.md as built (layout, commands, the Effect gotchas that proved real, the retired gotchas), `docs/API.md` conventions updated where E7 changed an implementation note (never a row), `docs/modules/*.md` service names, the pattern files refreshed from what the code actually does, `docs/open-work.md`, this spec's §3 made to match the tree. | gates green on the final tree; CLAUDE.md names no file that does not exist (`docs-paths.test.ts`); the idioms test has every E12 rule on; `docs/plans/e8-harden.md` holds the gate logs and the walkthrough. |
 
 ## 5. Verification gates

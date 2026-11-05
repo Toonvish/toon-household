@@ -49,12 +49,12 @@ app from the same origin, so `/api` and `/uploads` are relative there). Everythi
   | `household:member` | session plus membership in `:householdId`; `404 not_found` for an unknown household, `403 forbidden` for a non-member |
   | `household:admin` | session plus role `admin` or `owner`, else `403 forbidden` |
   | `household:owner` | session plus role `owner`, else `403 forbidden` |
-  | `+module:<id>` | suffix: the household has enabled module `<id>`, else `404 module_disabled` (applied by the mount, see "Middleware chain and mount order") |
+  | `+module:<id>` | suffix: the household has enabled module `<id>`, else `404 module_disabled` (applied by the module chain, see "Middleware chain and mount order") |
   | `+verified` | suffix: a write that answers `403 email_unverified` for an account whose address is unconfirmed, on a deployment that gates on it (see "Unconfirmed accounts are read-only") |
   | `+finance:participant` | suffix, finance only: the caller holds one of the household's two finance seats, else `403 finance_not_participant` |
   | `signature` | `/uploads/…` only: a valid `?exp` and `?sig` (see "Uploads and signed URLs") |
 
-- **Household middleware**: `requireHouseholdRole(role)` in `apps/api/src/middleware/household.ts`,
+- **Household middleware**: the household middlewares (`RequireHouseholdMember`, `RequireHouseholdAdmin`, `RequireHouseholdOwner`, implemented in `apps/api/src/middleware/household.ts`),
   applied per route (core) or by the module mount. Membership is never checked inline in a handler.
   The household comes from `:householdId` only, never from a resource row: every by-id lookup in a
   module service filters by that household and answers `404 not_found` for another household's id
@@ -163,44 +163,63 @@ Notes on the codes the core answers in more than one shape:
 
 ## Middleware chain and mount order
 
-`apps/api/src/index.ts` registers, in this order (the order is load-bearing and pinned by tests):
+The API is a set of `HttpApi` definitions (`apps/api/src/core/routes/*.api.ts`, `apps/api/src/modules/<id>/routes/*.api.ts`)
+served by `BunHttpServer` (`apps/api/src/http/server.ts`) on `0.0.0.0:API_PORT`, one router, assembled by
+`appRoutesLayer()` (`apps/api/src/http/app.ts`). The order below is load-bearing and pinned by tests
+(`apps/api/test/http-contract.test.ts`, `apps/api/test/middleware.test.ts`).
 
-1. `onError` and `notFound` handlers (the one error envelope).
-2. `securityHeaders` on every path (see "Security").
-3. `cors()` on `/api/*`.
-4. `localeMiddleware` on every path: negotiates the locale before any router, so error bodies are localised.
-5. `originGuard` on `/api/*` (unsafe methods only).
-6. `GET /api/health`.
-7. `GET /uploads/:filename`.
-8. `mountModules`: for every build module, its `userRouter` at `/api/<id>`, and its `householdRouter`
-   at `/api/households/:householdId/<id>`.
-9. The core routers: `/api/auth`, then `/api/households`.
-10. The built web app (`webAppMiddleware`), last, only when `WEB_DIST_DIR` is set. It is the SPA fallback
-    for unknown non-file paths, so anything it saw first would never reach a real route; it also refuses
-    `/api/*` and `/uploads/*` itself, and a missing path with a file extension is a real `404`, not the
-    app shell.
+**Around every request (global router middleware, `globalHttpLayer()` in `apps/api/src/http/global.ts`, outermost
+first).** They wrap the router itself, so they also cover the CORS preflight, `/uploads`, the static web and every
+request no endpoint matches:
 
-A module's `householdRouter` is mounted behind this chain, in this order:
+1. The request log (`apps/api/src/middleware/requestLog.ts`; off under `NODE_ENV=test`): `<-- METHOD path` and
+   `--> METHOD path STATUS TIME`, the pathname only, never the query (a signed upload URL carries `sig`).
+2. The security headers on every response (see "Security").
+3. CORS on `/api/*`.
+4. The origin guard on `/api/*` (unsafe methods only).
+
+**The routes.** The router matches by specificity, not by registration order, so the order the APIs are listed in does
+not matter: `GET /api/health` and `GET /uploads/:filename` (`SystemApi`), every build module's `userApi` at
+`/api/<id>` and `householdApi` at `/api/households/:householdId/<id>`, the core `AuthApi` at `/api/auth` and
+`HouseholdsApi` at `/api/households`. A path that no route matches reaches the fallback (below), the last route.
+
+**Every `HttpApi` carries the error boundary.** `ApiErrorBoundary` is the outermost `HttpApiMiddleware` of every API:
+it renders every typed failure, schema refusal and defect as the one error envelope (`apps/api/src/lib/errors.ts`).
+There is no locale middleware: the locale is negotiated from `Accept-Language` where a message is rendered.
+
+A module's `householdApi` runs behind this chain, in this order (each is an `HttpApiMiddleware` of
+`apps/api/src/http/middleware.ts`; the one attached last runs first, and `chain(...)` takes them in execution order):
 
 ```
-requireSession()  ->  requireHouseholdRole("member")  ->  requireModule(<id>)  ->  the module's router
+ApiErrorBoundary  ->  RequireSession  ->  RequireHouseholdMember  ->  RequireModule(<id>)  ->  the group's chain  ->  the endpoint's chain  ->  the handler
 ```
 
 - No cookie is `401` before anything else; a non-member is `403 forbidden` before the module row is
   read, so one household's enabled modules never leak to another's users; a disabled module is
   `404 module_disabled`. `apps/api/test/middleware.test.ts` pins the order.
-- Because the chain already ran, a module router has no `requireSession()` or
-  `requireHouseholdRole("member")` of its own. It adds `requireVerifiedEmail()` itself (uniformly, or
-  per route) and `requireHouseholdRole("admin")` per route where needed.
-- A module's `userRouter` (recipe's `/api/recipe/cards`) runs `requireSession()` itself and is **not**
-  behind `requireModule`: the data belongs to the user, not to a household.
+- Because the chain already ran, a module's endpoints have no `RequireSession` or `RequireHouseholdMember` of their
+  own. A group adds `RequireVerifiedEmail` itself (uniformly, or per endpoint) and `RequireHouseholdAdmin` per
+  endpoint where needed; finance's ledger groups add `RequireFinanceParticipant` after it.
+- A module's `userApi` (recipe's `/api/recipe/cards`) runs `RequireSession` itself and is **not**
+  behind `RequireModule`: the data belongs to the user, not to a household.
+- **Unknown paths below a module.** `moduleRoutesLayer` (`apps/api/src/modules/mount.ts`) registers one catch-all per
+  household module on `/api/households/:householdId/<id>/*`: it runs `RequireSession`, `RequireHouseholdMember` and
+  `RequireModule` and then answers the JSON `404 not_found`, so an unknown path below a module still answers `401`
+  without a cookie, `403` for a non-member and `404 module_disabled` before the plain `404`. The catch-all does not
+  run the verified-e-mail or finance-participant gates of a group.
+- **The fallback.** The last route (`fallbackRoutesLayer()` in `apps/api/src/http/global.ts`) answers everything else:
+  with `WEB_DIST_DIR` set, a `GET` or `HEAD` the static web accepts is served (the SPA shell for an unknown non-file
+  path; never `/api/*`, never `/uploads/*`; a missing path with a file extension is a real `404`, not the shell),
+  everything else is the JSON `404 not_found` (`Route <METHOD> <path> does not exist`). Without `WEB_DIST_DIR` it is
+  the `404` only. A `HEAD` request reaches the matching `GET` route and carries no body.
 - **A `household_modules` row is the enabled state.** Every household-creation path (registration,
   OAuth sign-up, `POST /api/households`) writes the default module rows (`recipe`) and then runs each
   build module's `onHouseholdCreated`. The module's routes answer only while the row exists.
-- Inside `/api/households` the invite-token routes (`/invites/:token`, `/invites/accept`) are registered
-  before `/:householdId`, which would otherwise capture the word `invites`. Module routers stay before
-  the `/api/households` router.
-- The core routers apply `requireVerifiedEmail()` **per route**, never with `use("*")`: the writes are
+- Inside `/api/households` the invite-token routes (`/invites/:token`, `/invites/accept`) and `/:householdId` coexist
+  by specificity: the router prefers the literal segment, so `/:householdId` never captures the word `invites`.
+  The same holds for `…/shopping-lists/bought` against `…/:listId`, `…/transactions/summary` against `…/:transactionId`
+  and `…/participants/me` against `…/:userId`.
+- The core endpoints apply `RequireVerifiedEmail` **per endpoint**, never as a group-wide gate: the writes are
   deliberately not uniform (next sections).
 
 ## Security
@@ -256,9 +275,26 @@ file that is served. The choices that differ from a plain policy, each for a rea
 Alongside it: `X-Frame-Options: DENY` and `frame-ancestors 'none'`, `X-Content-Type-Options: nosniff`,
 `Referrer-Policy: strict-origin-when-cross-origin` (an invite or reset URL carries its token in the
 path), `Cross-Origin-Resource-Policy: same-site` (not `same-origin`: the dev web origin loads `<img>` from
-the API origin), and Hono's other secure-header defaults. There is **no** `Strict-Transport-Security`
+the API origin), and the rest of the literal set below. There is **no** `Strict-Transport-Security`
 (TLS and HSTS belong to the edge proxy, SPEC D11) and no `Permissions-Policy` (the card scanner needs
-the camera).
+the camera). The complete header set on every response, in addition to the `Content-Security-Policy`:
+
+| Header | Value |
+| --- | --- |
+| `Cross-Origin-Resource-Policy` | `same-site` |
+| `Cross-Origin-Opener-Policy` | `same-origin` |
+| `Origin-Agent-Cluster` | `?1` |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+| `X-Content-Type-Options` | `nosniff` |
+| `X-DNS-Prefetch-Control` | `off` |
+| `X-Download-Options` | `noopen` |
+| `X-Frame-Options` | `DENY` |
+| `X-Permitted-Cross-Domain-Policies` | `none` |
+| `X-XSS-Protection` | `0` |
+
+It is a pre-response handler registered by the global layer before anything inside runs, so a boundary-rendered
+error, the CORS preflight `204` and the origin guard's `403` carry it too
+(`securityHeaderSet` in `apps/api/src/middleware/securityHeaders.ts`; `apps/api/test/http-contract.test.ts` row 2).
 
 ### Rate limits
 
@@ -699,11 +735,11 @@ Such an account gets **`403 { code: "email_unverified" }`** on:
   `/imports` (all six sources, plus draft edit/delete and commit), `/shopping-lists` and `/plan`
   (create, update, delete of a meal-plan entry),
 - every write under `/api/recipe/cards` (create, update, delete and `…/:cardId/used`), a user-scoped
-  router behind `requireSession()` that mounts `requireVerifiedEmail()` itself.
+  router behind `RequireSession` that mounts `RequireVerifiedEmail` itself.
 
 ### Recipes — `apps/api/src/modules/recipe/routes/recipes.ts`
 
-Mounted at `/api/households/:householdId/recipe` by `mountModules` (`apps/api/src/modules/mount.ts`), behind `requireSession()` → `requireHouseholdRole("member")` → `requireModule("recipe")`, so this router also owns tags and collections.
+Mounted at `/api/households/:householdId/recipe` by `moduleRoutesLayer` (`apps/api/src/modules/mount.ts`), behind `RequireSession` → `RequireHouseholdMember` → `RequireModule("recipe")`, so this router also owns tags and collections.
 
 | Method | Path | Auth | Request | Response | Status |
 | --- | --- | --- | --- | --- | --- |
@@ -862,11 +898,12 @@ Notes
 
 ### Shopping lists — `apps/api/src/modules/recipe/routes/shopping.ts`
 
-Mounted at `/api/households/:householdId/recipe/shopping-lists`, **before** the catch-all recipes router (same
-reason as `imports`). Several named lists per household ("Rewe", "Drogerie"); a list belongs to the
-household, not to a user. **`GET /api/households/:householdId/recipe/shopping-lists/bought` is registered before `GET /api/households/:householdId/recipe/shopping-lists/:listId`**
-— Hono matches in registration order, so the static path has to come first or a request for it
-would be read as a request for the list literally named `"bought"`.
+Mounted at `/api/households/:householdId/recipe/shopping-lists` (a group of its own, matched ahead of the catch-all
+recipes group by specificity, as `imports`). Several named lists per household ("Rewe", "Drogerie"); a list belongs to the
+household, not to a user. **`GET /api/households/:householdId/recipe/shopping-lists/bought` is declared before `GET /api/households/:householdId/recipe/shopping-lists/:listId`**
+— the router prefers the literal segment over `:listId`, so a request for it is never read as a request for the
+list literally named `"bought"` (the definition in `apps/api/src/modules/recipe/routes/shopping.api.ts` still lists it
+first).
 
 | Method | Path | Auth | Request | Response | Status |
 | --- | --- | --- | --- | --- | --- |
@@ -1009,9 +1046,9 @@ Notes
 
 ### Saved cards — `apps/api/src/modules/recipe/routes/cards.ts`
 
-Mounted at `/api/recipe/cards` (the module's `userRouter`, NOT behind `requireModule`). **The only router that is not household-scoped.** A saved card is a loyalty or
+Mounted at `/api/recipe/cards` (the module's `userApi`, NOT behind `RequireModule`). **The only router that is not household-scoped.** A saved card is a loyalty or
 membership barcode belonging to the signed-in USER (Payback, DeutschlandCard, the gym, the library),
-so there is no `:householdId` in any path and no `requireHouseholdRole`: `requireSession()` plus the `userId`
+so there is no `:householdId` in any path and no household middleware: `RequireSession` plus the `userId`
 every query filters on is the whole authorisation. See the header of
 `packages/shared/src/modules/recipe/schemas/card.ts` for why this entity is a deliberate exception to "households own
 the content".
@@ -1098,17 +1135,17 @@ This section is toon-finance's API contract (`/home/erics/software/toon-finance/
 
 ### Mount and access
 
-The module's `householdRouter` (`apps/api/src/modules/finance/routes/index.ts`) is mounted by `mountModules` at **`/api/households/:householdId/finance`**, behind the core chain `requireSession()` → `requireHouseholdRole("member")` → `requireModule("finance")` (see "Middleware chain and mount order"). Finance has no `userRouter`: every route is household-scoped. The seven routers are `participants`, `transactions`, `categories`, `tags`, `plan`, `balance` and `settlements`.
+The module's `householdApi` (`apps/api/src/modules/finance/routes/index.ts`) is mounted by `moduleRoutesLayer` at **`/api/households/:householdId/finance`**, behind the core chain `RequireSession` → `RequireHouseholdMember` → `RequireModule("finance")` (see "Middleware chain and mount order"). Finance has no `userApi`: every route is household-scoped. The seven routers are `participants`, `transactions`, `categories`, `tags`, `plan`, `balance` and `settlements`.
 
-On top of the chain, **every ledger router** (`transactions`, `categories`, `tags`, `plan`, `balance`, `settlements`) applies, for every method, `requireVerifiedEmail()` and then `requireFinanceParticipant()` (`apps/api/src/modules/finance/middleware.ts`):
+On top of the chain, **every ledger router** (`transactions`, `categories`, `tags`, `plan`, `balance`, `settlements`) applies, for every method, `RequireVerifiedEmail` and then `RequireFinanceParticipant` (`apps/api/src/modules/finance/middleware.ts`):
 
 - **`403 finance_not_participant`** when the caller is a household member without one of the two finance seats. Reads are refused too: the kinds and the balance sign are projections onto a viewer's slot and mean nothing for a third person. The check reads `finance_participants` by the session user and the path household.
 - **`403 email_unverified`** for a write from an unconfirmed account on a deployment that gates on it (reads pass; see "Unconfirmed accounts are read-only"). The verified-email check runs first, so an unconfirmed non-participant sees `email_unverified`.
 - **`404 module_disabled`** while the household has not enabled finance (a disabled module keeps its rows, and enabling again brings the ledger back).
 
-The `participants` router is the exception: its `GET` is open to any household member (so a non-participant can learn their state and the web app can show the "not a participant" screen) and nothing is mounted with `use("*")` there. Its own gates are in the rows below.
+The `participants` router is the exception: its `GET` is open to any household member (so a non-participant can learn their state and the web app can show the "not a participant" screen) and no group-wide gate is applied there. Its own gates are in the rows below.
 
-Auth column vocabulary of this section: `household:member+module:finance`, plus `+verified` (a write behind `requireVerifiedEmail()`) and `+finance:participant` (behind `requireFinanceParticipant()`).
+Auth column vocabulary of this section: `household:member+module:finance`, plus `+verified` (a write behind `RequireVerifiedEmail`) and `+finance:participant` (behind `RequireFinanceParticipant`).
 
 ### Conventions
 
@@ -1148,7 +1185,7 @@ Notes
 
 ### Transactions — `apps/api/src/modules/finance/routes/transactions.ts`
 
-Mounted at `/api/households/:householdId/finance/transactions`. Every method runs `requireVerifiedEmail()` then `requireFinanceParticipant()`.
+Mounted at `/api/households/:householdId/finance/transactions`. Every method runs `RequireVerifiedEmail` then `RequireFinanceParticipant`.
 
 | Method | Path | Auth | Request | Response | Status |
 | --- | --- | --- | --- | --- | --- |
@@ -1180,7 +1217,7 @@ Notes
 
 ### Categories — `apps/api/src/modules/finance/routes/categories.ts`
 
-Mounted at `/api/households/:householdId/finance/categories`. Every method runs `requireVerifiedEmail()` then `requireFinanceParticipant()`.
+Mounted at `/api/households/:householdId/finance/categories`. Every method runs `RequireVerifiedEmail` then `RequireFinanceParticipant`.
 
 | Method | Path | Auth | Request | Response | Status |
 | --- | --- | --- | --- | --- | --- |
@@ -1198,7 +1235,7 @@ Notes
 
 ### Tags — `apps/api/src/modules/finance/routes/tags.ts`
 
-Mounted at `/api/households/:householdId/finance/tags`. Every method runs `requireVerifiedEmail()` then `requireFinanceParticipant()`. There is **no `POST`**: a tag exists only as a side effect of attaching it to a transaction (`CreateTransactionRequest.tags`).
+Mounted at `/api/households/:householdId/finance/tags`. Every method runs `RequireVerifiedEmail` then `RequireFinanceParticipant`. There is **no `POST`**: a tag exists only as a side effect of attaching it to a transaction (`CreateTransactionRequest.tags`).
 
 | Method | Path | Auth | Request | Response | Status |
 | --- | --- | --- | --- | --- | --- |
@@ -1214,7 +1251,7 @@ Notes
 
 ### Plan — `apps/api/src/modules/finance/routes/plan.ts`
 
-Mounted at `/api/households/:householdId/finance/plan`. The fixed-cost plan (one row per household), its items and incomes, the read-only preview, and the booking calls. Every method runs `requireVerifiedEmail()` then `requireFinanceParticipant()`. The booking itself is `apps/api/src/modules/finance/services/plan/accrual.service.ts`; the routes only call it.
+Mounted at `/api/households/:householdId/finance/plan`. The fixed-cost plan (one row per household), its items and incomes, the read-only preview, and the booking calls. Every method runs `RequireVerifiedEmail` then `RequireFinanceParticipant`. The booking itself is `apps/api/src/modules/finance/services/plan/accrual.service.ts`; the routes only call it.
 
 | Method | Path | Auth | Request | Response | Status |
 | --- | --- | --- | --- | --- | --- |
@@ -1244,7 +1281,7 @@ Notes
 
 ### Balance — `apps/api/src/modules/finance/routes/balance.ts`
 
-Mounted at `/api/households/:householdId/finance/balance`. Every method runs `requireVerifiedEmail()` then `requireFinanceParticipant()`.
+Mounted at `/api/households/:householdId/finance/balance`. Every method runs `RequireVerifiedEmail` then `RequireFinanceParticipant`.
 
 | Method | Path | Auth | Request | Response | Status |
 | --- | --- | --- | --- | --- | --- |
@@ -1259,7 +1296,7 @@ Notes
 
 ### Settlements — `apps/api/src/modules/finance/routes/settlements.ts`
 
-Mounted at `/api/households/:householdId/finance/settlements`. Every method runs `requireVerifiedEmail()` then `requireFinanceParticipant()`. There is no settlements table: a settlement **is** a transaction with `splitMode: "SETTLEMENT"`, and `GET` is the reader `GET /api/households/:householdId/finance/transactions?splitMode=SETTLEMENT&sort=-bookedAt` would give.
+Mounted at `/api/households/:householdId/finance/settlements`. Every method runs `RequireVerifiedEmail` then `RequireFinanceParticipant`. There is no settlements table: a settlement **is** a transaction with `splitMode: "SETTLEMENT"`, and `GET` is the reader `GET /api/households/:householdId/finance/transactions?splitMode=SETTLEMENT&sort=-bookedAt` would give.
 
 | Method | Path | Auth | Request | Response | Status |
 | --- | --- | --- | --- | --- | --- |

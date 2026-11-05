@@ -68,9 +68,9 @@ describe("import order does not matter for the Effect composition", () => {
     // (`foldBackfill`, imported by `scripts/legacy/recipe.ts` without the manifest)
     "./src/modules/recipe/layer.ts",
     "./src/modules/recipe/migrate.ts",
-    // E3-T13: the three recipe service files that load first and build the `AppLayer` (plan e3 P17). The recipe and
-    // import route files are NOT entries: imported first they die on the base tree
-    // (`routes/index.ts` reads them at module scope); `docs/open-work.md` keeps that for E7.
+    // E3-T13: the three recipe service files that load first and build the `AppLayer` (plan e3 P17). The route files
+    // were not entries until E7 (imported first they died on the pre-E7 tree: `routes/index.ts` read the Hono routers
+    // at module scope); E7-T13 lists them below, `*.api.ts` and handler layers being hoisted and lazy since E7-T11.
     "./src/modules/recipe/services/recipes/recipes.service.ts",
     "./src/modules/recipe/services/import/url/fetch.ts",
     "./src/modules/recipe/services/ocr/index.ts",
@@ -97,6 +97,23 @@ describe("import order does not matter for the Effect composition", () => {
     "./src/modules/finance/services/plan/scheduler.ts",
     "./src/modules/finance/services/settings/settings.service.ts",
     "./src/modules/finance/services/tags/tags.service.ts",
+    // E7-T13: every route file as the FIRST import of a process (the ones the pre-E7 tree could not take, plan e7 section 9)
+    "./src/modules/recipe/routes/recipes.ts",
+    "./src/modules/recipe/routes/imports.ts",
+    "./src/modules/recipe/routes/shopping.ts",
+    "./src/modules/recipe/routes/plan.ts",
+    "./src/modules/recipe/routes/cards.ts",
+    "./src/modules/finance/routes/balance.ts",
+    "./src/modules/finance/routes/categories.ts",
+    "./src/modules/finance/routes/participants.ts",
+    "./src/modules/finance/routes/plan.ts",
+    "./src/modules/finance/routes/settlements.ts",
+    "./src/modules/finance/routes/tags.ts",
+    "./src/modules/finance/routes/transactions.ts",
+    "./src/core/routes/members.ts",
+    "./src/core/routes/invites.ts",
+    "./src/core/routes/modules.ts",
+    "./src/core/routes/system.ts",
     // E7-T11: the HTTP app and server (Hono gone), the leaf middleware vocabulary and the two module route indexes
     // (their hoisted API and handler lists; plan docs/plans/e7-http-api.md P15)
     "./src/http/app.ts",
