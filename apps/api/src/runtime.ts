@@ -2,8 +2,8 @@
  * The API's one Effect runtime (docs/EFFECT.md E7, E12; plan `docs/plans/e2-api-core-services.md` P3).
  *
  * `AppLayer` is the application layer every Effect run of this process is built from:
- * the modules' own layers (`moduleLayers()`; recipe's since E3, finance's in E4; plan
- * `docs/plans/e3-recipe-services.md` P3) over the core services (`src/core/services/layer.ts`)
+ * the modules' own layers (`moduleLayers()`; recipe's since E3, finance's since E4; plans
+ * `docs/plans/e3-recipe-services.md` P3, `docs/plans/e4-finance-services.md` P3) over the core services (`src/core/services/layer.ts`)
  * over the infrastructure (`src/infra.ts`: `Database` over `AppConfig`, the mailer, uploads,
  * thumbnails and the rate limiter). A module service may therefore use any core or
  * infrastructure service (`ModuleRequirements`, `src/modules/types.ts`), never the reverse. `runtime` is the ONE `ManagedRuntime` of the process (no other application
@@ -55,7 +55,7 @@ function appLayer(): Layer.Layer<AppServices, AppLayerError, never> {
 }
 
 /**
- * Each build module's own `layer` (recipe's since E3; finance's in E4). `API_MODULES` is read here, inside the
+ * Each build module's own `layer` (recipe's since E3; finance's since E4, `Layer.suspend(financeLayer)`). `API_MODULES` is read here, inside the
  * function, never at import (CLAUDE.md "API import cycle").
  *
  * The ONE cast of the composition: the registry lists every manifest as a plain `ApiModule`, whose `layer` outputs

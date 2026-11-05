@@ -188,7 +188,8 @@ export interface ApiModule<Services = never> {   // Services: what the module's 
                                               // in module order after the core's verifiedEmailRequired (an Effect since E3)
   layer?: Layer<Services, never, ModuleRequirements>   // the module's own services, merged into the runtime's
                                               // AppLayer by moduleLayers() OVER the core services and the infrastructure;
-                                              // recipe: Layer.suspend(recipeLayer) (E3), finance: E4
+                                              // recipe: Layer.suspend(recipeLayer) (E3), finance:
+                                              // Layer.suspend(financeLayer) (E4)
   // Every hook below that writes reads its executor from the `Database` service: the current executor is the
   // transaction the core opened around the operation (household creation, enabling, removeMember), else the root.
   onHouseholdCreated?(householdId): Effect<void, HookError, Database>   // e.g. finance seeds its 21 categories
@@ -199,8 +200,9 @@ export interface ApiModule<Services = never> {   // Services: what the module's 
   afterMigrate?(): Effect<void, HookError, Database>   // runs after every migrate() in runMigrations (db:migrate, seed,
                                               // tests), on the database just migrated; idempotent, no transaction;
                                               // e.g. recipe's folded-column backfill
-  start?(): Effect<void, unknown>             // once at boot in index.ts, after `await dbReady`, never under test;
-                                              // e.g. finance's boot catch-up and 6-hour accrual tick; a failure is logged
+  start?(): Effect<void, unknown, Database>   // once at boot in index.ts, after `await dbReady`, never under test;
+                                              // e.g. finance's boot catch-up and 6-hour accrual tick; a failure is logged;
+                                              // needs Database since E4 (the catch-up), which the app runtime provides
   shutdown?(): Effect<void, unknown>          // SIGTERM/SIGINT in index.ts; e.g. recipe stops its OCR worker,
                                               // finance stops the accrual tick
   seedDemo?({ householdId, userId, demoPassword }): Effect<void, HookError, Database>   // the module's part of
@@ -273,7 +275,9 @@ Rules:
   the typed failure unchanged (the same object), anything else a defect. `runModuleHook(effect, executor)` runs a
   hook on the bare drizzle executor a Promise-based core caller holds (`runMigrations`, `initializeHousehold`,
   `enableModule`, `removeMember`, `collectUploadReferences`, `seed`) and rejects with the hook's own error; it never
-  imports `apps/api/src/runtime.ts`. `start` and `shutdown` run on the app runtime in `apps/api/src/index.ts`.
+  imports `apps/api/src/runtime.ts`. `start` and `shutdown` run on the app runtime in `apps/api/src/index.ts`; since
+  E4 `start` requires `Database` (finance's boot catch-up; plan `docs/plans/e4-finance-services.md` P3), which that
+  runtime provides, and `shutdown` requires nothing.
 - A module carries its own services since E3 (docs/EFFECT.md E7; plan `docs/plans/e3-recipe-services.md` P3, P4).
   `ApiModule<Services>` names what the manifest's `layer` provides; `apps/api/src/modules/index.ts` exports
   `ModuleServices` (recipe's `RecipeServices`; E4 adds finance's) and `apps/api/src/runtime.ts` adds it to

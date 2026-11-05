@@ -9,7 +9,8 @@
  *   writes reads its executor from the `Database` service (`src/db/database.ts`): the current
  *   executor is the transaction the core opened around the operation, or the root.
  *   Its type parameter names the services the module's own `layer` provides (E3, plan
- *   `docs/plans/e3-recipe-services.md` P3): recipe is an `ApiModule<RecipeServices>`.
+ *   `docs/plans/e3-recipe-services.md` P3): recipe is an `ApiModule<RecipeServices>`; finance's
+ *   layer is in the registry since E4-T01, its manifest becomes an `ApiModule<FinanceServices>` in E4-T07.
  * - {@link PromiseApiModule}, the Promise-based contract of M0 to M7, which the finance
  *   manifest still implements until E4 (recipe left it in E3). `fromPromiseModule`
  *   (`src/modules/adapter.ts`) turns one into an `ApiModule`; `runModuleHook` runs an Effect
@@ -92,7 +93,7 @@ export interface ApiModule<Services = never> {
    */
   healthFeatures?(): Effect.Effect<Record<string, boolean>, never, AppConfig>;
   /**
-   * The module's own services (E3: recipe's `Layer.suspend(recipeLayer)`; finance's in E4). Built
+   * The module's own services (E3: recipe's `Layer.suspend(recipeLayer)`; E4: finance's `Layer.suspend(financeLayer)`). Built
    * once into the one `AppLayer`, over the core services and the infrastructure.
    */
   layer?: ModuleLayer<Services>;
@@ -127,8 +128,10 @@ export interface ApiModule<Services = never> {
    * traffic: a module starts its background work here, e.g. finance's boot catch-up and
    * its 6-hour accrual tick (plan M3 decision 7). Never called under `bun test`. A
    * failure is logged in English and the boot continues with the other modules.
+   * Requires `Database` since E4 (plan `docs/plans/e4-finance-services.md` P3): the boot
+   * catch-up reads and writes the ledger; `index.ts` runs it on the app runtime, which provides it.
    */
-  start?(): Effect.Effect<void, unknown>;
+  start?(): Effect.Effect<void, unknown, DatabaseService>;
   /**
    * Graceful teardown on SIGTERM/SIGINT (index.ts), e.g. recipe terminates its
    * long-lived OCR worker. Never called under `bun test`. Should not fail; a failure is

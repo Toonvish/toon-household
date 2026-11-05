@@ -204,7 +204,7 @@ describe("failures", () => {
     const starting = fromPromiseModule({ id: "finance", schema: {}, start: () => Promise.reject(reason) });
     const start = starting.start;
     if (start === undefined) throw new Error("the fake module has no start");
-    await expect(Effect.runPromise(start())).rejects.toBe(reason);
+    await expect(onPrimary(start())).rejects.toBe(reason);
   });
 });
 
@@ -272,7 +272,7 @@ describe("the registry", () => {
     expect(finance?.schema).toBe(financeModule.schema);
     expect(recipe?.layer).toBeDefined();
     expect(recipe?.layer).toBe(recipeModule.layer);
-    expect(finance?.layer).toBeUndefined();
+    expect(finance?.layer).toBeDefined();
     expect(finance?.onEnable).toBeDefined();
     expect(finance?.onMemberRemoving).toBeDefined();
     expect(recipe?.onEnable).toBeUndefined();

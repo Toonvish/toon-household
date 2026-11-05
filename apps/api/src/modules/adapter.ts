@@ -2,8 +2,9 @@
  * The bridge between the Promise-based module manifests and the Effect contract (docs/EFFECT.md
  * E7; plan `docs/plans/e2-api-core-services.md` P11; SPEC §2).
  *
- * - `fromPromiseModule(m)` turns a {@link PromiseApiModule} (finance until E4; recipe implements
- *   `ApiModule` itself since E3) into an {@link ApiModule}. A synchronous `healthFeatures` becomes
+ * - `fromPromiseModule(m)` turns a {@link PromiseApiModule} (finance until E4-T07; recipe implements
+ *   `ApiModule` itself since E3) into an {@link ApiModule}; E4-T09 deletes it (plan
+ *   `docs/plans/e4-finance-services.md` P3). A synchronous `healthFeatures` becomes
  *   `Effect.sync` over it. Each hook reads the CURRENT executor of `Database` (the open
  *   transaction inside `Database.transaction`, a handed-in executor, else the root) and calls the
  *   Promise hook with exactly that executor, as the core did before. A rejection that is a member
@@ -14,6 +15,8 @@
  *   `initializeHousehold`, `enableModule`, `removeMember`, `collectUploadReferences`, `seed`)
  *   hold a root instance or an open drizzle transaction and hand it over; the hook receives that
  *   very executor. A failure rejects with the squashed value (a refusal is the same object).
+ *   Since E4 the finance bridges run through it too (`runFinanceBridge`, `src/modules/finance/bridge.ts`,
+ *   plan e4 P1); it stays after E4 for the scripts (E5).
  *
  * This file never imports `src/runtime.ts`: `src/db/migrate.ts` imports it, and
  * `scripts/migrate-legacy.ts` imports `migrate.ts` only after redirecting `DATABASE_URL`
