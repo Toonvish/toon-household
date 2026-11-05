@@ -6,19 +6,21 @@
  * `[auth] OAuth callback failed:` and became `oauth_failed`. Its Effect form is `oauthCallbackFlow` recovered by
  * `Effect.catchCause(oauthCallbackRecovery(...))`: `Effect.catch` would see typed failures only and let a defect through as
  * `500 internal_error` JSON. These tests run that exact pair on the app runtime with a fake `OAuthProviders` whose code
- * exchange is the variable part, behind a tiny Hono app that has the API's `onErrorHandler`.
+ * exchange is the variable part, behind a tiny `HttpApi` served by `testHttpApp` (the API's error boundary and the
+ * optional-session middleware around it; E7-T05).
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { Effect } from "effect";
-import { Hono } from "hono";
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/http-api";
 import { oauthCallbackFlow, oauthCallbackRecovery } from "../src/core/routes/auth.ts";
 import { db } from "../src/db/client.ts";
 import { runMigrations } from "../src/db/migrate.ts";
-import { clearOAuthCookies, readOAuthCookies } from "../src/lib/cookies.ts";
-import { ApiFailure, Conflict, DatabaseError, onErrorHandler } from "../src/lib/errors.ts";
+import { clearOAuthCookies, readOAuthCookies } from "../src/http/cookies.ts";
+import { chain, coreApi, OptionalSession, UNINTERRUPTIBLE } from "../src/http/middleware.ts";
+import { ApiFailure, Conflict, DatabaseError } from "../src/lib/errors.ts";
 import { type OAuthProfile, OAuthProviders, safeNextPath } from "../src/lib/oauth.ts";
-import type { AppEnv } from "../src/lib/types.ts";
-import { runtime } from "../src/runtime.ts";
+import { OptionalSessionLayer } from "../src/middleware/session.ts";
+import { testHttpApp } from "./support/http.ts";
 
 await runMigrations(db);
 
@@ -37,22 +39,27 @@ const fakeProviders = OAuthProviders.of({
 });
 
 /** The callback handler of `routes/auth.ts` after the steps before its `try`, with the fake provider service. */
-const app = new Hono<AppEnv>();
-app.onError(onErrorHandler);
-app.get("/cb/:linking?", (c) =>
-  runtime.runPromise(
-    Effect.gen(function* () {
-      const cookies = readOAuthCookies(c);
-      clearOAuthCookies(c);
+const CallbackGroup = HttpApiGroup.make("oauth-callback-test").add(
+  HttpApiEndpoint.get("getCb", "/cb").pipe(chain(OptionalSession)),
+);
+const CallbackApi = coreApi(HttpApi.make("oauth-callback-test").add(CallbackGroup));
+const callbackHandlers = HttpApiBuilder.group(CallbackApi, "oauth-callback-test", (handlers) =>
+  handlers.handle(
+    "getCb",
+    Effect.fn("oauth-callback-test.getCb")(function* () {
+      const cookies = yield* readOAuthCookies;
+      yield* clearOAuthCookies;
       const next = safeNextPath(cookies.next) ?? "/";
       const linking = cookies.intent === "link";
-      return yield* oauthCallbackFlow(c, "google", cookies, next, linking).pipe(
-        Effect.catchCause(oauthCallbackRecovery(c, next, linking)),
+      return yield* oauthCallbackFlow("google", cookies, next, linking).pipe(
+        Effect.catchCause(oauthCallbackRecovery(next, linking)),
         Effect.provideService(OAuthProviders, fakeProviders),
       );
     }),
+    UNINTERRUPTIBLE,
   ),
 );
+const app = testHttpApp([CallbackApi], callbackHandlers, OptionalSessionLayer);
 
 async function callback(query: string, cookie = `toon_oauth_state=${STATE}; toon_oauth_verify=verifier`) {
   const response = await app.request(`/cb${query}`, { headers: { cookie } });
