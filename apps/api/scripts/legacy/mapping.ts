@@ -15,6 +15,7 @@
  * (JSON, the top-level shape) and then calls it, so the file path and the raw-object path cannot
  * disagree.
  */
+import { Schema } from "effect";
 import type { DecisionReason, MappingOverride } from "./types.ts";
 
 /** One toon-recipe group (R `groups` + `group_members` + the `recipes` count). */
@@ -50,12 +51,10 @@ export interface ProposalEntry {
 }
 
 /** A bad `--mapping` (file or raw object): exit 2, nothing written anywhere. */
-export class MappingError extends Error {
+export class MappingError extends Schema.TaggedError<MappingError>()("MappingError", {
+  message: Schema.String,
+}) {
   readonly exitCode = 2;
-  constructor(message: string) {
-    super(message);
-    this.name = "MappingError";
-  }
 }
 
 /** The ids the snapshots know: R `groups.id` and F `households.id` (both LEGACY ids). */
@@ -79,29 +78,29 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  */
 export function validateMappingOverride(override: MappingOverride, known: KnownIds): void {
   if (!isPlainObject(override)) {
-    throw new MappingError(`--mapping: "finance" must be an object of <finance household id>: <group id> | "new"`);
+    throw new MappingError({ message: `--mapping: "finance" must be an object of <finance household id>: <group id> | "new"` });
   }
   const claimedBy = new Map<string, string>(); // group id -> finance id that named it first
   for (const [financeId, value] of Object.entries(override as Record<string, unknown>)) {
     if (!known.financeIds.has(financeId)) {
-      throw new MappingError(`--mapping: unknown finance household id "${financeId}"`);
+      throw new MappingError({ message: `--mapping: unknown finance household id "${financeId}"` });
     }
     if (typeof value !== "string") {
-      throw new MappingError(
-        `--mapping: the value for finance household "${financeId}" must be a recipe group id or "new", got ${JSON.stringify(value) ?? String(value)}`,
-      );
+      throw new MappingError({
+        message: `--mapping: the value for finance household "${financeId}" must be a recipe group id or "new", got ${JSON.stringify(value) ?? String(value)}`,
+      });
     }
     if (value === NEW) continue;
     if (!known.groupIds.has(value)) {
-      throw new MappingError(
-        `--mapping: "${value}" (for finance household "${financeId}") is not a recipe group id`,
-      );
+      throw new MappingError({
+        message: `--mapping: "${value}" (for finance household "${financeId}") is not a recipe group id`,
+      });
     }
     const first = claimedBy.get(value);
     if (first !== undefined) {
-      throw new MappingError(
-        `--mapping: finance households "${first}" and "${financeId}" both name recipe group "${value}"`,
-      );
+      throw new MappingError({
+        message: `--mapping: finance households "${first}" and "${financeId}" both name recipe group "${value}"`,
+      });
     }
     claimedBy.set(value, financeId);
   }
@@ -118,19 +117,19 @@ export function parseMappingFile(text: string, known: KnownIds): MappingOverride
     parsed = JSON.parse(text);
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
-    throw new MappingError(`--mapping: the file is not valid JSON (${detail})`);
+    throw new MappingError({ message: `--mapping: the file is not valid JSON (${detail})` });
   }
   if (!isPlainObject(parsed)) {
-    throw new MappingError(`--mapping: the file must hold an object {"finance": {…}}`);
+    throw new MappingError({ message: `--mapping: the file must hold an object {"finance": {…}}` });
   }
   for (const key of Object.keys(parsed)) {
     if (key !== "finance") {
-      throw new MappingError(`--mapping: unknown top-level key "${key}" (only "finance" is allowed)`);
+      throw new MappingError({ message: `--mapping: unknown top-level key "${key}" (only "finance" is allowed)` });
     }
   }
   const finance = parsed.finance;
   if (!isPlainObject(finance)) {
-    throw new MappingError(`--mapping: "finance" must be an object of <finance household id>: <group id> | "new"`);
+    throw new MappingError({ message: `--mapping: "finance" must be an object of <finance household id>: <group id> | "new"` });
   }
   const override = finance as MappingOverride;
   validateMappingOverride(override, known);
@@ -236,15 +235,15 @@ export function proposeHouseholdMapping(
     }
     const group = value === undefined ? undefined : groupById.get(value);
     if (group === undefined) {
-      throw new MappingError(
-        `--mapping: "${String(value)}" (for finance household "${household.id}") is not a recipe group id`,
-      );
+      throw new MappingError({
+        message: `--mapping: "${String(value)}" (for finance household "${household.id}") is not a recipe group id`,
+      });
     }
     const holder = taken.get(group.id);
     if (holder !== undefined) {
-      throw new MappingError(
-        `--mapping: recipe group "${group.id}" (for finance household "${household.id}") already holds finance household "${holder}" from an earlier run`,
-      );
+      throw new MappingError({
+        message: `--mapping: recipe group "${group.id}" (for finance household "${household.id}") already holds finance household "${holder}" from an earlier run`,
+      });
     }
     const groupMembers = new Set(group.memberIds);
     const addMembers = [...household.members]

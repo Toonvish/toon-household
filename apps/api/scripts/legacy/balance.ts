@@ -20,6 +20,7 @@ import { computeBreakdown, type BalanceBreakdown } from "@toon/shared";
 import { getBalance } from "../../src/modules/finance/services/ledger/balance.service.ts";
 import { readAll } from "./sources.ts";
 import type { BalanceCheck, LegacyDb, MigrationContext } from "./types.ts";
+import { runLegacy } from "./io.ts";
 
 /** Prefix of every error this module writes (so a second call can replace its own). */
 const BALANCE_ERROR = "balance check:";
@@ -44,11 +45,11 @@ export async function legacyBreakdown(
   financeHouseholdId: string,
   person1LegacyId: string,
 ): Promise<BalanceBreakdown & { amountSumCents: number }> {
-  const rows = await readAll(
+  const rows = await runLegacy(readAll(
     finance,
     "SELECT payer_id, split_mode, amount_cents FROM transactions WHERE household_id = ?",
     [financeHouseholdId],
-  );
+  ));
   const transactions = rows.map((row) => ({
     payerId: str(row.payer_id),
     splitMode: str(row.split_mode) as SplitMode,
@@ -77,7 +78,7 @@ export async function verifyBalances(ctx: MigrationContext): Promise<void> {
   const legacyOf = new Map<string, string>();
   for (const [legacyId, targetId] of ctx.ids.users.finance) legacyOf.set(targetId, legacyId);
 
-  const households = await readAll(finance, "SELECT id, name FROM households ORDER BY created_at, id");
+  const households = await runLegacy(readAll(finance, "SELECT id, name FROM households ORDER BY created_at, id"));
   for (const household of households) {
     const financeId = str(household.id);
     const targetId = ctx.ids.households.finance.get(financeId);
@@ -98,11 +99,11 @@ export async function verifyBalances(ctx: MigrationContext): Promise<void> {
     const slot1UserId = str(slot1.user_id);
 
     // The legacy slot-1 user: F's slot 1, else (a solo ledger re-seated by ADR 0005) the only member.
-    const legacyMembers = await readAll(
+    const legacyMembers = await runLegacy(readAll(
       finance,
       "SELECT user_id, member_slot FROM household_members WHERE household_id = ? ORDER BY member_slot",
       [financeId],
-    );
+    ));
     const expectedLegacy =
       legacyMembers.find((row) => num(row.member_slot) === 1) ?? (legacyMembers.length === 1 ? legacyMembers[0] : undefined);
     const expectedTarget = expectedLegacy ? ctx.ids.users.finance.get(str(expectedLegacy.user_id)) : undefined;

@@ -39,6 +39,7 @@ import { readAll } from "./sources.ts";
 import { emailVerificationTokens, oauthAccounts, passwordResetTokens, users } from "../../src/db/schema.ts";
 import { normalizeStoredUploadUrl } from "../../src/lib/uploadUrls.ts";
 import type { LegacySource, MigrationContext, Row, TableCount, UserCollision } from "./types.ts";
+import { runLegacy } from "./io.ts";
 
 /** The note of a collision whose recipe account has no password (decision 9). */
 export const OAUTH_ONLY_NOTE = "finance password not carried (recipe account is OAuth-only; use password reset)";
@@ -137,13 +138,13 @@ function financeUserRow(row: Row, id: string, email: string): Row {
 
 async function readUsers(ctx: MigrationContext, source: LegacySource): Promise<Row[]> {
   const legacy = ctx[source];
-  return legacy ? readAll(legacy, "SELECT * FROM users ORDER BY rowid") : [];
+  return legacy ? runLegacy(readAll(legacy, "SELECT * FROM users ORDER BY rowid")) : [];
 }
 
 async function scalar(ctx: MigrationContext, source: LegacySource, sql: string): Promise<number> {
   const legacy = ctx[source];
   if (!legacy) return 0;
-  const rows = await readAll(legacy, sql);
+  const rows = await runLegacy(readAll(legacy, sql));
   return Number(rows[0]?.n ?? 0);
 }
 
@@ -158,8 +159,8 @@ export async function migrateUsers(ctx: MigrationContext): Promise<void> {
   const recipeRows = await readUsers(ctx, "recipe");
   const financeRows = await readUsers(ctx, "finance");
   const ledger: Record<LegacySource, Map<string, string>> = {
-    recipe: await loadAll(target.client, "users", "recipe"),
-    finance: await loadAll(target.client, "users", "finance"),
+    recipe: await runLegacy(loadAll(target.client, "users", "recipe")),
+    finance: await runLegacy(loadAll(target.client, "users", "finance")),
   };
 
   // Union by normalised e-mail. Map order = every recipe user first, then the finance-only ones.
@@ -344,7 +345,7 @@ export async function migrateUsers(ctx: MigrationContext): Promise<void> {
   const skippedBefore = report.skipped.length;
   const errorsBefore = report.errors.length;
   const scratch = newCount("recipe");
-  const written = await writeEntries(ctx, users, entries, scratch);
+  const written = await runLegacy(writeEntries(ctx, users, entries, scratch));
   const failureReasons = new Map<string, string>();
   for (const row of report.skipped.splice(skippedBefore)) failureReasons.set(row.legacyId, row.reason);
   report.errors.length = errorsBefore;
@@ -401,7 +402,7 @@ export async function migrateUsers(ctx: MigrationContext): Promise<void> {
   if (ctx.recipe) {
     const mapUser = (row: Row): string | null => ctx.ids.users.recipe.get(str(row.user_id)) ?? null;
     const unmapped = (row: Row) => ({ skip: `user ${str(row.user_id)} not migrated`, error: true });
-    await copyTable(ctx, {
+    await runLegacy(copyTable(ctx, {
       source: "recipe",
       legacyTable: "oauth_accounts",
       target: oauthAccounts,
@@ -409,12 +410,12 @@ export async function migrateUsers(ctx: MigrationContext): Promise<void> {
         const userId = mapUser(row);
         return userId === null ? unmapped(row) : { ...row, user_id: userId };
       },
-    });
+    }));
     for (const [legacyTable, table] of [
       ["password_reset_tokens", passwordResetTokens],
       ["email_verification_tokens", emailVerificationTokens],
     ] as const) {
-      await copyTable(ctx, {
+      await runLegacy(copyTable(ctx, {
         source: "recipe",
         legacyTable,
         target: table,
@@ -422,7 +423,7 @@ export async function migrateUsers(ctx: MigrationContext): Promise<void> {
           const userId = mapUser(row);
           return userId === null ? unmapped(row) : { ...row, user_id: userId };
         },
-      });
+      }));
     }
   }
 

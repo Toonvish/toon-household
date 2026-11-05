@@ -35,6 +35,7 @@ import { addCount } from "./report.ts";
 import { readAll } from "./sources.ts";
 import { isLegacyPlaceholder } from "./users.ts";
 import type { MigrationContext, PlaceholderEntry, Row, TableCount } from "./types.ts";
+import { runLegacy } from "./io.ts";
 
 /** The ledger's `table` of a claim invite (the target table's SQL name). */
 const LEDGER_TABLE = "household_invites";
@@ -74,7 +75,7 @@ export async function migrateClaimInvites(ctx: MigrationContext): Promise<void> 
   const runTime = Date.now();
   const showLinks = ctx.mode === "apply" && ctx.webOrigin !== undefined && ctx.webOrigin !== "";
 
-  const placeholderRows = (await readAll(finance, "SELECT id, password_hash FROM users ORDER BY rowid")).filter(
+  const placeholderRows = (await runLegacy(readAll(finance, "SELECT id, password_hash FROM users ORDER BY rowid"))).filter(
     isLegacyPlaceholder,
   );
   const count: TableCount = {
@@ -87,20 +88,20 @@ export async function migrateClaimInvites(ctx: MigrationContext): Promise<void> 
   };
   report.placeholders = [];
   if (placeholderRows.length > 0) {
-    const memberRows = await readAll(
+    const memberRows = await runLegacy(readAll(
       finance,
       "SELECT household_id, user_id, member_slot, joined_at FROM household_members ORDER BY joined_at, household_id",
-    );
-    const claimRows = await readAll(
+    ));
+    const claimRows = await runLegacy(readAll(
       finance,
       "SELECT * FROM invites WHERE claims_user_id IS NOT NULL ORDER BY created_at DESC, rowid DESC",
-    );
-    const ledger = await lookupMany(
+    ));
+    const ledger = await runLegacy(lookupMany(
       target.client,
       LEDGER_TABLE,
       "finance",
       placeholderRows.map((row) => claimLedgerKey(str(row.id))),
-    );
+    ));
     const ownerOf = async (householdId: string): Promise<string | undefined> => {
       const result = await target.client.execute({
         sql: "SELECT user_id FROM household_members WHERE household_id = ? AND role = 'owner' ORDER BY created_at, id LIMIT 1",
@@ -240,7 +241,7 @@ export async function migrateClaimInvites(ctx: MigrationContext): Promise<void> 
       });
     }
 
-    const written = new Set(await writeEntries(ctx, householdInvites, planned.map((p) => p.entry), count));
+    const written = new Set(await runLegacy(writeEntries(ctx, householdInvites, planned.map((p) => p.entry), count)));
     for (const item of planned) {
       if (!written.has(item.entry)) {
         item.report.claimInvite = "failed";
@@ -259,8 +260,8 @@ export async function migrateClaimInvites(ctx: MigrationContext): Promise<void> 
 
   // F's other invites stay "not migrated by design"; a legacy claim invite reused as a placeholder's
   // claim invite (in this run or an earlier one: its ledger entry) is migrated and not counted.
-  const inviteIds = (await readAll(finance, "SELECT id FROM invites")).map((row) => str(row.id));
-  const migrated = await lookupMany(target.client, LEDGER_TABLE, "finance", inviteIds);
+  const inviteIds = (await runLegacy(readAll(finance, "SELECT id FROM invites"))).map((row) => str(row.id));
+  const migrated = await runLegacy(lookupMany(target.client, LEDGER_TABLE, "finance", inviteIds));
   const notMigrated = report.notMigrated.find((item) => item.table === "invites" && item.source === "finance");
   if (notMigrated) notMigrated.rows = inviteIds.length - migrated.size;
 }

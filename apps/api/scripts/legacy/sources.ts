@@ -13,12 +13,20 @@
  * Schema gate: the snapshot must sit at exactly the source's last drizzle migration
  * (`LEGACY_SCHEMAS`, plan m5 §1.2), else the run stops with exit 2 before anything is written.
  *
+ * On Effect (docs/EFFECT.md E6, E7, E10; plan `docs/plans/e5-scripts.md` P5, P9): `openLegacyEffect` and `readAll`
+ * are Effects over the client they are handed (libSQL calls through `legacyTry`, `./io.ts`); `snapshotDatabase`
+ * stays pure and is called through the lift `liftTagged`, so its `LegacyInputError` is a typed failure.
+ * `openLegacy` is the Promise bridge the pinned tests and `legacy-harness.ts` call (end of file).
+ *
  * No module-scope code beyond imports and constants (decision 5: the CLI imports this file
  * dynamically, after its `DATABASE_URL` redirect).
  */
 import { copyFileSync, existsSync, rmSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { type Client, createClient, type InArgs } from "@libsql/client";
+import { Effect, Predicate, Schema } from "effect";
+import type { DatabaseError } from "../../src/lib/errors.ts";
+import { legacyTry, liftTagged, runLegacy } from "./io.ts";
 import type { LegacyDb, LegacySource, Row } from "./types.ts";
 
 /** The drizzle journal each source must be at (plan m5 §1.2: count, last `when`, last tag). */
@@ -31,9 +39,10 @@ export const LEGACY_SCHEMAS = {
  * A usage or input problem found before anything is written (missing file, a directory, not a
  * SQLite database, wrong schema version). The CLI exits with {@link LegacyInputError.exitCode}.
  */
-export class LegacyInputError extends Error {
+export class LegacyInputError extends Schema.TaggedError<LegacyInputError>()("LegacyInputError", {
+  message: Schema.String,
+}) {
   readonly exitCode = 2;
-  override readonly name = "LegacyInputError";
 }
 
 /**
@@ -43,10 +52,10 @@ export class LegacyInputError extends Error {
  */
 export function snapshotDatabase(sourcePath: string, destPath: string): { wal: boolean } {
   if (!existsSync(sourcePath)) {
-    throw new LegacyInputError(`legacy database not found: ${sourcePath}`);
+    throw new LegacyInputError({ message: `legacy database not found: ${sourcePath}` });
   }
   if (!statSync(sourcePath).isFile()) {
-    throw new LegacyInputError(`legacy database is not a file: ${sourcePath}`);
+    throw new LegacyInputError({ message: `legacy database is not a file: ${sourcePath}` });
   }
   for (const suffix of ["-wal", "-shm"]) rmSync(`${destPath}${suffix}`, { force: true });
   copyFileSync(sourcePath, destPath);
@@ -74,46 +83,57 @@ function schemaMessage(source: LegacySource, applied: number, lastCreatedAt: num
 /**
  * Snapshots the legacy `source` database at `path` into `<scratchDir>/<source>.db`, opens the
  * copy read-only (`PRAGMA query_only = 1`) and checks its drizzle journal against
- * {@link LEGACY_SCHEMAS}. Throws {@link LegacyInputError} (and closes the copy) on any refusal.
+ * {@link LEGACY_SCHEMAS}. Fails with {@link LegacyInputError} (and closes the copy) on any refusal;
+ * a failure of the journal read itself is a `DatabaseError` (the copy closed too).
  */
-export async function openLegacy(source: LegacySource, path: string, scratchDir: string): Promise<LegacyDb> {
+export const openLegacyEffect = Effect.fn("legacy.openLegacy")(function* (
+  source: LegacySource,
+  path: string,
+  scratchDir: string,
+): Effect.fn.Return<LegacyDb, LegacyInputError | DatabaseError> {
   const originalPath = resolve(path);
   const snapshotPath = resolve(scratchDir, `${source}.db`);
-  try {
-    snapshotDatabase(originalPath, snapshotPath);
-  } catch (error) {
-    if (error instanceof LegacyInputError) {
-      throw new LegacyInputError(error.message.replace("legacy database", `legacy ${source} database`));
-    }
-    throw error;
-  }
+  yield* liftTagged(["LegacyInputError"], () => snapshotDatabase(originalPath, snapshotPath)).pipe(
+    Effect.mapError(
+      (error) => new LegacyInputError({ message: error.message.replace("legacy database", `legacy ${source} database`) }),
+    ),
+  );
   const client = createClient({ url: `file:${snapshotPath}` });
-  try {
-    await checkSchema(source, client, originalPath);
-  } catch (error) {
-    client.close();
-    throw error;
-  }
+  // every way out of the gate but success closes the copy first (the old `catch (error)` was catch-all)
+  yield* checkSchema(source, client, originalPath).pipe(Effect.onError(() => Effect.sync(() => client.close())));
   return { source, client, originalPath, snapshotPath };
+});
+
+/** The text of a failure the old `catch (error)` read: an `Error`'s message, anything else as a string. */
+function reasonOf(error: unknown): string {
+  return Predicate.isError(error) ? error.message : String(error);
 }
 
-async function checkSchema(source: LegacySource, client: Client, originalPath: string): Promise<void> {
-  let hasJournal: boolean;
-  try {
-    await client.execute("PRAGMA query_only = 1");
-    const table = await client.execute(
-      "SELECT count(*) AS n FROM sqlite_master WHERE type = 'table' AND name = '__drizzle_migrations'",
+const checkSchema = Effect.fnUntraced(function* (
+  source: LegacySource,
+  client: Client,
+  originalPath: string,
+): Effect.fn.Return<void, LegacyInputError | DatabaseError> {
+  const hasJournal = yield* Effect.gen(function* () {
+    yield* legacyTry(() => client.execute("PRAGMA query_only = 1"));
+    const table = yield* legacyTry(() =>
+      client.execute("SELECT count(*) AS n FROM sqlite_master WHERE type = 'table' AND name = '__drizzle_migrations'"),
     );
-    hasJournal = Number(table.rows[0]?.n ?? 0) > 0;
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    throw new LegacyInputError(`legacy ${source} database ${originalPath} cannot be read: ${reason}`);
-  }
+    return Number(table.rows[0]?.n ?? 0) > 0;
+  }).pipe(
+    Effect.catchTag("DatabaseError", (error) =>
+      Effect.fail(
+        new LegacyInputError({
+          message: `legacy ${source} database ${originalPath} cannot be read: ${reasonOf(error.cause)}`,
+        }),
+      ),
+    ),
+  );
   let applied = 0;
   let lastCreatedAt: number | null = null;
   if (hasJournal) {
-    const result = await client.execute(
-      "SELECT count(*) AS n, max(CAST(created_at AS INTEGER)) AS last FROM __drizzle_migrations",
+    const result = yield* legacyTry(() =>
+      client.execute("SELECT count(*) AS n, max(CAST(created_at AS INTEGER)) AS last FROM __drizzle_migrations"),
     );
     applied = Number(result.rows[0]?.n ?? 0);
     const last = result.rows[0]?.last;
@@ -121,13 +141,17 @@ async function checkSchema(source: LegacySource, client: Client, originalPath: s
   }
   const expected = LEGACY_SCHEMAS[source];
   if (applied !== expected.migrations || lastCreatedAt !== expected.lastCreatedAt) {
-    throw new LegacyInputError(schemaMessage(source, applied, lastCreatedAt));
+    return yield* new LegacyInputError({ message: schemaMessage(source, applied, lastCreatedAt) });
   }
-}
+});
 
 /** Runs a read on a legacy (or any) client and returns plain objects keyed by SQL column name. */
-export async function readAll(legacy: Pick<LegacyDb, "client">, sql: string, args: InArgs = []): Promise<Row[]> {
-  const result = await legacy.client.execute({ sql, args });
+export const readAll = Effect.fnUntraced(function* (
+  legacy: Pick<LegacyDb, "client">,
+  sql: string,
+  args: InArgs = [],
+): Effect.fn.Return<Row[], DatabaseError> {
+  const result = yield* legacyTry(() => legacy.client.execute({ sql, args }));
   return result.rows.map((row) => {
     const out: Row = {};
     result.columns.forEach((column, index) => {
@@ -135,4 +159,15 @@ export async function readAll(legacy: Pick<LegacyDb, "client">, sql: string, arg
     });
     return out;
   });
+});
+
+/* legacy bridges: the pinned legacy-cli and legacy-placeholders tests and legacy-harness.ts; E8 removes them */
+
+/**
+ * The Promise form of {@link openLegacyEffect}. Callers: `apps/api/scripts/migrate-legacy.ts` (until E5-T08),
+ * `apps/api/test/support/legacy-harness.ts`, `apps/api/test/legacy-cli.test.ts`, `apps/api/test/legacy-placeholders.test.ts`,
+ * `apps/api/test/legacy-users.test.ts`, `apps/api/test/legacy-households.test.ts`, `apps/api/test/legacy-framework.test.ts`.
+ */
+export function openLegacy(source: LegacySource, path: string, scratchDir: string): Promise<LegacyDb> {
+  return runLegacy(openLegacyEffect(source, path, scratchDir));
 }

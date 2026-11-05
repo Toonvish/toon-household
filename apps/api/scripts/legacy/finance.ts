@@ -34,6 +34,7 @@ import {
   financeTransactions as transactions,
 } from "../../src/db/schema.ts";
 import type { MigrationContext, Row } from "./types.ts";
+import { runLegacy } from "./io.ts";
 
 interface Seat {
   userId: string;
@@ -124,18 +125,18 @@ export async function migrateFinance(ctx: MigrationContext): Promise<void> {
 
   // transaction id / tag id -> F household id, so a tag link follows its transaction's fate.
   const transactionHouseholds = new Map<string, string>();
-  for (const row of await readAll(finance, "SELECT id, household_id FROM transactions")) {
+  for (const row of await runLegacy(readAll(finance, "SELECT id, household_id FROM transactions"))) {
     transactionHouseholds.set(str(row.id), str(row.household_id));
   }
   const tagHouseholds = new Map<string, string>();
-  for (const row of await readAll(finance, "SELECT id, household_id FROM tags")) {
+  for (const row of await runLegacy(readAll(finance, "SELECT id, household_id FROM tags"))) {
     tagHouseholds.set(str(row.id), str(row.household_id));
   }
 
-  await copyTable(ctx, householdScoped("categories", categories));
-  await copyTable(ctx, householdScoped("tags", tags));
+  await runLegacy(copyTable(ctx, householdScoped("categories", categories)));
+  await runLegacy(copyTable(ctx, householdScoped("tags", tags)));
 
-  await copyTable(
+  await runLegacy(copyTable(
     ctx,
     householdScoped("transactions", transactions, (row, _original, ctx2) => {
       const payer = mapUser(ctx2, row.payer_id);
@@ -147,9 +148,9 @@ export async function migrateFinance(ctx: MigrationContext): Promise<void> {
       }
       return { ...row, payer_id: payer, created_by: createdBy };
     }),
-  );
+  ));
 
-  await copyTable(ctx, {
+  await runLegacy(copyTable(ctx, {
     source: "finance",
     legacyTable: "transaction_tags",
     target: transactionTags,
@@ -162,13 +163,13 @@ export async function migrateFinance(ctx: MigrationContext): Promise<void> {
       if (!ctx2.ids.households.finance.has(financeId)) return householdSkip(ctx2, financeId);
       return { transaction_id: row.transaction_id ?? null, tag_id: row.tag_id ?? null };
     },
-  });
+  }));
 
-  await copyTable(ctx, householdScoped("mutation_claims", mutationClaims));
-  await copyTable(ctx, householdScoped("fixed_cost_items", fixedCostItems));
+  await runLegacy(copyTable(ctx, householdScoped("mutation_claims", mutationClaims)));
+  await runLegacy(copyTable(ctx, householdScoped("fixed_cost_items", fixedCostItems)));
 
   // Incomes: a person who is not a participant is kept, with a warning (decision 14, ADR 0005).
-  await copyTable(
+  await runLegacy(copyTable(
     ctx,
     householdScoped("incomes", incomes, (row, original, ctx2) => {
       const person = mapUser(ctx2, row.person_id);
@@ -181,11 +182,11 @@ export async function migrateFinance(ctx: MigrationContext): Promise<void> {
       }
       return { ...row, person_id: person };
     }),
-  );
+  ));
 
   // Plans: the payer must be a participant (ADR 0004's rule, ADR 0005); a leaver's payer role
   // moves to the slot-1 participant. The ledger key is the F household id.
-  await copyTable(ctx, {
+  await runLegacy(copyTable(ctx, {
     ...householdScoped("fixed_cost_plans", fixedCostPlans, (row, original, ctx2) => {
       const payer = mapUser(ctx2, row.payer_id);
       if (isSkip(payer)) return payer;
@@ -205,7 +206,7 @@ export async function migrateFinance(ctx: MigrationContext): Promise<void> {
     }),
     legacyId: (row) => str(row.household_id),
     newId: (values) => str(values.household_id),
-  });
+  }));
 
-  await copyTable(ctx, householdScoped("accrual_runs", accrualRuns));
+  await runLegacy(copyTable(ctx, householdScoped("accrual_runs", accrualRuns)));
 }

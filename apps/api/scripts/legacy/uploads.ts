@@ -26,6 +26,7 @@ import { join } from "node:path";
 import { readAll } from "./sources.ts";
 import type { LegacyDb, MigrationContext, UploadSummary } from "./types.ts";
 import { filenameOf } from "../../src/core/services/media/references.ts";
+import { runLegacy } from "./io.ts";
 
 function parseJson(value: unknown): Record<string, unknown> | undefined {
   if (typeof value !== "string" || value.length === 0) return undefined;
@@ -57,9 +58,9 @@ export async function collectLegacyUploadReferences(recipe: Pick<LegacyDb, "clie
     ["recipes", "image_url"],
     ["collections", "cover_image_url"],
   ] as const) {
-    for (const row of await readAll(recipe, `SELECT ${column} FROM ${table}`)) keep(row[column]);
+    for (const row of await runLegacy(readAll(recipe, `SELECT ${column} FROM ${table}`))) keep(row[column]);
   }
-  for (const row of await readAll(recipe, "SELECT source_meta, parsed FROM import_drafts")) {
+  for (const row of await runLegacy(readAll(recipe, "SELECT source_meta, parsed FROM import_drafts"))) {
     keep(parseJson(row.source_meta)?.storedPath);
     keep(parseJson(row.parsed)?.imageUrl);
   }

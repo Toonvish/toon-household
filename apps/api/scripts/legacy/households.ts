@@ -52,6 +52,7 @@ import {
 } from "../../src/db/schema.ts";
 import { normalizeStoredUploadUrl } from "../../src/lib/uploadUrls.ts";
 import type { HouseholdDecision, LegacySource, MigrationContext, Row, TableCount } from "./types.ts";
+import { runLegacy } from "./io.ts";
 
 /** Prefix of a member id whose user the users step did not migrate: matches no group. */
 const UNMAPPED = "unmapped:";
@@ -97,9 +98,9 @@ interface FinanceHousehold {
 
 /** Reads the R group ids and F household ids the mapping may name (step a). */
 async function knownIds(ctx: MigrationContext): Promise<KnownIds> {
-  const groupIds = ctx.recipe ? (await readAll(ctx.recipe, "SELECT id FROM groups")).map((r) => str(r.id)) : [];
+  const groupIds = ctx.recipe ? (await runLegacy(readAll(ctx.recipe, "SELECT id FROM groups"))).map((r) => str(r.id)) : [];
   const financeIds = ctx.finance
-    ? (await readAll(ctx.finance, "SELECT id FROM households")).map((r) => str(r.id))
+    ? (await runLegacy(readAll(ctx.finance, "SELECT id FROM households"))).map((r) => str(r.id))
     : [];
   return { groupIds: new Set(groupIds), financeIds: new Set(financeIds) };
 }
@@ -116,11 +117,11 @@ export async function migrateHouseholds(ctx: MigrationContext): Promise<void> {
   if (ctx.mapping) validateMappingOverride(ctx.mapping, await knownIds(ctx));
 
   // b. The proposal: snapshots and the ledger only.
-  const groupRows = ctx.recipe ? await readAll(ctx.recipe, "SELECT * FROM groups ORDER BY rowid") : [];
-  const groupMemberRows = ctx.recipe ? await readAll(ctx.recipe, "SELECT group_id, user_id FROM group_members ORDER BY rowid") : [];
+  const groupRows = ctx.recipe ? await runLegacy(readAll(ctx.recipe, "SELECT * FROM groups ORDER BY rowid")) : [];
+  const groupMemberRows = ctx.recipe ? await runLegacy(readAll(ctx.recipe, "SELECT group_id, user_id FROM group_members ORDER BY rowid")) : [];
   const recipeCounts = new Map<string, number>();
   if (ctx.recipe) {
-    for (const row of await readAll(ctx.recipe, "SELECT group_id, count(*) AS n FROM recipes GROUP BY group_id")) {
+    for (const row of await runLegacy(readAll(ctx.recipe, "SELECT group_id, count(*) AS n FROM recipes GROUP BY group_id"))) {
       recipeCounts.set(str(row.group_id), num(row.n));
     }
   }
@@ -136,12 +137,12 @@ export async function migrateHouseholds(ctx: MigrationContext): Promise<void> {
 
   const financeEmails = new Map<string, string>(); // F user id -> normalised e-mail
   const financePlaceholders = new Set<string>(); // F user ids without an account (ADR 0006)
-  const financeRows = ctx.finance ? await readAll(ctx.finance, "SELECT * FROM households ORDER BY rowid") : [];
+  const financeRows = ctx.finance ? await runLegacy(readAll(ctx.finance, "SELECT * FROM households ORDER BY rowid")) : [];
   const financeMemberRows = ctx.finance
-    ? await readAll(ctx.finance, "SELECT * FROM household_members ORDER BY member_slot, rowid")
+    ? await runLegacy(readAll(ctx.finance, "SELECT * FROM household_members ORDER BY member_slot, rowid"))
     : [];
   if (ctx.finance) {
-    for (const row of await readAll(ctx.finance, "SELECT id, email, email_normalized, password_hash FROM users")) {
+    for (const row of await runLegacy(readAll(ctx.finance, "SELECT id, email, email_normalized, password_hash FROM users"))) {
       if (isLegacyPlaceholder(row)) {
         financePlaceholders.add(str(row.id));
         continue;
@@ -201,10 +202,10 @@ export async function migrateHouseholds(ctx: MigrationContext): Promise<void> {
     };
   });
 
-  const groupLedger = await loadAll(target.client, "households", "recipe"); // legacy group -> target
+  const groupLedger = await runLegacy(loadAll(target.client, "households", "recipe")); // legacy group -> target
   const groupOfTarget = new Map<string, string>();
   for (const [legacy, targetId] of groupLedger) groupOfTarget.set(targetId, legacy);
-  const financeLedger = await loadAll(target.client, "households", "finance"); // F household -> target
+  const financeLedger = await runLegacy(loadAll(target.client, "households", "finance")); // F household -> target
   const alreadyMapped = new Map<string, string>();
   for (const [financeId, targetId] of financeLedger) alreadyMapped.set(financeId, groupOfTarget.get(targetId) ?? targetId);
   const proposal: ProposalEntry[] = proposeHouseholdMapping(groupInfos, financeInfos, {
@@ -262,7 +263,7 @@ export async function migrateHouseholds(ctx: MigrationContext): Promise<void> {
       label: `households ${legacyId}`,
     });
   }
-  for (const entry of await writeEntries(ctx, households, groupEntries, householdsRecipe)) {
+  for (const entry of await runLegacy(writeEntries(ctx, households, groupEntries, householdsRecipe))) {
     ctx.ids.households.recipe.set(entry.ledger[0]?.legacyId ?? "", entry.newId);
   }
   addCount(report, householdsRecipe);
@@ -270,7 +271,7 @@ export async function migrateHouseholds(ctx: MigrationContext): Promise<void> {
   if (ctx.recipe) {
     const householdOf = (row: Row) => ctx.ids.households.recipe.get(str(row.group_id));
     const userOf = (id: unknown) => ctx.ids.users.recipe.get(str(id));
-    await copyTable(ctx, {
+    await runLegacy(copyTable(ctx, {
       source: "recipe",
       legacyTable: "group_members",
       target: householdMembers,
@@ -282,8 +283,8 @@ export async function migrateHouseholds(ctx: MigrationContext): Promise<void> {
         const { group_id: _group, ...rest } = row;
         return { ...rest, household_id: householdId, user_id: userId };
       },
-    });
-    await copyTable(ctx, {
+    }));
+    await runLegacy(copyTable(ctx, {
       source: "recipe",
       legacyTable: "group_invites",
       target: householdInvites,
@@ -302,12 +303,12 @@ export async function migrateHouseholds(ctx: MigrationContext): Promise<void> {
         // R's invites are plain e-mail invites: never a claim invite (ADR 0006, migration 0003).
         return { ...rest, household_id: householdId, invited_by: invitedBy, accepted_by: acceptedBy, claims_user_id: null };
       },
-    });
+    }));
 
     // The `recipe` module row per group household (Table M row 9): ledger key `<G.id>`.
     const modulesRecipe = newCount("household_modules", "recipe");
     modulesRecipe.read = groupRows.length;
-    const existing = await lookupMany(target.client, "household_modules", "recipe", groupRows.map((row) => str(row.id)));
+    const existing = await runLegacy(lookupMany(target.client, "household_modules", "recipe", groupRows.map((row) => str(row.id))));
     const moduleEntries: WriteEntry[] = [];
     for (const row of groupRows) {
       const legacyId = str(row.id);
@@ -327,7 +328,7 @@ export async function migrateHouseholds(ctx: MigrationContext): Promise<void> {
         label: `household_modules ${legacyId}:recipe`,
       });
     }
-    await writeEntries(ctx, householdModules, moduleEntries, modulesRecipe);
+    await runLegacy(writeEntries(ctx, householdModules, moduleEntries, modulesRecipe));
     addCount(report, modulesRecipe);
   }
 
@@ -481,7 +482,7 @@ export async function migrateHouseholds(ctx: MigrationContext): Promise<void> {
   report.decisions = decisions;
 
   const writtenHouseholds = new Set(
-    await writeEntries(ctx, households, householdEntries.map((item) => item.entry), householdsFinance),
+    await runLegacy(writeEntries(ctx, households, householdEntries.map((item) => item.entry), householdsFinance)),
   );
   for (const { household, entry } of householdEntries) {
     if (!writtenHouseholds.has(entry)) continue;
@@ -492,12 +493,12 @@ export async function migrateHouseholds(ctx: MigrationContext): Promise<void> {
 
   // F members of new households and the addMembers of a mapped group (Table M row 11).
   const memberKey = (household: FinanceHousehold, member: FinanceMember) => `${household.id}:${member.legacyUserId}`;
-  const existingMembers = await lookupMany(
+  const existingMembers = await runLegacy(lookupMany(
     target.client,
     "household_members",
     "finance",
     plannedMembers.map(({ household, member }) => memberKey(household, member)),
-  );
+  ));
   membersFinance.read = plannedMembers.length;
   const memberEntries: WriteEntry[] = [];
   for (const { household, member, role } of plannedMembers) {
@@ -523,7 +524,7 @@ export async function migrateHouseholds(ctx: MigrationContext): Promise<void> {
       label: `household_members ${key}`,
     });
   }
-  await writeEntries(ctx, householdMembers, memberEntries, membersFinance);
+  await runLegacy(writeEntries(ctx, householdMembers, memberEntries, membersFinance));
   addCount(report, membersFinance);
 
   // e. Finance seats, settings and the module row (Table M rows 12-14, decision 11, ADR 0005).
@@ -532,10 +533,10 @@ export async function migrateHouseholds(ctx: MigrationContext): Promise<void> {
   const modulesFinance = newCount("household_modules", "finance");
   const landedHouseholds = financeHouseholds.filter((household) => landed.has(household.id));
   const seatKeys = landedHouseholds.flatMap((household) => household.members.map((member) => memberKey(household, member)));
-  const existingSeats = await lookupMany(target.client, "finance_participants", "finance", seatKeys);
+  const existingSeats = await runLegacy(lookupMany(target.client, "finance_participants", "finance", seatKeys));
   const landedIds = landedHouseholds.map((household) => household.id);
-  const existingSettings = await lookupMany(target.client, "finance_settings", "finance", landedIds);
-  const existingModules = await lookupMany(target.client, "household_modules", "finance", landedIds);
+  const existingSettings = await runLegacy(lookupMany(target.client, "finance_settings", "finance", landedIds));
+  const existingModules = await runLegacy(lookupMany(target.client, "household_modules", "finance", landedIds));
   const seatEntries: WriteEntry[] = [];
   const settingsEntries: WriteEntry[] = [];
   const financeModuleEntries: WriteEntry[] = [];
@@ -605,9 +606,9 @@ export async function migrateHouseholds(ctx: MigrationContext): Promise<void> {
       });
     }
   }
-  await writeEntries(ctx, financeParticipants, seatEntries, participants);
-  await writeEntries(ctx, financeSettings, settingsEntries, settings);
-  await writeEntries(ctx, householdModules, financeModuleEntries, modulesFinance);
+  await runLegacy(writeEntries(ctx, financeParticipants, seatEntries, participants));
+  await runLegacy(writeEntries(ctx, financeSettings, settingsEntries, settings));
+  await runLegacy(writeEntries(ctx, householdModules, financeModuleEntries, modulesFinance));
   if (ctx.finance) {
     addCount(report, participants);
     addCount(report, settings);
@@ -638,7 +639,7 @@ export async function migrateHouseholds(ctx: MigrationContext): Promise<void> {
     addCount(report, activeCount);
 
     // g. F's invites are not migrated (decision 12); replaced, not appended, on a second call.
-    const invites = await readAll(ctx.finance, "SELECT count(*) AS n FROM invites");
+    const invites = await runLegacy(readAll(ctx.finance, "SELECT count(*) AS n FROM invites"));
     report.notMigrated = report.notMigrated.filter((item) => !(item.table === "invites" && item.source === "finance"));
     report.notMigrated.push({
       table: "invites",

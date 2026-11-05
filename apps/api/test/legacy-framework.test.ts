@@ -41,6 +41,7 @@ import {
 } from "../scripts/legacy/report.ts";
 import { LEGACY_SCHEMAS, LegacyInputError, openLegacy, readAll, snapshotDatabase } from "../scripts/legacy/sources.ts";
 import type { LegacyDb, MigrationContext, Report, Row, TableCount } from "../scripts/legacy/types.ts";
+import { runLegacy } from "../scripts/legacy/io.ts";
 
 const root = mkdtempSync(join(tmpdir(), "toon-legacy-framework-"));
 const openClients: Client[] = [];
@@ -227,10 +228,10 @@ describe("(b) openLegacy and the schema gate", () => {
     expect(legacy.source).toBe("recipe");
     expect(legacy.originalPath).toBe(path);
     expect(legacy.snapshotPath).toBe(join(scratch, "recipe.db"));
-    expect(await readAll(legacy, "SELECT id, name FROM groups")).toEqual([{ id: "g1", name: "Familie" }]);
+    expect(await runLegacy(readAll(legacy, "SELECT id, name FROM groups"))).toEqual([{ id: "g1", name: "Familie" }]);
     await expect(legacy.client.execute("INSERT INTO groups (id, name) VALUES ('g2', 'Zwei')")).rejects.toThrow();
     await expect(legacy.client.execute("CREATE TABLE x (y)")).rejects.toThrow();
-    expect(await readAll(legacy, "SELECT count(*) AS n FROM groups")).toEqual([{ n: 1 }]);
+    expect(await runLegacy(readAll(legacy, "SELECT count(*) AS n FROM groups"))).toEqual([{ n: 1 }]);
     expect(sha256(path)).toBe(before);
   });
 
@@ -330,7 +331,7 @@ const peopleSpec = { source: "recipe" as const, legacyTable: "people", target: u
 describe("(c) copyTable with the ledger", () => {
   test("5 rows in chunks of 2: 5 rows and 5 ledger entries in 3 batches; a second run writes 0", async () => {
     const run = await copyRun(2);
-    const first = await copyTable(run.ctx, peopleSpec);
+    const first = await runLegacy(copyTable(run.ctx, peopleSpec));
     expect(first).toEqual({ table: "users", source: "recipe", read: 5, written: 5, alreadyMigrated: 0, skipped: 0 });
     expect(run.batches()).toBe(3);
     expect(await count(run.target, "SELECT count(*) AS n FROM users")).toBe(5);
@@ -341,10 +342,10 @@ describe("(c) copyTable with the ledger", () => {
     expect(anna.rows[0]?.email).toBe("anna@example.test");
     expect(anna.rows[0]?.email_verified).toBe(0);
     expect(anna.rows[0]?.updated_at).toBe(1_700_000_000_001);
-    expect(await loadAll(run.target, "users", "recipe")).toEqual(new Map(PEOPLE.map((p) => [p.id, p.id])));
+    expect(await runLegacy(loadAll(run.target, "users", "recipe"))).toEqual(new Map(PEOPLE.map((p) => [p.id, p.id])));
     expect(run.ctx.report.counts).toEqual([first]);
 
-    const second = await copyTable(run.ctx, peopleSpec);
+    const second = await runLegacy(copyTable(run.ctx, peopleSpec));
     expect(second).toEqual({ table: "users", source: "recipe", read: 5, written: 0, alreadyMigrated: 5, skipped: 0 });
     expect(run.batches()).toBe(3);
     expect(await count(run.target, "SELECT count(*) AS n FROM users")).toBe(5);
@@ -359,21 +360,21 @@ describe("(c) copyTable with the ledger", () => {
       const values = personToUser(person as unknown as Row);
       await run.target.batch([insertStatement(users, values), ledgerStatement("users", "recipe", person.id, person.id)], "write");
     }
-    const result = await copyTable(run.ctx, peopleSpec);
+    const result = await runLegacy(copyTable(run.ctx, peopleSpec));
     expect(result).toMatchObject({ read: 5, written: 3, alreadyMigrated: 2, skipped: 0 });
     expect(await count(run.target, "SELECT count(*) AS n FROM users")).toBe(5);
   });
 
   test("newId and ledgerTable overrides land in the ledger; skips are counted and recorded", async () => {
     const run = await copyRun(10);
-    const result = await copyTable(run.ctx, {
+    const result = await runLegacy(copyTable(run.ctx, {
       ...peopleSpec,
       ledgerTable: "users-toy",
       transform: (row) => (row.id === "p3" ? { skip: "user p3 not migrated", error: true } : row.id === "p4" ? { skip: "by design" } : personToUser(row)),
       newId: (values) => `new-${String(values.id)}`,
-    });
+    }));
     expect(result).toMatchObject({ read: 5, written: 3, skipped: 2 });
-    expect(await lookupMany(run.target, "users-toy", "recipe", ["p1", "p3", "p4", "p5", "p1"])).toEqual(
+    expect(await runLegacy(lookupMany(run.target, "users-toy", "recipe", ["p1", "p3", "p4", "p5", "p1"]))).toEqual(
       new Map([
         ["p1", "new-p1"],
         ["p5", "new-p5"],
@@ -395,7 +396,7 @@ describe("(d) per-row fallback", () => {
       sql: "INSERT INTO users (id, email, name, email_verified, created_at, updated_at) VALUES ('existing', 'cleo@example.test', 'Cleo neu', 0, 1, 1)",
       args: [],
     });
-    const result = await copyTable(run.ctx, peopleSpec);
+    const result = await runLegacy(copyTable(run.ctx, peopleSpec));
     expect(result).toEqual({ table: "users", source: "recipe", read: 5, written: 4, alreadyMigrated: 0, skipped: 1 });
     expect(await count(run.target, "SELECT count(*) AS n FROM users")).toBe(5);
     // p4 shared the failed batch with p3 and was written by the per-row retry
@@ -412,14 +413,14 @@ describe("(d) per-row fallback", () => {
     expect(exitCodeFor(run.ctx.report)).toBe(1);
 
     // the next run retries only the failed row (it is still unmapped) and fails it again
-    const again = await copyTable(run.ctx, peopleSpec);
+    const again = await runLegacy(copyTable(run.ctx, peopleSpec));
     expect(again).toMatchObject({ written: 0, alreadyMigrated: 4, skipped: 1 });
   });
 
   test("writeEntries writes ledger-only entries and returns what it wrote", async () => {
     const run = await copyRun(2);
     const tally: TableCount = { table: "users", source: "finance", read: 0, written: 0, alreadyMigrated: 0, skipped: 0 };
-    const written = await writeEntries(
+    const written = await runLegacy(writeEntries(
       run.ctx,
       users,
       [
@@ -435,10 +436,10 @@ describe("(d) per-row fallback", () => {
         },
       ],
       tally,
-    );
+    ));
     expect(written.map((entry) => entry.label)).toEqual(["decision f1", "users ben@example.test"]);
     expect(tally.written).toBe(2);
-    expect(await loadAll(run.target, "users", "finance")).toEqual(
+    expect(await runLegacy(loadAll(run.target, "users", "finance"))).toEqual(
       new Map([
         ["f1", "merged-target"],
         ["f2", "p2"],
@@ -463,7 +464,7 @@ describe("(e) programming errors", () => {
     };
     let caught: unknown;
     try {
-      await copyTable(run.ctx, spec);
+      await runLegacy(copyTable(run.ctx, spec));
     } catch (error) {
       caught = error;
     }

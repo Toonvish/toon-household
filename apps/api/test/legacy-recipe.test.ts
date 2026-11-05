@@ -25,6 +25,7 @@ import { readAll } from "../scripts/legacy/sources.ts";
 import { migrateUploads } from "../scripts/legacy/uploads.ts";
 import { migrateUsers } from "../scripts/legacy/users.ts";
 import { countRows, createLegacyRun, type LegacyRun } from "./support/legacy-harness.ts";
+import { runLegacy } from "../scripts/legacy/io.ts";
 
 const runs: LegacyRun[] = [];
 afterEach(() => {
@@ -154,18 +155,18 @@ describe("migrateRecipe", () => {
     await migrateRecipe(run.ctx);
     const owners = (await rows(run, "SELECT user_id FROM recipe_cards")).map((r) => r.user_id).sort();
     expect(owners).toEqual([userTarget(run, "anna"), userTarget(run, "ben")].sort());
-    const legacyCards = await readAll(run.ctx.recipe!, "SELECT id, user_id FROM cards");
+    const legacyCards = await runLegacy(readAll(run.ctx.recipe!, "SELECT id, user_id FROM cards"));
     for (const card of legacyCards) {
       const migratedCard = await rows(run, "SELECT user_id FROM recipe_cards WHERE id = ?", [String(card.id)]);
       expect(migratedCard[0]?.user_id).toBe(run.ctx.ids.users.recipe.get(String(card.user_id)));
     }
-    const legacyDraft = (await readAll(run.ctx.recipe!, "SELECT * FROM import_drafts"))[0]!;
+    const legacyDraft = (await runLegacy(readAll(run.ctx.recipe!, "SELECT * FROM import_drafts")))[0]!;
     const draft = (await rows(run, "SELECT * FROM recipe_import_drafts WHERE id = ?", [String(legacyDraft.id)]))[0]!;
     expect(draft.parsed).toBe(legacyDraft.parsed as string);
     expect(draft.source_meta).toBe(legacyDraft.source_meta as string);
     expect(draft.household_id).toBe(run.ctx.ids.households.recipe.get(String(legacyDraft.group_id)));
     // shopping lists keep their JSON and mutation ids too
-    const legacyLists = await readAll(run.ctx.recipe!, "SELECT id, group_id FROM shopping_lists");
+    const legacyLists = await runLegacy(readAll(run.ctx.recipe!, "SELECT id, group_id FROM shopping_lists"));
     const list = (await rows(run, "SELECT household_id FROM recipe_shopping_lists WHERE id = ?", [String(legacyLists[0]!.id)]))[0];
     expect(list?.household_id).toBe(run.ctx.ids.households.recipe.get(String(legacyLists[0]!.group_id)));
   });
