@@ -6,9 +6,12 @@
  * `UnsupportedMediaType`, `ValidationFailed`, `Internal`) plus `RateLimited` (429, sets `Retry-After`) and the generic
  * `ApiFailure` (any other status and code). Each carries `status`, `code` and `text`, and an Effect raises it with
  * `return yield* new NotFound()`. ONE mapper, `toApiError`, turns whatever reaches the boundary into a family member,
- * and `onErrorHandler` (mounted in src/index.ts) renders it as the standard envelope
+ * and the boundary renders it as the standard envelope
  *   { error: { code, message, details? } }
- * with the right HTTP status. Stack traces are logged, never sent (a 5xx family member logs
+ * with the right HTTP status: `ApiErrorBoundary` of the Effect HTTP layer (`apps/api/src/http/response.ts`
+ * `errorResponse`, plan `docs/plans/e7-http-api.md` P7) and, until E7-T12 deletes the Hono section at the end of this
+ * file, `onErrorHandler` (mounted in src/index.ts). Both log through `logBoundaryFailure` and answer an unknown route
+ * with `routeUnknown`. Stack traces are logged, never sent (a 5xx family member logs
  * `<status> <code>: <English message>` and its stack; a defect or a `DatabaseError` logs the raw value or its `cause`).
  *
  * `text` is a KEY into the server catalog (`ServerKey`, or `{ key, values }` for one that takes placeholders);
@@ -32,11 +35,7 @@ import { DEFAULT_LOCALE, type Locale, type MessageValues, type ServerKey, server
 import type { ApiError as ApiErrorBody, ErrorCode } from "@toon/shared";
 import { toValidationIssues } from "@toon/shared";
 import { Effect, Predicate, Schema } from "effect";
-import type { Context, ErrorHandler, NotFoundHandler } from "hono";
-import { HTTPException } from "hono/http-exception";
-import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { env } from "../env.ts";
-import { requestLocale } from "./locale.ts";
 
 /** A server catalog key, optionally with the placeholder values it needs. */
 export type ErrorText = ServerKey | { key: ServerKey; values: MessageValues };
@@ -324,9 +323,9 @@ export class ApiError extends ApiFailure {
 
 /**
  * The one boundary mapper: a family member as is; a `Schema.SchemaError` as `422 validation_failed` with the
- * `toValidationIssues` details in `locale` (ADR 0013); a Hono `HTTPException` as its status with
- * `server.error.requestFailed`; a `DatabaseError` and anything else (a defect, a non-`Error` value such as the string
- * `"ManagedRuntime disposed"`) as `500 internal_error`.
+ * `toValidationIssues` details in `locale` (ADR 0013); a `DatabaseError` and anything else (a defect, a non-`Error`
+ * value such as the string `"ManagedRuntime disposed"`) as `500 internal_error`. (A Hono `HTTPException` is mapped by
+ * `honoExceptionToApiError` in the Hono section until E7-T12; the Effect HTTP layer raises none.)
  */
 export function toApiError(error: unknown, locale: Locale): ApiErrorFamily {
   if (isApiError(error)) return error;
@@ -335,34 +334,63 @@ export function toApiError(error: unknown, locale: Locale): ApiErrorFamily {
     return new ValidationFailed({ details: toValidationIssues(error.issue, locale) });
   }
 
-  if (error instanceof HTTPException) {
-    const status = error.status;
-    const code =
-      status === 401 ? "unauthorized" : status === 403 ? "forbidden" : status === 404 ? "not_found" : "bad_request";
-    // The framework's own message is dropped, not forwarded: it is an arbitrary
-    // string out of Hono's internals and may carry things we do not want on
-    // the wire. It still reaches the log via `console.error`/`console.warn`
-    // below, keyed on the ORIGINAL error, not this replacement.
-    return new ApiFailure({ status, code, text: "server.error.requestFailed" });
-  }
-
   return new Internal();
+}
+
+/**
+ * The boundary's log lines, written ONCE for both boundaries (`onErrorHandler` and `ApiErrorBoundary`, plan
+ * `docs/plans/e7-http-api.md` P7): a 5xx family member logs `[api] <METHOD> <path> -> <status> <code>: <English
+ * message>` and its stack; any other 5xx (a defect, a `DatabaseError`'s `cause`, a raw value) logs `[api] <METHOD>
+ * <path> ->` and the value; a 4xx logs a `console.warn` in development only. `path` is the pathname without the query.
+ * `error` is what reached the boundary, `apiError` what it is answered with.
+ */
+export function logBoundaryFailure(failure: {
+  readonly method: string;
+  readonly path: string;
+  readonly error: unknown;
+  readonly apiError: ApiErrorFamily;
+}): void {
+  const { method, path, error, apiError } = failure;
+  if (apiError.status >= 500) {
+    if (isApiError(error)) {
+      // A family member is a tagged-error dump to Bun's console; the pre-E2 line was the English message and the stack.
+      console.error(`[api] ${method} ${path} -> ${error.status} ${error.code}: ${error.message}`, error.stack);
+    } else {
+      console.error(`[api] ${method} ${path} ->`, isDatabaseError(error) ? error.cause : error);
+    }
+  } else if (env.NODE_ENV === "development") {
+    console.warn(`[api] ${method} ${path} -> ${apiError.status} ${apiError.code}: ${apiError.message}`);
+  }
+}
+
+/** The answer to a request no route matches: `404 not_found` with `server.error.routeUnknown` naming method and path. */
+export function routeUnknown(method: string, path: string): NotFound {
+  return new NotFound({ text: { key: "server.error.routeUnknown", values: { method, path } } });
+}
+
+/* Hono (E7 transition): E7-T12 deletes this section */
+import type { Context, ErrorHandler, NotFoundHandler } from "hono";
+import { HTTPException } from "hono/http-exception";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
+import { requestLocale } from "./locale.ts";
+
+/** A Hono `HTTPException` (Hono's malformed-JSON `400`) as its status with `server.error.requestFailed`. */
+export function honoExceptionToApiError(error: HTTPException): ApiErrorFamily {
+  const status = error.status;
+  const code =
+    status === 401 ? "unauthorized" : status === 403 ? "forbidden" : status === 404 ? "not_found" : "bad_request";
+  // The framework's own message is dropped, not forwarded: it is an arbitrary
+  // string out of Hono's internals and may carry things we do not want on
+  // the wire. It still reaches the log via `console.error`/`console.warn`
+  // below, keyed on the ORIGINAL error, not this replacement.
+  return new ApiFailure({ status, code, text: "server.error.requestFailed" });
 }
 
 /** Hono `app.onError` handler. */
 export const onErrorHandler: ErrorHandler = (error, c: Context) => {
   const locale = requestLocale(c);
-  const apiError = toApiError(error, locale);
-  if (apiError.status >= 500) {
-    if (isApiError(error)) {
-      // A family member is a tagged-error dump to Bun's console; the pre-E2 line was the English message and the stack.
-      console.error(`[api] ${c.req.method} ${c.req.path} -> ${error.status} ${error.code}: ${error.message}`, error.stack);
-    } else {
-      console.error(`[api] ${c.req.method} ${c.req.path} ->`, isDatabaseError(error) ? error.cause : error);
-    }
-  } else if (env.NODE_ENV === "development") {
-    console.warn(`[api] ${c.req.method} ${c.req.path} -> ${apiError.status} ${apiError.code}: ${apiError.message}`);
-  }
+  const apiError = error instanceof HTTPException ? honoExceptionToApiError(error) : toApiError(error, locale);
+  logBoundaryFailure({ method: c.req.method, path: c.req.path, error, apiError });
   if (Predicate.isTagged(apiError, "RateLimited")) {
     c.header("Retry-After", String(apiError.retryAfterSeconds));
   }
@@ -372,8 +400,5 @@ export const onErrorHandler: ErrorHandler = (error, c: Context) => {
 /** Hono `app.notFound` handler — same envelope as every other error. */
 export const notFoundHandler: NotFoundHandler = (c: Context) => {
   const locale = requestLocale(c);
-  const notFound = new NotFound({
-    text: { key: "server.error.routeUnknown", values: { method: c.req.method, path: c.req.path } },
-  });
-  return c.json(errorBody(notFound, locale), 404);
+  return c.json(errorBody(routeUnknown(c.req.method, c.req.path), locale), 404);
 };

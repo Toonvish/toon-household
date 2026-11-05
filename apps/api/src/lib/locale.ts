@@ -3,14 +3,25 @@
  * this reads `Accept-Language` (CORS-safelisted, no preflight) rather than a
  * cookie or a custom header, and CLAUDE.md for why this is never
  * `recipes.language` (the CONTENT axis).
+ *
+ * `negotiateRequestLocale` is the pure rule, shared by the Effect HTTP layer (`apps/api/src/http/request.ts`
+ * `requestLocale`, `apps/api/src/http/response.ts` `errorResponse`; plan `docs/plans/e7-http-api.md` P4) and the Hono
+ * section below until E7-T12 deletes it.
  */
 import { negotiateLocale, type Locale } from "@toon/shared";
-import type { Context, MiddlewareHandler } from "hono";
 import { env } from "../env.ts";
+
+/** The locale of a request whose `Accept-Language` header is `acceptLanguage` (absent: the configured default). */
+export function negotiateRequestLocale(acceptLanguage: string | undefined): Locale {
+  return negotiateLocale(acceptLanguage, env.defaultLocale);
+}
+
+/* Hono (E7 transition): E7-T12 deletes this section */
+import type { Context, MiddlewareHandler } from "hono";
 import type { AppEnv } from "./types.ts";
 
 export const localeMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
-  c.set("locale", negotiateLocale(c.req.header("accept-language"), env.defaultLocale));
+  c.set("locale", negotiateRequestLocale(c.req.header("accept-language")));
   await next();
 };
 

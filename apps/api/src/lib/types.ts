@@ -1,6 +1,11 @@
 /**
- * The Hono environment shared by ALL routers. Every sub-router is declared as
- * `new Hono<AppEnv>()` so that context variables set by middleware are typed.
+ * The request-scoped shapes the routers share.
+ *
+ * `Membership` lives in `apps/api/src/http/context.ts` (the `CurrentMembership` service of the Effect HTTP layer, plan
+ * `docs/plans/e7-http-api.md` P5) and is re-exported here for the services and tests that import it from this file.
+ *
+ * The Hono section below (until E7-T12 deletes it) is the Hono environment shared by ALL Hono routers. Every
+ * sub-router is declared as `new Hono<AppEnv>()` so that context variables set by middleware are typed.
  *
  * Contract between the agents:
  * - the auth middleware sets `user` + `sessionId` (requireSession)
@@ -13,16 +18,15 @@
  *
  * Import cycle (plan e2 P12): this file imports neither `runtime.ts` nor a service.
  */
-import type { HouseholdRole, Locale, User } from "@toon/shared";
+import type { Membership } from "../http/context.ts";
+
+export type { Membership };
+
+/* Hono (E7 transition): E7-T12 deletes this section */
+import type { Locale, User } from "@toon/shared";
 import { Effect } from "effect";
 import type { Context } from "hono";
 import { Forbidden, Unauthorized } from "./errors.ts";
-
-export interface Membership {
-  householdId: string;
-  userId: string;
-  role: HouseholdRole;
-}
 
 export interface AppVariables {
   /** Set by requireSession (and by optionalSession when a cookie is present). */
