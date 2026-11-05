@@ -14,7 +14,12 @@ import { db } from "../src/db/client.ts";
 import { runMigrations } from "../src/db/migrate.ts";
 import { setClockForTest } from "../src/modules/finance/lib/clock.ts";
 import { financeAccrualRuns, financeFixedCostPlans, financeTransactions } from "../src/modules/finance/schema.ts";
-import { runCatchUp } from "../src/modules/finance/services/plan/accrual.service.ts";
+import { runFinanceBridge } from "../src/modules/finance/bridge.ts";
+import {
+  FinanceAccrual,
+  type RunCatchUpOptions,
+  type RunCatchUpResult,
+} from "../src/modules/finance/services/plan/accrual.service.ts";
 import {
   addMember,
   body,
@@ -27,6 +32,15 @@ import {
 } from "./support/finance-harness.ts";
 
 await runMigrations(db);
+
+/** The old Promise `runCatchUp(db, householdId, options)` over the service (plan e5 P11): it rejects with the raw driver error. */
+function runCatchUp(
+  executor: Parameters<typeof runFinanceBridge>[1],
+  householdId: string,
+  options: RunCatchUpOptions,
+): Promise<RunCatchUpResult> {
+  return runFinanceBridge(FinanceAccrual.use((service) => service.runCatchUp(householdId, options)), executor);
+}
 
 afterEach(() => setClockForTest(null));
 

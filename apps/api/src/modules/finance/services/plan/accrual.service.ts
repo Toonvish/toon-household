@@ -11,14 +11,13 @@
  * the booking and `lastBookedPeriod` share ONE `database.transaction`, the time is the module clock
  * (`financeTimeMillis`, so a `TestClock` drives the stamps), and a refusal is a member of the API error family. The
  * catch-all of the booking transaction stays a catch-all: `Effect.catchCause` sees a typed failure, a defect and a
- * rejection alike (CLAUDE.md "Catch-all stays catch-all"). The one legacy bridge at the end keeps the Promise function
- * `apps/api/scripts/plan-run.ts` and `finance-security.test.ts` still call.
+ * rejection alike (CLAUDE.md "Catch-all stays catch-all"). `apps/api/scripts/plan-run.ts` yields the service;
+ * `finance-security.test.ts` calls it through a local helper over `runFinanceBridge` (plan e5 P11).
  */
 import type { RecalculatePlanResponse, RunPlanResponse, TransactionResponse } from "@toon/shared";
 import { comparePeriods, computePlanForPeriod, currentPeriod, periodStartMs, periodsInclusive, serverText } from "@toon/shared";
 import { and, eq, isNotNull } from "drizzle-orm";
 import { Cause, Context, Effect, Layer, Predicate } from "effect";
-import type { Database as DrizzleDatabase } from "../../../../db/client.ts";
 import { Database } from "../../../../db/database.ts";
 import {
   type FinanceAccrualRunRow as AccrualRunRow,
@@ -28,7 +27,6 @@ import {
 } from "../../schema.ts";
 import { Conflict, isDatabaseError } from "../../../../lib/errors.ts";
 import type { DatabaseError, Internal } from "../../../../lib/errors.ts";
-import { runFinanceBridge } from "../../bridge.ts";
 import { financeTimeMillis } from "../../lib/clock.ts";
 import { FinanceCategories } from "../categories/categories.service.ts";
 import { FinanceParticipants } from "../participants/participants.service.ts";
@@ -521,14 +519,4 @@ export class FinanceAccrual extends Context.Service<
       return FinanceAccrual.of({ runCatchUp, runPlanNow, recalculatePlan });
     }),
   );
-}
-
-/* legacy bridges: only the survivors of plan e4 P1 (callers listed; E5 scripts and E8 pinned tests remove them) */
-
-/**
- * Callers: `apps/api/scripts/plan-run.ts` (E5), `apps/api/test/finance-security.test.ts` (pinned, E5). A
- * survivor of E4 (plan P1): it rejects with the `DatabaseError`'s `cause`, the raw driver error the old function threw.
- */
-export function runCatchUp(db: DrizzleDatabase, householdId: string, options: RunCatchUpOptions): Promise<RunCatchUpResult> {
-  return runFinanceBridge(FinanceAccrual.use((service) => service.runCatchUp(householdId, options)), db);
 }
