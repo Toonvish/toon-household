@@ -5,13 +5,21 @@
  * The client filename is NEVER trusted — neither for the type nor for the
  * stored name. Files land at `<UPLOAD_DIR>/<uuid>.<ext>` where the extension is
  * derived from the sniffed magic bytes.
+ *
+ * AS A SERVICE (docs/EFFECT.md E7; plan `docs/plans/e3-recipe-services.md` P2, P8): `ImportFiles` reads the upload
+ * directory from `AppConfig`; its refusals are the tagged family (`BadRequest`, `PayloadTooLarge`,
+ * `UnsupportedMediaType`). The sniffing and the MIME lists stay pure exports. The bridge section keeps the Promise
+ * functions `routes/imports.ts` and `url/image.ts` still call, until E3-T11 and E3-T05.
  */
 import { mkdir, unlink } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { ACCEPTED_IMAGE_MIME_TYPES, ACCEPTED_PDF_MIME_TYPES, MAX_UPLOAD_BYTES } from "@toon/shared";
-import { env } from "../../../../env.ts";
-import { ApiError } from "../../../../lib/errors.ts";
+import { Context, Effect, Layer, Predicate } from "effect";
+import { AppConfig } from "../../../../config.ts";
 import { THUMBNAIL_SUFFIX } from "../../../../core/services/media/thumbnails.ts";
+import { env } from "../../../../env.ts";
+import { BadRequest, PayloadTooLarge, UnsupportedMediaType } from "../../../../lib/errors.ts";
+import { runtime } from "../../../../runtime.ts";
 
 export type SniffedMime =
   | "image/jpeg"
@@ -113,55 +121,57 @@ export interface UploadedFile {
   size: number;
 }
 
+/** What `readUploadedFile` refuses a request with. */
+export type UploadRefusal = BadRequest | PayloadTooLarge | UnsupportedMediaType;
+
 /**
  * Reads the `file` field of a multipart request and validates it.
  *
- * @throws ApiError 400 when the field is missing, 413 when too large,
- *   415 when the sniffed type is not importable.
+ * Fails `400` when the field is missing, `413` when too large, `415` when the sniffed type is not importable.
  */
-export async function readUploadedFile(
+const readUpload = Effect.fn("ImportFiles.readUploadedFile")(function* (
   request: Request,
   options: { accept?: readonly ImportFileKind[]; fieldName?: string } = {},
-): Promise<UploadedFile> {
+): Effect.fn.Return<UploadedFile, UploadRefusal> {
   const accept = options.accept ?? (["image", "pdf"] as const);
   const fieldName = options.fieldName ?? "file";
 
   // Deliberately inferred: Bun's Request.formData() returns undici's FormData,
   // which is not assignable to the lib.dom FormData type.
-  let form: Awaited<ReturnType<Request["formData"]>>;
-  try {
-    form = await request.formData();
-  } catch {
-    throw ApiError.badRequest("server.import.fileUnreadable");
-  }
+  const form = yield* Effect.tryPromise({
+    try: () => request.formData(),
+    catch: () => new BadRequest({ text: "server.import.fileUnreadable" }),
+  });
 
   const value = form.get(fieldName);
-  if (value === null || typeof value === "string") {
-    throw ApiError.badRequest({ key: "server.import.noFileInField", values: { fieldName } });
+  if (value === null || Predicate.isString(value)) {
+    return yield* new BadRequest({ text: { key: "server.import.noFileInField", values: { fieldName } } });
   }
   const file = value as File;
-  if (file.size > MAX_UPLOAD_BYTES) throw ApiError.payloadTooLarge();
+  if (file.size > MAX_UPLOAD_BYTES) return yield* new PayloadTooLarge();
 
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  if (bytes.byteLength === 0) throw ApiError.badRequest("server.import.fileEmpty");
-  if (bytes.byteLength > MAX_UPLOAD_BYTES) throw ApiError.payloadTooLarge();
+  const bytes = new Uint8Array(yield* Effect.promise(() => file.arrayBuffer()));
+  if (bytes.byteLength === 0) return yield* new BadRequest({ text: "server.import.fileEmpty" });
+  if (bytes.byteLength > MAX_UPLOAD_BYTES) return yield* new PayloadTooLarge();
 
   const mimeType = sniffMimeType(bytes);
   if (mimeType === undefined) {
-    throw ApiError.unsupportedMediaType("server.import.unsupportedFileType");
+    return yield* new UnsupportedMediaType({ text: "server.import.unsupportedFileType" });
   }
 
   const kind: ImportFileKind = mimeType === "application/pdf" ? "pdf" : "image";
   if (!accept.includes(kind)) {
-    throw ApiError.unsupportedMediaType(
-      kind === "pdf" ? "server.import.expectedImageNotPdf" : "server.import.expectedPdfNotImage",
-    );
+    return yield* new UnsupportedMediaType({
+      text: kind === "pdf" ? "server.import.expectedImageNotPdf" : "server.import.expectedPdfNotImage",
+    });
   }
   if (kind === "image" && !ACCEPTED_IMPORT_IMAGE_TYPES.includes(mimeType)) {
-    throw ApiError.unsupportedMediaType({ key: "server.import.unsupportedImageFormat", values: { mimeType } });
+    return yield* new UnsupportedMediaType({
+      text: { key: "server.import.unsupportedImageFormat", values: { mimeType } },
+    });
   }
 
-  const originalName = typeof file.name === "string" && file.name.length > 0 ? basename(file.name).slice(0, 300) : undefined;
+  const originalName = Predicate.isString(file.name) && file.name.length > 0 ? basename(file.name).slice(0, 300) : undefined;
   return {
     bytes,
     mimeType,
@@ -169,7 +179,7 @@ export async function readUploadedFile(
     size: bytes.byteLength,
     ...(originalName === undefined ? {} : { originalName }),
   };
-}
+});
 
 export interface StoredUpload {
   /** Bare filename (`<uuid>.<ext>`) — this is what goes into sourceMeta.storedPath. */
@@ -189,49 +199,119 @@ export interface StoredUpload {
   size: number;
 }
 
-/** Absolute path of a stored upload; throws on traversal attempts. */
-export function resolveUploadPath(filename: string): string {
+/**
+ * Absolute path of a stored upload under `uploadDir`; `400 bad_request` (`server.import.invalidFilename`) on traversal
+ * attempts. Service-free: the directory is a parameter.
+ */
+const resolveIn = Effect.fnUntraced(function* (uploadDir: string, filename: string): Effect.fn.Return<string, BadRequest> {
   const bare = basename(filename);
   if (bare.length === 0 || bare !== filename || bare.startsWith(".")) {
-    throw ApiError.badRequest("server.import.invalidFilename");
+    return yield* new BadRequest({ text: "server.import.invalidFilename" });
   }
-  const absolute = resolve(join(env.uploadDir, bare));
-  const root = resolve(env.uploadDir);
+  const absolute = resolve(join(uploadDir, bare));
+  const root = resolve(uploadDir);
   if (absolute !== join(root, bare) || !absolute.startsWith(root)) {
-    throw ApiError.badRequest("server.import.invalidFilename");
+    return yield* new BadRequest({ text: "server.import.invalidFilename" });
   }
   return absolute;
-}
+});
 
-/** Writes bytes to UPLOAD_DIR under a fresh UUID filename. */
-export async function storeUpload(bytes: Uint8Array, mimeType: SniffedMime): Promise<StoredUpload> {
-  const extension = EXTENSION_BY_MIME[mimeType] ?? "bin";
-  const filename = `${crypto.randomUUID()}.${extension}`;
-  await mkdir(env.uploadDir, { recursive: true });
-  const absolutePath = join(env.uploadDir, filename);
-  await Bun.write(absolutePath, bytes);
-  return { filename, absolutePath, url: `/uploads/${filename}`, mimeType, size: bytes.byteLength };
-}
-
-/**
- * Deletes a stored upload; missing files and bad names are ignored.
- *
- * Takes the generated list thumbnail with it — `uploads:gc` would eventually sweep
- * an orphaned derivative, but leaving one behind means the next upload that somehow
- * reuses the name (a restored backup, a manual copy) inherits a stale image.
- */
-export async function deleteUpload(filename: string | null | undefined): Promise<void> {
-  if (typeof filename !== "string" || filename.length === 0) return;
-  for (const name of [filename, `${filename}${THUMBNAIL_SUFFIX}`]) {
-    try {
-      await unlink(resolveUploadPath(name));
-    } catch {
-      // already gone / never existed / outside the upload dir — nothing to do
-    }
+/** The import file service. */
+export class ImportFiles extends Context.Service<
+  ImportFiles,
+  {
+    /** Reads and validates the multipart `file` field: `400`, `413` or `415` refusals. */
+    readonly readUploadedFile: (
+      request: Request,
+      options?: { accept?: readonly ImportFileKind[]; fieldName?: string },
+    ) => Effect.Effect<UploadedFile, UploadRefusal>;
+    /** Absolute path of a stored upload; `400` on traversal attempts. */
+    readonly resolveUploadPath: (filename: string) => Effect.Effect<string, BadRequest>;
+    /** Writes bytes to the upload directory under a fresh UUID filename. */
+    readonly storeUpload: (bytes: Uint8Array, mimeType: SniffedMime) => Effect.Effect<StoredUpload>;
+    /**
+     * Deletes a stored upload and its generated list thumbnail; missing files and bad names are ignored (catch-all,
+     * plan e3 P8). Never fails.
+     */
+    readonly deleteUpload: (filename: string | null | undefined) => Effect.Effect<void>;
   }
+>()("toon/api/modules/recipe/services/import/files/ImportFiles") {
+  static readonly layer = Layer.effect(
+    ImportFiles,
+    Effect.gen(function* () {
+      const config = yield* AppConfig;
+
+      const resolveUploadPath = (filename: string) => resolveIn(config.uploadDir, filename);
+
+      /** Writes bytes to UPLOAD_DIR under a fresh UUID filename. */
+      const storeUpload = Effect.fn("ImportFiles.storeUpload")(function* (bytes: Uint8Array, mimeType: SniffedMime) {
+        const extension = EXTENSION_BY_MIME[mimeType] ?? "bin";
+        const filename = `${crypto.randomUUID()}.${extension}`;
+        const absolutePath = join(config.uploadDir, filename);
+        yield* Effect.promise(async () => {
+          await mkdir(config.uploadDir, { recursive: true });
+          await Bun.write(absolutePath, bytes);
+        });
+        const stored: StoredUpload = { filename, absolutePath, url: `/uploads/${filename}`, mimeType, size: bytes.byteLength };
+        return stored;
+      });
+
+      /**
+       * Deletes a stored upload; missing files and bad names are ignored.
+       *
+       * Takes the generated list thumbnail with it — `uploads:gc` would eventually sweep
+       * an orphaned derivative, but leaving one behind means the next upload that somehow
+       * reuses the name (a restored backup, a manual copy) inherits a stale image.
+       */
+      const deleteUpload = Effect.fn("ImportFiles.deleteUpload")(function* (filename: string | null | undefined) {
+        if (!Predicate.isString(filename) || filename.length === 0) return;
+        for (const name of [filename, `${filename}${THUMBNAIL_SUFFIX}`]) {
+          // already gone / never existed / outside the upload dir — nothing to do
+          yield* resolveUploadPath(name).pipe(
+            Effect.flatMap((absolute) => Effect.tryPromise({ try: () => unlink(absolute), catch: (cause): unknown => cause })),
+            Effect.ignoreCause,
+          );
+        }
+      });
+
+      return ImportFiles.of({ readUploadedFile: readUpload, resolveUploadPath, storeUpload, deleteUpload });
+    }),
+  );
 }
 
 /** Extension for a sniffed type, used by the hero-image downloader. */
 export function extensionFor(mimeType: SniffedMime): string {
   return EXTENSION_BY_MIME[mimeType] ?? "bin";
+}
+
+/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
+
+/**
+ * Reads the `file` field of a multipart request. A refusal rejects with the tagged error itself. Callers:
+ * `apps/api/src/modules/recipe/routes/imports.ts` (E3-T11).
+ */
+export function readUploadedFile(
+  request: Request,
+  options: { accept?: readonly ImportFileKind[]; fieldName?: string } = {},
+): Promise<UploadedFile> {
+  return runtime.runPromise(ImportFiles.use((files) => files.readUploadedFile(request, options)));
+}
+
+/** Writes bytes to UPLOAD_DIR. Callers: `apps/api/src/modules/recipe/services/import/url/image.ts` (E3-T05). */
+export function storeUpload(bytes: Uint8Array, mimeType: SniffedMime): Promise<StoredUpload> {
+  return runtime.runPromise(ImportFiles.use((files) => files.storeUpload(bytes, mimeType)));
+}
+
+/** Deletes a stored upload; never rejects. Callers: `apps/api/src/modules/recipe/routes/imports.ts` (E3-T11). */
+export function deleteUpload(filename: string | null | undefined): Promise<void> {
+  return runtime.runPromise(ImportFiles.use((files) => files.deleteUpload(filename)));
+}
+
+/**
+ * Absolute path of a stored upload. SYNCHRONOUS (plan e3 P1): a service-free effect over `env.uploadDir` run with
+ * `Effect.runSync`, which throws the `400 bad_request` refusal itself. Callers:
+ * `apps/api/src/modules/recipe/routes/imports.ts` (the source download, E3-T11).
+ */
+export function resolveUploadPath(filename: string): string {
+  return Effect.runSync(resolveIn(env.uploadDir, filename));
 }

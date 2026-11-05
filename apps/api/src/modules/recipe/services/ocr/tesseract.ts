@@ -11,9 +11,10 @@
  *   - there is no download, no `cachePath`, no seeded volume and no prefetch step,
  *   - the work happens in ANOTHER PROCESS, so it stops competing with the event
  *     loop — a WASM worker inside the process does,
- *   - `options.signal` is finally REAL: aborting kills the child. tesseract.js
- *     ignored the signal entirely, which is why `withOcrTimeout` had to be a
- *     `Promise.race` (it still is — `unpdf` remains cooperative-only).
+ *   - an interrupted run is finally REAL: closing the run's scope kills the child.
+ *     tesseract.js ignored the signal entirely, which is why `withOcrTimeout` had to
+ *     be a race (it still is, now `Effect.timeoutOrElse` — `unpdf` remains
+ *     cooperative-only).
  *
  * Accuracy is unchanged: same engine, same models.
  *
@@ -30,8 +31,9 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Effect, Predicate, type Scope } from "effect";
 import { env } from "../../../../env.ts";
-import { ApiError } from "../../../../lib/errors.ts";
+import { ApiFailure } from "../../../../lib/errors.ts";
 import type { OcrBlock, OcrEngine, OcrOptions, OcrResult } from "./types.ts";
 
 /** Page segmentation modes, keyed by our layout hint. */
@@ -42,8 +44,91 @@ const PSM_BY_LAYOUT: Record<NonNullable<OcrOptions["layout"]>, string> = {
   sparse: "11", // sparse text, find as much as possible
 };
 
+/** What one native run needs from the configuration. */
+export interface TesseractRunConfig {
+  /** The `tesseract` binary (`TESSERACT_BIN`). */
+  readonly bin: string;
+  /** The default languages, already normalised (`TESSERACT_LANGS`). */
+  readonly langs: string;
+}
+
+/**
+ * One native recognition, as an effect (docs/EFFECT.md E3, E7; plan `docs/plans/e3-recipe-services.md` P11).
+ *
+ * The temp directory and the child process are scoped resources of THIS run: the `Effect.scoped` below closes them when
+ * the run ends, whether it succeeded, failed, or was interrupted by the hard timeout (`Ocr.withOcrTimeout` wraps this
+ * whole effect), so an abandoned `tesseract` is killed and its directory removed. The scope never leaves this function:
+ * R = never. No warm worker and no internal queue: every call is its own process, so concurrent calls cannot corrupt
+ * each other the way one shared tesseract.js worker could; `Ocr.withOcrSlot` is the only thing bounding how many run at
+ * once, which is what keeps peak memory predictable. `options.langs` is honoured per call.
+ *
+ * The spawn primitive stays `Bun.spawn`: a missing binary has to read as Bun reports it (`Executable not found in
+ * $PATH: "tesseract"`), because that text reaches the wire as `details.cause` of the documented `422 ocr_failed`.
+ */
+export const tesseractRecognize = Effect.fnUntraced(
+  function* (
+    input: Uint8Array,
+    options: OcrOptions,
+    config: TesseractRunConfig,
+  ): Effect.fn.Return<OcrResult, ApiFailure, Scope.Scope> {
+    const langs = options.langs === undefined ? config.langs : normalizeLangs(options.langs);
+    const psm = PSM_BY_LAYOUT[options.layout ?? "page"];
+
+    const directory = yield* Effect.acquireRelease(
+      Effect.promise(() => mkdtemp(join(tmpdir(), "toon-ocr-"))),
+      (created) => Effect.promise(() => rm(created, { recursive: true, force: true }).catch(() => undefined)),
+    );
+    const base = join(directory, "page");
+
+    // The output configs (`txt`, `tsv`) MUST come last — tesseract reads every
+    // trailing bare word as a config name.
+    const args = ["-", base, "-l", langs, "--psm", psm, "-c", "preserve_interword_spaces=1", "txt", "tsv"];
+
+    const child = yield* Effect.acquireRelease(
+      Effect.try({
+        try: () => Bun.spawn([config.bin, ...args], { stdin: input, stdout: "ignore", stderr: "pipe" }),
+        // ENOENT: the binary is not installed at all.
+        catch: (error) => unavailableError(error, config.bin),
+      }),
+      // Kills a child that is still running: the hard timeout interrupts the run, which closes this scope.
+      (spawned) =>
+        Effect.sync(() => {
+          if (spawned.exitCode === null) spawned.kill();
+        }),
+    );
+
+    const [exitCode, stderr] = yield* Effect.promise(() =>
+      Promise.all([child.exited, new Response(child.stderr as ReadableStream<Uint8Array>).text()]),
+    );
+    if (exitCode !== 0) return yield* failedError(stderr, exitCode, langs);
+
+    const [txt, tsv] = yield* Effect.promise(() =>
+      Promise.all([
+        readFile(`${base}.txt`, "utf8").catch(() => ""),
+        readFile(`${base}.tsv`, "utf8").catch(() => ""),
+      ]),
+    );
+    const parsed = parseTesseractOutput(txt, tsv);
+
+    return {
+      text: parsed.text,
+      confidence: parsed.confidence,
+      engine: ENGINE_NAME,
+      langs,
+      ...(parsed.blocks.length > 0 ? { blocks: parsed.blocks } : {}),
+    };
+  },
+  Effect.scoped,
+);
+
+const ENGINE_NAME = "tesseract-native";
+
+/**
+ * The Promise adapter over {@link tesseractRecognize}, for `getOcrEngine()` and any caller that wants an `OcrEngine`.
+ * `Ocr.recognize` does not go through it: without a test engine installed it runs the effect directly.
+ */
 export class TesseractEngine implements OcrEngine {
-  readonly name = "tesseract-native";
+  readonly name = ENGINE_NAME;
 
   private readonly langs: string;
   private readonly bin: string;
@@ -54,95 +139,16 @@ export class TesseractEngine implements OcrEngine {
   }
 
   /**
-   * Recognises text in preprocessed image bytes.
-   *
-   * No warm worker and no internal queue any more: every call is its own process,
-   * so concurrent calls cannot corrupt each other the way one shared tesseract.js
-   * worker could. `withOcrSlot()` (MAX_CONCURRENT_OCR) is now the only thing
-   * bounding how many run at once, which is what keeps peak memory predictable.
-   *
-   * Unlike the tesseract.js engine, `options.langs` is honoured — it silently
-   * could not be before, because the languages were fixed when the worker was
-   * created.
+   * Aborting `options.signal` interrupts the run, which kills the child and removes the temp directory; the promise then
+   * rejects with the signal's own reason, not with a fake OCR failure.
    */
-  async recognize(input: Uint8Array, options: OcrOptions = {}): Promise<OcrResult> {
-    options.signal?.throwIfAborted();
-
-    const langs = options.langs === undefined ? this.langs : normalizeLangs(options.langs);
-    const psm = PSM_BY_LAYOUT[options.layout ?? "page"];
-    const directory = await mkdtemp(join(tmpdir(), "toon-ocr-"));
-
-    try {
-      const base = join(directory, "page");
-      await this.run(input, base, langs, psm, options.signal);
-      options.signal?.throwIfAborted();
-
-      const [txt, tsv] = await Promise.all([
-        readFile(`${base}.txt`, "utf8").catch(() => ""),
-        readFile(`${base}.tsv`, "utf8").catch(() => ""),
-      ]);
-      const parsed = parseTesseractOutput(txt, tsv);
-
-      return {
-        text: parsed.text,
-        confidence: parsed.confidence,
-        engine: this.name,
-        langs,
-        ...(parsed.blocks.length > 0 ? { blocks: parsed.blocks } : {}),
-      };
-    } finally {
-      await rm(directory, { recursive: true, force: true }).catch(() => undefined);
-    }
-  }
-
-  /** Spawns the binary and waits for it, killing the child if `signal` aborts. */
-  private async run(
-    input: Uint8Array,
-    base: string,
-    langs: string,
-    psm: string,
-    signal: AbortSignal | undefined,
-  ): Promise<void> {
-    // The output configs (`txt`, `tsv`) MUST come last — tesseract reads every
-    // trailing bare word as a config name.
-    const args = [
-      "-",
-      base,
-      "-l",
-      langs,
-      "--psm",
-      psm,
-      "-c",
-      "preserve_interword_spaces=1",
-      "txt",
-      "tsv",
-    ];
-
-    let child: ReturnType<typeof Bun.spawn>;
-    try {
-      child = Bun.spawn([this.bin, ...args], { stdin: input, stdout: "ignore", stderr: "pipe" });
-    } catch (error) {
-      // ENOENT: the binary is not installed at all.
-      throw unavailableError(error, this.bin);
-    }
-
-    const abort = () => {
-      child.kill();
-    };
-    signal?.addEventListener("abort", abort, { once: true });
-
-    try {
-      const [exitCode, stderr] = await Promise.all([
-        child.exited,
-        new Response(child.stderr as ReadableStream<Uint8Array>).text(),
-      ]);
-      // A kill() shows up as a non-zero exit; report the abort, not a fake OCR
-      // failure, or a timeout would be blamed on the image.
-      signal?.throwIfAborted();
-      if (exitCode !== 0) throw failedError(stderr, exitCode, langs);
-    } finally {
-      signal?.removeEventListener("abort", abort);
-    }
+  recognize(input: Uint8Array, options: OcrOptions = {}): Promise<OcrResult> {
+    const { signal } = options;
+    if (signal?.aborted === true) return Promise.reject(signal.reason);
+    return Effect.runPromise(
+      tesseractRecognize(input, options, { bin: this.bin, langs: this.langs }),
+      signal === undefined ? undefined : { signal },
+    ).catch((error: unknown) => Promise.reject(signal?.aborted === true ? signal.reason : error));
   }
 
   /** Nothing to release — every recognise call is its own process. */
@@ -151,31 +157,36 @@ export class TesseractEngine implements OcrEngine {
   }
 }
 
-function unavailableError(error: unknown, bin: string): ApiError {
-  return new ApiError(422, "ocr_failed", "server.ocr.recognitionUnavailable", {
-    reason: "tesseract_unavailable",
-    bin,
-    cause: error instanceof Error ? error.message.slice(0, 200) : String(error).slice(0, 200),
+function unavailableError(error: unknown, bin: string): ApiFailure {
+  return new ApiFailure({
+    status: 422,
+    code: "ocr_failed",
+    text: "server.ocr.recognitionUnavailable",
+    details: {
+      reason: "tesseract_unavailable",
+      bin,
+      cause: Predicate.isError(error) ? error.message.slice(0, 200) : String(error).slice(0, 200),
+    },
   });
 }
 
-function failedError(stderr: string, exitCode: number, langs: string): ApiError {
+function failedError(stderr: string, exitCode: number, langs: string): ApiFailure {
   const detail = stderr.trim().split("\n").slice(-3).join(" ").slice(0, 200);
   // The one failure worth naming precisely: the binary is there but the language
   // package is not (`apt install tesseract-ocr-deu`). Everything else is an image
   // problem the user can act on by uploading a better photo.
   const missingLanguage = /failed loading language|could not initialize tesseract/i.test(stderr);
-  return new ApiError(
-    422,
-    "ocr_failed",
-    missingLanguage ? "server.ocr.languageDataMissing" : "server.ocr.recognitionFailed",
-    {
+  return new ApiFailure({
+    status: 422,
+    code: "ocr_failed",
+    text: missingLanguage ? "server.ocr.languageDataMissing" : "server.ocr.recognitionFailed",
+    details: {
       ...(missingLanguage ? { reason: "language_data_missing" } : {}),
       exitCode,
       langs,
       ...(detail.length > 0 ? { cause: detail } : {}),
     },
-  );
+  });
 }
 
 /* ------------------------------ output parsing ----------------------------- */

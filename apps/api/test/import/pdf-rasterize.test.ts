@@ -20,15 +20,21 @@
  *   - keep asserting the rendered page SIZE, so a stub leaking in from another file
  *     cannot make this pass.
  */
-import { describe, expect, test } from "bun:test";
-import {
-  RASTER_SCALE,
-  extractPdfTextLayer,
-  isUsableTextLayer,
-  pdfToText,
-  rasterizePdf,
-} from "../../src/modules/recipe/services/ocr/pdf.ts";
+import { afterEach, describe, expect, test } from "bun:test";
+import { setOcrEngine } from "../../src/modules/recipe/services/ocr/index.ts";
+import { PdfText, RASTER_SCALE, isUsableTextLayer } from "../../src/modules/recipe/services/ocr/pdf.ts";
+import { runTest } from "../support/effect.ts";
 import { TEXTLESS_PDF_SIZE, createFakeOcrEngine, makeTextlessPdf } from "./helpers.ts";
+
+/** The PDF service's methods as promises (plan e3 P15): the real poppler and the real engine unless a test says so. */
+const extractPdfTextLayer = (bytes: Uint8Array) => runTest(PdfText.use((pdf) => pdf.extractPdfTextLayer(bytes)));
+const rasterizePdf = (bytes: Uint8Array) => runTest(PdfText.use((pdf) => pdf.rasterizePdf(bytes)));
+const pdfToText = (bytes: Uint8Array) => runTest(PdfText.use((pdf) => pdf.pdfToText(bytes)));
+
+/** Hands the fake engine back, so no later file inherits it (it is process-wide). */
+afterEach(() => {
+  setOcrEngine(null);
+});
 
 /** Width/height of a PNG, straight out of the IHDR chunk. */
 function pngSize(bytes: Uint8Array): { width: number; height: number } {
@@ -110,7 +116,9 @@ describe("PDF rasterization with the real pdftoppm", () => {
       confidence: 0.82,
     });
 
-    const result = await pdfToText(makeTextlessPdf(), engine);
+    setOcrEngine(engine);
+
+    const result = await pdfToText(makeTextlessPdf());
 
     expect(result.method).toBe("ocr");
     expect(result.pages).toBe(1);

@@ -202,9 +202,18 @@ A service that spawns reads `ChildProcessSpawner` in its `Layer.effect` and its 
 
 ## 7. In this repo
 
-- `apps/api/src/modules/recipe/services/ocr/tesseract.ts` and `apps/api/src/modules/recipe/services/ocr/pdf.ts` use `Bun.spawn` and
-  `new Response(child.stderr).text()` today: E3 turns them into a `ChildProcessSpawner` service with `Effect.scoped` handles, `Stream.decodeText` + `Stream.mkString` for
-  stderr, an explicit `ExitCode` check and `forceKillAfter`, behaviour (messages, limits, time-outs) unchanged.
+- `apps/api/src/modules/recipe/services/ocr/tesseract.ts` and `apps/api/src/modules/recipe/services/ocr/pdf.ts` keep `Bun.spawn` as the spawn
+  primitive and do NOT use `ChildProcessSpawner` (E3-T02, plan `docs/plans/e3-recipe-services.md` P11). The Node-based spawner reports a missing binary as a
+  `PlatformError` whose message differs from Bun's (`Executable not found in $PATH: "tesseract"`), and that message reaches the wire as `details.cause`
+  of the documented `422 ocr_failed` / `422 pdf_no_text_layer`, so the primitive is not swapped. What the section 2 and 6 patterns still give them:
+  the child is a scoped resource, `Effect.acquireRelease(Effect.try(() => Bun.spawn(...)), (child) => Effect.sync(() => { if (child.exitCode === null) child.kill() }))`,
+  and so is the temp directory (`mkdtemp` / `rm`, catch-all). **Each native run is its own `Effect.scoped(...)`** (`Effect.fnUntraced(body, Effect.scoped)`: the
+  scope never reaches a method's requirement, R = `never`) and that scoped region sits INSIDE the hard timeout (`Effect.timeoutOrElse`), so the child is
+  killed and the directory removed when the run ends: success, failure, or the timeout's interruption. A scope taken from a layer would hold them until
+  `runtime.dispose()`. The exit code is compared and mapped as before (`failedError`, the last three stderr lines); stderr and the exit code are read with
+  `Effect.promise(() => Promise.all([child.exited, new Response(child.stderr).text()]))` (a `Stream.decodeText` + `Stream.mkString` would do the same).
+  The test engine seam stays a Promise interface (`OcrEngine`): `fromSeamPromise` (`ocr/seam.ts`) turns it into an effect with `Effect.tryPromise`, an API-family
+  rejection stays typed and any other rejection is a defect (`Effect.die`) carrying the original error.
 - `apps/api/src/middleware/staticWeb.ts`, `apps/api/src/index.ts` and `apps/api/src/modules/recipe/routes/imports.ts` serve `Bun.file(...)`: they stay
   until E7; `Stream.toReadableStream` / `FileSystem.stream` is the bridge if a handler must return an Effect-built body.
 - `apps/api/scripts/legacy/`, `apps/api/scripts/finance-import/` (E5) read workbooks and databases; line- or record-oriented inputs become
