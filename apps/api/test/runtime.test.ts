@@ -23,6 +23,9 @@ describe("src/runtime.ts", () => {
   });
 
   test("(b) GET /api/health is computed by runtime.runPromise(healthResponse)", async () => {
+    // Since E7-T10 the route is served by `SystemApi` through its bridge, whose in-memory handler builds itself on its
+    // first request with one `runtime.runPromise(Effect.void)` (plan e7 P13): warm it before the spy counts.
+    await app.request("/api/health");
     const spy = spyOn(runtime, "runPromise");
     try {
       const response = await app.request("/api/health");

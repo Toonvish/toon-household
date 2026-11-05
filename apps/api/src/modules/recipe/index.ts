@@ -17,13 +17,25 @@
  * - `uploadReferences` — the recipe half of toon-recipe's `uploads:gc` collect list.
  * - `seedDemo` (`./seed.ts`, M2-T05) runs from `scripts/seed.ts`.
  * - `shutdown` — stops the OCR worker (`shutdownOcr`), called by `index.ts`'s SIGTERM/SIGINT handler.
+ *
+ * Routes: `householdRouter` / `userRouter` (Hono, served until E7-T11) and, beside them, `householdApi` / `userApi`
+ * (docs/EFFECT.md E7, E8; plan `docs/plans/e7-http-api.md` P14, E7-T10): the `HttpApi`s and handler layers of
+ * `./routes/index.ts`, read lazily (a getter over the hoisted `recipe…Apis()`, `Layer.suspend` over the hoisted
+ * `recipe…Handlers()`): this manifest is evaluated inside the API's import cycle, where those route files may not be.
  */
 import { Effect, Layer, Predicate } from "effect";
 import { Database } from "../../db/database.ts";
 import { collections, importDrafts, recipes, recipeTables } from "./schema.ts";
 import { type RecipeServices, recipeLayer } from "./layer.ts";
 import { foldBackfill } from "./migrate.ts";
-import { recipeHouseholdRouter, recipeUserRouter } from "./routes/index.ts";
+import {
+  recipeHouseholdApis,
+  recipeHouseholdHandlers,
+  recipeHouseholdRouter,
+  recipeUserApis,
+  recipeUserHandlers,
+  recipeUserRouter,
+} from "./routes/index.ts";
 import { seedRecipeDemo } from "./seed.ts";
 import { capabilityFlags } from "./services/import/capabilities.ts";
 import { shutdownOcr } from "./services/ocr/index.ts";
@@ -62,6 +74,18 @@ export const recipeModule: ApiModule<RecipeServices> = {
   id: "recipe",
   householdRouter: recipeHouseholdRouter,
   userRouter: recipeUserRouter,
+  householdApi: {
+    get apis() {
+      return recipeHouseholdApis();
+    },
+    handlers: Layer.suspend(() => recipeHouseholdHandlers()),
+  },
+  userApi: {
+    get apis() {
+      return recipeUserApis();
+    },
+    handlers: Layer.suspend(() => recipeUserHandlers()),
+  },
   schema: recipeTables,
   layer: Layer.suspend(recipeLayer),
   healthFeatures: () => capabilityFlags,

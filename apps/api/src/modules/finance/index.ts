@@ -24,7 +24,11 @@
  *   `409 member_has_ledger` (toon-finance's guard, SPEC D13; `FinanceParticipants.assertParticipantMayLeave`).
  *
  * `householdRouter`: the participants routes plus the ledger routers (transactions, categories,
- * tags, plan, balance, settlements), mounted under `/api/households/:householdId/finance/`.
+ * tags, plan, balance, settlements), mounted under `/api/households/:householdId/finance/`. Beside it until E7-T11
+ * removes the router, `householdApi` (docs/EFFECT.md E7, E8; plan `docs/plans/e7-http-api.md` P14, E7-T10): the seven
+ * `HttpApi`s and their handler layer (over `RequireFinanceParticipantLayer`) of `./routes/index.ts`, read lazily (a
+ * getter over the hoisted `financeHouseholdApis()`, `Layer.suspend` over the hoisted `financeHouseholdHandlers()`):
+ * this manifest is evaluated inside the API's import cycle, where those route files may not be.
  *
  * `start` / `shutdown` (plan decision 7): the boot catch-up of the fixed-cost plan
  * and its 6-hour accrual tick on `Schedule` (`./services/plan/scheduler.ts` `startAccrualSchedule`,
@@ -36,7 +40,7 @@
 import { Layer } from "effect";
 import type { ApiModule } from "../types.ts";
 import { type FinanceServices, financeLayer, withFinanceServices } from "./layer.ts";
-import { financeHouseholdRouter } from "./routes/index.ts";
+import { financeHouseholdApis, financeHouseholdHandlers, financeHouseholdRouter } from "./routes/index.ts";
 import { financeTables } from "./schema.ts";
 import { seedFinanceDemo } from "./seed.ts";
 import { FinanceSetup } from "./setup.ts";
@@ -46,6 +50,12 @@ import { startAccrualSchedule, stopAccrualSchedule } from "./services/plan/sched
 export const financeModule: ApiModule<FinanceServices> = {
   id: "finance",
   householdRouter: financeHouseholdRouter,
+  householdApi: {
+    get apis() {
+      return financeHouseholdApis();
+    },
+    handlers: Layer.suspend(() => financeHouseholdHandlers()),
+  },
   schema: financeTables,
   layer: Layer.suspend(financeLayer),
   onHouseholdCreated: (householdId) =>

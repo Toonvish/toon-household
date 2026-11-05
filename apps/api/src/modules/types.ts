@@ -15,6 +15,7 @@
 import type { ModuleId } from "@toon/shared";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import type { Effect, Layer } from "effect";
+import type { HttpApi } from "effect/http-api";
 import type { Hono } from "hono";
 import type { AppConfig } from "../config.ts";
 import type { CoreServices } from "../core/services/layer.ts";
@@ -41,6 +42,31 @@ export type DbExecutor = Database | DbTransaction;
  * `DatabaseError` (outside the family, answered `500`). Anything else is a defect.
  */
 export type HookError = ApiErrorFamily | DatabaseError;
+
+/** Any `HttpApi` a module contributes (one per route file, each wrapping its one group; plan e7 P2, P14). */
+export type AnyHttpApi = HttpApi.HttpApi<string, any>;
+
+/**
+ * A module's HTTP surface on the Effect side (docs/EFFECT.md E7, E8; plan `docs/plans/e7-http-api.md` P14, deviation
+ * D7): the module's `HttpApi`s and ONE layer holding the handlers of every group they contain. `householdApi`'s APIs
+ * are built with `householdModuleApi(id, …)` (prefix `/api/households/:householdId/<id>`, the chain boundary →
+ * session → member → module), `userApi`'s with `userModuleApi(id, …)` (prefix `/api/<id>`, the boundary only).
+ * `moduleRoutesLayer` (`./mount.ts`) registers them.
+ *
+ * The two `any`s of `handlers` are deliberate. A contract cannot name a module's group services (each group's key is
+ * a service of its own), and a group handler layer's requirements are the endpoints' middleware tags plus every
+ * service a handler yields as an `HttpRouter.Request<"Requires", S>` phantom, not as `S` (`HttpApiBuilder.ts`
+ * `HandlerRequirements`), so `ModuleRequirements` cannot describe them either. What the types give up is checked at
+ * build and by a test: `HttpApiBuilder.layer(api)` dies when a group has no handler, a service nobody provides is a
+ * defect on first use, `moduleRoutesLayer` asserts the chains and the paths, and `apps/api/test/modules.test.ts` (m)
+ * builds the real `API_MODULES` and serves one route of each module. `apis` is read when the routes are built, never at
+ * manifest module scope (a getter over a hoisted function of the module's `routes/index.ts`; CLAUDE.md "API import
+ * cycle"), and `handlers` is a `Layer.suspend` over one.
+ */
+export interface ModuleHttpApi {
+  readonly apis: ReadonlyArray<AnyHttpApi>;
+  readonly handlers: Layer.Layer<any, never, any>;
+}
 
 /** The demo context `bun run seed` hands every module's `seedDemo`. */
 export interface SeedDemoContext {
@@ -81,6 +107,14 @@ export interface ApiModule<Services = never> {
   householdRouter?: Hono<AppEnv>;
   /** Mounted at `/api/<id>` — user-scoped routes (e.g. recipe cards). */
   userRouter?: Hono<AppEnv>;
+  /**
+   * The household routes as `HttpApi`s (E7-T10, beside `householdRouter` until E7-T11 removes the router), served at
+   * `/api/households/:householdId/<id>/…` behind boundary → session → member → module (`householdModuleApi`), with
+   * the same D8 rule: every by-id lookup is scoped by the membership's `householdId`.
+   */
+  householdApi?: ModuleHttpApi;
+  /** The user-scoped routes as `HttpApi`s (`userModuleApi`, `/api/<id>/…`; E7-T10, beside `userRouter`). */
+  userApi?: ModuleHttpApi;
   /** The module's drizzle tables, every one prefixed `<id>_` (SPEC D7). */
   schema: Record<string, SQLiteTable>;
   /**

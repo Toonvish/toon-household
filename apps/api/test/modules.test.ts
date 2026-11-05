@@ -16,26 +16,43 @@
  * Since M3 `finance` is a real build module whose `onEnable` needs two participants (SPEC D3,
  * plan M3 decision 4): every enable of finance that must succeed sends a participants body
  * (`financeSettings`) for the owner plus a second member; (g') pins the refusal.
+ *
+ * The module contract's HTTP side (docs/EFFECT.md E7, E8; plan `docs/plans/e7-http-api.md` P14, E7-T10): (g) and (j)
+ * to (m) serve modules through `moduleRoutesLayer` (`src/modules/mount.ts`) inside a `testHttpApp`
+ * (`test/support/http.ts`, an in-memory handler over the one `AppLayer` with its own router), with the core middleware
+ * implementations of `httpMiddlewareLayer()`. The fake module of (g), (k) and (l) is a mini household API built with
+ * `householdModuleApi("finance", …)`: one `GET /ping` echoing the membership's household. Everything else still goes
+ * through `app` (the Hono app until E7-T11).
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { and, eq } from "drizzle-orm";
-import { Effect } from "effect";
-import { Hono } from "hono";
+import { Effect, Layer, Schema } from "effect";
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/http-api";
 import { resetRateLimits } from "../src/core/services/auth/rateLimit.ts";
 import { setVerifiedEmailRequired } from "../src/core/services/auth/verifiedEmail.ts";
 import { HouseholdModules } from "../src/core/services/households/modules.ts";
 import { db } from "../src/db/client.ts";
 import { runMigrations } from "../src/db/migrate.ts";
 import { financeParticipants, householdMembers, householdModules, users } from "../src/db/schema.ts";
+import { CurrentMembership } from "../src/http/context.ts";
+import {
+  ApiErrorBoundary,
+  chain,
+  householdModuleApi,
+  RequireHouseholdMember,
+  RequireSession,
+  UNINTERRUPTIBLE,
+} from "../src/http/middleware.ts";
+import { httpMiddlewareLayer } from "../src/http/middleware-layer.ts";
+import { json } from "../src/http/response.ts";
 import { app } from "../src/index.ts";
 import { SESSION_COOKIE } from "../src/lib/cookies.ts";
-import { ApiError, notFoundHandler, onErrorHandler } from "../src/lib/errors.ts";
-import { localeMiddleware } from "../src/lib/locale.ts";
-import type { AppEnv } from "../src/lib/types.ts";
-import { requireMembership } from "../src/lib/types.ts";
-import { mountModules } from "../src/modules/mount.ts";
+import { ApiError } from "../src/lib/errors.ts";
+import { API_MODULES } from "../src/modules/index.ts";
+import { moduleRoutesLayer } from "../src/modules/mount.ts";
 import type { ApiModule } from "../src/modules/types.ts";
 import { runTest } from "./support/effect.ts";
+import { testHttpApp } from "./support/http.ts";
 
 /* -------------------------------- helpers -------------------------------- */
 
@@ -80,8 +97,13 @@ async function addMember(householdId: string, account: Account, role: "admin" | 
     .values({ id: crypto.randomUUID(), householdId, userId: account.userId, role });
 }
 
+/** What `call` sends through: the Hono `app` or an in-memory `testHttpApp` (both have `app.request`'s shape). */
+interface Requester {
+  request(input: string, init?: RequestInit): Response | Promise<Response>;
+}
+
 async function call(
-  target: Hono<AppEnv>,
+  target: Requester,
   path: string,
   init: { method?: string; cookie?: string; body?: unknown } = {},
 ): Promise<Response> {
@@ -130,13 +152,45 @@ async function reportedModules(account: Account, householdId: string): Promise<s
   return ((await response.json()) as HouseholdBody).household.modules;
 }
 
-/** Copy of middleware.test.ts `testApp()`: the global handlers, no routers. */
-function testApp(): Hono<AppEnv> {
-  const test = new Hono<AppEnv>();
-  test.onError(onErrorHandler);
-  test.notFound(notFoundHandler);
-  test.use("*", localeMiddleware);
-  return test;
+/** The mini household API of the fake finance module: `GET /ping` echoes the membership's household (plan e7 P14). */
+const PingGroup = HttpApiGroup.make("test.ping").add(
+  HttpApiEndpoint.get("getPing", "/ping", { params: { householdId: Schema.String } }),
+);
+const PingApi = householdModuleApi("finance", HttpApi.make("test.ping").add(PingGroup));
+const pingHandlers = HttpApiBuilder.group(PingApi, "test.ping", (handlers) =>
+  handlers.handle(
+    "getPing",
+    Effect.fn("test.ping.getPing")(function* () {
+      const membership = yield* CurrentMembership;
+      return json({ ok: true, householdId: membership.householdId });
+    }),
+    UNINTERRUPTIBLE,
+  ),
+);
+
+/** A fake `finance` module whose only household route is the mini API above. */
+const fakeFinance: ApiModule = {
+  id: "finance",
+  schema: {},
+  householdApi: { apis: [PingApi], handlers: pingHandlers },
+};
+
+/** An in-memory app serving `modules` through `moduleRoutesLayer`, over the core middleware implementations. */
+function moduleApp(modules: readonly ApiModule[]) {
+  return testHttpApp([], Layer.empty, moduleRoutesLayer(modules).pipe(Layer.provideMerge(httpMiddlewareLayer())));
+}
+
+/** The fake finance module's app (g), (k), (l): built once, on its first request. */
+const fakeFinanceApp = moduleApp([fakeFinance]);
+
+/** Enables finance for `owner`'s household (with `partner` in slot 2) through the real route. */
+async function enableFinance(owner: Account, partner: Account): Promise<void> {
+  const enabled = await call(app, modulePath(owner.householdId, "finance"), {
+    method: "POST",
+    cookie: owner.cookie,
+    body: { settings: financeSettings(owner, partner) },
+  });
+  expect(enabled.status).toBe(200);
 }
 
 beforeAll(async () => {
@@ -327,17 +381,7 @@ describe("DELETE /api/households/:householdId/modules/:moduleId", () => {
 
 describe("the module gate end to end", () => {
   test("(g) a mounted module answers module_disabled, then 200 after enabling, then module_disabled after DELETE", async () => {
-    const fakeFinance: ApiModule = {
-      id: "finance",
-      schema: {},
-      householdRouter: (() => {
-        const router = new Hono<AppEnv>();
-        router.get("/ping", (c) => c.json({ ok: true, householdId: requireMembership(c).householdId }));
-        return router;
-      })(),
-    };
-    const moduleApp = testApp();
-    mountModules(moduleApp, [fakeFinance]);
+    const moduleApp = fakeFinanceApp;
 
     const owner = await register("Owner");
     const partner = await withPartner(owner);
@@ -365,6 +409,118 @@ describe("the module gate end to end", () => {
     const after = await call(moduleApp, ping, { cookie: owner.cookie });
     expect(after.status).toBe(404);
     expect(((await after.json()) as ErrorBody).error.code).toBe("module_disabled");
+  });
+});
+
+describe("moduleRoutesLayer (plan e7 P14)", () => {
+  test("(j) a household API without RequireModule in its chain dies at layer build, naming module and endpoint", async () => {
+    // Built by hand with the module prefix, but only boundary -> session -> member: the module gate is missing.
+    const BrokenGroup = HttpApiGroup.make("test.broken").add(
+      HttpApiEndpoint.get("getPing", "/ping", { params: { householdId: Schema.String } }),
+    );
+    const BrokenApi = HttpApi.make("test.broken")
+      .add(BrokenGroup)
+      .prefix("/api/households/:householdId/finance")
+      .pipe(chain(ApiErrorBoundary, RequireSession, RequireHouseholdMember));
+    const brokenHandlers = HttpApiBuilder.group(BrokenApi, "test.broken", (handlers) =>
+      handlers.handle("getPing", Effect.fn("test.broken.getPing")(function* () {
+        return json({ ok: true });
+      })),
+    );
+    const broken: ApiModule = {
+      id: "finance",
+      schema: {},
+      householdApi: { apis: [BrokenApi], handlers: brokenHandlers },
+    };
+
+    const owner = await register("Owner");
+    const failure = await moduleApp([broken])
+      .request(`/api/households/${owner.householdId}/finance/ping`, { headers: { Cookie: owner.cookie } })
+      .then(
+        () => undefined,
+        (error: unknown) => error,
+      );
+    expect(failure).toBeDefined();
+    const message = String(failure instanceof Error ? failure.message : failure);
+    expect(message).toContain('module "finance"');
+    expect(message).toContain("test.broken.getPing");
+    expect(message).toContain("GET /api/households/:householdId/finance/ping");
+    expect(message).toContain("RequireModule");
+  });
+
+  test("(k) an unknown path below a module: 401 without a cookie, 403 as a non-member, module_disabled, then not_found", async () => {
+    const owner = await register("Owner");
+    const partner = await withPartner(owner);
+    const outsider = await register("Outsider");
+    const unknownPaths = [
+      `/api/households/${owner.householdId}/finance/nope`,
+      `/api/households/${owner.householdId}/finance/ping/deeper`,
+      `/api/households/${owner.householdId}/finance`,
+    ];
+
+    for (const path of unknownPaths) {
+      for (const method of ["GET", "POST", "DELETE"]) {
+        const anonymous = await call(fakeFinanceApp, path, { method });
+        expect(anonymous.status).toBe(401);
+        expect(((await anonymous.json()) as ErrorBody).error.code).toBe("unauthorized");
+
+        const stranger = await call(fakeFinanceApp, path, { method, cookie: outsider.cookie });
+        expect(stranger.status).toBe(403);
+        expect(((await stranger.json()) as ErrorBody).error.code).toBe("forbidden");
+
+        const disabled = await call(fakeFinanceApp, path, { method, cookie: owner.cookie });
+        expect(disabled.status).toBe(404);
+        expect(((await disabled.json()) as ErrorBody).error.code).toBe("module_disabled");
+      }
+    }
+
+    await enableFinance(owner, partner);
+    for (const path of unknownPaths) {
+      for (const method of ["GET", "POST", "DELETE"]) {
+        const unknown = await call(fakeFinanceApp, path, { method, cookie: owner.cookie });
+        expect(unknown.status).toBe(404);
+        const body = (await unknown.json()) as ErrorBody;
+        expect(body.error.code).toBe("not_found");
+        expect(body.error.message).toContain(`${method} ${path}`);
+      }
+    }
+  });
+
+  test("(l) HEAD on a module GET falls through to the GET route: 200, empty body", async () => {
+    const owner = await register("Owner");
+    const partner = await withPartner(owner);
+    await enableFinance(owner, partner);
+
+    const head = await call(fakeFinanceApp, `/api/households/${owner.householdId}/finance/ping`, {
+      method: "HEAD",
+      cookie: owner.cookie,
+    });
+    expect(head.status).toBe(200);
+    expect(await head.text()).toBe("");
+  });
+
+  test("(m) the real API_MODULES build through moduleRoutesLayer and serve one GET of each module", async () => {
+    const realApp = moduleApp(API_MODULES);
+    const owner = await register("Owner");
+    const partner = await withPartner(owner);
+    await enableFinance(owner, partner);
+
+    // recipe, household API (enabled by default)
+    const recipes = await call(realApp, `/api/households/${owner.householdId}/recipe/recipes`, { cookie: owner.cookie });
+    expect(recipes.status).toBe(200);
+    // recipe, user API
+    const cards = await call(realApp, "/api/recipe/cards", { cookie: owner.cookie });
+    expect(cards.status).toBe(200);
+    // finance, household API (the owner holds slot 1)
+    const balance = await call(realApp, `/api/households/${owner.householdId}/finance/balance`, { cookie: owner.cookie });
+    expect(balance.status).toBe(200);
+
+    // The catch-alls are there too: an unknown path below each household module.
+    for (const id of ["recipe", "finance"]) {
+      const unknown = await call(realApp, `/api/households/${owner.householdId}/${id}/nope`, { cookie: owner.cookie });
+      expect(unknown.status).toBe(404);
+      expect(((await unknown.json()) as ErrorBody).error.code).toBe("not_found");
+    }
   });
 });
 
