@@ -7,18 +7,32 @@
  */
 import { beforeAll, describe, expect, test } from "bun:test";
 import { and, eq } from "drizzle-orm";
-import { Effect } from "effect";
-import { Hono } from "hono";
+import { Effect, Layer, Schema } from "effect";
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/http-api";
 import { db } from "../src/db/client.ts";
 import { runMigrations } from "../src/db/migrate.ts";
 import { householdInvites, householdMembers, oauthAccounts, sessions, users } from "../src/db/schema.ts";
 import { app } from "../src/index.ts";
 import { SESSION_COOKIE, SESSION_TTL_MS } from "../src/lib/cookies.ts";
-import { ApiError, onErrorHandler } from "../src/lib/errors.ts";
-import type { AppEnv } from "../src/lib/types.ts";
-import { requireHouseholdRole } from "../src/middleware/household.ts";
+import { CurrentMembership } from "../src/http/context.ts";
+import {
+  chain,
+  coreApi,
+  RequireHouseholdAdmin,
+  RequireHouseholdMember,
+  RequireHouseholdOwner,
+  RequireSession,
+  UNINTERRUPTIBLE,
+} from "../src/http/middleware.ts";
+import { json } from "../src/http/response.ts";
+import { ApiError } from "../src/lib/errors.ts";
+import {
+  RequireHouseholdAdminLayer,
+  RequireHouseholdMemberLayer,
+  RequireHouseholdOwnerLayer,
+} from "../src/middleware/household.ts";
 import { type OAuthProfile, safeNextPath, webUrl } from "../src/lib/oauth.ts";
-import { requireSession } from "../src/middleware/session.ts";
+import { RequireSessionLayer } from "../src/middleware/session.ts";
 import { AuthInvites, generateInviteToken } from "../src/core/services/auth/invites.ts";
 import { OAuthAccounts } from "../src/core/services/auth/oauthAccounts.ts";
 import { Passwords } from "../src/core/services/auth/passwords.ts";
@@ -26,6 +40,7 @@ import { LOGIN_RULE, checkRateLimit, resetRateLimits } from "../src/core/service
 import { sessionHandle } from "../src/core/services/auth/sessions.ts";
 import { type CreateUserInput, Users } from "../src/core/services/auth/users.ts";
 import { runTest } from "./support/effect.ts";
+import { testHttpApp } from "./support/http.ts";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 const PASSWORD = "geheimes-passwort-123";
@@ -822,17 +837,53 @@ describe("household invites", () => {
 
 describe("requireHouseholdRole", () => {
   /** Minimal app that exercises the middleware in isolation. */
-  const guarded = new Hono<AppEnv>();
-  // Same error envelope as the real app (src/index.ts wires this globally).
-  guarded.onError(onErrorHandler);
-  guarded.get("/member/:householdId", requireSession(), requireHouseholdRole("member"), (c) =>
-    c.json({ role: c.get("membership")?.role ?? null }),
+  const params = { householdId: Schema.String };
+  const GuardedGroup = HttpApiGroup.make("guarded-test").add(
+    HttpApiEndpoint.get("getMember", "/member/:householdId", { params }).pipe(
+      chain(RequireSession, RequireHouseholdMember),
+    ),
+    HttpApiEndpoint.get("getAdmin", "/admin/:householdId", { params }).pipe(
+      chain(RequireSession, RequireHouseholdAdmin),
+    ),
+    HttpApiEndpoint.get("getOwner", "/owner/:householdId", { params }).pipe(
+      chain(RequireSession, RequireHouseholdOwner),
+    ),
   );
-  guarded.get("/admin/:householdId", requireSession(), requireHouseholdRole("admin"), (c) =>
-    c.json({ ok: true }),
+  // Same error envelope as the real app (`coreApi` attaches the boundary, as the core APIs do).
+  const GuardedApi = coreApi(HttpApi.make("guarded-test").add(GuardedGroup));
+  const guardedHandlers = HttpApiBuilder.group(GuardedApi, "guarded-test", (handlers) =>
+    handlers
+      .handle(
+        "getMember",
+        Effect.fn("guarded-test.getMember")(function* () {
+          return json({ role: (yield* CurrentMembership).role });
+        }),
+        UNINTERRUPTIBLE,
+      )
+      .handle(
+        "getAdmin",
+        Effect.fn("guarded-test.getAdmin")(function* () {
+          return json({ ok: true });
+        }),
+        UNINTERRUPTIBLE,
+      )
+      .handle(
+        "getOwner",
+        Effect.fn("guarded-test.getOwner")(function* () {
+          return json({ ok: true });
+        }),
+        UNINTERRUPTIBLE,
+      ),
   );
-  guarded.get("/owner/:householdId", requireSession(), requireHouseholdRole("owner"), (c) =>
-    c.json({ ok: true }),
+  const guarded = testHttpApp(
+    [GuardedApi],
+    guardedHandlers,
+    Layer.mergeAll(
+      RequireSessionLayer,
+      RequireHouseholdMemberLayer,
+      RequireHouseholdAdminLayer,
+      RequireHouseholdOwnerLayer,
+    ),
   );
 
   test("allows a member and exposes the membership", async () => {
