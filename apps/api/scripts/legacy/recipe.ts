@@ -13,15 +13,18 @@
  * - `image_url` / `cover_image_url` pass through `normalizeStoredUploadUrl`; JSON columns are
  *   copied verbatim (the ids inside stay valid because ids are kept).
  * - The fold columns are recomputed with `foldText` at copy time (one definition of the fold, H's);
- *   `backfillFoldedColumns` runs afterwards and must find nothing to do.
+ *   the recipe module's `foldBackfill` runs afterwards, on `Database.layerFromExecutor(ctx.target.db)`,
+ *   and must find nothing to do.
  * - A row whose user, household or parent row was not migrated is a skipped row with
  *   `error: true` (a missing parent would otherwise fail its insert on the foreign key).
  *
  * No module-scope code beyond imports and constants (decision 5); the target comes from the
- * context, never from the shared `db`.
+ * context, never from the shared `db`. An Effect since E5 (docs/EFFECT.md E7, E10; plan
+ * `docs/plans/e5-scripts.md` P9): `migrateRecipeEffect`, with the Promise bridge `migrateRecipe` at the end.
  */
 import { foldText } from "@toon/shared";
-import { copyTable, renameColumns, type SkipResult } from "./copy.ts";
+import { Effect } from "effect";
+import { type CopyProgrammingError, copyTable, renameColumns, type SkipResult } from "./copy.ts";
 import { loadAll } from "./ledger.ts";
 import type { MigrationContext, Row } from "./types.ts";
 import {
@@ -43,7 +46,9 @@ import {
   shoppingMutations,
   tags,
 } from "../../src/db/schema.ts";
-import { backfillFoldedColumns } from "../../src/modules/recipe/migrate.ts";
+import { Database } from "../../src/db/database.ts";
+import type { DatabaseError } from "../../src/lib/errors.ts";
+import { foldBackfill } from "../../src/modules/recipe/migrate.ts";
 import { normalizeStoredUploadUrl } from "../../src/lib/uploadUrls.ts";
 import { runLegacy } from "./io.ts";
 
@@ -85,21 +90,23 @@ function isSkip(value: unknown): value is SkipResult {
 }
 
 /** Legacy id -> target id of every row of `table` the ledger knows for the recipe source. */
-async function mapOf(ctx: MigrationContext, table: string): Promise<Map<string, string>> {
-  return runLegacy(loadAll(ctx.target.client, table, "recipe"));
+function mapOf(ctx: MigrationContext, table: string): Effect.Effect<Map<string, string>, DatabaseError> {
+  return loadAll(ctx.target.client, table, "recipe");
 }
 
 /**
- * Copies Table M rows 15-31 and runs `backfillFoldedColumns` on the target. Requires
+ * Copies Table M rows 15-31 and runs the fold backfill (`foldBackfill`) on the target. Requires
  * `migrateUsers` and `migrateHouseholds` to have filled `ctx.ids`. Idempotent through the ledger.
  * Returns how many fold columns the backfill had to fill (0 when every fold was written at copy
  * time); a non-zero value is also a warning.
  */
-export async function migrateRecipe(ctx: MigrationContext): Promise<{ backfilled: number }> {
+export const migrateRecipeEffect = Effect.fn("legacy.migrateRecipe")(function* (
+  ctx: MigrationContext,
+): Effect.fn.Return<{ backfilled: number }, CopyProgrammingError | DatabaseError> {
   if (!ctx.recipe) return { backfilled: 0 };
 
   // 15. tags
-  await runLegacy(copyTable(ctx, {
+  yield* copyTable(ctx, {
     source: "recipe",
     legacyTable: "tags",
     target: tags,
@@ -108,10 +115,10 @@ export async function migrateRecipe(ctx: MigrationContext): Promise<{ backfilled
       if (isSkip(householdId)) return householdId;
       return { ...renameColumns(row, { group_id: "household_id" }), household_id: householdId };
     },
-  }));
+  });
 
   // 16. recipes
-  await runLegacy(copyTable(ctx, {
+  yield* copyTable(ctx, {
     source: "recipe",
     legacyTable: "recipes",
     target: recipes,
@@ -129,11 +136,11 @@ export async function migrateRecipe(ctx: MigrationContext): Promise<{ backfilled
         description_fold: foldText(isNull(row.description) ? "" : str(row.description)),
       };
     },
-  }));
-  const recipeIds = await mapOf(ctx, "recipe_recipes");
+  });
+  const recipeIds = yield* mapOf(ctx, "recipe_recipes");
 
   // 17. recipe_ingredients
-  await runLegacy(copyTable(ctx, {
+  yield* copyTable(ctx, {
     source: "recipe",
     legacyTable: "recipe_ingredients",
     target: recipeIngredients,
@@ -142,10 +149,10 @@ export async function migrateRecipe(ctx: MigrationContext): Promise<{ backfilled
       if (isSkip(recipeId)) return recipeId;
       return { ...row, recipe_id: recipeId, name_fold: foldText(str(row.name)) };
     },
-  }));
+  });
 
   // 18. recipe_steps
-  await runLegacy(copyTable(ctx, {
+  yield* copyTable(ctx, {
     source: "recipe",
     legacyTable: "recipe_steps",
     target: recipeSteps,
@@ -154,11 +161,11 @@ export async function migrateRecipe(ctx: MigrationContext): Promise<{ backfilled
       if (isSkip(recipeId)) return recipeId;
       return { ...row, recipe_id: recipeId };
     },
-  }));
+  });
 
   // 19. recipe_tags (composite key <recipe_id>:<tag_id>)
-  const tagIds = await mapOf(ctx, "recipe_tags");
-  await runLegacy(copyTable(ctx, {
+  const tagIds = yield* mapOf(ctx, "recipe_tags");
+  yield* copyTable(ctx, {
     source: "recipe",
     legacyTable: "recipe_tags",
     target: recipeTags,
@@ -171,10 +178,10 @@ export async function migrateRecipe(ctx: MigrationContext): Promise<{ backfilled
       return { ...row, recipe_id: recipeId, tag_id: tagId };
     },
     newId: (values) => `${str(values.recipe_id)}:${str(values.tag_id)}`,
-  }));
+  });
 
   // 20. collections
-  await runLegacy(copyTable(ctx, {
+  yield* copyTable(ctx, {
     source: "recipe",
     legacyTable: "collections",
     target: collections,
@@ -190,11 +197,11 @@ export async function migrateRecipe(ctx: MigrationContext): Promise<{ backfilled
         cover_image_url: normalizedUrl(row.cover_image_url),
       };
     },
-  }));
-  const collectionIds = await mapOf(ctx, "recipe_collections");
+  });
+  const collectionIds = yield* mapOf(ctx, "recipe_collections");
 
   // 21. collection_recipes (composite key <collection_id>:<recipe_id>)
-  await runLegacy(copyTable(ctx, {
+  yield* copyTable(ctx, {
     source: "recipe",
     legacyTable: "collection_recipes",
     target: collectionRecipes,
@@ -207,10 +214,10 @@ export async function migrateRecipe(ctx: MigrationContext): Promise<{ backfilled
       return { ...row, collection_id: collectionId, recipe_id: recipeId };
     },
     newId: (values) => `${str(values.collection_id)}:${str(values.recipe_id)}`,
-  }));
+  });
 
   // 22. meal_plan_entries
-  await runLegacy(copyTable(ctx, {
+  yield* copyTable(ctx, {
     source: "recipe",
     legacyTable: "meal_plan_entries",
     target: mealPlanEntries,
@@ -228,11 +235,11 @@ export async function migrateRecipe(ctx: MigrationContext): Promise<{ backfilled
         created_by: createdBy,
       };
     },
-  }));
-  const entryIds = await mapOf(ctx, "recipe_meal_plan_entries");
+  });
+  const entryIds = yield* mapOf(ctx, "recipe_meal_plan_entries");
 
   // 23. recipe_cook_log
-  await runLegacy(copyTable(ctx, {
+  yield* copyTable(ctx, {
     source: "recipe",
     legacyTable: "recipe_cook_log",
     target: recipeCookLog,
@@ -253,10 +260,10 @@ export async function migrateRecipe(ctx: MigrationContext): Promise<{ backfilled
         meal_plan_entry_id: entryId,
       };
     },
-  }));
+  });
 
   // 24. import_drafts (JSON columns verbatim)
-  await runLegacy(copyTable(ctx, {
+  yield* copyTable(ctx, {
     source: "recipe",
     legacyTable: "import_drafts",
     target: importDrafts,
@@ -274,10 +281,10 @@ export async function migrateRecipe(ctx: MigrationContext): Promise<{ backfilled
         recipe_id: recipeId,
       };
     },
-  }));
+  });
 
   // 25. shopping_lists
-  await runLegacy(copyTable(ctx, {
+  yield* copyTable(ctx, {
     source: "recipe",
     legacyTable: "shopping_lists",
     target: shoppingLists,
@@ -288,15 +295,15 @@ export async function migrateRecipe(ctx: MigrationContext): Promise<{ backfilled
       if (isSkip(createdBy)) return createdBy;
       return { ...renameColumns(row, { group_id: "household_id" }), household_id: householdId, created_by: createdBy };
     },
-  }));
-  const listIds = await mapOf(ctx, "recipe_shopping_lists");
+  });
+  const listIds = yield* mapOf(ctx, "recipe_shopping_lists");
 
   // 26-27. children of a list that carry no user column (items, catalog)
   for (const [legacyTable, target] of [
     ["shopping_list_items", shoppingListItems],
     ["shopping_list_catalog", shoppingListCatalog],
   ] as const) {
-    await runLegacy(copyTable(ctx, {
+    yield* copyTable(ctx, {
       source: "recipe",
       legacyTable,
       target,
@@ -305,11 +312,11 @@ export async function migrateRecipe(ctx: MigrationContext): Promise<{ backfilled
         if (isSkip(listId)) return listId;
         return { ...row, list_id: listId };
       },
-    }));
+    });
   }
 
   // 28. shopping_bought_items
-  await runLegacy(copyTable(ctx, {
+  yield* copyTable(ctx, {
     source: "recipe",
     legacyTable: "shopping_bought_items",
     target: shoppingBoughtItems,
@@ -320,10 +327,10 @@ export async function migrateRecipe(ctx: MigrationContext): Promise<{ backfilled
       if (isSkip(boughtBy)) return boughtBy;
       return { ...row, list_id: listId, bought_by: boughtBy };
     },
-  }));
+  });
 
   // 29. shopping_list_recipes
-  await runLegacy(copyTable(ctx, {
+  yield* copyTable(ctx, {
     source: "recipe",
     legacyTable: "shopping_list_recipes",
     target: shoppingListRecipes,
@@ -336,10 +343,10 @@ export async function migrateRecipe(ctx: MigrationContext): Promise<{ backfilled
       if (isSkip(addedBy)) return addedBy;
       return { ...row, list_id: listId, recipe_id: recipeId, added_by: addedBy };
     },
-  }));
+  });
 
   // 30. shopping_mutations (why: a replayed offline write must still be applied once)
-  await runLegacy(copyTable(ctx, {
+  yield* copyTable(ctx, {
     source: "recipe",
     legacyTable: "shopping_mutations",
     target: shoppingMutations,
@@ -348,10 +355,10 @@ export async function migrateRecipe(ctx: MigrationContext): Promise<{ backfilled
       if (isSkip(listId)) return listId;
       return { ...row, list_id: listId };
     },
-  }));
+  });
 
   // 31. cards
-  await runLegacy(copyTable(ctx, {
+  yield* copyTable(ctx, {
     source: "recipe",
     legacyTable: "cards",
     target: cards,
@@ -360,12 +367,23 @@ export async function migrateRecipe(ctx: MigrationContext): Promise<{ backfilled
       if (isSkip(userId)) return userId;
       return { ...row, user_id: userId };
     },
-  }));
+  });
 
-  // The folds were written at copy time: the backfill has nothing to do (decision 12).
-  const backfilled = await backfillFoldedColumns(ctx.target.db);
+  // The folds were written at copy time: the backfill has nothing to do (decision 12). It runs on
+  // the explicit target (a layer built from `ctx.target.db`), never on the shared database (plan e5 P9).
+  const backfilled = yield* foldBackfill().pipe(Effect.provide(Database.layerFromExecutor(ctx.target.db)));
   if (backfilled > 0) {
     ctx.report.warnings.push(`recipe folds: backfillFoldedColumns had to fill ${backfilled} column(s) after the copy`);
   }
   return { backfilled };
+});
+
+/* legacy bridges: the pinned legacy-cli and legacy-placeholders tests and legacy-harness.ts; E8 removes them */
+
+/**
+ * The Promise form of {@link migrateRecipeEffect}. Callers: `apps/api/test/legacy-cli.test.ts` (pinned),
+ * `apps/api/test/legacy-recipe.test.ts`.
+ */
+export function migrateRecipe(ctx: MigrationContext): Promise<{ backfilled: number }> {
+  return runLegacy(migrateRecipeEffect(ctx));
 }

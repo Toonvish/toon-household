@@ -6,7 +6,8 @@
  * AS A SERVICE (docs/EFFECT.md E7, E12; plan `docs/plans/e4-finance-services.md` P1, P2, P6). `FinanceBalance` keeps the
  * old function names with the leading `db` parameter dropped, reads the current executor of `Database` on every call
  * (so a settlement's open transaction is honoured) and stamps `asOf` from the module clock. `computeBalanceDelta` stays a
- * pure export. `getBalance` survives as a Promise bridge (`scripts/legacy/balance.ts`, `legacy-finance.test.ts`).
+ * pure export. The Promise bridge `getBalance` is gone since E5 (plan `docs/plans/e5-scripts.md` P11): the legacy
+ * migration's balance check (`scripts/legacy/balance.ts`) builds the service over its own target.
  */
 import type { BalanceResponse, SplitModeValue } from "@toon/shared";
 import { computeBreakdown, deltaForTransaction, periodOf } from "@toon/shared";
@@ -15,11 +16,9 @@ import { Context, Effect, Layer } from "effect";
 import { Database } from "../../../../db/database.ts";
 import type { DatabaseError, Internal } from "../../../../lib/errors.ts";
 import { toIso } from "../../../../lib/http.ts";
-import { runFinanceBridge } from "../../bridge.ts";
 import { financeTimeMillis } from "../../lib/clock.ts";
 import { financeTransactions as transactions } from "../../schema.ts";
 import { FinanceParticipants } from "../participants/participants.service.ts";
-import type { DbLike } from "../support.ts";
 import { sammelbuchungTransactionIds } from "./aggregateExclusion.ts";
 
 /** `deltaForTransaction`, narrowed to the fields a DB row actually has. */
@@ -154,24 +153,5 @@ export class FinanceBalance extends Context.Service<
 
       return FinanceBalance.of({ getBalance, getBalanceHistory });
     }),
-  );
-}
-
-/* legacy bridges: only the survivors of plan e4 P1 (callers listed; E5 scripts and E8 pinned tests remove them) */
-
-/**
- * SURVIVOR (plan e4 P1). Callers: `apps/api/scripts/legacy/balance.ts` (E5), `apps/api/test/legacy-finance.test.ts`
- * (pinned), `apps/api/test/finance-scheduler.test.ts`. A `DatabaseError` rejects with its `cause`, a refusal with the family member itself.
- */
-export function getBalance(
-  db: DbLike,
-  householdId: string,
-  viewerUserId: string,
-  viewerSlot: 1 | 2,
-  includeAggregates: boolean,
-): Promise<BalanceResponse> {
-  return runFinanceBridge(
-    FinanceBalance.use((service) => service.getBalance(householdId, viewerUserId, viewerSlot, includeAggregates)),
-    db,
   );
 }

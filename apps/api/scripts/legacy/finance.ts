@@ -18,9 +18,11 @@
  *
  * The finance TS identifiers carry a `finance` prefix and are aliased here (H/CLAUDE.md). No
  * module-scope code beyond imports and constants (decision 5); the library takes the target from
- * the context and never uses the shared `db`.
+ * the context and never uses the shared `db`. An Effect since E5 (docs/EFFECT.md E7, E10; plan
+ * `docs/plans/e5-scripts.md` P9): every target read goes through `legacyTry`, a failure propagates.
  */
-import { copyTable, type CopySpec, type SkipResult } from "./copy.ts";
+import { Effect } from "effect";
+import { type CopyProgrammingError, copyTable, type CopySpec, type SkipResult } from "./copy.ts";
 import { readAll } from "./sources.ts";
 import {
   financeAccrualRuns as accrualRuns,
@@ -33,8 +35,9 @@ import {
   financeTransactionTags as transactionTags,
   financeTransactions as transactions,
 } from "../../src/db/schema.ts";
+import type { DatabaseError } from "../../src/lib/errors.ts";
 import type { MigrationContext, Row } from "./types.ts";
-import { runLegacy } from "./io.ts";
+import { legacyTry } from "./io.ts";
 
 interface Seat {
   userId: string;
@@ -47,10 +50,12 @@ function str(value: unknown): string {
 }
 
 /** The target's participants per household id, with their e-mails (for warning texts). */
-async function loadSeats(ctx: MigrationContext): Promise<Map<string, Seat[]>> {
-  const result = await ctx.target.client.execute(
-    `SELECT p.household_id AS household_id, p.user_id AS user_id, p.member_slot AS slot, u.email AS email
+const loadSeats = Effect.fnUntraced(function* (ctx: MigrationContext): Effect.fn.Return<Map<string, Seat[]>, DatabaseError> {
+  const result = yield* legacyTry(() =>
+    ctx.target.client.execute(
+      `SELECT p.household_id AS household_id, p.user_id AS user_id, p.member_slot AS slot, u.email AS email
        FROM finance_participants p JOIN users u ON u.id = p.user_id ORDER BY p.household_id, p.member_slot`,
+    ),
   );
   const seats = new Map<string, Seat[]>();
   for (const row of result.rows) {
@@ -60,13 +65,13 @@ async function loadSeats(ctx: MigrationContext): Promise<Map<string, Seat[]>> {
     seats.set(householdId, list);
   }
   return seats;
-}
+});
 
 /** Target user id -> e-mail (a household's own users only matter for warning texts). */
-async function loadEmails(ctx: MigrationContext): Promise<Map<string, string>> {
-  const result = await ctx.target.client.execute("SELECT id, email FROM users");
+const loadEmails = Effect.fnUntraced(function* (ctx: MigrationContext): Effect.fn.Return<Map<string, string>, DatabaseError> {
+  const result = yield* legacyTry(() => ctx.target.client.execute("SELECT id, email FROM users"));
   return new Map(result.rows.map((row) => [str(row.id), str(row.email)]));
-}
+});
 
 /** Why a finance household did not land, as a skip (decision 10). */
 function householdSkip(ctx: MigrationContext, financeHouseholdId: string): SkipResult {
@@ -116,27 +121,29 @@ function householdScoped(
  * Copies toon-finance's ledger rows (Table M rows 32-40) into the target. Idempotent through the
  * ledger: a second call writes nothing. Needs the users and households steps first.
  */
-export async function migrateFinance(ctx: MigrationContext): Promise<void> {
+export const migrateFinance = Effect.fn("legacy.migrateFinance")(function* (
+  ctx: MigrationContext,
+): Effect.fn.Return<void, CopyProgrammingError | DatabaseError> {
   if (!ctx.finance) return;
   const finance = ctx.finance;
-  const seats = await loadSeats(ctx);
-  const emails = await loadEmails(ctx);
+  const seats = yield* loadSeats(ctx);
+  const emails = yield* loadEmails(ctx);
   const emailOf = (userId: string): string => emails.get(userId) ?? userId;
 
   // transaction id / tag id -> F household id, so a tag link follows its transaction's fate.
   const transactionHouseholds = new Map<string, string>();
-  for (const row of await runLegacy(readAll(finance, "SELECT id, household_id FROM transactions"))) {
+  for (const row of yield* readAll(finance, "SELECT id, household_id FROM transactions")) {
     transactionHouseholds.set(str(row.id), str(row.household_id));
   }
   const tagHouseholds = new Map<string, string>();
-  for (const row of await runLegacy(readAll(finance, "SELECT id, household_id FROM tags"))) {
+  for (const row of yield* readAll(finance, "SELECT id, household_id FROM tags")) {
     tagHouseholds.set(str(row.id), str(row.household_id));
   }
 
-  await runLegacy(copyTable(ctx, householdScoped("categories", categories)));
-  await runLegacy(copyTable(ctx, householdScoped("tags", tags)));
+  yield* copyTable(ctx, householdScoped("categories", categories));
+  yield* copyTable(ctx, householdScoped("tags", tags));
 
-  await runLegacy(copyTable(
+  yield* copyTable(
     ctx,
     householdScoped("transactions", transactions, (row, _original, ctx2) => {
       const payer = mapUser(ctx2, row.payer_id);
@@ -148,9 +155,9 @@ export async function migrateFinance(ctx: MigrationContext): Promise<void> {
       }
       return { ...row, payer_id: payer, created_by: createdBy };
     }),
-  ));
+  );
 
-  await runLegacy(copyTable(ctx, {
+  yield* copyTable(ctx, {
     source: "finance",
     legacyTable: "transaction_tags",
     target: transactionTags,
@@ -163,13 +170,13 @@ export async function migrateFinance(ctx: MigrationContext): Promise<void> {
       if (!ctx2.ids.households.finance.has(financeId)) return householdSkip(ctx2, financeId);
       return { transaction_id: row.transaction_id ?? null, tag_id: row.tag_id ?? null };
     },
-  }));
+  });
 
-  await runLegacy(copyTable(ctx, householdScoped("mutation_claims", mutationClaims)));
-  await runLegacy(copyTable(ctx, householdScoped("fixed_cost_items", fixedCostItems)));
+  yield* copyTable(ctx, householdScoped("mutation_claims", mutationClaims));
+  yield* copyTable(ctx, householdScoped("fixed_cost_items", fixedCostItems));
 
   // Incomes: a person who is not a participant is kept, with a warning (decision 14, ADR 0005).
-  await runLegacy(copyTable(
+  yield* copyTable(
     ctx,
     householdScoped("incomes", incomes, (row, original, ctx2) => {
       const person = mapUser(ctx2, row.person_id);
@@ -182,11 +189,11 @@ export async function migrateFinance(ctx: MigrationContext): Promise<void> {
       }
       return { ...row, person_id: person };
     }),
-  ));
+  );
 
   // Plans: the payer must be a participant (ADR 0004's rule, ADR 0005); a leaver's payer role
   // moves to the slot-1 participant. The ledger key is the F household id.
-  await runLegacy(copyTable(ctx, {
+  yield* copyTable(ctx, {
     ...householdScoped("fixed_cost_plans", fixedCostPlans, (row, original, ctx2) => {
       const payer = mapUser(ctx2, row.payer_id);
       if (isSkip(payer)) return payer;
@@ -206,7 +213,7 @@ export async function migrateFinance(ctx: MigrationContext): Promise<void> {
     }),
     legacyId: (row) => str(row.household_id),
     newId: (values) => str(values.household_id),
-  }));
+  });
 
-  await runLegacy(copyTable(ctx, householdScoped("accrual_runs", accrualRuns)));
-}
+  yield* copyTable(ctx, householdScoped("accrual_runs", accrualRuns));
+});

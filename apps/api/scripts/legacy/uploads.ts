@@ -19,14 +19,22 @@
  *
  * The target directory is whatever the caller resolved (the CLI's own `UPLOAD_DIR`, a temp
  * directory in tests); this file never reads `env.ts`.
+ *
+ * Effects since E5 (docs/EFFECT.md E7, E10; plan `docs/plans/e5-scripts.md` P5, P9). Every `node:fs`
+ * call keeps the old error handling: the ones the old code let propagate (`readdir`, `mkdir`, the
+ * source `lstat`, a target `lstat` that fails with anything but `ENOENT`) are run with
+ * `Effect.promise`, so a failure stays the crash it was (a defect; `runLegacy` rejects with the raw
+ * error); the one the old code caught (`copyFile`: every failure, `EEXIST` re-stats) goes through
+ * `Effect.tryPromise` and `Effect.result`, which sees every rejection, as the old `catch (error)` did.
  */
 import { constants } from "node:fs";
 import { copyFile, lstat, mkdir, readdir } from "node:fs/promises";
 import { join } from "node:path";
+import { Effect, Predicate, Result } from "effect";
 import { readAll } from "./sources.ts";
 import type { LegacyDb, MigrationContext, UploadSummary } from "./types.ts";
 import { filenameOf } from "../../src/core/services/media/references.ts";
-import { runLegacy } from "./io.ts";
+import type { DatabaseError } from "../../src/lib/errors.ts";
 
 function parseJson(value: unknown): Record<string, unknown> | undefined {
   if (typeof value !== "string" || value.length === 0) return undefined;
@@ -46,7 +54,9 @@ function parseJson(value: unknown): Record<string, unknown> | undefined {
  * plain filename) and `import_drafts.parsed.imageUrl`. Signed and absolute URLs reduce to the
  * filename; external URLs reference nothing.
  */
-export async function collectLegacyUploadReferences(recipe: Pick<LegacyDb, "client">): Promise<Set<string>> {
+export const collectLegacyUploadReferences = Effect.fn("legacy.collectLegacyUploadReferences")(function* (
+  recipe: Pick<LegacyDb, "client">,
+): Effect.fn.Return<Set<string>, DatabaseError> {
   const referenced = new Set<string>();
   const keep = (value: unknown): void => {
     const filename = filenameOf(value);
@@ -58,35 +68,47 @@ export async function collectLegacyUploadReferences(recipe: Pick<LegacyDb, "clie
     ["recipes", "image_url"],
     ["collections", "cover_image_url"],
   ] as const) {
-    for (const row of await runLegacy(readAll(recipe, `SELECT ${column} FROM ${table}`))) keep(row[column]);
+    for (const row of yield* readAll(recipe, `SELECT ${column} FROM ${table}`)) keep(row[column]);
   }
-  for (const row of await runLegacy(readAll(recipe, "SELECT source_meta, parsed FROM import_drafts"))) {
+  for (const row of yield* readAll(recipe, "SELECT source_meta, parsed FROM import_drafts")) {
     keep(parseJson(row.source_meta)?.storedPath);
     keep(parseJson(row.parsed)?.imageUrl);
   }
   return referenced;
+});
+
+/** The `code` of a Node system error (`ENOENT`, `EEXIST`, …), `undefined` for anything else. */
+function errnoCode(error: unknown): unknown {
+  return Predicate.hasProperty(error, "code") ? error.code : undefined;
 }
 
-/** Size of a regular file, `null` when absent, `"other"` when something else sits there. */
-async function targetState(path: string): Promise<number | null | "other"> {
-  try {
-    const info = await lstat(path);
-    return info.isFile() ? info.size : "other";
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
-    throw error;
-  }
+/**
+ * Size of a regular file, `null` when absent, `"other"` when something else sits there. Any other
+ * `lstat` failure stays a crash (a defect), as the old `throw error` was.
+ */
+function targetState(path: string): Effect.Effect<number | null | "other"> {
+  return Effect.promise(() =>
+    lstat(path).then(
+      (info): number | "other" => (info.isFile() ? info.size : "other"),
+      (error: unknown): null => {
+        if (errnoCode(error) === "ENOENT") return null;
+        throw error;
+      },
+    ),
+  );
 }
 
 function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  return Predicate.isError(error) ? error.message : String(error);
 }
 
 /**
  * Copies (or, with `copy: false`, plans) the recipe uploads and fills `ctx.report.uploads`.
  * Without a recipe source or a `sourceDir` there is nothing to do: a warning, no summary.
  */
-export async function migrateUploads(ctx: MigrationContext): Promise<UploadSummary | undefined> {
+export const migrateUploads = Effect.fn("legacy.migrateUploads")(function* (
+  ctx: MigrationContext,
+): Effect.fn.Return<UploadSummary | undefined, DatabaseError> {
   const { report } = ctx;
   const { sourceDir, targetDir, copy } = ctx.uploads;
   if (!ctx.recipe) return undefined;
@@ -107,7 +129,9 @@ export async function migrateUploads(ctx: MigrationContext): Promise<UploadSumma
   };
   report.uploads = summary;
 
-  const entries = (await readdir(sourceDir, { withFileTypes: true })).sort((a, b) => (a.name < b.name ? -1 : 1));
+  const entries = (yield* Effect.promise(() => readdir(sourceDir, { withFileTypes: true }))).sort((a, b) =>
+    a.name < b.name ? -1 : 1,
+  );
   const present = new Set<string>();
   const files: string[] = [];
   for (const entry of entries) {
@@ -123,35 +147,40 @@ export async function migrateUploads(ctx: MigrationContext): Promise<UploadSumma
   }
   summary.sourceFiles = files.length;
 
-  const referenced = await collectLegacyUploadReferences(ctx.recipe);
+  const referenced = yield* collectLegacyUploadReferences(ctx.recipe);
   for (const name of [...referenced].sort()) {
     if (present.has(name)) continue;
     summary.missingReferenced.push(name);
     report.warnings.push(`uploads: ${name} is referenced by a legacy row but missing in ${sourceDir}`);
   }
 
-  if (copy) await mkdir(targetDir, { recursive: true });
+  if (copy) yield* Effect.promise(() => mkdir(targetDir, { recursive: true }));
   for (const name of files) {
     const from = join(sourceDir, name);
     const to = join(targetDir, name);
-    const sourceSize = (await lstat(from)).size;
+    const sourceSize = (yield* Effect.promise(() => lstat(from))).size;
     const conflict = (detail: string): void => {
       summary.conflicts.push(name);
       report.errors.push(`uploads: ${name} ${detail}; the target file was kept`);
     };
-    let state = await targetState(to);
+    let state = yield* targetState(to);
     if (state === null && copy) {
-      try {
-        await copyFile(from, to, constants.COPYFILE_EXCL);
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
-          report.errors.push(`uploads: copying ${name} failed: ${message(error)}`);
+      // every failure of the copy is seen here, as the old `catch (error)` saw it
+      const copied = yield* Effect.result(
+        Effect.tryPromise({
+          try: () => copyFile(from, to, constants.COPYFILE_EXCL),
+          catch: (error) => error,
+        }),
+      );
+      if (Result.isFailure(copied)) {
+        if (errnoCode(copied.failure) !== "EEXIST") {
+          report.errors.push(`uploads: copying ${name} failed: ${message(copied.failure)}`);
           continue;
         }
-        state = await targetState(to); // somebody created it between the stat and the copy
+        state = yield* targetState(to); // somebody created it between the stat and the copy
       }
       if (state === null) {
-        const written = await targetState(to);
+        const written = yield* targetState(to);
         if (written !== sourceSize) {
           report.errors.push(`uploads: ${name} was copied but its size is ${String(written)}, expected ${sourceSize}`);
           continue;
@@ -172,4 +201,4 @@ export async function migrateUploads(ctx: MigrationContext): Promise<UploadSumma
     }
   }
   return summary;
-}
+});

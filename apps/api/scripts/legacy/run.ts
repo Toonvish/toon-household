@@ -8,13 +8,20 @@
  * Every function of the library takes the target as a parameter and never touches the shared
  * `db`; this file adds nothing at module scope beyond imports (decision 5: the CLI imports it
  * dynamically, after its `DATABASE_URL` redirect).
+ *
+ * An Effect since E5 (docs/EFFECT.md E7, E10; plan `docs/plans/e5-scripts.md` P9, P10):
+ * `runLegacyMigrationEffect` and `knownLegacyIds`, the Promise bridge `runLegacyMigration` at the end,
+ * and `runLegacy` re-exported for the CLI. A bad `mapping` is validated through `liftTagged`, so its
+ * `MappingError` is a TYPED failure (the CLI's exit 2), never a defect.
  */
+import { Effect } from "effect";
+import type { DatabaseError, Internal } from "../../src/lib/errors.ts";
 import { verifyBalances } from "./balance.ts";
 import { migrateClaimInvites } from "./claims.ts";
 import { migrateFinance } from "./finance.ts";
 import { migrateHouseholdsEffect } from "./households.ts";
-import { type KnownIds, validateMappingOverride } from "./mapping.ts";
-import { migrateRecipe } from "./recipe.ts";
+import { type KnownIds, type MappingError, validateMappingOverride } from "./mapping.ts";
+import { migrateRecipeEffect } from "./recipe.ts";
 import { createReport } from "./report.ts";
 import { LEGACY_SCHEMAS, readAll } from "./sources.ts";
 import type {
@@ -28,8 +35,10 @@ import type {
 } from "./types.ts";
 import { migrateUploads } from "./uploads.ts";
 import { migrateUsersEffect } from "./users.ts";
-import { CHUNK_SIZE } from "./copy.ts";
-import { runLegacy } from "./io.ts";
+import { CHUNK_SIZE, type CopyProgrammingError } from "./copy.ts";
+import { legacyTry, liftTagged, runLegacy } from "./io.ts";
+
+export { runLegacy } from "./io.ts";
 
 export interface RunOptions {
   mode: Mode;
@@ -47,34 +56,42 @@ export interface RunOptions {
   webOrigin?: string;
 }
 
+/** What a pass can fail with: a bad mapping (exit 2 in the CLI), a programming error, the target or a snapshot, a balance refusal. */
+export type RunError = MappingError | CopyProgrammingError | DatabaseError | Internal;
+
 /** Row counts of every user table of a snapshot (the `== Inputs ==` section). */
-async function tableCounts(legacy: LegacyDb): Promise<Record<string, number>> {
-  const names = await runLegacy(readAll(
+const tableCounts = Effect.fnUntraced(function* (legacy: LegacyDb): Effect.fn.Return<Record<string, number>, DatabaseError> {
+  const names = yield* readAll(
     legacy,
     "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name <> '__drizzle_migrations' ORDER BY name",
-  ));
+  );
   const counts: Record<string, number> = {};
   for (const row of names) {
     const name = String(row.name);
-    const result = await legacy.client.execute(`SELECT count(*) AS n FROM "${name.replaceAll('"', '""')}"`);
+    const result = yield* legacyTry(() => legacy.client.execute(`SELECT count(*) AS n FROM "${name.replaceAll('"', '""')}"`));
     counts[name] = Number(result.rows[0]?.n ?? 0);
   }
   return counts;
-}
+});
 
 /** The R `groups.id` and F `households.id` sets of the opened snapshots (both LEGACY ids). */
-export async function knownLegacyIds(recipe?: LegacyDb, finance?: LegacyDb): Promise<KnownIds> {
-  const ids = async (legacy: LegacyDb | undefined, table: "groups" | "households") =>
-    new Set(legacy ? (await runLegacy(readAll(legacy, `SELECT id FROM ${table}`))).map((row) => String(row.id)) : []);
-  return { groupIds: await ids(recipe, "groups"), financeIds: await ids(finance, "households") };
-}
+export const knownLegacyIds = Effect.fn("legacy.knownLegacyIds")(function* (
+  recipe?: LegacyDb,
+  finance?: LegacyDb,
+): Effect.fn.Return<KnownIds, DatabaseError> {
+  const groupIds = recipe ? (yield* readAll(recipe, "SELECT id FROM groups")).map((row) => String(row.id)) : [];
+  const financeIds = finance ? (yield* readAll(finance, "SELECT id FROM households")).map((row) => String(row.id)) : [];
+  return { groupIds: new Set(groupIds), financeIds: new Set(financeIds) };
+});
 
 /**
  * Runs the migration steps in order and returns the filled report. A bad `mapping` is refused
  * before `migrateUsers`, so an in-process caller with a raw override writes nothing either. A
- * `MappingError` or `LegacyInputError` propagates (the CLI maps both to exit 2).
+ * `MappingError` fails typed (the CLI maps it to exit 2).
  */
-export async function runLegacyMigration(options: RunOptions): Promise<Report> {
+export const runLegacyMigrationEffect = Effect.fn("legacy.runLegacyMigration")(function* (
+  options: RunOptions,
+): Effect.fn.Return<Report, RunError> {
   const { mode, recipe, finance, target, uploads, mapping } = options;
   const report = createReport(mode, target.url);
   const ctx: MigrationContext = {
@@ -100,23 +117,38 @@ export async function runLegacyMigration(options: RunOptions): Promise<Report> {
       source: legacy.source,
       path: legacy.originalPath,
       schema: `${schema.lastTag} (${schema.migrations} migrations)`,
-      tables: await tableCounts(legacy),
+      tables: yield* tableCounts(legacy),
     });
   }
 
-  if (mapping) validateMappingOverride(mapping, await knownLegacyIds(recipe, finance));
+  if (mapping) {
+    // the known ids first, then the pure validator through the lift (plan e5 P5, P10)
+    const known = yield* knownLegacyIds(recipe, finance);
+    yield* liftTagged(["MappingError"], () => validateMappingOverride(mapping, known));
+  }
 
-  await runLegacy(migrateUsersEffect(ctx));
-  await runLegacy(migrateHouseholdsEffect(ctx));
+  yield* migrateUsersEffect(ctx);
+  yield* migrateHouseholdsEffect(ctx);
   if (recipe) {
-    await migrateRecipe(ctx);
+    yield* migrateRecipeEffect(ctx);
     // without a source directory it only adds the "uploads step is skipped" warning
-    await migrateUploads(ctx);
+    yield* migrateUploads(ctx);
   }
   if (finance) {
-    await migrateFinance(ctx);
-    await runLegacy(migrateClaimInvites(ctx));
+    yield* migrateFinance(ctx);
+    yield* migrateClaimInvites(ctx);
   }
-  await verifyBalances(ctx);
+  yield* verifyBalances(ctx);
   return report;
+});
+
+/* legacy bridges: the pinned legacy-cli and legacy-placeholders tests and legacy-harness.ts; E8 removes them */
+
+/**
+ * The Promise form of {@link runLegacyMigrationEffect}; a `MappingError` rejects as that object (`exitCode` 2).
+ * Callers: `apps/api/scripts/migrate-legacy.ts` (until E5-T08), `apps/api/test/legacy-cli.test.ts`,
+ * `apps/api/test/legacy-placeholders.test.ts`.
+ */
+export function runLegacyMigration(options: RunOptions): Promise<Report> {
+  return runLegacy(runLegacyMigrationEffect(options));
 }

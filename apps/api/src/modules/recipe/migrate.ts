@@ -5,23 +5,19 @@
  * hook after every `migrate()`, so the core never names it.
  *
  * An Effect since E3 (docs/EFFECT.md E7; plan `docs/plans/e3-recipe-services.md` P5): `foldBackfill()`
- * runs on the current executor of `Database` (the database `runMigrations` just migrated, handed in
- * through `runModuleHook`). `backfillFoldedColumns(database?)` is the Promise bridge for the legacy
- * migration and its test.
+ * runs on the current executor of `Database` (the database `runMigrations` just migrated). The Promise
+ * bridge `backfillFoldedColumns` is gone since E5 (plan `docs/plans/e5-scripts.md` P9, P11): the legacy
+ * migration (`scripts/legacy/recipe.ts`) provides `Database.layerFromExecutor(ctx.target.db)` itself.
  *
  * Import order: this file imports neither `src/runtime.ts` nor `src/env.ts` nor the manifest.
  * `scripts/legacy/recipe.ts` imports it after `migrate-legacy.ts` redirected `DATABASE_URL`
- * (CLAUDE.md "The CLI never imports `src/env.ts`, and its import order is load-bearing"); the bridge
- * runs through `runModuleHook` (`../adapter.ts`), which never imports the runtime either.
+ * (CLAUDE.md "The CLI never imports `src/env.ts`, and its import order is load-bearing").
  */
 import { foldText } from "@toon/shared";
 import { and, eq, ne } from "drizzle-orm";
 import { Effect } from "effect";
-import type { DrizzleDatabase } from "../../db/client.ts";
-import { db as sharedDb } from "../../db/client.ts";
 import { Database } from "../../db/database.ts";
 import { recipeIngredients, recipes } from "../../db/schema.ts";
-import { runModuleHook } from "../adapter.ts";
 
 /**
  * Fills `recipe_recipes.title_fold` / `description_fold` and
@@ -87,13 +83,3 @@ export const foldBackfill = Effect.fn("RecipeModule.foldBackfill")(function* () 
 
   return staleRecipes.length + staleIngredients.length;
 });
-
-/* legacy bridge: the one survivor of this file after E3 (plan e3 P1); E5 removes it */
-
-/**
- * Callers: `apps/api/scripts/legacy/recipe.ts` (E5), `apps/api/test/legacy-recipe.test.ts`. The fold backfill on
- * `database` (default: the shared db), outside the runtime. Resolves with the number of filled rows.
- */
-export function backfillFoldedColumns(database: DrizzleDatabase = sharedDb): Promise<number> {
-  return runModuleHook(foldBackfill(), database);
-}

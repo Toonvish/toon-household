@@ -233,7 +233,7 @@ export async function main(argv: string[] = process.argv.slice(2), env: NodeJS.P
     const { openLegacy } = await import("./legacy/sources.ts");
     const { parseMappingFile } = await import("./legacy/mapping.ts");
     const { exitCodeFor, renderReport, reportToJson } = await import("./legacy/report.ts");
-    const { knownLegacyIds, runLegacyMigration } = await import("./legacy/run.ts");
+    const { knownLegacyIds, runLegacy, runLegacyMigration } = await import("./legacy/run.ts");
     closers.push(() => scratchClient.close());
 
     // e. inputs and the mapping, before any pass writes anything
@@ -246,7 +246,7 @@ export async function main(argv: string[] = process.argv.slice(2), env: NodeJS.P
       if (!existsSync(options.mapping) || !statSync(options.mapping).isFile()) {
         throw new CliUsageError(`--mapping: file not found: ${options.mapping}`);
       }
-      mapping = parseMappingFile(readFileSync(options.mapping, "utf8"), await knownLegacyIds(recipe, finance));
+      mapping = parseMappingFile(readFileSync(options.mapping, "utf8"), await runLegacy(knownLegacyIds(recipe, finance)));
     }
     const common = {
       ...(recipe ? { recipe } : {}),

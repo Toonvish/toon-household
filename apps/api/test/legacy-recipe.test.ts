@@ -17,15 +17,29 @@ import {
   RECIPES,
   UPLOADS,
 } from "./fixtures/legacy/facts.ts";
+import { Effect } from "effect";
+import type { DrizzleDatabase } from "../src/db/client.ts";
+import { Database } from "../src/db/database.ts";
 import { env } from "../src/env.ts";
-import { backfillFoldedColumns } from "../src/modules/recipe/migrate.ts";
+import { foldBackfill } from "../src/modules/recipe/migrate.ts";
 import { migrateHouseholds } from "../scripts/legacy/households.ts";
 import { migrateRecipe } from "../scripts/legacy/recipe.ts";
 import { readAll } from "../scripts/legacy/sources.ts";
-import { migrateUploads } from "../scripts/legacy/uploads.ts";
+import { migrateUploads as migrateUploadsEffect } from "../scripts/legacy/uploads.ts";
+import type { MigrationContext, UploadSummary } from "../scripts/legacy/types.ts";
 import { migrateUsers } from "../scripts/legacy/users.ts";
 import { countRows, createLegacyRun, type LegacyRun } from "./support/legacy-harness.ts";
 import { runLegacy } from "../scripts/legacy/io.ts";
+
+/** The recipe fold backfill on `database` (the old Promise bridge's shape; plan e5 P11): the step's own layer. */
+function backfillFoldedColumns(database: DrizzleDatabase): Promise<number> {
+  return runLegacy(foldBackfill().pipe(Effect.provide(Database.layerFromExecutor(database))));
+}
+
+/** `migrateUploads` as a Promise (an Effect since E5-T07). */
+function migrateUploads(ctx: MigrationContext): Promise<UploadSummary | undefined> {
+  return runLegacy(migrateUploadsEffect(ctx));
+}
 
 const runs: LegacyRun[] = [];
 afterEach(() => {

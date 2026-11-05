@@ -19,15 +19,40 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { Effect } from "effect";
 import { TestClock } from "effect/testing";
-import { migrateFinance } from "../scripts/legacy/finance.ts";
+import type { BalanceResponse } from "@toon/shared";
+import { migrateFinance as migrateFinanceEffect } from "../scripts/legacy/finance.ts";
 import { migrateHouseholds } from "../scripts/legacy/households.ts";
+import { runLegacy } from "../scripts/legacy/io.ts";
+import type { MigrationContext } from "../scripts/legacy/types.ts";
 import { migrateUsers } from "../scripts/legacy/users.ts";
+import type { DrizzleDatabase } from "../src/db/client.ts";
 import { Database } from "../src/db/database.ts";
-import { getBalance } from "../src/modules/finance/services/ledger/balance.service.ts";
+import { withFinanceServices } from "../src/modules/finance/layer.ts";
+import { FinanceBalance } from "../src/modules/finance/services/ledger/balance.service.ts";
 import { startAccrualSchedule, stopAccrualSchedule } from "../src/modules/finance/services/plan/scheduler.ts";
 import { FINANCE_HOUSEHOLDS } from "./fixtures/legacy/facts.ts";
 import { createLegacyRun, type LegacyRun } from "./support/legacy-harness.ts";
 import { runTest } from "./support/effect.ts";
+
+/** The finance balance on `database` (the old Promise bridge's shape; plan e5 P11): the finance services over that executor. */
+function getBalance(
+  database: DrizzleDatabase,
+  householdId: string,
+  viewerUserId: string,
+  viewerSlot: 1 | 2,
+  includeAggregates: boolean,
+): Promise<BalanceResponse> {
+  return runLegacy(
+    withFinanceServices(
+      FinanceBalance.use((balance) => balance.getBalance(householdId, viewerUserId, viewerSlot, includeAggregates)),
+    ).pipe(Effect.provide(Database.layerFromExecutor(database))),
+  );
+}
+
+/** `migrateFinance` as a Promise (an Effect since E5-T07). */
+function migrateFinance(ctx: MigrationContext): Promise<void> {
+  return runLegacy(migrateFinanceEffect(ctx));
+}
 
 /** A real-time poll, a time budget like the thumbnail tests' (the same reason: parallel worktrees load the host). */
 const SCHEDULER_TEST_TIMEOUT_MS = 60_000;
