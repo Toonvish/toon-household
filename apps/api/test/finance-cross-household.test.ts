@@ -271,7 +271,7 @@ describe("finance cross-household sweep (SPEC D8)", () => {
     const sources = await Promise.all(files.map((name) => Bun.file(join(routesDir, name)).text()));
     const declared = sources
       .flatMap((text) =>
-        [...text.matchAll(/Routes\.(get|post|put|patch|delete)\(\s*"([^"]+)"/g)].map(
+        [...text.matchAll(/HttpApiEndpoint\.(get|post|put|patch|delete)\(\s*"[^"]+",\s*"([^"]+)"/g)].map(
           (match) => `${(match[1] ?? "").toUpperCase()} ${match[2] ?? ""}`,
         ),
       )

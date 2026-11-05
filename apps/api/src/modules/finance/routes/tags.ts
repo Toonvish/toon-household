@@ -3,57 +3,59 @@
  * rename + delete only — there is no `POST /tags` (docs/spec.md §3.10): a tag
  * is created solely as a side effect of attaching it to a transaction.
  */
-import { Effect } from "effect";
-import { runtime } from "../../../runtime.ts";
 import { type FinanceTagListResponse as TagListResponse, FinanceUpdateTagRequestSchema as UpdateTagRequestSchema, TagQuerySchema } from "@toon/shared";
-import { Hono } from "hono";
-import { json, noContent } from "../../../lib/http.ts";
-import type { AppEnv } from "../../../lib/types.ts";
-import { requireFinanceParticipant, currentFinanceParticipant } from "../middleware.ts";
-import { validate } from "../../../lib/validate.ts";
-import { requireVerifiedEmail } from "../../../middleware/verifiedEmail.ts";
+import { Effect, Layer } from "effect";
+import { HttpApiBuilder } from "effect/http-api";
+import { effectBridge } from "../../../http/bridge.ts";
+import { UNINTERRUPTIBLE } from "../../../http/middleware.ts";
+import { jsonBody, queryParams } from "../../../http/request.ts";
+import { json, noContent } from "../../../http/response.ts";
+import { CurrentFinanceParticipant } from "../http.ts";
+import { RequireFinanceParticipantLayer } from "../middleware.ts";
 import { FinanceTags } from "../services/tags/tags.service.ts";
+import { FinanceTagsApi } from "./tags.api.ts";
 
-export const tagRoutes = new Hono<AppEnv>();
-
-tagRoutes.use("*", requireVerifiedEmail());
-tagRoutes.use("*", requireFinanceParticipant());
-
-/** GET / — without `q`: the most-used tags (the create flow's suggestions). With `q`: a prefix match. */
-tagRoutes.get("/", validate("query", TagQuerySchema), (c) =>
-runtime.runPromise(
-Effect.gen(function* () {
-  const tagsService = yield* FinanceTags;
-  const household = yield* currentFinanceParticipant(c);
-  const query = c.req.valid("query");
-  const payload: TagListResponse = { items: yield* tagsService.listTags(household.householdId, query.q, query.limit) };
-  return json(c, payload);
-}),
-),
+export const financeTagsHandlers = HttpApiBuilder.group(FinanceTagsApi, "finance.tags", (handlers) =>
+  handlers
+    /** GET / — without `q`: the most-used tags (the create flow's suggestions). With `q`: a prefix match. */
+    .handle(
+      "get",
+      Effect.fn("finance.tags.get")(function* () {
+        const query = yield* queryParams(TagQuerySchema);
+        const tagsService = yield* FinanceTags;
+        const household = yield* CurrentFinanceParticipant;
+        const payload: TagListResponse = { items: yield* tagsService.listTags(household.householdId, query.q, query.limit) };
+        return json(payload);
+      }),
+      UNINTERRUPTIBLE,
+    )
+    /** PATCH /:tagId — rename. */
+    .handle(
+      "patchByTagId",
+      Effect.fn("finance.tags.patchByTagId")(function* ({ params }) {
+        const body = yield* jsonBody(UpdateTagRequestSchema);
+        const tagsService = yield* FinanceTags;
+        const household = yield* CurrentFinanceParticipant;
+        const tag = yield* tagsService.updateTag(household.householdId, params.tagId, body.name);
+        return json(tag);
+      }),
+      UNINTERRUPTIBLE,
+    )
+    /** DELETE /:tagId — drops the tag and its links; transactions themselves are untouched. */
+    .handle(
+      "deleteByTagId",
+      Effect.fn("finance.tags.deleteByTagId")(function* ({ params }) {
+        const tagsService = yield* FinanceTags;
+        const household = yield* CurrentFinanceParticipant;
+        yield* tagsService.deleteTag(household.householdId, params.tagId);
+        return noContent();
+      }),
+      UNINTERRUPTIBLE,
+    ),
 );
 
-/** PATCH /:tagId — rename. */
-tagRoutes.patch("/:tagId", validate("json", UpdateTagRequestSchema), (c) =>
-runtime.runPromise(
-Effect.gen(function* () {
-  const tagsService = yield* FinanceTags;
-  const household = yield* currentFinanceParticipant(c);
-  const tag = yield* tagsService.updateTag(household.householdId, c.req.param("tagId"), c.req.valid("json").name);
-  return json(c, tag);
-}),
-),
+export const tagRoutes = effectBridge(
+  FinanceTagsApi,
+  Layer.suspend(() => Layer.provideMerge(financeTagsHandlers, RequireFinanceParticipantLayer)),
+  "/api/households/:householdId/finance/tags",
 );
-
-/** DELETE /:tagId — drops the tag and its links; transactions themselves are untouched. */
-tagRoutes.delete("/:tagId", (c) =>
-runtime.runPromise(
-Effect.gen(function* () {
-  const tagsService = yield* FinanceTags;
-  const household = yield* currentFinanceParticipant(c);
-  yield* tagsService.deleteTag(household.householdId, c.req.param("tagId"));
-  return noContent(c);
-}),
-),
-);
-
-export default tagRoutes;

@@ -5,8 +5,6 @@
  * side effect (`run`/`recalculate`) is a thin call into
  * `services/plan/accrual.service.ts` — never re-derived here.
  */
-import { Effect } from "effect";
-import { runtime } from "../../../runtime.ts";
 import {
   type AccrualRunListResponse,
   CreateFixedCostItemRequestSchema,
@@ -20,165 +18,166 @@ import {
   UpdateIncomeRequestSchema,
   UpdatePlanRequestSchema,
 } from "@toon/shared";
-import { Hono } from "hono";
-import { validate } from "../../../lib/validate.ts";
-import { requireVerifiedEmail } from "../../../middleware/verifiedEmail.ts";
-import { created, json, noContent } from "../../../lib/http.ts";
-import type { AppEnv } from "../../../lib/types.ts";
-import { currentUser } from "../../../lib/types.ts";
-import { requireFinanceParticipant, currentFinanceParticipant } from "../middleware.ts";
+import { Effect, Layer } from "effect";
+import { HttpApiBuilder } from "effect/http-api";
+import { effectBridge } from "../../../http/bridge.ts";
+import { CurrentUser } from "../../../http/context.ts";
+import { UNINTERRUPTIBLE } from "../../../http/middleware.ts";
+import { jsonBody, queryParams } from "../../../http/request.ts";
+import { created, json, noContent } from "../../../http/response.ts";
+import { CurrentFinanceParticipant } from "../http.ts";
+import { RequireFinanceParticipantLayer } from "../middleware.ts";
 import { FinanceAccrual } from "../services/plan/accrual.service.ts";
 import { FinancePlan } from "../services/plan/plan.service.ts";
+import { FinancePlanApi } from "./plan.api.ts";
 
-export const planRoutes = new Hono<AppEnv>();
-
-planRoutes.use("*", requireVerifiedEmail());
-planRoutes.use("*", requireFinanceParticipant());
-
-/** GET / — plan + items + incomes + this period's computation + last run + pending periods. */
-planRoutes.get("/", (c) =>
-runtime.runPromise(
-Effect.gen(function* () {
-  const planService = yield* FinancePlan;
-  const household = yield* currentFinanceParticipant(c);
-  return json(c, yield* planService.getPlanResponse(household.householdId));
-}),
-),
+export const financePlanHandlers = HttpApiBuilder.group(FinancePlanApi, "finance.plan", (handlers) =>
+  handlers
+    /** GET / — plan + items + incomes + this period's computation + last run + pending periods. */
+    .handle(
+      "get",
+      Effect.fn("finance.plan.get")(function* () {
+        const planService = yield* FinancePlan;
+        const household = yield* CurrentFinanceParticipant;
+        return json(yield* planService.getPlanResponse(household.householdId));
+      }),
+      UNINTERRUPTIBLE,
+    )
+    /** PATCH / — enable/disable, change the payer, or move `startPeriod`. */
+    .handle(
+      "patch",
+      Effect.fn("finance.plan.patch")(function* () {
+        const body = yield* jsonBody(UpdatePlanRequestSchema);
+        const planService = yield* FinancePlan;
+        const household = yield* CurrentFinanceParticipant;
+        return json(yield* planService.updatePlan(household.householdId, body));
+      }),
+      UNINTERRUPTIBLE,
+    )
+    /** GET /preview?period= — the read-only computation for one period, before anything is booked. */
+    .handle(
+      "getPreview",
+      Effect.fn("finance.plan.getPreview")(function* () {
+        const query = yield* queryParams(PlanPreviewQuerySchema);
+        const planService = yield* FinancePlan;
+        const household = yield* CurrentFinanceParticipant;
+        const payload: PlanComputationResponse = yield* planService.previewPlan(household.householdId, query.period);
+        return json(payload);
+      }),
+      UNINTERRUPTIBLE,
+    )
+    /** POST /run — the catch-up, on demand. `409 plan_disabled` / `409 plan_incomplete`. */
+    .handle(
+      "postRun",
+      Effect.fn("finance.plan.postRun")(function* () {
+        const body = yield* jsonBody(RunPlanRequestSchema);
+        const accrualService = yield* FinanceAccrual;
+        const household = yield* CurrentFinanceParticipant;
+        return json(yield* accrualService.runPlanNow(household.householdId, body.through));
+      }),
+      UNINTERRUPTIBLE,
+    )
+    /** POST /recalculate — preview (`dryRun: true`) or apply (booked periods are NEVER edited, only superseded by a new adjustment row). */
+    .handle(
+      "postRecalculate",
+      Effect.fn("finance.plan.postRecalculate")(function* () {
+        const body = yield* jsonBody(RecalculatePlanRequestSchema);
+        const accrualService = yield* FinanceAccrual;
+        const household = yield* CurrentFinanceParticipant;
+        const user = yield* CurrentUser;
+        return json(yield* accrualService.recalculatePlan(household.householdId, user.id, body.dryRun));
+      }),
+      UNINTERRUPTIBLE,
+    )
+    /** GET /runs — the audit trail, most recent first. */
+    .handle(
+      "getRuns",
+      Effect.fn("finance.plan.getRuns")(function* () {
+        const query = yield* queryParams(PaginationQuerySchema);
+        const planService = yield* FinancePlan;
+        const household = yield* CurrentFinanceParticipant;
+        const { items, total } = yield* planService.listAccrualRuns(household.householdId, query.limit, query.offset);
+        const payload: AccrualRunListResponse = { items, total, limit: query.limit, offset: query.offset };
+        return json(payload);
+      }),
+      UNINTERRUPTIBLE,
+    )
+    /* -------------------------------------------------------------------------- */
+    /* fixed-cost items                                                          */
+    /* -------------------------------------------------------------------------- */
+    .handle(
+      "postItems",
+      Effect.fn("finance.plan.postItems")(function* () {
+        const body = yield* jsonBody(CreateFixedCostItemRequestSchema);
+        const planService = yield* FinancePlan;
+        const household = yield* CurrentFinanceParticipant;
+        const item = yield* planService.createFixedCostItem(household.householdId, body);
+        return created(item);
+      }),
+      UNINTERRUPTIBLE,
+    )
+    .handle(
+      "patchItemsByItemId",
+      Effect.fn("finance.plan.patchItemsByItemId")(function* ({ params }) {
+        const body = yield* jsonBody(UpdateFixedCostItemRequestSchema);
+        const planService = yield* FinancePlan;
+        const household = yield* CurrentFinanceParticipant;
+        const item = yield* planService.updateFixedCostItem(household.householdId, params.itemId, body);
+        return json(item);
+      }),
+      UNINTERRUPTIBLE,
+    )
+    .handle(
+      "deleteItemsByItemId",
+      Effect.fn("finance.plan.deleteItemsByItemId")(function* ({ params }) {
+        const planService = yield* FinancePlan;
+        const household = yield* CurrentFinanceParticipant;
+        yield* planService.deleteFixedCostItem(household.householdId, params.itemId);
+        return noContent();
+      }),
+      UNINTERRUPTIBLE,
+    )
+    /* -------------------------------------------------------------------------- */
+    /* incomes                                                                    */
+    /* -------------------------------------------------------------------------- */
+    .handle(
+      "postIncomes",
+      Effect.fn("finance.plan.postIncomes")(function* () {
+        const body = yield* jsonBody(CreateIncomeRequestSchema);
+        const planService = yield* FinancePlan;
+        const household = yield* CurrentFinanceParticipant;
+        const income = yield* planService.createIncome(household.householdId, body);
+        return created(income);
+      }),
+      UNINTERRUPTIBLE,
+    )
+    .handle(
+      "patchIncomesByIncomeId",
+      Effect.fn("finance.plan.patchIncomesByIncomeId")(function* ({ params }) {
+        const body = yield* jsonBody(UpdateIncomeRequestSchema);
+        const planService = yield* FinancePlan;
+        const household = yield* CurrentFinanceParticipant;
+        const income = yield* planService.updateIncome(household.householdId, params.incomeId, body);
+        return json(income);
+      }),
+      UNINTERRUPTIBLE,
+    )
+    .handle(
+      "deleteIncomesByIncomeId",
+      Effect.fn("finance.plan.deleteIncomesByIncomeId")(function* ({ params }) {
+        const planService = yield* FinancePlan;
+        const household = yield* CurrentFinanceParticipant;
+        yield* planService.deleteIncome(household.householdId, params.incomeId);
+        return noContent();
+      }),
+      UNINTERRUPTIBLE,
+    ),
 );
 
-/** PATCH / — enable/disable, change the payer, or move `startPeriod`. */
-planRoutes.patch("/", validate("json", UpdatePlanRequestSchema), (c) =>
-runtime.runPromise(
-Effect.gen(function* () {
-  const planService = yield* FinancePlan;
-  const household = yield* currentFinanceParticipant(c);
-  return json(c, yield* planService.updatePlan(household.householdId, c.req.valid("json")));
-}),
-),
-);
-
-/** GET /preview?period= — the read-only computation for one period, before anything is booked. */
-planRoutes.get("/preview", validate("query", PlanPreviewQuerySchema), (c) =>
-runtime.runPromise(
-Effect.gen(function* () {
-  const planService = yield* FinancePlan;
-  const household = yield* currentFinanceParticipant(c);
-  const payload: PlanComputationResponse = yield* planService.previewPlan(household.householdId, c.req.valid("query").period);
-  return json(c, payload);
-}),
-),
-);
-
-/** POST /run — the catch-up, on demand. `409 plan_disabled` / `409 plan_incomplete`. */
-planRoutes.post("/run", validate("json", RunPlanRequestSchema), (c) =>
-runtime.runPromise(
-Effect.gen(function* () {
-  const accrualService = yield* FinanceAccrual;
-  const household = yield* currentFinanceParticipant(c);
-  return json(c, yield* accrualService.runPlanNow(household.householdId, c.req.valid("json").through));
-}),
-),
-);
-
-/** POST /recalculate — preview (`dryRun: true`) or apply (booked periods are NEVER edited, only superseded by a new adjustment row). */
-planRoutes.post("/recalculate", validate("json", RecalculatePlanRequestSchema), (c) =>
-runtime.runPromise(
-Effect.gen(function* () {
-  const accrualService = yield* FinanceAccrual;
-  const household = yield* currentFinanceParticipant(c);
-  const user = yield* currentUser(c);
-  const body = c.req.valid("json");
-  return json(c, yield* accrualService.recalculatePlan(household.householdId, user.id, body.dryRun));
-}),
-),
-);
-
-/** GET /runs — the audit trail, most recent first. */
-planRoutes.get("/runs", validate("query", PaginationQuerySchema), (c) =>
-runtime.runPromise(
-Effect.gen(function* () {
-  const planService = yield* FinancePlan;
-  const household = yield* currentFinanceParticipant(c);
-  const query = c.req.valid("query");
-  const { items, total } = yield* planService.listAccrualRuns(household.householdId, query.limit, query.offset);
-  const payload: AccrualRunListResponse = { items, total, limit: query.limit, offset: query.offset };
-  return json(c, payload);
-}),
-),
-);
-
-/* -------------------------------------------------------------------------- */
-/* fixed-cost items                                                          */
-/* -------------------------------------------------------------------------- */
-
-planRoutes.post("/items", validate("json", CreateFixedCostItemRequestSchema), (c) =>
-runtime.runPromise(
-Effect.gen(function* () {
-  const planService = yield* FinancePlan;
-  const household = yield* currentFinanceParticipant(c);
-  const item = yield* planService.createFixedCostItem(household.householdId, c.req.valid("json"));
-  return created(c, item);
-}),
-),
-);
-
-planRoutes.patch("/items/:itemId", validate("json", UpdateFixedCostItemRequestSchema), (c) =>
-runtime.runPromise(
-Effect.gen(function* () {
-  const planService = yield* FinancePlan;
-  const household = yield* currentFinanceParticipant(c);
-  const item = yield* planService.updateFixedCostItem(household.householdId, c.req.param("itemId"), c.req.valid("json"));
-  return json(c, item);
-}),
-),
-);
-
-planRoutes.delete("/items/:itemId", (c) =>
-runtime.runPromise(
-Effect.gen(function* () {
-  const planService = yield* FinancePlan;
-  const household = yield* currentFinanceParticipant(c);
-  yield* planService.deleteFixedCostItem(household.householdId, c.req.param("itemId"));
-  return noContent(c);
-}),
-),
-);
-
-/* -------------------------------------------------------------------------- */
-/* incomes                                                                    */
-/* -------------------------------------------------------------------------- */
-
-planRoutes.post("/incomes", validate("json", CreateIncomeRequestSchema), (c) =>
-runtime.runPromise(
-Effect.gen(function* () {
-  const planService = yield* FinancePlan;
-  const household = yield* currentFinanceParticipant(c);
-  const income = yield* planService.createIncome(household.householdId, c.req.valid("json"));
-  return created(c, income);
-}),
-),
-);
-
-planRoutes.patch("/incomes/:incomeId", validate("json", UpdateIncomeRequestSchema), (c) =>
-runtime.runPromise(
-Effect.gen(function* () {
-  const planService = yield* FinancePlan;
-  const household = yield* currentFinanceParticipant(c);
-  const income = yield* planService.updateIncome(household.householdId, c.req.param("incomeId"), c.req.valid("json"));
-  return json(c, income);
-}),
-),
-);
-
-planRoutes.delete("/incomes/:incomeId", (c) =>
-runtime.runPromise(
-Effect.gen(function* () {
-  const planService = yield* FinancePlan;
-  const household = yield* currentFinanceParticipant(c);
-  yield* planService.deleteIncome(household.householdId, c.req.param("incomeId"));
-  return noContent(c);
-}),
-),
+export const planRoutes = effectBridge(
+  FinancePlanApi,
+  Layer.suspend(() => Layer.provideMerge(financePlanHandlers, RequireFinanceParticipantLayer)),
+  "/api/households/:householdId/finance/plan",
 );
 
 export default planRoutes;
