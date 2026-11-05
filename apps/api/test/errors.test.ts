@@ -10,6 +10,7 @@ import type { Locale } from "@toon/shared";
 import { ALL_ISSUES, serverText } from "@toon/shared";
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { Effect, Schema } from "effect";
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/http-api";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import {
@@ -35,10 +36,15 @@ import {
   onErrorHandler,
   toApiError,
 } from "../src/lib/errors.ts";
+import { fallbackRoutesLayer } from "../src/http/global.ts";
+import { coreApi, UNINTERRUPTIBLE } from "../src/http/middleware.ts";
+import { jsonBody } from "../src/http/request.ts";
+import { json } from "../src/http/response.ts";
 import { localeMiddleware } from "../src/lib/locale.ts";
 import type { AppEnv } from "../src/lib/types.ts";
 import { currentMembership, currentUser, requireMembership, requireUser } from "../src/lib/types.ts";
 import { decode } from "../src/lib/validate.ts";
+import { testHttpApp } from "./support/http.ts";
 
 interface Body {
   error: { code: string; message: string; details?: unknown };
@@ -417,36 +423,97 @@ describe("toApiError, the one mapper", () => {
   });
 });
 
-describe("onErrorHandler and notFoundHandler through a tiny Hono app", () => {
-  const app = new Hono<AppEnv>();
-  app.use("*", localeMiddleware);
-  app.get("/rate-limited", () => {
-    throw new RateLimited({ retryAfterSeconds: 7 });
-  });
-  app.get("/legacy-rate-limited", () => {
-    throw new ApiError(429, "rate_limited", { key: "server.error.tooManyAttempts", values: { seconds: 7 } });
-  });
-  app.get("/defect", () => Effect.runPromise(Effect.die(new Error("a bug"))));
-  app.get("/database", () => Effect.runPromise(Effect.fail(new DatabaseError({ cause: new Error("SQLITE_BUSY") }))));
-  app.get("/not-found", () => Effect.runPromise(Effect.fail(new NotFound())));
-  app.get("/http-403", () => {
-    throw new HTTPException(403, { message: "secret" });
-  });
-  app.get("/user", (c) => c.json(requireUser(c)));
-  app.get("/membership", (c) => c.json(requireMembership(c)));
-  app.get("/current-user", (c) => Effect.runPromise(Effect.map(currentUser(c), (user) => c.json(user))));
-  app.get("/current-membership", (c) =>
-    Effect.runPromise(Effect.map(currentMembership(c), (membership) => c.json(membership))),
-  );
-  app.post("/decode", async (c) => {
-    const value = await Effect.runPromise(decode(Schema.Struct({ name: Schema.String }), await c.req.json()));
-    return c.json(value);
-  });
-  app.onError(onErrorHandler);
-  app.notFound(notFoundHandler);
+/* ---------------------------------------------------------------------------------------------------------------
+ * ApiErrorBoundary through a mini API served in memory (plan `docs/plans/e7-http-api.md` P7, E7-T04): the same bodies,
+ * headers and log lines `onErrorHandler` and `notFoundHandler` produced through a tiny Hono app before.
+ * ------------------------------------------------------------------------------------------------------------- */
+
+const REQUEST_FAILED_400: Pinned = {
+  status: 400,
+  de: { error: { code: "bad_request", message: "Anfrage fehlgeschlagen" } },
+  en: { error: { code: "bad_request", message: "Request failed" } },
+};
+
+const NameBody = Schema.Struct({ name: Schema.String });
+
+const BoundaryGroup = HttpApiGroup.make("errors.boundary").add(
+  HttpApiEndpoint.get("getRateLimited", "/rate-limited"),
+  HttpApiEndpoint.get("getLegacyRateLimited", "/legacy-rate-limited"),
+  HttpApiEndpoint.get("getDefect", "/defect"),
+  HttpApiEndpoint.get("getDatabase", "/database"),
+  HttpApiEndpoint.get("getNotFound", "/not-found"),
+  HttpApiEndpoint.get("getOcr", "/ocr"),
+  HttpApiEndpoint.get("getLegacyInternal", "/legacy"),
+  HttpApiEndpoint.post("postDecode", "/decode"),
+);
+const BoundaryApi = coreApi(HttpApi.make("errors.boundary").add(BoundaryGroup));
+
+const boundaryHandlers = HttpApiBuilder.group(BoundaryApi, "errors.boundary", (handlers) =>
+  handlers
+    .handle(
+      "getRateLimited",
+      Effect.fn("errors.boundary.getRateLimited")(function* () {
+        return yield* new RateLimited({ retryAfterSeconds: 7 });
+      }),
+      UNINTERRUPTIBLE,
+    )
+    .handle(
+      "getLegacyRateLimited",
+      Effect.fn("errors.boundary.getLegacyRateLimited")(function* () {
+        // The legacy class a module still throws: a defect to the Effect, the same value `Cause.squash` hands over.
+        throw new ApiError(429, "rate_limited", { key: "server.error.tooManyAttempts", values: { seconds: 7 } });
+      }),
+      UNINTERRUPTIBLE,
+    )
+    .handle(
+      "getDefect",
+      Effect.fn("errors.boundary.getDefect")(function* () {
+        return yield* Effect.die(new Error("a bug"));
+      }),
+      UNINTERRUPTIBLE,
+    )
+    .handle(
+      "getDatabase",
+      Effect.fn("errors.boundary.getDatabase")(function* () {
+        return yield* new DatabaseError({ cause: new Error("SQLITE_BUSY") });
+      }),
+      UNINTERRUPTIBLE,
+    )
+    .handle(
+      "getNotFound",
+      Effect.fn("errors.boundary.getNotFound")(function* () {
+        return yield* new NotFound();
+      }),
+      UNINTERRUPTIBLE,
+    )
+    .handle(
+      "getOcr",
+      Effect.fn("errors.boundary.getOcr")(function* () {
+        return yield* new ApiFailure({ status: 501, code: "ocr_disabled", text: "server.import.ocrDisabled" });
+      }),
+      UNINTERRUPTIBLE,
+    )
+    .handle(
+      "getLegacyInternal",
+      Effect.fn("errors.boundary.getLegacyInternal")(function* () {
+        throw ApiError.internal();
+      }),
+      UNINTERRUPTIBLE,
+    )
+    .handle(
+      "postDecode",
+      Effect.fn("errors.boundary.postDecode")(function* () {
+        return json(yield* jsonBody(NameBody));
+      }),
+      UNINTERRUPTIBLE,
+    ),
+);
+
+describe("ApiErrorBoundary through a mini API (the cases onErrorHandler and notFoundHandler answered)", () => {
+  const boundary = testHttpApp([BoundaryApi], boundaryHandlers, fallbackRoutesLayer({ webDistDir: null }));
 
   const get = (path: string, locale: Locale, init: RequestInit = {}) =>
-    app.request(path, { ...init, headers: { "accept-language": locale, ...(init.headers ?? {}) } });
+    boundary.request(path, { ...init, headers: { "accept-language": locale, ...(init.headers ?? {}) } });
 
   let errorSpy: ReturnType<typeof spyOn> | undefined;
   afterEach(() => {
@@ -480,16 +547,8 @@ describe("onErrorHandler and notFoundHandler through a tiny Hono app", () => {
 
   test("a 5xx family member logs status, code, the English message and the stack", async () => {
     errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
-    const failing = new Hono();
-    failing.get("/ocr", () => {
-      throw new ApiFailure({ status: 501, code: "ocr_disabled", text: "server.import.ocrDisabled" });
-    });
-    failing.get("/legacy", () => {
-      throw ApiError.internal();
-    });
-    failing.onError(onErrorHandler);
-    expect((await failing.request("/ocr")).status).toBe(501);
-    expect((await failing.request("/legacy")).status).toBe(500);
+    expect((await boundary.request("/ocr")).status).toBe(501);
+    expect((await boundary.request("/legacy")).status).toBe(500);
     expect(errorSpy).toHaveBeenCalledTimes(2);
     const [line, stack] = errorSpy.mock.calls[0] as [string, unknown];
     expect(line).toBe(`[api] GET /ocr -> 501 ocr_disabled: ${serverText("en", "server.import.ocrDisabled")}`);
@@ -511,19 +570,11 @@ describe("onErrorHandler and notFoundHandler through a tiny Hono app", () => {
     expect((logged as Error).message).toBe("SQLITE_BUSY");
   });
 
-  test("Effect.runPromise(Effect.fail(new NotFound()))'s rejection renders 404", async () => {
+  test("a NotFound failure renders 404", async () => {
     for (const locale of LOCALES) {
       const response = await get("/not-found", locale);
       expect(response.status).toBe(404);
       expect(await response.json()).toEqual(NOT_FOUND[locale]);
-    }
-  });
-
-  test("an HTTPException(403) renders 403 forbidden with server.error.requestFailed", async () => {
-    for (const locale of LOCALES) {
-      const response = await get("/http-403", locale);
-      expect(response.status).toBe(403);
-      expect(await response.json()).toEqual(REQUEST_FAILED_403[locale]);
     }
   });
 
@@ -535,18 +586,15 @@ describe("onErrorHandler and notFoundHandler through a tiny Hono app", () => {
     }
   });
 
-  test("requireUser / requireMembership (sync bridges) and currentUser / currentMembership render 401 / 403", async () => {
+  test("a malformed JSON body is the 400 bad_request Hono's HTTPException(400) was, with server.error.requestFailed", async () => {
     for (const locale of LOCALES) {
-      for (const path of ["/user", "/current-user"]) {
-        const response = await get(path, locale);
-        expect(response.status).toBe(401);
-        expect(await response.json()).toEqual(UNAUTHORIZED[locale]);
-      }
-      for (const path of ["/membership", "/current-membership"]) {
-        const response = await get(path, locale);
-        expect(response.status).toBe(403);
-        expect(await response.json()).toEqual(FORBIDDEN_NO_ACCESS[locale]);
-      }
+      const response = await get("/decode", locale, {
+        method: "POST",
+        body: "{not json",
+        headers: { "content-type": "application/json" },
+      });
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual(REQUEST_FAILED_400[locale]);
     }
   });
 
@@ -574,6 +622,56 @@ describe("onErrorHandler and notFoundHandler through a tiny Hono app", () => {
     });
     expect(ok.status).toBe(200);
     expect(await ok.json()).toEqual({ name: "Kim" });
+  });
+});
+
+describe("onErrorHandler and the Hono context helpers through a tiny Hono app (E7-T12 deletes this)", () => {
+  const app = new Hono<AppEnv>();
+  app.use("*", localeMiddleware);
+  app.get("/http-403", () => {
+    throw new HTTPException(403, { message: "secret" });
+  });
+  app.get("/user", (c) => c.json(requireUser(c)));
+  app.get("/membership", (c) => c.json(requireMembership(c)));
+  app.get("/current-user", (c) => Effect.runPromise(Effect.map(currentUser(c), (user) => c.json(user))));
+  app.get("/current-membership", (c) =>
+    Effect.runPromise(Effect.map(currentMembership(c), (membership) => c.json(membership))),
+  );
+  app.onError(onErrorHandler);
+  app.notFound(notFoundHandler);
+
+  const get = (path: string, locale: Locale, init: RequestInit = {}) =>
+    app.request(path, { ...init, headers: { "accept-language": locale, ...(init.headers ?? {}) } });
+
+  test("an HTTPException(403) renders 403 forbidden with server.error.requestFailed", async () => {
+    for (const locale of LOCALES) {
+      const response = await get("/http-403", locale);
+      expect(response.status).toBe(403);
+      expect(await response.json()).toEqual(REQUEST_FAILED_403[locale]);
+    }
+  });
+
+  test("an unknown route renders server.error.routeUnknown (notFoundHandler)", async () => {
+    for (const locale of LOCALES) {
+      const response = await get("/api/nope", locale);
+      expect(response.status).toBe(404);
+      expect(await response.json()).toEqual(ROUTE_UNKNOWN[locale]);
+    }
+  });
+
+  test("requireUser / requireMembership (sync bridges) and currentUser / currentMembership render 401 / 403", async () => {
+    for (const locale of LOCALES) {
+      for (const path of ["/user", "/current-user"]) {
+        const response = await get(path, locale);
+        expect(response.status).toBe(401);
+        expect(await response.json()).toEqual(UNAUTHORIZED[locale]);
+      }
+      for (const path of ["/membership", "/current-membership"]) {
+        const response = await get(path, locale);
+        expect(response.status).toBe(403);
+        expect(await response.json()).toEqual(FORBIDDEN_NO_ACCESS[locale]);
+      }
+    }
   });
 });
 
