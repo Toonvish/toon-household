@@ -12,41 +12,43 @@
  * module-enabled checks, in that order. This router adds the per-route
  * gates itself: GET must stay open to a non-participant, so nothing is mounted with use("*").
  */
+import { Effect } from "effect";
+import { runtime } from "../../../runtime.ts";
 import {
   type FinanceParticipantListResponse,
   UpdateFinanceDisplayNameRequestSchema,
   UpdateFinanceParticipantsRequestSchema,
 } from "@toon/shared";
 import { Hono } from "hono";
-import { db } from "../../../db/client.ts";
 import { json } from "../../../lib/http.ts";
 import type { AppContext, AppEnv } from "../../../lib/types.ts";
-import { requireMembership, requireUser } from "../../../lib/types.ts";
+import { currentMembership, currentUser } from "../../../lib/types.ts";
 import { requireHouseholdRole } from "../../../middleware/household.ts";
 import { requireVerifiedEmail } from "../../../middleware/verifiedEmail.ts";
 import { validate } from "../../../lib/validate.ts";
-import { requireFinanceParticipant, requireFinanceParticipantContext } from "../middleware.ts";
-import {
-  listParticipants,
-  renamePlaceholderParticipant,
-  saveParticipants,
-  updateParticipantDisplayName,
-} from "../services/participants/participants.service.ts";
+import { requireFinanceParticipant, currentFinanceParticipant } from "../middleware.ts";
+import { FinanceParticipants } from "../services/participants/participants.service.ts";
 
 export const participantRoutes = new Hono<AppEnv>();
 
-async function participantList(c: AppContext, householdId: string): Promise<FinanceParticipantListResponse> {
-  const viewerId = requireUser(c).id;
-  const items = await listParticipants(db, householdId);
+const participantList = Effect.fnUntraced(function* (c: AppContext, householdId: string) {
+  const participantsService = yield* FinanceParticipants;
+  const viewerId = (yield* currentUser(c)).id;
+  const items = yield* participantsService.listParticipants(householdId);
   const viewer = items.find((item) => item.userId === viewerId);
-  return { items, viewerSlot: viewer?.memberSlot ?? null };
-}
+  const payload: FinanceParticipantListResponse = { items, viewerSlot: viewer?.memberSlot ?? null };
+  return payload;
+});
 
 /** GET /api/households/:householdId/finance/participants */
-participantRoutes.get("/", async (c) => {
-  const membership = requireMembership(c);
-  return json(c, await participantList(c, membership.householdId));
-});
+participantRoutes.get("/", (c) =>
+runtime.runPromise(
+Effect.gen(function* () {
+  const membership = yield* currentMembership(c);
+  return json(c, yield* participantList(c, membership.householdId));
+}),
+),
+);
 
 /** PUT /api/households/:householdId/finance/participants — owner/admin seats the two. */
 participantRoutes.put(
@@ -54,11 +56,15 @@ participantRoutes.put(
   requireVerifiedEmail(),
   requireHouseholdRole("admin"),
   validate("json", UpdateFinanceParticipantsRequestSchema),
-  async (c) => {
-    const membership = requireMembership(c);
-    await saveParticipants(db, membership.householdId, c.req.valid("json").participants);
-    return json(c, await participantList(c, membership.householdId));
-  },
+  (c) =>
+    runtime.runPromise(
+      Effect.gen(function* () {
+        const participantsService = yield* FinanceParticipants;
+        const membership = yield* currentMembership(c);
+        yield* participantsService.saveParticipants(membership.householdId, c.req.valid("json").participants);
+        return json(c, yield* participantList(c, membership.householdId));
+      }),
+    ),
 );
 
 /** PATCH /api/households/:householdId/finance/participants/me — rename the caller's own display name. */
@@ -67,16 +73,19 @@ participantRoutes.patch(
   requireVerifiedEmail(),
   requireFinanceParticipant(),
   validate("json", UpdateFinanceDisplayNameRequestSchema),
-  async (c) => {
-    const participant = requireFinanceParticipantContext(c);
-    const updated = await updateParticipantDisplayName(
-      db,
-      participant.householdId,
-      participant.userId,
-      c.req.valid("json").displayName,
-    );
-    return json(c, updated);
-  },
+  (c) =>
+    runtime.runPromise(
+      Effect.gen(function* () {
+        const participantsService = yield* FinanceParticipants;
+        const participant = yield* currentFinanceParticipant(c);
+        const updated = yield* participantsService.updateParticipantDisplayName(
+          participant.householdId,
+          participant.userId,
+          c.req.valid("json").displayName,
+        );
+        return json(c, updated);
+      }),
+    ),
 );
 
 /** PATCH /api/households/:householdId/finance/participants/:userId — rename a placeholder seat (404 / 403 in the service). */
@@ -85,14 +94,17 @@ participantRoutes.patch(
   requireVerifiedEmail(),
   requireFinanceParticipant(),
   validate("json", UpdateFinanceDisplayNameRequestSchema),
-  async (c) => {
-    const participant = requireFinanceParticipantContext(c);
-    const updated = await renamePlaceholderParticipant(
-      db,
-      participant.householdId,
-      c.req.param("userId"),
-      c.req.valid("json").displayName,
-    );
-    return json(c, updated);
-  },
+  (c) =>
+    runtime.runPromise(
+      Effect.gen(function* () {
+        const participantsService = yield* FinanceParticipants;
+        const participant = yield* currentFinanceParticipant(c);
+        const updated = yield* participantsService.renamePlaceholderParticipant(
+          participant.householdId,
+          c.req.param("userId"),
+          c.req.valid("json").displayName,
+        );
+        return json(c, updated);
+      }),
+    ),
 );
