@@ -12,7 +12,7 @@
 import { verifyBalances } from "./balance.ts";
 import { migrateClaimInvites } from "./claims.ts";
 import { migrateFinance } from "./finance.ts";
-import { migrateHouseholds } from "./households.ts";
+import { migrateHouseholdsEffect } from "./households.ts";
 import { type KnownIds, validateMappingOverride } from "./mapping.ts";
 import { migrateRecipe } from "./recipe.ts";
 import { createReport } from "./report.ts";
@@ -27,7 +27,7 @@ import type {
   UploadOptions,
 } from "./types.ts";
 import { migrateUploads } from "./uploads.ts";
-import { migrateUsers } from "./users.ts";
+import { migrateUsersEffect } from "./users.ts";
 import { CHUNK_SIZE } from "./copy.ts";
 import { runLegacy } from "./io.ts";
 
@@ -106,8 +106,8 @@ export async function runLegacyMigration(options: RunOptions): Promise<Report> {
 
   if (mapping) validateMappingOverride(mapping, await knownLegacyIds(recipe, finance));
 
-  await migrateUsers(ctx);
-  await migrateHouseholds(ctx);
+  await runLegacy(migrateUsersEffect(ctx));
+  await runLegacy(migrateHouseholdsEffect(ctx));
   if (recipe) {
     await migrateRecipe(ctx);
     // without a source directory it only adds the "uploads step is skipped" warning
@@ -115,7 +115,7 @@ export async function runLegacyMigration(options: RunOptions): Promise<Report> {
   }
   if (finance) {
     await migrateFinance(ctx);
-    await migrateClaimInvites(ctx);
+    await runLegacy(migrateClaimInvites(ctx));
   }
   await verifyBalances(ctx);
   return report;
