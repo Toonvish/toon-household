@@ -8,10 +8,9 @@
  */
 import type { Locale } from "@toon/shared";
 import { ALL_ISSUES, serverText } from "@toon/shared";
-import { afterEach, describe, expect, spyOn, test } from "bun:test";
+import { afterEach, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { Effect, Schema } from "effect";
 import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/http-api";
-import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import {
   ApiError,
@@ -32,18 +31,17 @@ import {
   errorBody,
   honoExceptionToApiError,
   isApiError,
-  notFoundHandler,
-  onErrorHandler,
   toApiError,
 } from "../src/lib/errors.ts";
 import { fallbackRoutesLayer } from "../src/http/global.ts";
 import { coreApi, UNINTERRUPTIBLE } from "../src/http/middleware.ts";
 import { jsonBody } from "../src/http/request.ts";
 import { json } from "../src/http/response.ts";
-import { localeMiddleware } from "../src/lib/locale.ts";
-import type { AppEnv } from "../src/lib/types.ts";
-import { currentMembership, currentUser, requireMembership, requireUser } from "../src/lib/types.ts";
+import { db } from "../src/db/client.ts";
+import { runMigrations } from "../src/db/migrate.ts";
+import { app } from "../src/index.ts";
 import { decode } from "../src/lib/validate.ts";
+import { createPlainHousehold, createUser } from "./support/finance-harness.ts";
 import { testHttpApp } from "./support/http.ts";
 
 interface Body {
@@ -625,31 +623,22 @@ describe("ApiErrorBoundary through a mini API (the cases onErrorHandler and notF
   });
 });
 
-describe("onErrorHandler and the Hono context helpers through a tiny Hono app (E7-T12 deletes this)", () => {
-  const app = new Hono<AppEnv>();
-  app.use("*", localeMiddleware);
-  app.get("/http-403", () => {
-    throw new HTTPException(403, { message: "secret" });
+/* ---------------------------------------------------------------------------------------------------------------
+ * The served app (plan `docs/plans/e7-http-api.md` P13, E7-T11): what the tiny Hono app over `onErrorHandler`,
+ * `notFoundHandler` and the Hono context helpers (`requireUser`, `requireMembership`, `currentUser`,
+ * `currentMembership`) answered before the cutover, now through `app` (HttpApiBuilder's in-memory handler of
+ * `src/http/app.ts`): the route-unknown 404, the 401 of a missing session (`RequireSession`) and the 403 of a
+ * non-member (`RequireHouseholdMember`), same bodies in both locales. The helpers themselves have no caller left and
+ * leave with their Hono sections (E7-T12); the pure `HTTPException` mapping keeps its test above
+ * (`honoExceptionToApiError`).
+ * ------------------------------------------------------------------------------------------------------------- */
+describe("the served app answers what onErrorHandler and the Hono context helpers answered", () => {
+  beforeAll(async () => {
+    await runMigrations(db);
   });
-  app.get("/user", (c) => c.json(requireUser(c)));
-  app.get("/membership", (c) => c.json(requireMembership(c)));
-  app.get("/current-user", (c) => Effect.runPromise(Effect.map(currentUser(c), (user) => c.json(user))));
-  app.get("/current-membership", (c) =>
-    Effect.runPromise(Effect.map(currentMembership(c), (membership) => c.json(membership))),
-  );
-  app.onError(onErrorHandler);
-  app.notFound(notFoundHandler);
 
   const get = (path: string, locale: Locale, init: RequestInit = {}) =>
     app.request(path, { ...init, headers: { "accept-language": locale, ...(init.headers ?? {}) } });
-
-  test("an HTTPException(403) renders 403 forbidden with server.error.requestFailed", async () => {
-    for (const locale of LOCALES) {
-      const response = await get("/http-403", locale);
-      expect(response.status).toBe(403);
-      expect(await response.json()).toEqual(REQUEST_FAILED_403[locale]);
-    }
-  });
 
   test("an unknown route renders server.error.routeUnknown (notFoundHandler)", async () => {
     for (const locale of LOCALES) {
@@ -659,43 +648,24 @@ describe("onErrorHandler and the Hono context helpers through a tiny Hono app (E
     }
   });
 
-  test("requireUser / requireMembership (sync bridges) and currentUser / currentMembership render 401 / 403", async () => {
+  test("no session renders 401 unauthorized (requireUser / currentUser)", async () => {
     for (const locale of LOCALES) {
-      for (const path of ["/user", "/current-user"]) {
+      for (const path of ["/api/auth/me", `/api/households/${crypto.randomUUID()}`]) {
         const response = await get(path, locale);
         expect(response.status).toBe(401);
         expect(await response.json()).toEqual(UNAUTHORIZED[locale]);
       }
-      for (const path of ["/membership", "/current-membership"]) {
-        const response = await get(path, locale);
-        expect(response.status).toBe(403);
-        expect(await response.json()).toEqual(FORBIDDEN_NO_ACCESS[locale]);
-      }
     }
   });
-});
 
-describe("the sync bridges throw the tagged error synchronously", () => {
-  test("requireUser and requireMembership on a context without the variables", () => {
-    const context = { get: () => undefined } as unknown as Parameters<typeof requireUser>[0];
-    let thrown: unknown;
-    try {
-      requireUser(context);
-    } catch (error) {
-      thrown = error;
+  test("a non-member renders 403 forbidden with server.group.noAccess (requireMembership / currentMembership)", async () => {
+    const owner = await createUser("Errors owner");
+    const stranger = await createUser("Errors stranger");
+    const householdId = await createPlainHousehold(owner, "Errors household");
+    for (const locale of LOCALES) {
+      const response = await get(`/api/households/${householdId}`, locale, { headers: { Cookie: stranger.cookie } });
+      expect(response.status).toBe(403);
+      expect(await response.json()).toEqual(FORBIDDEN_NO_ACCESS[locale]);
     }
-    expect(thrown).toBeInstanceOf(Unauthorized);
-    expect(thrown).toBeInstanceOf(ApiError);
-    expect(() => requireMembership(context)).toThrow(ApiError);
-  });
-
-  test("they return the variables when the middleware set them", () => {
-    const user = { id: "u1" };
-    const membership = { householdId: "h1", userId: "u1", role: "member" };
-    const context = {
-      get: (key: string) => (key === "user" ? user : key === "membership" ? membership : undefined),
-    } as unknown as Parameters<typeof requireUser>[0];
-    expect(requireUser(context)).toBe(user as never);
-    expect(requireMembership(context)).toBe(membership as never);
   });
 });

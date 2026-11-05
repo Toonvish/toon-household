@@ -5,14 +5,12 @@
  * §3.10).
  */
 import { type CategoryListResponse, CreateCategoryRequestSchema, UpdateCategoryRequestSchema } from "@toon/shared";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
-import { effectBridge } from "../../../http/bridge.ts";
 import { UNINTERRUPTIBLE } from "../../../http/middleware.ts";
 import { jsonBody, queryParam, requestLocale } from "../../../http/request.ts";
 import { created, json, noContent } from "../../../http/response.ts";
 import { CurrentFinanceParticipant } from "../http.ts";
-import { RequireFinanceParticipantLayer } from "../middleware.ts";
 import { FinanceCategories } from "../services/categories/categories.service.ts";
 import { FinanceCategoriesApi } from "./categories.api.ts";
 
@@ -69,11 +67,3 @@ export const categoriesHandlers = HttpApiBuilder.group(FinanceCategoriesApi, "fi
       UNINTERRUPTIBLE,
     ),
 );
-
-export const categoryRoutes = effectBridge(
-  FinanceCategoriesApi,
-  Layer.suspend(() => Layer.provideMerge(categoriesHandlers, RequireFinanceParticipantLayer)),
-  "/api/households/:householdId/finance/categories",
-);
-
-export default categoryRoutes;

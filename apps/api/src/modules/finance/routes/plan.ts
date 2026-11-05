@@ -18,15 +18,13 @@ import {
   UpdateIncomeRequestSchema,
   UpdatePlanRequestSchema,
 } from "@toon/shared";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
-import { effectBridge } from "../../../http/bridge.ts";
 import { CurrentUser } from "../../../http/context.ts";
 import { UNINTERRUPTIBLE } from "../../../http/middleware.ts";
 import { jsonBody, queryParams } from "../../../http/request.ts";
 import { created, json, noContent } from "../../../http/response.ts";
 import { CurrentFinanceParticipant } from "../http.ts";
-import { RequireFinanceParticipantLayer } from "../middleware.ts";
 import { FinanceAccrual } from "../services/plan/accrual.service.ts";
 import { FinancePlan } from "../services/plan/plan.service.ts";
 import { FinancePlanApi } from "./plan.api.ts";
@@ -173,11 +171,3 @@ export const financePlanHandlers = HttpApiBuilder.group(FinancePlanApi, "finance
       UNINTERRUPTIBLE,
     ),
 );
-
-export const planRoutes = effectBridge(
-  FinancePlanApi,
-  Layer.suspend(() => Layer.provideMerge(financePlanHandlers, RequireFinanceParticipantLayer)),
-  "/api/households/:householdId/finance/plan",
-);
-
-export default planRoutes;

@@ -1,5 +1,5 @@
 /**
- * An `HttpRouter` app served in memory, the test seam and the transport of the bridges (docs/EFFECT.md E9; plan
+ * An `HttpRouter` app served in memory, the test seam (`app` of `./app.ts`, `testHttpApp`; docs/EFFECT.md E9; plan
  * `docs/plans/e7-http-api.md` P1, P13).
  *
  * `inMemoryHandler(makeLayer)` returns `{ request, fetch }` over `HttpRouter.toWebHandler`, built on the FIRST call
@@ -15,7 +15,7 @@
  * 3. the layer is `makeLayer()` assembled with `Layer.provideMerge` over `AppLayer` and
  *    `BunHttpServer.layerHttpServices`, never `Layer.provide`: a service a handler yields must be in the OUTPUT for
  *    `toWebHandler` to drop it from the per-request requirements. The caller's layer brings the middleware layers it
- *    needs (`testHttpApp` and the bridges do);
+ *    needs (`appRoutesLayer()` and `testHttpApp` do);
  * 4. `request(input, init?)` resolves a relative path against `http://localhost`, as Hono's `app.request` did.
  */
 import { Effect, Layer, type Scope } from "effect";

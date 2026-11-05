@@ -15,7 +15,9 @@
  * clock (`lib/clock.ts`),
  * E4-T09 the finance middleware, `setup.ts`, `seed.ts` and the converted service files (probed one by one in a fresh
  * process; the eight finance route files die when imported first, the E3 shape, and are NOT entries: they join
- * `docs/open-work.md` O-6, plan e4 P13).
+ * `docs/open-work.md` O-6, plan e4 P13),
+ * E7-T11 the HTTP app (`src/http/app.ts`), the server (`src/http/server.ts`), the leaf middleware vocabulary
+ * (`src/http/middleware.ts`) and the two module `routes/index.ts` (plan `docs/plans/e7-http-api.md` P15).
  */
 import { describe, expect, test } from "bun:test";
 import { resolve } from "node:path";
@@ -95,11 +97,66 @@ describe("import order does not matter for the Effect composition", () => {
     "./src/modules/finance/services/plan/scheduler.ts",
     "./src/modules/finance/services/settings/settings.service.ts",
     "./src/modules/finance/services/tags/tags.service.ts",
+    // E7-T11: the HTTP app and server (Hono gone), the leaf middleware vocabulary and the two module route indexes
+    // (their hoisted API and handler lists; plan docs/plans/e7-http-api.md P15)
+    "./src/http/app.ts",
+    "./src/http/server.ts",
+    "./src/http/middleware.ts",
+    "./src/modules/recipe/routes/index.ts",
+    "./src/modules/finance/routes/index.ts",
   ]) {
     test(`${entry} loads first in a fresh process and the AppLayer builds after it`, async () => {
       const { code, stderr } = await importThenBuildInFreshProcess(entry);
       expect(stderr).not.toContain("before initialization");
       expect(stderr).not.toContain("ReferenceError");
+      expect(code).toBe(0);
+    });
+  }
+});
+
+/**
+ * E7-T11 (plan `docs/plans/e7-http-api.md` P15): the HTTP app's route layer builds after each of these files was
+ * imported FIRST. One fresh process per entry: the entry, then `./src/http/app.ts`, then one `app.request` of
+ * `/api/health`, whose first call builds the `AppLayer` and then `appRoutesLayer()` (every API, handler layer and
+ * middleware layer, the module routes and their assertion). A module-scope read in a TDZ, or a group without its
+ * handler, fails the request instead of answering 200.
+ */
+async function importThenServeInFreshProcess(specifier: string): Promise<{ code: number; stdout: string; stderr: string }> {
+  const script = [
+    `await import(${JSON.stringify(specifier)});`,
+    `const { app } = await import("./src/http/app.ts");`,
+    `const response = await app.request("/api/health");`,
+    `console.log("status=" + response.status);`,
+  ].join(" ");
+  const proc = Bun.spawn(["bun", "-e", script], {
+    cwd: API_ROOT,
+    env: { ...process.env, NODE_ENV: "test", SESSION_SECRET: "0123456789abcdef0123456789abcdef" },
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const [stdout, stderr, code] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  return { code, stdout, stderr };
+}
+
+describe("import order does not matter for the HTTP app's route layer", () => {
+  for (const entry of [
+    "./src/http/app.ts",
+    "./src/index.ts",
+    "./src/http/server.ts",
+    "./src/modules/recipe/routes/index.ts",
+    "./src/modules/finance/routes/index.ts",
+    "./src/modules/recipe/index.ts",
+    "./src/modules/finance/index.ts",
+  ]) {
+    test(`${entry} loads first in a fresh process and app.request("/api/health") answers 200 after it`, async () => {
+      const { code, stdout, stderr } = await importThenServeInFreshProcess(entry);
+      expect(stderr).not.toContain("before initialization");
+      expect(stderr).not.toContain("ReferenceError");
+      expect(stdout).toContain("status=200");
       expect(code).toBe(0);
     });
   }

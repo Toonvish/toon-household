@@ -4,8 +4,8 @@
  *
  * `httpMiddlewareLayer()` merges `ApiErrorBoundaryLayer` (`apps/api/src/http/response.ts`) with the session, household,
  * module and verified-e-mail layers of `apps/api/src/middleware/*.ts`. What it requires (`Sessions`, `Database`,
- * `VerifiedEmail`) comes from the one `AppLayer`: every in-memory handler (`inMemoryHandler`, the bridges of
- * `apps/api/src/http/bridge.ts`, `testHttpApp`) provides it with `Layer.provideMerge` under the route layer, so the
+ * `VerifiedEmail`) comes from the one `AppLayer`: the app (`appRoutesLayer()` in `apps/api/src/http/app.ts`, in memory
+ * or on the server) and `testHttpApp` provide it with `Layer.provideMerge` under the route layer, so the
  * middlewares are in the context when `HttpApiBuilder.layer` builds the routes. Finance's `RequireFinanceParticipant`
  * is not core and is provided by the finance module (E7-T09).
  *

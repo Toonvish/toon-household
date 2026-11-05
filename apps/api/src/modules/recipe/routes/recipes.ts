@@ -27,7 +27,6 @@ import { created, json, noContent } from "../../../http/response.ts";
 import { jsonBody, queryParams, rawJsonOrDie, webRequest } from "../../../http/request.ts";
 import { CurrentMembership, CurrentUser } from "../../../http/context.ts";
 import { UNINTERRUPTIBLE } from "../../../http/middleware.ts";
-import { effectBridge } from "../../../http/bridge.ts";
 import { parseCsvParam } from "../../../lib/http.ts";
 import { keepOnlySentKeys } from "../../../core/services/households/validation.ts";
 import { RecipeCollections } from "../services/recipes/collections.service.ts";
@@ -356,7 +355,3 @@ export const recipesHandlers = HttpApiBuilder.group(RecipeRecipesApi, "recipe.re
       UNINTERRUPTIBLE,
     ),
 );
-
-export const recipeRoutes = effectBridge(RecipeRecipesApi, recipesHandlers, "/api/households/:householdId/recipe");
-
-export default recipeRoutes;

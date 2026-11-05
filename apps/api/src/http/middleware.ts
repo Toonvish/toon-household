@@ -33,7 +33,7 @@
  * - E7-T03: none. Notes: the implementations are `RequireSessionLayer`, `OptionalSessionLayer`,
  *   `RequireHouseholdMemberLayer` / `AdminLayer` / `OwnerLayer`, `RequireModuleLayer`, `RequireVerifiedEmailLayer`
  *   (`apps/api/src/middleware/*.ts`), merged with `ApiErrorBoundaryLayer` by `httpMiddlewareLayer()`
- *   (`apps/api/src/http/middleware-layer.ts`); `effectBridge(api, handlers, mountedAt)` (`apps/api/src/http/bridge.ts`)
+ *   (`apps/api/src/http/middleware-layer.ts`); `effectBridge(api, handlers, mountedAt)` (the bridge, deleted by E7-T11)
  *   provides them itself, so a route file passes only its handler layer. `RequireModule` reads the group's `ModuleId`
  *   and treats a group without one as a defect: attach it through `householdModuleApi` only. The household tags
  *   resolve the household from `:householdId`, else `:inviteId` (no `via` option on the Effect side).

@@ -7,16 +7,16 @@
 // (1) In every file under apps/api/src that contains the marker: every `hono` / `hono/*` import line lies below it, and
 //     no identifier imported or declared (at top level) below it occurs above it (a property access `.name` and the
 //     text of a string literal are not occurrences).
-// (2) STRICT, behind `const STRICT = false` until E7-T11 sets it (the cutover leaves no unmarked Hono file): every file
+// (2) STRICT, behind `const STRICT`, which E7-T11 set to true (the cutover leaves no unmarked Hono file): every file
 //     under apps/api/src that imports `hono` contains the marker. Before E7-T11 the unconverted route files and
-//     src/index.ts import Hono without one, so the non-strict run only proves the scan sees the Hono files.
+//     src/index.ts imported Hono without one, so the non-strict run only proved the scan sees the Hono files.
 // E7-T12 deletes this file together with the sections.
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
-/** E7-T11 sets this to true (P17). */
-const STRICT = false;
+/** Set to true by E7-T11, the cutover (P17). */
+const STRICT = true;
 
 const ROOT = join(import.meta.dir, "..", "..", "..");
 const SRC = join(ROOT, "apps", "api", "src");

@@ -1,10 +1,11 @@
 /**
  * Households, memberships, roles, invites and module enabling — the core household
- * API (SPEC D1, D8, §2, §3). Mounted at /api/households by src/index.ts.
+ * API (SPEC D1, D8, §2, §3). Served at /api/households by src/http/app.ts.
  *
- * `householdRoutes` is the ONE Hono instance of this API. The sub-registrations
- * (invites.ts, members.ts, and M1-T09's modules.ts) add FULL-PATH routes to it
- * rather than being mounted with `app.route()` under a parameterised prefix.
+ * `HouseholdsApi` (households.api.ts) is the ONE API of /api/households: its four
+ * groups `invites`, `households`, `members`, `modules` carry FULL paths below the one
+ * prefix, and `householdsHandlers` (end of file) provides the four handler layers
+ * (invites.ts, members.ts, modules.ts and this file's `householdGroupHandlers`).
  *
  * Registration order is load-bearing (D8): the invite-token routes (`/invites/:token`,
  * `/invites/accept`) come FIRST, otherwise `/:householdId` would capture "invites".
@@ -37,7 +38,6 @@ import {
 } from "@toon/shared";
 import { Effect, Layer } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
-import { effectBridge } from "../../http/bridge.ts";
 import { CurrentMembership, CurrentUser } from "../../http/context.ts";
 import { UNINTERRUPTIBLE } from "../../http/middleware.ts";
 import { jsonBody } from "../../http/request.ts";
@@ -136,7 +136,3 @@ export const householdsHandlers = Layer.mergeAll(
   membersHandlers,
   modulesHandlers,
 );
-
-export const householdRoutes = effectBridge(HouseholdsApi, householdsHandlers, "/api/households");
-
-export default householdRoutes;

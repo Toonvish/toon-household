@@ -101,8 +101,8 @@ describe("manifest", () => {
     // The registry holds both modules since M3; finance-module.test.ts checks its manifest.
     expect(API_MODULES.map((module) => module.id)).toEqual(["recipe", "finance"]);
     expect(recipeModule.id).toBe("recipe");
-    expect(recipeModule.householdRouter).toBeDefined();
-    expect(recipeModule.userRouter).toBeDefined();
+    expect(recipeModule.householdApi).toBeDefined();
+    expect(recipeModule.userApi).toBeDefined();
     expect(Object.keys(recipeTables)).toHaveLength(17);
     expect(Object.keys(recipeModule.schema)).toEqual(Object.keys(recipeTables));
   });

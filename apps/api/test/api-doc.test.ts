@@ -1,7 +1,10 @@
 /**
  * Keeps docs/API.md honest (M7 plan decision 4): the rows of its endpoint tables
  * (`| METHOD | `/full/path` | Auth | Request | Response | Status |`) are compared with the
- * routes `app` really serves, and every `ERROR_CODES` value must be named in the doc.
+ * routes `app` really serves, and every `ERROR_CODES` value must be named in the doc. Since E7-T11
+ * the served routes are the endpoints of the `HttpApi` definitions the app registers
+ * (`httpApiRoutes()`, `src/http/app.ts`; plan `docs/plans/e7-http-api.md` P16), where they were
+ * Hono's `app.routes`; the `+verified` sweep still goes through `app.request`.
  *
  *   (a) every served route outside the module prefixes is documented;
  *   (b) every served route under a module prefix is documented once that module id is in
@@ -10,7 +13,8 @@
  *   (d) every ERROR_CODES value appears in docs/API.md as an inline-code span;
  *   (e) no row is documented twice.
  *
- * Method `ALL` (middleware registrations such as `app.use`) is not a route and is ignored.
+ * The module catch-alls and the fallback route are not endpoints and are not listed (as Hono's
+ * method-`ALL` middleware registrations were ignored).
  */
 import { ERROR_CODES } from "@toon/shared";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -21,13 +25,14 @@ import { setVerifiedEmailRequired } from "../src/core/services/auth/verifiedEmai
 import { db } from "../src/db/client.ts";
 import { runMigrations } from "../src/db/migrate.ts";
 import { users } from "../src/db/schema.ts";
+import { httpApiRoutes } from "../src/http/app.ts";
 import { app } from "../src/index.ts";
 import { createHousehold, createUser } from "./support/finance-harness.ts";
 
 /** Module ids whose routes must all have a row (grows with each module section). */
 const REQUIRED_MODULE_SECTIONS: string[] = ["recipe", "finance"];
 
-/** Rows that document a route `app.routes` cannot list (a derived URL of an existing route). */
+/** Rows that document a route `httpApiRoutes()` cannot list (a derived URL of an existing route). */
 const DOC_ONLY = ["GET /uploads/:filename.thumb.webp"];
 
 /** Path prefix of each module's routes, by module id. */
@@ -42,11 +47,7 @@ const doc = readFileSync(DOC_PATH, "utf8");
 const ROW = /^\| (GET|POST|PATCH|PUT|DELETE) \| `([^`]+)` \|/gm;
 const documentedRows: string[] = [...doc.matchAll(ROW)].map((match) => `${match[1]} ${match[2]}`);
 
-const served: string[] = [
-  ...new Set(
-    app.routes.filter((route) => route.method !== "ALL").map((route) => `${route.method} ${route.path}`),
-  ),
-];
+const served: string[] = [...new Set(httpApiRoutes())];
 
 /** The module id a route path belongs to, or null for the core. */
 function moduleOf(path: string): string | null {

@@ -39,7 +39,6 @@ import {
   UpdateShoppingItemRequestSchema,
   UpdateShoppingListRequestSchema,
 } from "@toon/shared";
-import { effectBridge } from "../../../http/bridge.ts";
 import { CurrentMembership, CurrentUser } from "../../../http/context.ts";
 import { UNINTERRUPTIBLE } from "../../../http/middleware.ts";
 import { jsonBody, queryParam, queryParams } from "../../../http/request.ts";
@@ -480,7 +479,3 @@ export const shoppingHandlers = HttpApiBuilder.group(RecipeShoppingApi, "recipe.
       UNINTERRUPTIBLE,
     ),
 );
-
-export const shoppingRoutes = effectBridge(RecipeShoppingApi, shoppingHandlers, "/api/households/:householdId/recipe/shopping-lists");
-
-export default shoppingRoutes;

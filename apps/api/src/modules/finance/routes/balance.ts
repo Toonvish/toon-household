@@ -4,14 +4,12 @@
  * `@toon/shared`'s `computeBreakdown` — this router only wires the request.
  */
 import { BalanceHistoryQuerySchema, BalanceQuerySchema, type BalanceHistoryResponse } from "@toon/shared";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
-import { effectBridge } from "../../../http/bridge.ts";
 import { UNINTERRUPTIBLE } from "../../../http/middleware.ts";
 import { queryParams } from "../../../http/request.ts";
 import { json } from "../../../http/response.ts";
 import { CurrentFinanceParticipant } from "../http.ts";
-import { RequireFinanceParticipantLayer } from "../middleware.ts";
 import { FinanceBalance } from "../services/ledger/balance.service.ts";
 import { FinanceBalanceApi } from "./balance.api.ts";
 
@@ -43,11 +41,3 @@ export const balanceHandlers = HttpApiBuilder.group(FinanceBalanceApi, "finance.
       UNINTERRUPTIBLE,
     ),
 );
-
-export const balanceRoutes = effectBridge(
-  FinanceBalanceApi,
-  Layer.suspend(() => Layer.provideMerge(balanceHandlers, RequireFinanceParticipantLayer)),
-  "/api/households/:householdId/finance/balance",
-);
-
-export default balanceRoutes;

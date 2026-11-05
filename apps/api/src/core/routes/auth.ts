@@ -1,7 +1,7 @@
 /**
  * OWNER: auth agent.
  *
- * Mounted at /api/auth (see src/index.ts). Handles email+password registration
+ * Served at /api/auth (see src/http/app.ts). Handles email+password registration
  * and login, Bun.password (argon2id) hashing, opaque DB sessions with a 30-day
  * sliding cookie, and OAuth (Google + GitHub) via `arctic`.
  *
@@ -44,7 +44,6 @@ import {
   setOAuthCookies,
   setSessionCookie,
 } from "../../http/cookies.ts";
-import { effectBridge } from "../../http/bridge.ts";
 import { UNINTERRUPTIBLE } from "../../http/middleware.ts";
 import { clientIp, header, queryParam, rawJsonOr, requestLocale } from "../../http/request.ts";
 import { created, json, noContent, redirect } from "../../http/response.ts";
@@ -800,7 +799,3 @@ export const authHandlers = HttpApiBuilder.group(AuthApi, "auth", (handlers) =>
       UNINTERRUPTIBLE,
     )
 );
-
-export const authRoutes = effectBridge(AuthApi, authHandlers, "/api/auth");
-
-export default authRoutes;

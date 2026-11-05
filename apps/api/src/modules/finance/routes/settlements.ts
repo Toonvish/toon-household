@@ -5,14 +5,12 @@
  * same reader `GET .../transactions?splitMode=SETTLEMENT` would give.
  */
 import { CreateSettlementRequestSchema, FinancePaginationQuerySchema as PaginationQuerySchema } from "@toon/shared";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
-import { effectBridge } from "../../../http/bridge.ts";
 import { UNINTERRUPTIBLE } from "../../../http/middleware.ts";
 import { jsonBody, queryParams } from "../../../http/request.ts";
 import { created, json } from "../../../http/response.ts";
 import { CurrentFinanceParticipant } from "../http.ts";
-import { RequireFinanceParticipantLayer } from "../middleware.ts";
 import { FinanceSettlements } from "../services/ledger/settlements.service.ts";
 import { FinanceTransactions } from "../services/ledger/transactions.service.ts";
 import { FinanceSettlementsApi } from "./settlements.api.ts";
@@ -55,11 +53,3 @@ export const settlementsHandlers = HttpApiBuilder.group(FinanceSettlementsApi, "
       UNINTERRUPTIBLE,
     ),
 );
-
-export const settlementRoutes = effectBridge(
-  FinanceSettlementsApi,
-  Layer.suspend(() => Layer.provideMerge(settlementsHandlers, RequireFinanceParticipantLayer)),
-  "/api/households/:householdId/finance/settlements",
-);
-
-export default settlementRoutes;

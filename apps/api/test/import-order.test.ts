@@ -42,6 +42,13 @@ describe("import order does not matter", () => {
     "./scripts/legacy/balance.ts",
     // M3b-T09: the claim invites reach the core's invites service (and through it the module registry)
     "./scripts/legacy/claims.ts",
+    // E7-T11: the HTTP app and server (Hono gone), the leaf middleware vocabulary and the two module route indexes
+    // (their hoisted API and handler lists; plan docs/plans/e7-http-api.md P15)
+    "./src/http/app.ts",
+    "./src/http/server.ts",
+    "./src/http/middleware.ts",
+    "./src/modules/recipe/routes/index.ts",
+    "./src/modules/finance/routes/index.ts",
   ]) {
     test(`${entry} loads first in a fresh process`, async () => {
       const { code, stderr } = await importInFreshProcess(entry);

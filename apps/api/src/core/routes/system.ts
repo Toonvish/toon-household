@@ -20,8 +20,8 @@
  * `<name>.thumb.webp` is the list thumbnail of `<name>` and is generated here on first request (the `Thumbnails`
  * service, services/media/thumbnails.ts).
  *
- * `systemRoutes` (end of file) is the transitional bridge (P1) `src/index.ts` mounts with `app.route("/", …)` where the
- * two inline routes stood; E7-T11 serves `SystemApi` directly and deletes it.
+ * `src/http/app.ts` serves `SystemApi` with `systemHandlers` (E7-T11), first among the APIs, where the two inline routes
+ * stood in the Hono app.
  */
 import { existsSync } from "node:fs";
 import { join, normalize } from "node:path";
@@ -29,7 +29,6 @@ import { Effect, Layer } from "effect";
 import { HttpServerRequest } from "effect/http";
 import { HttpApiBuilder } from "effect/http-api";
 import { AppConfig } from "../../config.ts";
-import { effectBridge } from "../../http/bridge.ts";
 import { UNINTERRUPTIBLE } from "../../http/middleware.ts";
 import { pathOf, queryParam } from "../../http/request.ts";
 import { errorResponse, fromWeb, json } from "../../http/response.ts";
@@ -111,5 +110,3 @@ export const uploadsHandlers = HttpApiBuilder.group(SystemApi, "uploads", (handl
 
 /** Both groups of `SystemApi`. */
 export const systemHandlers = Layer.mergeAll(healthHandlers, uploadsHandlers);
-
-export const systemRoutes = effectBridge(SystemApi, systemHandlers, "");

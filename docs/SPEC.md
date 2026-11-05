@@ -176,13 +176,19 @@ directories knows its tables, routes or screens except through the manifest.
 export const MODULE_IDS = ["recipe", "finance"] as const
 export type ModuleId = (typeof MODULE_IDS)[number]
 
-// apps/api/src/modules/types.ts (since E2: the hooks are Effects; docs/EFFECT.md E7)
+// apps/api/src/modules/types.ts (since E2: the hooks are Effects; docs/EFFECT.md E7; since E7 the routes are HttpApis, E8)
 type HookError = ApiErrorFamily | DatabaseError   // a refusal of the API error family, or a database failure
+type ModuleHttpApi = {                             // a module's HTTP surface (since E7)
+  readonly apis: ReadonlyArray<HttpApi.Any>         // one HttpApi per route file, each wrapping its one HttpApiGroup
+  readonly handlers: Layer<any, never, any>        // ONE layer with the handlers of every group of `apis`
+}
 type ModuleRequirements = InfraServices | CoreServices   // what a module layer may need (since E3)
 export interface ApiModule<Services = never> {   // Services: what the module's own layer provides (since E3)
   id: ModuleId
-  householdRouter?: Hono          // mounted at /api/households/:householdId/<id>, after requireModule(id)
-  userRouter?: Hono               // mounted at /api/<id> (user-scoped, e.g. recipe cards)
+  householdApi?: ModuleHttpApi    // served at /api/households/:householdId/<id>/… (since E7): HttpApis built with
+                                  // householdModuleApi(id, …), which runs ApiErrorBoundary -> RequireSession ->
+                                  // RequireHouseholdMember -> RequireModule before the module's own chain
+  userApi?: ModuleHttpApi         // served at /api/<id>/… (user-scoped, e.g. recipe cards): userModuleApi(id, …)
   schema: Record<string, Table>   // drizzle tables, all prefixed `<id>_`
   healthFeatures?(): Effect<Record<string, boolean>, never, AppConfig>   // merged into /api/health features,
                                               // in module order after the core's verifiedEmailRequired (an Effect since E3)
@@ -250,8 +256,9 @@ Rules:
   and is rendered by `SettingsPage` since M3. The core reads `API_MODULES` /
   `WEB_MODULES` inside functions only, because several services sit in an import cycle with the
   registry (`session.ts` → `auth/users.ts` → `households/modules.ts` → `modules/index.ts` → a
-  manifest → its routers → `session.ts`; `import-order.test.ts` loads each real entry point first in
-  a fresh process).
+  manifest → its route files → `session.ts`; `import-order.test.ts` loads each real entry point first in
+  a fresh process). Since E7 a manifest reads its `householdApi.apis` through a getter and its `handlers` through
+  `Layer.suspend` over hoisted functions of the module's `routes/index.ts`, never at module scope.
 - The hooks became Effects in E2 (docs/EFFECT.md E7; plan `docs/plans/e2-api-core-services.md` P11). A hook reads
   the transaction it runs in from the `Database` service's current executor, not from a parameter.
   Both manifests implement `ApiModule` directly (recipe since E3, finance since E4); the Promise-based contract
@@ -276,14 +283,23 @@ Rules:
   Einkauf the summed open items of the shopping lists (nothing while any list's count is unknown, never
   a flashing `0`); finance declares none. The components live in the module's `nav-trailing.tsx`, a
   static manifest import, so they obey the shell-free graph rule below.
-- Module routers do NOT apply `requireSession()` or `requireHouseholdRole("member")`: `mountModules`
-  already ran them (plus `requireModule(id)`) for a `householdRouter`. A module router adds
-  `requireVerifiedEmail()` itself and `requireHouseholdRole("admin")` on a route that needs it; a
-  `userRouter` runs `requireSession()` itself and is not behind `requireModule` (a user-owned row,
-  e.g. a recipe card, follows its owner, not a household). A module may narrow access further with its
-  own middleware: finance's `requireFinanceParticipant()` (every ledger router, every method) answers a
-  household member without one of the two slots `403 finance_not_participant`, and carries the participant
-  in a module-local `ContextVariableMap` augmentation, so the core's `AppVariables` stays module-free.
+- Module routes are `HttpApi`s since E7 (docs/EFFECT.md E7, E8; plan `docs/plans/e7-http-api.md` P14, deviation D7:
+  a module contributes `HttpApi`s that wrap its groups, one per route file `X.api.ts` beside its handlers `X.ts`,
+  plus one handler layer). A module group does NOT attach `RequireSession` or `RequireHouseholdMember`:
+  `householdModuleApi(id, api)` (`apps/api/src/http/middleware.ts`) prefixes `/api/households/:householdId/<id>` and
+  attaches `ApiErrorBoundary` → `RequireSession` → `RequireHouseholdMember` → `RequireModule` as the API chain, and
+  `moduleRoutesLayer` (`apps/api/src/modules/mount.ts`) asserts at build that every household endpoint runs them
+  outermost and lies below the prefix, registers each API with the module's `handlers`, and adds the catch-all that
+  answers an unknown path below the prefix through the same checks (401, 403, `404 module_disabled`, then the
+  route-unknown 404). A module group attaches `RequireVerifiedEmail` itself and an endpoint
+  `RequireHouseholdAdmin` where it needs it (`chain(...)`, in execution order); a `userApi` is built with
+  `userModuleApi(id, api)` (prefix `/api/<id>`, the boundary only), runs `RequireSession` itself and is not behind
+  `RequireModule` (a user-owned row, e.g. a recipe card, follows its owner, not a household). A module may narrow
+  access further with its own `HttpApiMiddleware`: finance's `RequireFinanceParticipant` (every ledger group, every
+  method; `apps/api/src/modules/finance/http.ts`, implemented by `RequireFinanceParticipantLayer`, which the
+  module's `handlers` provide) answers a household member without one of the two slots
+  `403 finance_not_participant`, and provides the participant as the module's own service
+  `CurrentFinanceParticipant`, so the core's request services (`apps/api/src/http/context.ts`) stay module-free.
   The only finance route a non-participant reaches is `GET …/finance/participants`.
 - A module's web manifest must keep its static import graph free of the shell and the registry:
   `modules/<id>/index.ts`, `routes.tsx`, `HomeCard.tsx` and the catalogs import neither `@/modules`
@@ -292,8 +308,8 @@ Rules:
   test imports the manifest first). The shell-free roots of the route tree live in
   `apps/web/src/route-roots.tsx`; `AppLayout` (`RequireAuth` + the shell) is attached to `appRoute`
   in `router.tsx` with `appRoute.update`.
-- `requireModule(id)` runs after `requireHouseholdRole("member")` and reads
-  `household_modules`; the web shell reads `household.modules` from `GET /api/households/:id`
+- `RequireModule` runs after `RequireHouseholdMember`, reads the module id from the group's `ModuleId` annotation
+  (`householdModuleApi` sets it) and reads `household_modules`; the web shell reads `household.modules` from `GET /api/households/:id`
   (and from `/api/auth/me`, which is persisted).
 - A `household_modules` row IS the enabled state. `POST` / `DELETE
   /api/households/:householdId/modules/:moduleId` (owner/admin, verified e-mail) upsert or delete

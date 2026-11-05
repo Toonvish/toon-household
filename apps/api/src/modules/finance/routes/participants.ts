@@ -17,15 +17,13 @@ import {
   UpdateFinanceDisplayNameRequestSchema,
   UpdateFinanceParticipantsRequestSchema,
 } from "@toon/shared";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 import { CurrentMembership, CurrentUser } from "../../../http/context.ts";
-import { effectBridge } from "../../../http/bridge.ts";
 import { UNINTERRUPTIBLE } from "../../../http/middleware.ts";
 import { jsonBody } from "../../../http/request.ts";
 import { json } from "../../../http/response.ts";
 import { CurrentFinanceParticipant } from "../http.ts";
-import { RequireFinanceParticipantLayer } from "../middleware.ts";
 import { FinanceParticipants } from "../services/participants/participants.service.ts";
 import { FinanceParticipantsApi } from "./participants.api.ts";
 
@@ -93,10 +91,4 @@ export const participantsHandlers = HttpApiBuilder.group(FinanceParticipantsApi,
       }),
       UNINTERRUPTIBLE,
     ),
-);
-
-export const participantRoutes = effectBridge(
-  FinanceParticipantsApi,
-  Layer.suspend(() => Layer.provideMerge(participantsHandlers, RequireFinanceParticipantLayer)),
-  "/api/households/:householdId/finance/participants",
 );

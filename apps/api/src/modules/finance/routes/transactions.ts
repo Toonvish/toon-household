@@ -16,14 +16,12 @@ import {
   TransactionSummaryQuerySchema,
   UpdateTransactionRequestSchema,
 } from "@toon/shared";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
-import { effectBridge } from "../../../http/bridge.ts";
 import { UNINTERRUPTIBLE } from "../../../http/middleware.ts";
 import { jsonBody, queryParam, queryParams } from "../../../http/request.ts";
 import { created, json, noContent } from "../../../http/response.ts";
 import { CurrentFinanceParticipant } from "../http.ts";
-import { RequireFinanceParticipantLayer } from "../middleware.ts";
 import { FinanceTransactions } from "../services/ledger/transactions.service.ts";
 import { FinanceSummary } from "../services/ledger/summary.service.ts";
 import { FinanceTransactionsApi } from "./transactions.api.ts";
@@ -102,11 +100,3 @@ export const transactionsHandlers = HttpApiBuilder.group(FinanceTransactionsApi,
       UNINTERRUPTIBLE,
     ),
 );
-
-export const transactionRoutes = effectBridge(
-  FinanceTransactionsApi,
-  Layer.suspend(() => Layer.provideMerge(transactionsHandlers, RequireFinanceParticipantLayer)),
-  "/api/households/:householdId/finance/transactions",
-);
-
-export default transactionRoutes;

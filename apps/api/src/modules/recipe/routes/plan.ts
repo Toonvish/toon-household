@@ -26,13 +26,12 @@ import { created, json, noContent } from "../../../http/response.ts";
 import { jsonBody, queryParams } from "../../../http/request.ts";
 import { CurrentMembership, CurrentUser } from "../../../http/context.ts";
 import { UNINTERRUPTIBLE } from "../../../http/middleware.ts";
-import { effectBridge } from "../../../http/bridge.ts";
 import { RecipePlanApi } from "./plan.api.ts";
 import { MealPlan } from "../services/plan/plan.service.ts";
 
 // A confirmed address for every WRITE below (GETs pass through) — see
 // middleware/verifiedEmail.ts. Mounted once so a route added later is gated by
-// default, same as recipeRoutes.
+// default, same as the recipes group.
 export const recipePlanHandlers = HttpApiBuilder.group(RecipePlanApi, "recipe.plan", (handlers) =>
   handlers
     /**
@@ -118,5 +117,3 @@ export const recipePlanHandlers = HttpApiBuilder.group(RecipePlanApi, "recipe.pl
       UNINTERRUPTIBLE,
     ),
 );
-
-export const planRoutes = effectBridge(RecipePlanApi, recipePlanHandlers, "/api/households/:householdId/recipe/plan");

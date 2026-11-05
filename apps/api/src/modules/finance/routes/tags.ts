@@ -4,14 +4,12 @@
  * is created solely as a side effect of attaching it to a transaction.
  */
 import { type FinanceTagListResponse as TagListResponse, FinanceUpdateTagRequestSchema as UpdateTagRequestSchema, TagQuerySchema } from "@toon/shared";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
-import { effectBridge } from "../../../http/bridge.ts";
 import { UNINTERRUPTIBLE } from "../../../http/middleware.ts";
 import { jsonBody, queryParams } from "../../../http/request.ts";
 import { json, noContent } from "../../../http/response.ts";
 import { CurrentFinanceParticipant } from "../http.ts";
-import { RequireFinanceParticipantLayer } from "../middleware.ts";
 import { FinanceTags } from "../services/tags/tags.service.ts";
 import { FinanceTagsApi } from "./tags.api.ts";
 
@@ -53,11 +51,3 @@ export const financeTagsHandlers = HttpApiBuilder.group(FinanceTagsApi, "finance
       UNINTERRUPTIBLE,
     ),
 );
-
-export const tagRoutes = effectBridge(
-  FinanceTagsApi,
-  Layer.suspend(() => Layer.provideMerge(financeTagsHandlers, RequireFinanceParticipantLayer)),
-  "/api/households/:householdId/finance/tags",
-);
-
-export default tagRoutes;

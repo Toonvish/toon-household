@@ -37,9 +37,6 @@
  *
  * Import cycle (P15): `moduleRoutesLayer` is a hoisted function; the module APIs, their handlers and the middleware
  * tags are read when the layer is BUILT, never at import.
- *
- * The Hono section at the end (until E7-T12 deletes it) keeps `mountModules`, which mounts the `householdRouter` /
- * `userRouter` fields until E7-T11 switches `src/index.ts` over.
  */
 import type { ModuleId as SharedModuleId } from "@toon/shared";
 import { Effect, Layer } from "effect";
@@ -231,30 +228,4 @@ function moduleLayer(module: ApiModule) {
  */
 export function moduleRoutesLayer(modules: readonly ApiModule[]): Layer.Layer<never, never, HttpRouter.HttpRouter> {
   return Layer.mergeAll(Layer.empty, ...modules.map(moduleLayer)) as Layer.Layer<never, never, HttpRouter.HttpRouter>;
-}
-
-/* Hono (E7 transition): E7-T12 deletes this section */
-import type { Hono } from "hono";
-import type { AppEnv } from "../lib/types.ts";
-import { requireHouseholdRole } from "../middleware/household.ts";
-import { requireModule } from "../middleware/module.ts";
-import { requireSession } from "../middleware/session.ts";
-
-/**
- * The Hono mount (until E7-T11): `userRouter` at `/api/<id>`, `householdRouter` at `/api/households/:householdId/<id>`
- * behind `requireSession()` → `requireHouseholdRole("member")` → `requireModule(id)`. A module's userRouter does its
- * own `requireSession()`.
- */
-export function mountModules(app: Hono<AppEnv>, modules: readonly ApiModule[]): void {
-  for (const module of modules) {
-    if (module.userRouter) {
-      app.route(`/api/${module.id}`, module.userRouter);
-    }
-    if (module.householdRouter) {
-      // Hono's `/*` also matches the bare base path, so one registration covers both.
-      const base = `/api/households/:householdId/${module.id}`;
-      app.use(`${base}/*`, requireSession(), requireHouseholdRole("member"), requireModule(module.id));
-      app.route(base, module.householdRouter);
-    }
-  }
 }

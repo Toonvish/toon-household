@@ -16,14 +16,12 @@ import type { ModuleId } from "@toon/shared";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import type { Effect, Layer } from "effect";
 import type { HttpApi } from "effect/http-api";
-import type { Hono } from "hono";
 import type { AppConfig } from "../config.ts";
 import type { CoreServices } from "../core/services/layer.ts";
 import type { Database } from "../db/client.ts";
 import type { Database as DatabaseService } from "../db/database.ts";
 import type { InfraServices } from "../infra.ts";
 import type { ApiErrorFamily, DatabaseError } from "../lib/errors.ts";
-import type { AppEnv } from "../lib/types.ts";
 
 /** The transaction handle drizzle passes to `db.transaction(async (tx) => …)`. */
 export type DbTransaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
@@ -99,21 +97,17 @@ export type ModuleLayer<Services = never> = Layer.Layer<Services, never, ModuleR
 export interface ApiModule<Services = never> {
   id: ModuleId;
   /**
-   * Mounted at `/api/households/:householdId/<id>` after
-   * `requireSession()` → `requireHouseholdRole("member")` → `requireModule(id)`.
-   * Every by-id lookup here MUST be scoped by `membership.householdId` and answer 404
+   * The household routes as `HttpApi`s built with `householdModuleApi(id, …)`, served at
+   * `/api/households/:householdId/<id>/…` behind `ApiErrorBoundary` → `RequireSession` → `RequireHouseholdMember` →
+   * `RequireModule` (the API chain `householdModuleApi` attaches; `moduleRoutesLayer` asserts it at build).
+   * Every by-id lookup here MUST be scoped by the membership's `householdId` (`CurrentMembership`) and answer 404
    * `not_found` otherwise (D8; see the header of middleware/household.ts).
    */
-  householdRouter?: Hono<AppEnv>;
-  /** Mounted at `/api/<id>` — user-scoped routes (e.g. recipe cards). */
-  userRouter?: Hono<AppEnv>;
-  /**
-   * The household routes as `HttpApi`s (E7-T10, beside `householdRouter` until E7-T11 removes the router), served at
-   * `/api/households/:householdId/<id>/…` behind boundary → session → member → module (`householdModuleApi`), with
-   * the same D8 rule: every by-id lookup is scoped by the membership's `householdId`.
-   */
   householdApi?: ModuleHttpApi;
-  /** The user-scoped routes as `HttpApi`s (`userModuleApi`, `/api/<id>/…`; E7-T10, beside `userRouter`). */
+  /**
+   * The user-scoped routes (e.g. recipe cards) as `HttpApi`s built with `userModuleApi(id, …)`, served at
+   * `/api/<id>/…` behind `ApiErrorBoundary` only: the API runs `RequireSession` itself.
+   */
   userApi?: ModuleHttpApi;
   /** The module's drizzle tables, every one prefixed `<id>_` (SPEC D7). */
   schema: Record<string, SQLiteTable>;

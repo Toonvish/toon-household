@@ -65,29 +65,35 @@ Index and CHECK names carry the prefix too (SQLite index names are global).
   transaction row (`409 finance_participant_in_use`, ADR 0004); a seated participant who leaves the household is vetoed
   the same way (`409 member_has_ledger`) and otherwise loses the seat. The two rules are spelled out in section 4a.
 
-### 1.3 API: routers, middleware, mount
+### 1.3 API: route files, middleware, mount
 
-`financeHouseholdRouter` (`apps/api/src/modules/finance/routes/index.ts`) is mounted by the core's `mountModules` at
-`/api/households/:householdId/finance/`, behind `requireSession()` then `requireHouseholdRole("member")` then
-`requireModule("finance")` (a disabled module is `404 module_disabled`). Finance has no user-scoped router. Every ledger
-router adds `requireVerifiedEmail()` then `requireFinanceParticipant()` for every method. The full route table with
+Since E7 (docs/EFFECT.md E7, E8; SPEC §2; plan `docs/plans/e7-http-api.md` P2, P14) every route file is two files:
+`routes/X.api.ts`, the definition (an `HttpApiGroup` wrapped in its own `HttpApi` by `householdModuleApi("finance", …)`, a
+leaf), and `routes/X.ts`, its handler layer (`HttpApiBuilder.group(...)`, one `Effect.fn` per endpoint).
+`apps/api/src/modules/finance/routes/index.ts` lists the seven APIs (`financeHouseholdApis()`) and their handler layer over
+`RequireFinanceParticipantLayer` (`financeHouseholdHandlers()`); the manifest reads both lazily as its `householdApi`, which the
+core's `moduleRoutesLayer` serves at `/api/households/:householdId/finance/`, behind `ApiErrorBoundary`, `RequireSession`,
+`RequireHouseholdMember` and `RequireModule` (a disabled module is `404 module_disabled`). Finance has no user API. Every
+ledger group attaches `RequireVerifiedEmail` then `RequireFinanceParticipant` for every method. The full route table with
 request and response shapes is the finance section of `docs/API.md`.
 
-| Sub-router | File | Mount | Gate |
+| Group | Files | Prefix | Gate |
 | --- | --- | --- | --- |
-| participants | `apps/api/src/modules/finance/routes/participants.ts` | `/participants` | `GET` any member; `PUT` verified + admin; `PATCH /me` and `PATCH /:userId` verified + participant |
-| transactions | `apps/api/src/modules/finance/routes/transactions.ts` | `/transactions` | verified + participant (`/summary` is declared before `/:transactionId`) |
-| categories | `apps/api/src/modules/finance/routes/categories.ts` | `/categories` | verified + participant |
-| tags | `apps/api/src/modules/finance/routes/tags.ts` | `/tags` | verified + participant |
-| plan | `apps/api/src/modules/finance/routes/plan.ts` | `/plan` (items, incomes, preview, run, recalculate, runs) | verified + participant |
-| balance | `apps/api/src/modules/finance/routes/balance.ts` | `/balance` (and `/history`) | verified + participant |
-| settlements | `apps/api/src/modules/finance/routes/settlements.ts` | `/settlements` | verified + participant |
+| participants | `apps/api/src/modules/finance/routes/participants.api.ts`, `participants.ts` | `/participants` | `GET` any member; `PUT` verified + admin; `PATCH /me` and `PATCH /:userId` verified + participant |
+| transactions | `apps/api/src/modules/finance/routes/transactions.api.ts`, `transactions.ts` | `/transactions` | verified + participant (`/summary` beside `/:transactionId`: the static segment wins by specificity) |
+| categories | `apps/api/src/modules/finance/routes/categories.api.ts`, `categories.ts` | `/categories` | verified + participant |
+| tags | `apps/api/src/modules/finance/routes/tags.api.ts`, `tags.ts` | `/tags` | verified + participant |
+| plan | `apps/api/src/modules/finance/routes/plan.api.ts`, `plan.ts` | `/plan` (items, incomes, preview, run, recalculate, runs) | verified + participant |
+| balance | `apps/api/src/modules/finance/routes/balance.api.ts`, `balance.ts` | `/balance` (and `/history`) | verified + participant |
+| settlements | `apps/api/src/modules/finance/routes/settlements.api.ts`, `settlements.ts` | `/settlements` | verified + participant |
 
-`requireFinanceParticipant()` (`apps/api/src/modules/finance/middleware.ts`) is a hoisted function declaration (an
-API import cycle, see `CLAUDE.md`) and sets a module-local `ContextVariableMap` entry; ported route bodies import
-`requireFinanceParticipantContext as requireHouseholdContext`, so they stay F's (since E4 the route files read the context
-through the service-free effect `currentFinanceParticipant` and the services through the runtime; the synchronous
-`requireFinanceParticipantContext` survives as a bridge for `apps/api/test/finance-participants.test.ts`, see below). The
+`RequireFinanceParticipant` (the `HttpApiMiddleware` tag, with the service `CurrentFinanceParticipant`, in the leaf
+`apps/api/src/modules/finance/http.ts`) is implemented by `RequireFinanceParticipantLayer` (`apps/api/src/modules/finance/middleware.ts`):
+the gate asks `FinanceParticipants.participantSlotOf` for the membership `RequireHouseholdMember` provided, refuses with the family's
+`ApiFailure` (`403 finance_not_participant`) and provides the seat as `CurrentFinanceParticipant`, which the handlers yield; the
+core's request services stay module-free. The Hono middleware `requireFinanceParticipant()` and its `ContextVariableMap`
+augmentation sit in the file's Hono section until E7-T12 deletes it; the synchronous `requireFinanceParticipantContext` there survives
+as a bridge for `apps/api/test/finance-participants.test.ts`, see below. The
 services mirror F's `services/` one to one under `apps/api/src/modules/finance/services/{ledger,categories,tags,plan}/`, plus
 `participants/`, `settings/` and `setup/` (replacing F's `households/` services) and `support.ts` (`escapeLikePattern`, the `DbLike` /
 `Tx` types; the Promise helper `withTransaction` went with `apps/api/scripts/finance-import-xlsx.ts` at E5, whose write path now runs inside
@@ -96,8 +102,8 @@ services mirror F's `services/` one to one under `apps/api/src/modules/finance/s
 **Services (E4, `docs/plans/e4-finance-services.md`).** Every file that does I/O is a `Context.Service` with a static `layer`;
 the pure helpers (`services/categories/defaults.ts`, `services/plan/period-scan.ts`, `services/ledger/dateRange.ts`,
 `services/ledger/aggregateExclusion.ts`, `services/support.ts`, `lib/clock.ts`) stay plain modules. Method names are the old
-exported function names without the leading `db` argument; every handler of `routes/*.ts` is a `(c) =>
-runtime.runPromise(Effect.gen(...))` over them and a refusal is `return yield*` a member of the API error family (a dedicated
+exported function names without the leading `db` argument; every handler of `routes/*.ts` yields them inside its `Effect.fn`
+(until E7 a `(c) => runtime.runPromise(Effect.gen(...))` on Hono) and a refusal is `return yield*` a member of the API error family (a dedicated
 code is an `ApiFailure`, F gotcha 48). The manifest is an `ApiModule<FinanceServices>`; its `layer` is
 `Layer.suspend(financeLayer)` (`apps/api/src/modules/finance/layer.ts`), the areas nested by dependency (`setup` and `plan` over
 `ledger` over `participants` and `categories`), merged by the runtime into the one `AppLayer`.
@@ -388,7 +394,7 @@ carries it), `adapted` (binding with a named H change), `superseded` (replaced; 
 | FD1 | Exactly two people, four fixed kinds: `member_slot` in {1,2} unique per household, symmetric storage (`payer_id` + `split_mode`), the four UI kinds a projection never stored, no `beneficiary_id`, no percentages, no `shares` table, no N-person algorithm; slot 1 anchors the balance sign; placeholders (slot 2 without a login) turn into accounts through a claim invite, in place | adapted | SPEC D3: the seats are `finance_participants` by user id (unique slot index + CHECK), other household members are non-participants; placeholders by ADR 0006 (slot 2 only, core `users` row without e-mail, claim invite by registration). The N-person ledger stays out. Section 1.2 and 1.9. |
 | FD2 | 21 default categories per household, stable slugs, label from the catalog while `custom_label` is null; `fixkosten` is system-owned (not deletable, not renamable); tags are normalised rows | module | `finance_categories`, `finance_tags`, `finance_transaction_tags`; `apps/api/src/modules/finance/services/categories/defaults.ts`; seeded by `onHouseholdCreated`. |
 | FD3 | Fixkostenplan with income-proportional monthly booking: one rounding in one integer expression, the payer's share is the complement, only the other person's share is booked as `OTHER_ONLY`, booked periods are immutable, corrections are adjustment rows with their own `external_key` | module | Section 1.9; `apps/api/src/modules/finance/services/plan/`; `plan:run`. |
-| FD4 | Auth: e-mail and password only, argon2id, opaque session ids, `toon_session` cookie, no OAuth, no e-mail confirmation, second person via invite token, a third join is `409 household_full` | superseded | SPEC D4: the core's auth (R's: OAuth with explicit linking, the verified-e-mail gate, signed uploads); finance users migrate with their hashes. The module has no `household_full` (D1: N members); the two-person limit is the seats. Every ledger router runs `requireVerifiedEmail()`. |
+| FD4 | Auth: e-mail and password only, argon2id, opaque session ids, `toon_session` cookie, no OAuth, no e-mail confirmation, second person via invite token, a third join is `409 household_full` | superseded | SPEC D4: the core's auth (R's: OAuth with explicit linking, the verified-e-mail gate, signed uploads); finance users migrate with their hashes. The module has no `household_full` (D1: N members); the two-person limit is the seats. Every ledger group runs `RequireVerifiedEmail`. |
 | FD5 | i18n de/en through the typed catalog layer, `en` typed as `LocaleCatalog<typeof de>`, no `i18n:check` script; the German texts are written down and not reinvented | adapted | SPEC D10: finance namespaces are `finance.*` and join the core registry through `apps/web/src/modules/catalogs.ts`; German values byte-identical to F; `bun run i18n:check` exists (a core gate) and scans the module; new German only in `participants.{de,en}.ts` and `NEW_GERMAN` (`scripts/i18n-check.ts`). |
 | FD6 | PWA with offline capture: four blocks together (`setMutationDefaults`, `networkMode: "offlineFirst"`, persist only paused mutations of an allow-list, a call-site `mutationId` claimed by `INSERT ... ON CONFLICT DO NOTHING`) | adapted | SPEC D9: the namespace is `["toon","finance","tx"]`, the allow-list is assembled from the manifest, the one SW rule is `NetworkOnly`. Section 1.7. |
 | FD7 | Docker single origin plus a SHARED Caddy (the `toon-edge` stack, network alias `finance-app`); `PUBLIC_API_URL=""`, no CORS entry | superseded | SPEC D11: one image, one compose stack that carries its own Caddy; `PUBLIC_API_URL=""` still holds (F gotcha 50). `docs/deployment.md`. |
@@ -406,7 +412,7 @@ F's "Konventionen":
 | # | F convention | Status | H |
 | --- | --- | --- | --- |
 | FC1 | Errors are `{ error: { code, message, details? } }`; `code` comes from `ERROR_CODES` and is wire contract, never renamed; `message` is rendered in the negotiated locale and nobody branches on it; call sites pass an `ErrorText` key, never a sentence; `Error.message` stays English | core | The core envelope and server catalog (SPEC D8, D10). |
-| FC2 | Auth checks only as router middleware, never a membership query inline in a handler | adapted | The mount chain (session, household role, module) plus `requireVerifiedEmail()` and `requireFinanceParticipant()` per router. |
+| FC2 | Auth checks only as router middleware, never a membership query inline in a handler | adapted | The module chain of `householdModuleApi` (session, household member, module) plus `RequireVerifiedEmail` and `RequireFinanceParticipant` per group (E7). |
 | FC3 | IDs `crypto.randomUUID()`, timestamps integer unix ms (ISO on the wire), periods `YYYY-MM` text with a CHECK | core | SPEC D7. |
 | FC4 | Money integer signed cents (`...Cents` on the wire); the only forbidden amount is 0; negative amounts are valid and meaningful (refunds, credits, corrections) | module | Section 1.9. |
 | FC5 | Lists `{ items, total, limit, offset }`, limit default 50 and max 200 | adapted | Finance keeps its own 50/200 (`FinancePaginationQuery`); the core's is 24/100. |
@@ -491,18 +497,18 @@ pointer to this section for the leaving rule and the greps.
   walks the error's cause chain, because drizzle wraps every query error (toon-finance gotcha 51).
 - **Participants and the gate (D3, plan m3 decisions 3-5).** Exactly two `finance_participants` rows per household, by user id,
   slots 1 and 2 (unique index plus CHECK). A household member without a slot is a non-participant and sees nothing of the
-  ledger: every ledger router (`transactions`, `categories`, `tags`, `plan`, `balance`, `settlements`) runs
-  `requireVerifiedEmail()` then `requireFinanceParticipant()` for every method, so a non-participant gets `403
+  ledger: every ledger group (`transactions`, `categories`, `tags`, `plan`, `balance`, `settlements`) runs
+  `RequireVerifiedEmail` then `RequireFinanceParticipant` for every method, so a non-participant gets `403
   finance_not_participant` on reads too (the kinds and the balance sign are projections onto a viewer's slot and mean nothing
   for a third person). The only route they reach is `GET .../finance/participants` (`{ items, viewerSlot }`, `viewerSlot:
   null` for them). `PUT .../participants` (admin) replaces the two (validated in the SERVICE, toon-finance gotcha 48; `409
   finance_participant_in_use` when a user leaves the budget and the household has ANY transaction row or an income naming
   them, ADR 0004; the plan payer and income person are checked against the participants, see the gotcha "Plan payer and
   income person must be participants" above), `PATCH .../participants/me` edits the own display name.
-  `requireFinanceParticipant` (`apps/api/src/modules/finance/middleware.ts`) is a hoisted function declaration (API import
-  cycle, see `CLAUDE.md`); it does its work as ONE `await runtime.runPromise(...)` before `await next()` (the effect asks
-  `FinanceParticipants.participantSlotOf` and refuses with the family's `ApiFailure`), and its context lives in a module-local
-  `ContextVariableMap` augmentation, read by the routes through `currentFinanceParticipant`. The web gate is the
+  `RequireFinanceParticipant` (`apps/api/src/modules/finance/http.ts`, implemented by `RequireFinanceParticipantLayer` in
+  `apps/api/src/modules/finance/middleware.ts`, E7) asks `FinanceParticipants.participantSlotOf` and refuses with the family's
+  `ApiFailure`; it provides the seat as the module's own service `CurrentFinanceParticipant`, which the handlers yield (until
+  E7 a hoisted Hono middleware with a module-local `ContextVariableMap` augmentation). The web gate is the
   pathless `participant-gate` route under `/finance` (`FinanceGate` renders `NonParticipantState` instead of the outlet);
   Home's finance card shows the one-line state and never fires the ledger queries for a non-participant (the headless run saw
   zero 4xx for kim). `participants` is in the persist allow-list: a cold offline start must know the viewer's slot.

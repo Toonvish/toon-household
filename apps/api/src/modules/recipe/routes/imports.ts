@@ -45,7 +45,6 @@ import {
 import { Effect, type Schema } from "effect";
 import { HttpServerRequest } from "effect/http";
 import { HttpApiBuilder } from "effect/http-api";
-import { effectBridge } from "../../../http/bridge.ts";
 import { CurrentMembership, CurrentUser } from "../../../http/context.ts";
 import { UNINTERRUPTIBLE } from "../../../http/middleware.ts";
 import { queryRecord, rawJsonOr, webRequest } from "../../../http/request.ts";
@@ -384,11 +383,3 @@ export const importsHandlers = HttpApiBuilder.group(RecipeImportsApi, "recipe.im
       UNINTERRUPTIBLE,
     )
 );
-
-export const importRoutes = effectBridge(
-  RecipeImportsApi,
-  importsHandlers,
-  "/api/households/:householdId/recipe/imports",
-);
-
-export default importRoutes;

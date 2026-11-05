@@ -1,112 +1,59 @@
 /**
- * toon-household API — Bun.serve + Hono.
+ * toon-household API — BunHttpServer + effect/http-api (docs/EFFECT.md E7, E8; plan `docs/plans/e7-http-api.md` P12).
  *
- * This file is the WIRING: CORS, logging, error handling, locale negotiation,
- * the health probe, the core routers and the module mounts. Modules add their
- * routes inside `src/modules/<id>/` and reach the app only through
- * `src/modules/index.ts` (SPEC §2) — nobody needs to edit this file to add a
- * module route.
+ * This file is the PROCESS: the boot, the server fiber and the teardown. The application itself (the global
+ * middlewares, the health probe, the uploads, the core APIs, the module APIs, the static web) is one route layer,
+ * `appRoutesLayer()` in `src/http/app.ts`, served by `serverLayer()` (`src/http/server.ts`). Modules add their routes
+ * inside `src/modules/<id>/` and reach the app only through `src/modules/index.ts` (SPEC §2) — nobody needs to edit
+ * this file to add a module route.
+ *
+ * `app` (re-exported) is the in-memory handler over the same layer: the tests' `app.request` (E9).
  */
-import { Effect } from "effect";
-import { Hono } from "hono";
-import { cors } from "hono/cors";
-import { logger } from "hono/logger";
-import { authRoutes } from "./core/routes/auth.ts";
-import { householdRoutes } from "./core/routes/households.ts";
-import { systemRoutes } from "./core/routes/system.ts";
+import { Deferred, Duration, Effect, Fiber, Layer } from "effect";
 import { env } from "./env.ts";
-import { notFoundHandler, onErrorHandler } from "./lib/errors.ts";
-import { localeMiddleware } from "./lib/locale.ts";
-import type { AppEnv } from "./lib/types.ts";
-import { originGuard } from "./middleware/originGuard.ts";
-import { securityHeaders } from "./middleware/securityHeaders.ts";
-import { webAppMiddleware } from "./middleware/staticWeb.ts";
+import { serverLayer } from "./http/server.ts";
 import { API_MODULES } from "./modules/index.ts";
-import { mountModules } from "./modules/mount.ts";
 import { runtime } from "./runtime.ts";
 
-export const app = new Hono<AppEnv>();
+export { app } from "./http/app.ts";
 
-app.onError(onErrorHandler);
-app.notFound(notFoundHandler);
+/** How long SIGTERM/SIGINT waits for the server fiber (and the requests in flight) before the teardown goes on. */
+const SERVER_STOP_TIMEOUT = Duration.seconds(5);
 
-if (!env.isTest) app.use("*", logger());
-
-// Browser hardening headers on EVERY response (CSP with the built index.html's
-// inline-script hashes, frame denial, nosniff, …), preflights and error bodies
-// included — see middleware/securityHeaders.ts for what differs from Hono's
-// defaults, why HSTS is left to the edge proxy, and why `connect-src 'self'`
-// presumes a build with PUBLIC_API_URL="" (toon-finance gotcha 50).
-app.use("*", securityHeaders(env.webDistDir));
-
-app.use(
-  "/api/*",
-  cors({
-    origin: (origin) => (env.webOrigins.includes(origin) ? origin : env.webOrigins[0] ?? ""),
-    credentials: true,
-    allowMethods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization"],
-    exposeHeaders: ["Content-Disposition", "Location"],
-    maxAge: 86400,
-  }),
-);
-
-// Negotiates the interface locale ApiError.toBody() renders in — must run
-// before every router so onErrorHandler/notFoundHandler can read it too.
-app.use("*", localeMiddleware);
-
-// CSRF defence in depth for every state-changing API call (toon-finance gotcha 66,
-// plan m3b decision 15): a browser request from a foreign origin, or from a SIBLING
-// app on the same site (the old hostnames the stack's own Caddy redirects during the
-// cutover; `SameSite=Lax` alone lets such a request through), is
-// refused before any router parses its body or slides a session. After cors() so a
-// preflight still gets its CORS headers, after the locale so the 403 is localised,
-// before health, /uploads and mountModules. An Origin listed in WEB_ORIGIN passes
-// (the dev web app on :5173 is same-site, not same-origin, with the API on :3001).
-app.use("/api/*", originGuard(env.webOrigins));
-
-// The system routes (E7-T10, plan docs/plans/e7-http-api.md P1, Table M): the liveness/readiness probe
-// `GET /api/health` and the signed uploads `GET /uploads/:filename`, served by `SystemApi` through its bridge
-// (core/routes/system.ts) at the place the two inline routes stood.
-app.route("/", systemRoutes);
-
-// --- modules ----------------------------------------------------------------
-mountModules(app, API_MODULES);
-
-// --- core routers -----------------------------------------------------------
-app.route("/api/auth", authRoutes);
-// Members, invites and modules under /api/households/:householdId; the invite-token
-// routes sit before `:householdId` inside householdRoutes (SPEC D8).
-app.route("/api/households", householdRoutes);
-
-// --- static web (LAST) --------------------------------------------------------
-// The built web app, same-origin, when WEB_DIST_DIR is set (the Docker image; in dev
-// vite serves it). It MUST stay the last registration: it falls back to the SPA
-// shell for unknown paths, so anything it saw first would never reach a real route.
-// It refuses `/api/*` and `/uploads/*` itself — see middleware/staticWeb.ts.
-if (env.webDistDir !== null) {
-  app.use("*", webAppMiddleware(env.webDistDir));
-}
-
-/**
- * Graceful shutdown (toon-recipe's block, generalised over the modules): every build
- * module's `shutdown()` runs — recipe's terminates its long-lived tesseract worker;
- * without that it was only ever torn down by process exit, which on a redeploy
- * means a killed worker mid-recognition and (on some hosts) a leaked child.
- *
- * Registered once, guarded so a repeated signal cannot start a second teardown,
- * and never in tests — bun's test runner owns the process there. A module whose
- * shutdown fails is logged and the others still run (the hooks are Effects run on the
- * one runtime, plan e2 P11; a failure rejects with the module's own error value). After every module, the one
- * Effect runtime is disposed (runtime.ts, docs/EFFECT.md E7): that closes its layer
- * scope; a failed dispose is logged and the process still exits 0.
- */
 if (!env.isTest) {
+  /** The fiber the server runs on (forked on the one runtime below), interrupted on SIGTERM/SIGINT. */
+  let serverFiber: Fiber.Fiber<never, unknown> | undefined;
+
+  /**
+   * Graceful shutdown (toon-recipe's block, generalised over the modules): the server stops taking traffic first, then
+   * every build module's `shutdown()` runs — recipe's terminates its long-lived tesseract worker; without that it was
+   * only ever torn down by process exit, which on a redeploy means a killed worker mid-recognition and (on some hosts)
+   * a leaked child.
+   *
+   * Registered once, guarded so a repeated signal cannot start a second teardown, and never in tests — bun's test
+   * runner owns the process there. The interrupt of the server fiber is BOUNDED (plan P12, deviation D4): the server
+   * layer's `server.stop()` waits for every request in flight (a long OCR import included), so after 5 s the teardown
+   * goes on without it and the module shutdowns, the dispose and the exit always run inside Docker's 10 s stop
+   * timeout. A module whose shutdown fails is logged and the others still run (the hooks are Effects run on the one
+   * runtime, plan e2 P11; a failure rejects with the module's own error value). After every module, the one Effect
+   * runtime is disposed (runtime.ts, docs/EFFECT.md E7): that closes its layer scope; a failed dispose is logged and the
+   * process still exits 0.
+   */
   let shuttingDown = false;
   const shutdown = async (signal: string): Promise<void> => {
     if (shuttingDown) return;
     shuttingDown = true;
     console.log(`[api] ${signal} — stopping modules …`);
+    if (serverFiber !== undefined) {
+      const fiber = serverFiber;
+      try {
+        await runtime.runPromise(
+          Fiber.interrupt(fiber).pipe(Effect.timeoutOrElse({ duration: SERVER_STOP_TIMEOUT, orElse: () => Effect.void })),
+        );
+      } catch (error: unknown) {
+        console.error("[api] server stop failed:", error);
+      }
+    }
     await Promise.allSettled(
       API_MODULES.map(async (module) => {
         try {
@@ -126,13 +73,11 @@ if (!env.isTest) {
   };
   process.on("SIGTERM", () => void shutdown("SIGTERM"));
   process.on("SIGINT", () => void shutdown("SIGINT"));
-}
 
-if (!env.isTest) {
   // Building the whole `AppLayer` here (configuration, the database acquire that awaits the
   // connection PRAGMAs of db/client.ts, the mailer and the rest) means a database that cannot be
   // opened at all fails at BOOT with a readable message instead of on the first request (plan e2
-  // P18). Not done under `bun test`, where this module is imported for `app.fetch` and a
+  // P18). Not done under `bun test`, where this module is imported for `app.request` and a
   // top-level await would serialise every test file behind it.
   await runtime.runPromise(Effect.void);
   for (const module of API_MODULES) {
@@ -142,14 +87,17 @@ if (!env.isTest) {
       console.error(`[api] start of module ${module.id} failed:`, error);
     }
   }
+
+  // The server fiber, forked on the one runtime (plan P12, P21): `Layer.launch` builds the server layer and keeps it
+  // until the fiber is interrupted. The boot waits until the server listens; a failure to bind (or to build the routes)
+  // rejects here and fails the boot with exit 1.
+  const listening = Deferred.makeUnsafe<void>();
+  serverFiber = runtime.runFork(
+    Layer.launch(serverLayer().pipe(Layer.tap(() => Deferred.succeed(listening, undefined)))),
+  );
+  await runtime.runPromise(Effect.raceFirst(Deferred.await(listening), Fiber.join(serverFiber)));
+
   console.log(
     `[api] toon-household API on http://localhost:${env.API_PORT} (db: ${env.databaseKind}, origins: ${env.webOrigins.join(", ")}, mail: ${env.mailTransport}, web: ${env.webDistDir ?? "extern"})`,
   );
 }
-
-export default {
-  port: env.API_PORT,
-  fetch: app.fetch,
-  /** 15 MB uploads + a little slack for multipart overhead. */
-  maxRequestBodySize: 20 * 1024 * 1024,
-};

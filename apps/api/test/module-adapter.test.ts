@@ -289,9 +289,9 @@ describe("the registry", () => {
     // Since E4 finance is listed unwrapped too (plan e4 P3); it has no healthFeatures.
     expect(financeModule.healthFeatures).toBeUndefined();
     expect(finance?.healthFeatures).toBeUndefined();
-    expect(recipe?.householdRouter).toBe(recipeModule.householdRouter);
-    expect(recipe?.userRouter).toBe(recipeModule.userRouter);
-    expect(finance?.householdRouter).toBe(financeModule.householdRouter);
+    expect(recipe?.householdApi).toBe(recipeModule.householdApi);
+    expect(recipe?.userApi).toBe(recipeModule.userApi);
+    expect(finance?.householdApi).toBe(financeModule.householdApi);
     expect(recipe?.schema).toBe(recipeModule.schema);
     expect(finance?.schema).toBe(financeModule.schema);
     expect(recipe?.layer).toBeDefined();

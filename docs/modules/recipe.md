@@ -47,19 +47,23 @@ and carry no prefix (section 3, decision H2). `group_id` of the source is `house
 Index names are `recipe_<table>_household_…` because SQLite index names are global. The one drizzle
 relation set is the recipe tables' own; the core tables gain no recipe side.
 
-### 1.2 API routers and hooks
+### 1.2 API routes and hooks
 
 The manifest is `apps/api/src/modules/recipe/index.ts` (`recipeModule`, listed in
-`apps/api/src/modules/index.ts`). Its two routers are composed in `apps/api/src/modules/recipe/routes/index.ts`:
+`apps/api/src/modules/index.ts`). Since E7 (docs/EFFECT.md E7, E8; SPEC §2; plan `docs/plans/e7-http-api.md` P2, P14) every
+route file is two files: `routes/X.api.ts`, the definition (an `HttpApiGroup` wrapped in its own `HttpApi`, a leaf that
+imports only `effect`, `effect/http-api` and `apps/api/src/http/middleware.ts`), and `routes/X.ts`, its handler layer
+(`HttpApiBuilder.group(...)`, one `Effect.fn` per endpoint). `apps/api/src/modules/recipe/routes/index.ts` lists them in hoisted
+functions, which the manifest reads lazily as its two `ModuleHttpApi` fields:
 
-| Router | Mount point | Files | Middleware |
+| Manifest field | Served at | Files | Middleware |
 | --- | --- | --- | --- |
-| `householdRouter` (`recipeHouseholdRouter`) | `/api/households/:householdId/recipe/…` | `routes/imports.ts` at `/imports`, `routes/shopping.ts` at `/shopping-lists`, `routes/plan.ts` at `/plan`, then `routes/recipes.ts` at `/` (recipes, tags, collections, cook log) | `requireSession()`, `requireHouseholdRole("member")`, `requireModule("recipe")` from `apps/api/src/modules/mount.ts`; each file adds `requireVerifiedEmail()` itself (`use("*")`, non-GET only); `requireHouseholdRole("admin")` per route where needed (tag delete) |
-| `userRouter` (`recipeUserRouter`) | `/api/recipe/cards/…` | `routes/cards.ts` | `requireSession()` and `requireVerifiedEmail()` in the file; NOT behind `requireModule`: a card follows its owner (decision RD11) |
+| `householdApi` (`recipeHouseholdApis()`, `recipeHouseholdHandlers()`) | `/api/households/:householdId/recipe/…` | `routes/imports.api.ts` + `imports.ts` (`/imports`), `routes/shopping.api.ts` + `shopping.ts` (`/shopping-lists`), `routes/plan.api.ts` + `plan.ts` (`/plan`), `routes/recipes.api.ts` + `recipes.ts` (recipes, tags, collections, cook log) | `ApiErrorBoundary`, `RequireSession`, `RequireHouseholdMember`, `RequireModule` from `householdModuleApi("recipe", …)` (asserted by `moduleRoutesLayer` in `apps/api/src/modules/mount.ts`); each group adds `RequireVerifiedEmail` itself (non-GET only); `RequireHouseholdAdmin` per endpoint where needed (tag delete) |
+| `userApi` (`recipeUserApis()`, `recipeUserHandlers()`) | `/api/recipe/cards/…` | `routes/cards.api.ts` + `cards.ts` | `ApiErrorBoundary` from `userModuleApi("recipe", …)`; `RequireSession` and `RequireVerifiedEmail` on the group; NOT behind `RequireModule`: a card follows its owner (decision RD11) |
 
-Order is load-bearing: imports, shopping and plan are registered BEFORE the catch-all recipe router
-(toon-recipe's mount order, SPEC D8). Hono copies a sub-app's routes when `.route()` is called, so every
-router file registers its handlers at module top level. The services mirror toon-recipe's `services/`
+Toon-recipe's mount order (imports, shopping and plan BEFORE the catch-all recipe router, SPEC D8) is kept in the lists,
+but no longer load-bearing: the router matches by specificity (static and parametric segments before wildcards), not by
+registration order. The services mirror toon-recipe's `services/`
 one to one under `apps/api/src/modules/recipe/services/{recipes,import,ocr,plan,shopping,cards}/`
 (`import/` has `url/`, `html/`, `ocr/`). The routes and their request and response shapes are documented
 row by row in `docs/API.md`, checked by `apps/api/test/api-doc.test.ts`.
@@ -67,7 +71,7 @@ row by row in `docs/API.md`, checked by `apps/api/test/api-doc.test.ts`.
 **Services (E3, `docs/plans/e3-recipe-services.md`).** Every file that does I/O is a `Context.Service` with a static
 `layer`; the pure helpers (`ssrf.ts` guard checks, `preprocess.ts`, the parsers, mappers and adapters) stay plain
 modules. Method names are the old exported function names without the leading `db` argument; every handler of
-`routes/*.ts` is `(c) => runtime.runPromise(Effect.gen(...))` over them. The manifest is an `ApiModule<RecipeServices>`
+`routes/*.ts` yields them inside its `Effect.fn` (until E7 it was `(c) => runtime.runPromise(Effect.gen(...))` on Hono). The manifest is an `ApiModule<RecipeServices>`
 (no longer behind `fromPromiseModule`); its `layer` is `Layer.suspend(recipeLayer)` (`apps/api/src/modules/recipe/layer.ts`),
 the areas nested by dependency (`plan` over `shopping` over `recipes` over `import` + `cards` over `url` import over `ocr`),
 merged by the runtime into the one `AppLayer`.
@@ -224,7 +228,7 @@ in order of appearance (the source prints 9 before 7, and 11 before 8). Status v
 | RD1 | Groups own the content; roles `owner > admin > member`; any member may plan, cook and check off; cards are the ONLY exception | adapted | SPEC D1: group is household, `group_id` is `household_id`, `users.active_household_id`. Planning, cooking and checking off need no owner check; tag delete needs `requireHouseholdRole("admin")` (`apps/api/src/modules/recipe/routes/recipes.ts`); the web's `canModifyOwn` stays in `apps/web/src/modules/recipe/features/recipes/lib/permissions.ts` |
 | RD2 | One React PWA, mobile-first; tab bar on phones, sidebar from `lg`; sidebar 236px and content 1204px change together | core | SPEC D5, D6; `apps/web/src/styles/index.css` (`--spacing-sidebar`, `--container-content`), `apps/web/src/components/layout/` |
 | RD3 | DB is libSQL; the driver is never hardcoded | core | SPEC D7: one file, WAL plus `synchronous = FULL`, `apps/api/src/db/client.ts` |
-| RD4 | E-mail plus password and OAuth, opaque sessions, explicit linking, the unconfirmed-address gate | core | SPEC D4; `apps/api/src/core/services/auth/`; the recipe routers only add `requireVerifiedEmail()` |
+| RD4 | E-mail plus password and OAuth, opaque sessions, explicit linking, the unconfirmed-address gate | core | SPEC D4; `apps/api/src/core/services/auth/`; the recipe groups only add `RequireVerifiedEmail` |
 | RD5 | Every import produces an editable `import_draft`; nothing reaches the recipes before commit; URL, image, PDF | module | `recipe_import_drafts`, `apps/api/src/modules/recipe/services/import/` (`commit.ts`, `drafts.ts`), routes `/imports` |
 | RD6 | OCR is server-side native subprocesses behind `OcrEngine`; photo and PDF import are opt-in separately; the mailer is an interface with `ConsoleMailer` as default | module (OCR); core (mail) | `apps/api/src/modules/recipe/services/ocr/`, `services/import/capabilities.ts`; the mailer is `apps/api/src/core/services/mail/`; the image args follow D11 |
 | RD9 | Deployment is one container serving one origin; TLS by a shared Caddy outside the repo | superseded | SPEC D11 and ADR 0008: the stack has its own Caddy (`docker/Caddyfile`); the one-origin serving by `apps/api/src/middleware/staticWeb.ts` is unchanged |
@@ -252,7 +256,7 @@ named.
   `afterMigrate`.
 - **H4. Import query keys are rooted at `"toon"`.** toon-recipe's `["import", …]` keys became
   `["toon","household",<id>,"recipe","import",…]` and `["toon","recipe","import-draft",<id>]`.
-- **H5. Cards stay user-scoped.** `/api/recipe/cards` is a `userRouter`; the household's module switch does
+- **H5. Cards stay user-scoped.** `/api/recipe/cards` is the module's `userApi`; the household's module switch does
   not hide a user's wallet (`apps/api/test/middleware.test.ts` shows `/api/recipe/cards` answering a session alone, with
   no household and no module row involved).
 - **H6. The recipe count is the module's own query (ADR 0001).** The core cannot count a module's rows, so
@@ -260,14 +264,15 @@ named.
   `household.count.recipes` was not ported (`docs/adr/0001-household-copy-without-recipe-counts.md`). The
   module supplies its own number (gotcha "The library's recipe count is the module's own query") and keeps
   `recipe.count.recipes` in its catalog with toon-recipe's value.
-- **H7. The module routers do not apply the session and role middleware.** `mountModules` runs
-  `requireSession()`, `requireHouseholdRole("member")` and `requireModule("recipe")` first; the ported
-  routers deleted their own copies and keep `requireVerifiedEmail()`. toon-recipe's
+- **H7. The module routes do not apply the session and role middleware.** `householdModuleApi("recipe", …)` attaches
+  `RequireSession`, `RequireHouseholdMember` and `RequireModule` (behind `ApiErrorBoundary`) to every household API
+  (until E7 Hono's `mountModules` ran `requireSession()`, `requireHouseholdRole("member")` and `requireModule("recipe")`);
+  the groups keep only `RequireVerifiedEmail`. toon-recipe's
   `services/import/middleware-bridge.ts` is not ported (import route tests use real sessions).
 - **H8. Cross-household guard (SPEC D8).** The household comes from `:householdId` only; every by-id
   lookup filters by it and answers `404 not_found` for another household's id (cards: another user's
   card). `apps/api/test/recipe-cross-household.test.ts` addresses every by-id route and compares its probes
-  with the routers' declared `:param` routes, so a new by-id route fails the test until it is added.
+  with the APIs' declared `:param` routes, so a new by-id route fails the test until it is added.
 - **H9. The manifest's static import graph stays shell-free.** `index.ts`, `routes.tsx`, `HomeCard.tsx`,
   `nav-trailing.tsx`, the catalogs and `features/shopping/lib/offline.ts` import neither `@/modules` nor
   `@/components/layout`; screens are lazy. `manifest.test.ts` and `persist.test.ts` import the manifest
@@ -408,7 +413,7 @@ touching the area; the row says where its subject lives and whether it still hol
 | R21 | The Dockerfile installs the OCR binaries only for `--build-arg WITH_OCR=1` … | adapted | SPEC D11: `Dockerfile` build args `WITH_OCR` / `WITH_PDF`, runtime flags default to them; `.github/workflows/release.yml` publishes `WITH_OCR=1 WITH_PDF=0`, `docker-compose.yml` passes `IMPORT_PDF_ENABLED` explicitly; guard `apps/api/test/deploy-dockerfile.test.ts` |
 | R22 | OCR AND PDF RASTERIZATION ARE NATIVE SUBPROCESSES, not libraries. | module | `apps/api/src/modules/recipe/services/ocr/tesseract.ts`, `apps/api/src/modules/recipe/services/ocr/pdf.ts`, `apps/api/src/modules/recipe/services/ocr/index.ts` (the `Ocr` service: `withOcrSlot`, `withOcrTimeout`, `OCR_SLOT_WAIT_MS`; `PdfText` in `pdf.ts`; each `Bun.spawn` only inside `Effect.acquireRelease`, each run in its own `Effect.scoped`, so an interrupted run kills the child); a missing binary stays the documented 422 |
 | R23 | `test/import/pdf-rasterize.test.ts` is the only test that uses the … | module | `apps/api/test/import/pdf-rasterize.test.ts`; CI installs poppler in `.github/workflows/ci.yml`; stub through `setPdfRasterizer()` elsewhere (the seam stays a Promise interface) |
-| R24 | AN UNCONFIRMED E-MAIL ADDRESS MAKES AN ACCOUNT READ-ONLY, AND THE GATE … | core | `apps/api/src/core/services/auth/verifiedEmail.ts`, `apps/api/src/middleware/verifiedEmail.ts`; the recipe routers apply it with `use("*")` in each `apps/api/src/modules/recipe/routes/*.ts`; test `apps/api/test/verified-email-gate.test.ts`; UI `useEmailVerificationBlock` in `apps/web/src/lib/session.tsx` |
+| R24 | AN UNCONFIRMED E-MAIL ADDRESS MAKES AN ACCOUNT READ-ONLY, AND THE GATE … | core | `apps/api/src/core/services/auth/verifiedEmail.ts`, `apps/api/src/middleware/verifiedEmail.ts`; the recipe groups attach `RequireVerifiedEmail` in each `apps/api/src/modules/recipe/routes/*.api.ts`; test `apps/api/test/verified-email-gate.test.ts`; UI `useEmailVerificationBlock` in `apps/web/src/lib/session.tsx` |
 | R25 | OAuth never auto-links on an e-mail match, even a CONFIRMED one. | core | `apps/api/src/core/services/auth/oauthAccounts.ts`, `apps/api/src/lib/oauth.ts`; SPEC D4 |
 | R26 | `safeNextPath` must reject backslashes, control characters and spaces | core | `apps/api/src/lib/oauth.ts` and `apps/web/src/lib/navigation.ts`, kept in sync; test `apps/api/test/auth.test.ts` |
 | R27 | Anything a client can put in an `href` must be `HttpUrlSchema` | core | `HttpUrlSchema` in `packages/shared/src/core/schemas/common.ts` (used by `packages/shared/src/modules/recipe/schemas/recipe.ts` and `packages/shared/src/modules/recipe/schemas/import.ts`), `safeHttpUrl()` in `apps/web/src/lib/format.ts` |

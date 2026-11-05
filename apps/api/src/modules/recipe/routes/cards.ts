@@ -38,7 +38,6 @@ import { created, json, noContent } from "../../../http/response.ts";
 import { rawJsonOr } from "../../../http/request.ts";
 import { CurrentUser } from "../../../http/context.ts";
 import { UNINTERRUPTIBLE } from "../../../http/middleware.ts";
-import { effectBridge } from "../../../http/bridge.ts";
 import { RecipeCardsApi } from "./cards.api.ts";
 import { Cards } from "../services/cards/cards.service.ts";
 
@@ -128,7 +127,3 @@ export const cardsHandlers = HttpApiBuilder.group(RecipeCardsApi, "recipe.cards"
       UNINTERRUPTIBLE,
     ),
 );
-
-export const cardRoutes = effectBridge(RecipeCardsApi, cardsHandlers, "/api/recipe/cards");
-
-export default cardRoutes;
