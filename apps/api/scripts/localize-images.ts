@@ -18,64 +18,85 @@
  * the remote rows and downloads nothing.
  */
 import { and, eq, like, or } from "drizzle-orm";
-import { db } from "../src/db/client.ts";
+import { Console, Effect } from "effect";
+import { Database } from "../src/db/database.ts";
 import { collections, recipes } from "../src/db/schema.ts";
-import { isRemoteImageUrl, localizeImageUrl } from "../src/modules/recipe/services/recipes/remoteImage.ts";
+import { isRemoteImageUrl, RemoteImages } from "../src/modules/recipe/services/recipes/remoteImage.ts";
+import { AppLayer } from "../src/runtime.ts";
+import { runScript } from "./support/main.ts";
 
-const dryRun = process.argv.slice(2).includes("--dry-run");
-
-const remoteRecipes = (
-  await db
-    .select({ id: recipes.id, url: recipes.imageUrl })
-    .from(recipes)
-    .where(or(like(recipes.imageUrl, "http%"), like(recipes.imageUrl, "data:%")))
-).filter((row): row is { id: string; url: string } => row.url !== null && isRemoteImageUrl(row.url));
-
-const remoteCovers = (
-  await db
-    .select({ id: collections.id, url: collections.coverImageUrl })
-    .from(collections)
-    .where(or(like(collections.coverImageUrl, "http%"), like(collections.coverImageUrl, "data:%")))
-).filter((row): row is { id: string; url: string } => row.url !== null && isRemoteImageUrl(row.url));
-
-console.log(
-  `[recipe:localize-images] ${remoteRecipes.length} recipe image(s), ${remoteCovers.length} collection cover(s) still remote${dryRun ? " (dry run)" : ""}.`,
-);
-if (dryRun) {
-  for (const row of remoteRecipes) console.log(`  recipe ${row.id}  ${row.url.slice(0, 120)}`);
-  for (const row of remoteCovers) console.log(`  collection ${row.id}  ${row.url.slice(0, 120)}`);
-  process.exit(0);
+interface RemoteRow {
+  readonly id: string;
+  readonly url: string;
 }
 
-let copied = 0;
-const failed: string[] = [];
+/** The whole script as one program on the `AppLayer` (plan e5 P1, P2). */
+const program = Effect.gen(function* () {
+  const dryRun = process.argv.slice(2).includes("--dry-run");
+  const database = yield* Database;
+  const remoteImages = yield* RemoteImages;
 
-for (const row of remoteRecipes) {
-  const local = await localizeImageUrl(row.url);
-  if (typeof local === "string" && local !== row.url) {
-    await db
-      .update(recipes)
-      .set({ imageUrl: local })
-      .where(and(eq(recipes.id, row.id), eq(recipes.imageUrl, row.url)));
-    copied += 1;
-  } else {
-    failed.push(`recipe ${row.id}  ${row.url.slice(0, 120)}`);
+  const remoteRecipes = (yield* database.use((db) =>
+    db
+      .select({ id: recipes.id, url: recipes.imageUrl })
+      .from(recipes)
+      .where(or(like(recipes.imageUrl, "http%"), like(recipes.imageUrl, "data:%"))),
+  )).filter((row): row is RemoteRow => row.url !== null && isRemoteImageUrl(row.url));
+
+  const remoteCovers = (yield* database.use((db) =>
+    db
+      .select({ id: collections.id, url: collections.coverImageUrl })
+      .from(collections)
+      .where(or(like(collections.coverImageUrl, "http%"), like(collections.coverImageUrl, "data:%"))),
+  )).filter((row): row is RemoteRow => row.url !== null && isRemoteImageUrl(row.url));
+
+  yield* Console.log(
+    `[recipe:localize-images] ${remoteRecipes.length} recipe image(s), ${remoteCovers.length} collection cover(s) still remote${dryRun ? " (dry run)" : ""}.`,
+  );
+  if (dryRun) {
+    for (const row of remoteRecipes) yield* Console.log(`  recipe ${row.id}  ${row.url.slice(0, 120)}`);
+    for (const row of remoteCovers) yield* Console.log(`  collection ${row.id}  ${row.url.slice(0, 120)}`);
+    return 0;
   }
-}
 
-for (const row of remoteCovers) {
-  const local = await localizeImageUrl(row.url);
-  if (typeof local === "string" && local !== row.url) {
-    await db
-      .update(collections)
-      .set({ coverImageUrl: local })
-      .where(and(eq(collections.id, row.id), eq(collections.coverImageUrl, row.url)));
-    copied += 1;
-  } else {
-    failed.push(`collection ${row.id}  ${row.url.slice(0, 120)}`);
+  let copied = 0;
+  const failed: string[] = [];
+
+  for (const row of remoteRecipes) {
+    const local = yield* remoteImages.localizeImageUrl(row.url);
+    if (typeof local === "string" && local !== row.url) {
+      yield* database.use((db) =>
+        db
+          .update(recipes)
+          .set({ imageUrl: local })
+          .where(and(eq(recipes.id, row.id), eq(recipes.imageUrl, row.url))),
+      );
+      copied += 1;
+    } else {
+      failed.push(`recipe ${row.id}  ${row.url.slice(0, 120)}`);
+    }
   }
-}
 
-console.log(`[recipe:localize-images] ${copied} copied, ${failed.length} not reachable (kept remote).`);
-for (const line of failed) console.log(`  ${line}`);
-process.exit(0);
+  for (const row of remoteCovers) {
+    const local = yield* remoteImages.localizeImageUrl(row.url);
+    if (typeof local === "string" && local !== row.url) {
+      yield* database.use((db) =>
+        db
+          .update(collections)
+          .set({ coverImageUrl: local })
+          .where(and(eq(collections.id, row.id), eq(collections.coverImageUrl, row.url))),
+      );
+      copied += 1;
+    } else {
+      failed.push(`collection ${row.id}  ${row.url.slice(0, 120)}`);
+    }
+  }
+
+  yield* Console.log(`[recipe:localize-images] ${copied} copied, ${failed.length} not reachable (kept remote).`);
+  for (const line of failed) yield* Console.log(`  ${line}`);
+  return 0;
+});
+
+if (import.meta.main) {
+  runScript(program.pipe(Effect.provide(AppLayer)));
+}

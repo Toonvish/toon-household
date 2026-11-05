@@ -6,9 +6,8 @@
  *
  * The collect step is the `UploadReferences` service (docs/EFFECT.md E7; plan e2 P10, P11):
  * it reads the core columns through `Database` and runs each module's Effect
- * `uploadReferences` hook on the same current executor. `collectUploadReferences(database)`
- * stays as the Promise bridge for `scripts/uploads-gc.ts` and the module tests; it runs the
- * service on that database through `runModuleHook` (no runtime import).
+ * `uploadReferences` hook on the same current executor. `scripts/uploads-gc.ts` runs it on the
+ * `AppLayer` (E5; the Promise bridge is gone, plan e5 P11).
  *
  * WHAT COUNTS AS REFERENCED — missing one deletes a live image:
  *   users.avatar_url        avatars                       (core)
@@ -33,11 +32,9 @@
  */
 import { basename } from "node:path";
 import { Context, Effect, Layer } from "effect";
-import type { Database as DrizzleDatabase } from "../../../db/client.ts";
 import { Database } from "../../../db/database.ts";
 import { households, users } from "../../../db/schema.ts";
 import { normalizeStoredUploadUrl } from "../../../lib/uploadUrls.ts";
-import { runModuleHook } from "../../../modules/adapter.ts";
 import { API_MODULES } from "../../../modules/index.ts";
 import type { ApiModule, HookError } from "../../../modules/types.ts";
 
@@ -100,21 +97,5 @@ export class UploadReferences extends Context.Service<
 
       return UploadReferences.of({ collectUploadReferences });
     }),
-  );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/** `scripts/uploads-gc.ts` (E5): the service on `database`. */
-export function collectUploadReferences(
-  database: DrizzleDatabase,
-  modules: readonly ApiModule[] = API_MODULES,
-): Promise<Set<string>> {
-  return runModuleHook(
-    Effect.gen(function* () {
-      const references = yield* UploadReferences;
-      return yield* references.collectUploadReferences(modules);
-    }).pipe(Effect.provide(UploadReferences.layer)),
-    database,
   );
 }

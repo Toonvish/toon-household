@@ -21,7 +21,6 @@ import { Context, Effect, Layer, Predicate } from "effect";
 import { AppConfig } from "../../../../config.ts";
 import { env } from "../../../../env.ts";
 import { normalizeStoredUploadUrl } from "../../../../lib/uploadUrls.ts";
-import { runtime } from "../../../../runtime.ts";
 import { HeroImages } from "../import/url/image.ts";
 
 /** Stores the image behind `url` and answers its local `/uploads/<file>`, or undefined. */
@@ -91,17 +90,4 @@ export class RemoteImages extends Context.Service<
       return RemoteImages.of({ localizeImageUrl });
     }),
   );
-}
-
-/* legacy bridge: the one survivor of this file after E3 (plan e3 P1); E5 removes it */
-
-/**
- * `RemoteImages.localizeImageUrl` for Promise code. Callers: `apps/api/scripts/localize-images.ts` (E5). Never
- * rejects.
- */
-export function localizeImageUrl(
-  value: string | null | undefined,
-  previous?: string | null,
-): Promise<string | null | undefined> {
-  return runtime.runPromise(RemoteImages.use((images) => images.localizeImageUrl(value, previous)));
 }
