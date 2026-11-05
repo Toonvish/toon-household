@@ -207,7 +207,12 @@ Where it will be applied:
   `Layer.mergeAll` / `Layer.provideMerge`, ONE `ManagedRuntime.make(AppLayer, { memoMap })`, disposed from the
   SIGTERM/SIGINT handlers), the module manifests (`layer` field), `apps/api/scripts/*.ts` (`BunRuntime.runMain`), and
   `apps/api/test/support/effect.ts` (`runTest` = `Effect.provide` of the test `AppLayer`, `Layer.mock` for fakes).
-- `apps/web/src/lib/runtime.ts`: the web's single `ManagedRuntime` behind `queryFn` / `mutationFn` (E11).
+- `apps/web/src/lib/runtime.ts`: the web's single `ManagedRuntime` behind `queryFn` / `mutationFn` (E11; BUILT at E6): `WebLayer` is
+  `Layer.suspend` over a hoisted function (`ApiClient.layer` `Layer.provideMerge`d over the `FetchHttpClient` transport), nothing runs at
+  module scope (the file sits in the import cycle `api-client` -> `i18n/store` -> `api` -> `runtime`), the runtime is never disposed (it
+  lives as long as the page), and `runPromise(effect, { signal })` is the only entry web code uses (`ApiClient`, a `Context.Service` in
+  `apps/web/src/lib/api-client.ts`, has a static `layer` that yields `HttpClient.HttpClient` inside its generator). The same TDZ rule as
+  the API's: a static `layer` reads no imported binding but `effect` exports and its own class.
 - In this repo (since E0-T05; E2 widened `AppLayer` to the core services, see "As built (E2)"): `apps/api/src/runtime.ts` exports `AppLayer` (`Layer.empty` at E0), `appMemoMap` and the one `runtime`; `apps/api/src/core/health.ts` `healthResponse` is the
   first effect run through it (`GET /api/health`), and the SIGTERM/SIGINT handler of `apps/api/src/index.ts` awaits
   `runtime.dispose()` after the modules' `shutdown()`. A run after `dispose` rejects with the plain string

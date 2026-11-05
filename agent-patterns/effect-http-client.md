@@ -194,7 +194,8 @@ program.pipe(
 ## 6. Pitfalls
 
 - **Status is not an error** (section 4). Add `HttpClient.filterStatusOk` to the derived client, never forget it on `get` calls whose
-  body you then decode.
+  body you then decode. (The web's `ApiClient` is the deliberate exception: it maps a status by hand into its `ApiError` envelope, so it
+  uses no `filterStatusOk`; a status mapper must read the body of a non-2xx response before failing.)
 - **Consume or discard every response.** The client registers each response with a `FinalizationRegistry`; a response that is dropped
   without reading its body is aborted on garbage collection, and an interrupted fiber aborts the request (`HttpClient.ts` `responseRegistry`,
   `InterruptibleResponse`). Read `json`/`text`/`arrayBuffer` (cached, so a second read is free) or `stream`; for a long-lived stream use
@@ -240,9 +241,31 @@ Applied at (milestone in brackets; paths exist now unless marked new):
   over the hop loop (interruption aborts the fetch through the client's signal). The seam `setImportGuardForTests({ allowHosts,
   resolve } | null)` is an exact-host allow list and has deliberately no "allow private hosts" switch (it would skip the metadata
   address's refusal too). Image localisation (`image.ts`) moves onto `ImportHttp.fetchImage` in E3-T05.
-- `apps/web/src/lib/api.ts`, `apps/web/src/modules/finance/lib/api.ts`, `apps/web/src/modules/recipe/features/import/lib/importApi.ts`
-  (and a new `apps/web/src/lib/runtime.ts`): one client layer with `credentials: "include"` (2(e)), responses decoded with the shared
-  `Schema`, the 401 handler as a `tap`/`catchTag` [E6].
+- The web (BUILT, E6; plan `docs/plans/e6-web-client.md`): `apps/web/src/lib/runtime.ts` is the one `ManagedRuntime` over
+  `FetchHttpClient.layer` provided with `FetchHttpClient.RequestInit` `{ credentials: "include" }`, a late-bound `FetchHttpClient.Fetch`
+  and `HttpClient.TracerPropagationEnabled` false; `apps/web/src/lib/api-client.ts` is the `ApiClient` service whose `execute` builds
+  `HttpClientRequest.make(method)(url)` with `setHeaders` and sends it with `client.execute`, then maps the response by hand (no
+  `filterStatusOk`: a status is the app's `ApiError` envelope) and turns every `HttpClientError` into `network_error` with
+  `Effect.catchTag("HttpClientError", ...)` and a `switch` on `error.reason._tag`. `apps/web/src/lib/api.ts`, the recipe and finance
+  `lib/api.ts` and `apps/web/src/modules/recipe/features/import/lib/importApi.ts` describe each endpoint once on top of it. Facts found
+  while building it:
+  - `FetchHttpClient.Fetch` is a `Context.Reference` whose default `() => globalThis.fetch` is evaluated ONCE and cached: provide it as
+    a wrapper that reads `globalThis.fetch` at CALL time (`lateBoundFetch`), or a test that stubs `fetch` per test sees only its first stub.
+    The client hands `fetch` a `URL`; Bun's `typeof fetch` has an extra `preconnect`, so provide it with a cast.
+  - A JSON body is `HttpBody.raw(JSON.stringify(body), { contentType: "application/json" })`, byte-identical to the old call and still a
+    STRING at `fetch`; `bodyJson` / `bodyText` produce a `Uint8Array`, so a test asserting `typeof init.body === "string"` would see
+    nothing. A form is `HttpClientRequest.bodyFormData(form)` (no content type: the browser sets the boundary).
+  - `HttpClientResponse` has no `statusText` (the web response keeps its source private): a mapper that showed the reason phrase loses it
+    (deviation D4 of the plan, the import client); the response body is read with `response.text` and parsed tolerantly, because
+    `response.json` of an empty or invalid body is not today's `undefined`.
+  - A body that fails while being read (`DecodeError`, `EmptyBodyError` reasons on `text`) is an `HttpClientError` too: it lands in the same
+    `catchTag`, so the app's `network_error` also covers a response cut mid-stream.
+  - `runtime.runPromiseExit(effect, { signal })` interrupts the fiber on abort and the client aborts its own request, but
+    `Cause.squash` of an interruption is a plain `Error`: rethrow `signal.reason` (the `AbortError`) when `Cause.hasInterruptsOnly`.
+  - Decoding a response: `Schema.decodeUnknownEffect(schema, { disableChecks: true })` checks structure and types only (no pattern,
+    length or range check, transformations and defaults still run); a decode STRIPS keys the schema does not declare, so the identity
+    "decode(body) equals body" is a test to run over the real routes (the API's `web-contract-*` tests).
+  - An XHR upload (progress) is not an `HttpClient` call: wrap it in `Effect.callback` whose finalizer aborts the XHR.
 - Tests provide `FakeHttpClient` (2(d)) or a `FetchHttpClient.Fetch` stub instead of mocking `globalThis.fetch` (`agent-patterns/effect-testing.md`).
 
 Rule served: **E11** (the web gets a runtime and an Effect API client: `HttpClient` from `effect/http` with `FetchHttpClient`, failures

@@ -119,9 +119,9 @@ module (`docs/plans/m2-recipe-module.md`), M3 finance module (`docs/plans/m3-fin
 and M7 harden (`docs/plans/m7-harden.md`), 2026-10-13 to 2026-10-15; each plan's last sections are its
 integration record and "what changed vs plan". Two modules are built (`API_MODULES` and `WEB_MODULES` are
 `[recipe, finance]`, `/api/health` reports `modules: ["recipe","finance"]`). The tree typechecks, builds and tests
-green (`bun test`: 14785 pass in 170 files on the temp file DB at E5 (45.40 s under a host load average of about 3 to 10); 14725 pass in 163 files at E4 (37.07 s under a host load average of about 3.7); 14686 pass in 160 files after the E3 review (14684 at E3-T13, 32.88 s on a quiet host); 14658 pass in 158 files after E2 (69.96 s under a host load average of 14 to 50; 39.79 s at E2's quiet baseline), where 11357 of them are
+green (`bun test`: 14993 pass, 1 skip (the snapshot sweep's `describe.skipIf`), 0 fail in 177 files on the temp file DB at E6 (51.57 s under a host load average of about 4 to 5); 14785 pass in 170 files at E5 (45.40 s under a host load average of about 3 to 10); 14725 pass in 163 files at E4 (37.07 s under a host load average of about 3.7); 14686 pass in 160 files after the E3 review (14684 at E3-T13, 32.88 s on a quiet host); 14658 pass in 158 files after E2 (69.96 s under a host load average of 14 to 50; 39.79 s at E2's quiet baseline), where 11357 of them are
 the golden parity cases of `packages/shared/test/parity/`; 14508 pass in 150 files after the E1 review; 2463 pass in 141 files at the end of E0; `i18n:check` exits 1 with
-the 145 classified false positives at E4 and again at E5 (the same 145 lines at the E5 base and at its end, compared line-number-free; the 146 of before E2, 147 with the `Effect.die` stopword hit of the old module adapter file, since deleted; E4 deleted that line and reworded one comment line of `apps/api/src/modules/finance/lib/clock.ts`, no new hit); M7's integration record, `docs/plans/m7-harden.md` section 9, has the gate logs,
+the 145 classified false positives at E4, at E5 and again at E6 (the same 145 lines at the E5 base, at its end and at E6's end, compared line-number-free; the 146 of before E2, 147 with the `Effect.die` stopword hit of the old module adapter file, since deleted; E4 deleted that line and reworded one comment line of `apps/api/src/modules/finance/lib/clock.ts`, no new hit); M7's integration record, `docs/plans/m7-harden.md` section 9, has the gate logs,
 the walkthrough, the `migrate:legacy` fixture run and the print-to-PDF proof). Milestone E0 of the Effect migration
 (foundation: the vendored source fenced off, the pinned Effect packages, the one `ManagedRuntime` serving
 `/api/health`, the idioms test, ADR 0012) is done; its integration record is `docs/plans/e0-foundation.md` sections
@@ -148,8 +148,13 @@ with a `TestClock` test, idioms rule (10) is empty and rule (11) covers finance;
 eight operator scripts are Effect programs, seven on the one `AppLayer` through `runScript` and `migrate-legacy.ts` under `BunRuntime.runMain`
 on explicit values, the `migrate:legacy` library is Effect functions behind the `LegacyMigration` service, the script-only bridges and
 `runModuleHook` with its adapter file are deleted, idioms rule (12) is on; ADR 0014 updated) is done; its integration record is
-`docs/plans/e5-scripts.md` sections 9 and 10 (the survivors with their callers are in ADR 0014 "Status after E5's integration"). What is left is the
-owner's (see "Open work").
+`docs/plans/e5-scripts.md` sections 9 and 10 (the survivors with their callers are in ADR 0014 "Status after E5's integration"). Milestone E6
+(web-client: the web app has ONE `ManagedRuntime` (`apps/web/src/lib/runtime.ts`) over `FetchHttpClient`, every API client of the web
+(`apps/web/src/lib/api.ts`, the recipe and finance `lib/api.ts`, the import client `importApi.ts`) describes each request once as an Effect that
+decodes the response with the shared `Schema` and fails with the tagged `ApiError`, every `queryFn` is `runPromise` of one of those effects, and
+three contract tests prove the decode is the identity on the wire, one of them over the migrated legacy fixtures plus an owner-run snapshot sweep;
+idioms rule (13) is on; gzip bundle 402.54 kB to 419.99 kB, growth 17.45 kB, no ADR needed) is done; its integration record is
+`docs/plans/e6-web-client.md` sections 9 and 10. What is left is the owner's (see "Open work", which now holds the E6 decode sweep over a production snapshot).
 
 ## Layout (as built)
 
@@ -202,7 +207,7 @@ Package names are `@toon/shared`, `@toon/api`, `@toon/web`; the root is `toon-ho
 - Web: `apps/web/src/{main,app,route-roots,router}.tsx` (`route-roots.tsx` imports no shell and no registry;
   `router.tsx` attaches `AppLayout` = `RequireAuth` + `AppShell` and builds the tree: auth routes,
   `/households`, `/households/$householdId`, `/settings`, `/` Home, `WEB_MODULES.map((m) => m.route)`),
-  `apps/web/src/lib/` (`api`, `queries`, `query-client`, `session.tsx`, `persist`, `nav.tsx`, `permissions.ts`,
+  `apps/web/src/lib/` (`runtime.ts` and `api-client.ts` (E6, below), `api`, `queries`, `query-client`, `session.tsx`, `persist`, `nav.tsx`, `permissions.ts`,
   `share.ts`, `i18n/` with the core catalogs), `apps/web/src/components/ui/` (toon-recipe's primitives, the only
   ones), `apps/web/src/components/layout/` (AppShell, BottomTabBar, SideNav, ModuleSwitcher, PhoneHeaderRow,
   nav items), `apps/web/src/core/features/{auth,home,households,settings}/`,
@@ -254,6 +259,16 @@ Package names are `@toon/shared`, `@toon/api`, `@toon/web`; the root is `toon-ho
   `MailerService`), `RateLimiter`, `VerifiedEmail`, `Thumbnails`, `Uploads`, `UploadReferences`, `HouseholdModules`,
   `Passwords`, `Users`, `Sessions`, `AuthInvites`, `EmailVerification`, `PasswordReset`, `OAuthProviders`
   (`apps/api/src/lib/oauth.ts`), `OAuthAccounts`, `Households`, `HouseholdInvites`, `AuthBootstrap`.
+- Effect web (E6): `apps/web/src/lib/runtime.ts` (`WebLayer`, the one web `runtime`, `runPromise(effect, { signal })`; the one `fetch(` call of
+  the web app), `apps/web/src/lib/api-client.ts` (`ApiClient` service over `HttpClient`, the tagged `ApiError`, `isApiError`,
+  `setUnauthorizedHandler`), `apps/web/src/lib/api.ts` (the base-URL rules, `DECODE_OPTIONS`, `getJson` / `sendJson` / `sendForm` / `sendVoid`,
+  `lenient`, `uploadForm`, the `CoreApi` namespace plus one exported Promise facade per endpoint), `apps/web/src/modules/recipe/lib/api.ts`
+  (`RecipeApi`), `apps/web/src/modules/finance/lib/api.ts` (`FinanceApi`), `apps/web/src/modules/recipe/features/import/lib/importApi.ts`
+  (`ImportApi`, `ImportApiError`), the tests `apps/web/src/lib/api.test.ts`, `apps/web/src/lib/runtime.test.ts`,
+  `apps/web/src/lib/should-retry.test.ts`, `apps/web/src/modules/recipe/lib/api.test.ts`, `apps/web/src/modules/finance/lib/api.test.ts`,
+  `apps/web/src/modules/recipe/features/import/lib/importApi.test.ts`, and the three API-side contract tests
+  `apps/api/test/web-contract-core-recipe.test.ts`, `apps/api/test/web-contract-finance.test.ts`,
+  `apps/api/test/web-contract-legacy.test.ts` (the last holds the snapshot sweep).
 - Docs: see "Read order"; plus `docs/plans/screenshots/` and `docs/design/recipe-redesign/` (design record, D5).
 - Core DB tables (unprefixed): `users`, `oauth_accounts`, `sessions`, `password_reset_tokens`,
   `email_verification_tokens`, `households`, `household_members`, `household_invites`, `household_modules`,
@@ -640,6 +655,44 @@ ones; the module gotchas are indexed below and live in the module docs.
 
 ### Web shell
 
+- **One web runtime; API calls are described once (E6, plan `docs/plans/e6-web-client.md` P1 to P17, EFFECT.md E11).**
+  `apps/web/src/lib/runtime.ts` is the only file that calls `ManagedRuntime.make` on the web and the only file with a `fetch(` call
+  (`lateBoundFetch`: `FetchHttpClient.Fetch`'s default reads `globalThis.fetch` once and caches it, so a test that stubs `fetch` per
+  test would never be seen; the layer also sets `credentials: "include"` and `TracerPropagationEnabled` false, so no `b3` /
+  `traceparent` header and no new preflight). Like the API's, it never runs at module scope: `WebLayer` is `Layer.suspend` over a
+  hoisted function, and `apps/web/src/lib/runtime.test.ts` imports each file of the cycle `api-client` -> `i18n/store` -> `api` ->
+  `runtime` FIRST in a fresh process. `runPromise(effect, { signal })` is the one way web code runs an API effect: an abort rejects
+  with `signal.reason` (an `AbortError`, as `fetch` did), any other failure with the tagged `ApiError` itself. The order of
+  `ApiClient.execute` is today's: the 401 hook (a 401 on any call but `fetchMe` purges the persisted cache through the registered
+  handler), 204/205 without a body, the body read as text and parsed tolerantly, a non-2xx mapped to the envelope, a 2xx handed to the
+  helper; every `HttpClientError` is `network_error` with status 0 (a body that fails mid-read used to be the raw `TypeError`, deviation D1).
+  `ApiError` is a `Schema.TaggedError` with PERMISSIVE field schemas (a constructor never throws on a value the code passes, as in the
+  API's `apps/api/src/lib/errors.ts`). Each endpoint is ONE member of `CoreApi` / `RecipeApi` / `FinanceApi` / `ImportApi` and the
+  exported function the screens call is a `function` facade over `runPromise` with today's name, signature and `Promise` result; a
+  `queryFn` calls `runPromise(Api.NAME(ARGS), { signal })`. **Decoding:** a READ (`getJson`) decodes with `DECODE_OPTIONS = {
+  disableChecks: true }`, so structure and types are checked (keys, `string` / `number` / `null`, literal unions) and the shared
+  schemas' wire CHECKS (UUID, ISO pattern, lengths, ranges) are NOT, because the server applied them on the way in and rows written
+  before a limit tightened, migrated and placeholder rows must still render; a mismatch is `ApiError { code: "invalid_response",
+  status: <the 2xx> }` and `shouldRetry` (`apps/web/src/lib/queries.ts`) NEVER retries it (deterministic; pinned by
+  `apps/web/src/lib/should-retry.test.ts`). A WRITE (`sendJson`, `sendForm`) whose 2xx body fails the decode resolves the RAW payload
+  (a DEV `console.warn` only): the server applied it, so failing it would roll back an applied optimistic update, drop a paused
+  capture from the outbox and retry a taken request. The decoded type is `Types.DeepMutable<S["Type"]>` with the ONE cast inside the
+  helper. Decoding must be the identity on the wire (a decode strips undeclared keys): the three contract tests drive the real app and
+  assert `decode(body)` equals `body` for every route the web decodes; a route that cannot satisfy it without breaking the golden or
+  parity tests gets a one-line marker `lenient: { schema: "<XResponseSchema>", reason: "..." }` in its contract row AND
+  `lenient(<XResponseSchema>)` in the client (validate, log in DEV, return the raw payload), and the two-way grep of the E6-T09 verify list
+  keeps the two lists equal (every marker is applied, every `lenient(X)` has a marker); at E6 the list is EMPTY. **Idioms rule (13)**
+  (`apps/api/test/effect-idioms.test.ts`): web code imports `"effect"` and `"effect/http"` only (never a subpath), only the files of
+  `WEB_EFFECT_ALLOW_LIST` import `effect` at all, `\bfetch\(` only in `runtime.ts` and `new XMLHttpRequest` only in `importApi.ts`
+  (the upload progress), each list with its stale-entry check; `queries.ts` files import `runPromise` from `@/lib/runtime`. The import
+  client keeps its own mapping and pass-through (deviation D4: no `statusText`, so an unmapped status without an envelope message shows
+  `recipe.import.error.unknown.title`). **Deploy rule (D5, `skipWaiting` is off):** a READ now fails on a structure or type mismatch, and
+  an installed PWA runs the PREVIOUS bundle until every tab closes, so a server change that WIDENS a response literal or shape (a new
+  `TransactionOrigin`, `TagKind`, `InviteStatus` or role value, a field turning nullable, a new required key the old schema lacks as
+  optional) is a two-step deploy: first a release whose shared schema accepts the new value while the server never sends it, then,
+  once the old service workers have been replaced, the release that sends it. Everything additive that only ADDS an optional key is
+  safe (an undeclared key is stripped, not refused). Stored data no fixture has is the residual risk: the owner's snapshot sweep
+  (`WEB_CONTRACT_SNAPSHOT=1`, "Testing and tooling" and `docs/open-work.md` A11) covers it.
 - **`MessageKey` must stay a literal union (D10).** `apps/web/src/modules/catalogs.ts` objects
   (`MODULE_CATALOGS_DE/EN`) are literal-typed with no annotation, ever: an index-signature type turns `MessageKey`
   into `string` and every `t()` typo compiles. A literal-union test and a `@ts-expect-error` in
@@ -743,10 +796,21 @@ ones; the module gotchas are indexed below and live in the module docs.
   file directly under `apps/api/scripts/` contains `runScript(` or `BunRuntime.runMain(`, (b) no `process.exit(` under `apps/api/scripts/`
   but the one line of `apps/api/scripts/support/main.ts` (the runner's teardown), (c) no `await ` under `apps/api/scripts/legacy/` or
   `apps/api/scripts/finance-import/` (the Promise bridges return `runLegacy(...)` unawaited), (d) no `runModuleHook` under `apps/api/src` or
-  `apps/api/scripts`. Rules (10), (11) and (12) fail a stale allow-list entry (a fixed file leaves the list in the same commit).
+  `apps/api/scripts`. Rule (13) (E6) is the web's edge (the gotcha "One web runtime; API calls are described once"): (a) every `from "effect…"`
+  specifier under non-test `apps/web/src` is exactly `"effect"` or `"effect/http"`, (b) only the files of `WEB_EFFECT_ALLOW_LIST` import
+  `effect`, (c) `\bfetch\(` only in `apps/web/src/lib/runtime.ts` and `\bnew XMLHttpRequest\b` only in
+  `apps/web/src/modules/recipe/features/import/lib/importApi.ts` (two separate allow lists). Rules (10) to (13) fail a stale allow-list entry (a fixed file leaves the list in the same commit).
   The one rule a later milestone switches on (no `hono` at E7) is a `PENDING_RULES` comment in the file, never a
   skipped test, and becomes a `describe` in the commit of the migration that makes it true. Never relax a rule to
   get green.
+- **The web contract tests and the snapshot sweep (E6, plan P7, P7b).** `apps/api/test/web-contract-core-recipe.test.ts`,
+  `apps/api/test/web-contract-finance.test.ts` and `apps/api/test/web-contract-legacy.test.ts` decode every response the web clients decode
+  with `{ disableChecks: true }` and assert the decoded value `toEqual` the body (83 JSON rows and 27 void rows, 49 finance rows; the legacy
+  file runs the same sweep over the migrated fixtures, ADR 0005 and ADR 0006 states included). The second `describe` of the legacy file is the
+  SNAPSHOT SWEEP, skipped unless `WEB_CONTRACT_SNAPSHOT=1` (it then runs against `TEST_DATABASE_URL`, the owner's local COPY of a production
+  snapshot, and prints routes decoded and failures per schema and issue PATH, never a value); the default run prints its skip. A new web
+  read route gets a row in the same commit; a new `lenient` row needs its `lenient(X)` in the client, the two-way grep checks both
+  directions.
 - **A test that runs `sharp` carries an explicit time budget.** `apps/api/test/thumbnails.test.ts` gives its route tests
   `SHARP_TEST_TIMEOUT_MS` (60 s) as the `test(...)` timeout: under the load of parallel worktrees (354 s for a suite that
   takes 25 s alone) bun's 5 s default failed four of them. A gate that fails keeps its `(fail)` lines and any `Unhandled
@@ -938,6 +1002,6 @@ gotchas 62, 63, 65)."; "F gotcha numbers are F's numbering at `1715207`."
 
 What is deliberately not done lives in `docs/open-work.md`: owner actions (the real cutover, the first
 `release.yml` / `deploy.yml` runs, GHCR visibility, `DEPLOY_ENABLED`, OAuth callbacks, arm64, the old hostnames
-and volumes, an iOS install check), owner decisions ("Gruppe" vs "Haushalt", toon-recipe's pinned design
+and volumes, an iOS install check, the E6 decode sweep over a production snapshot), owner decisions ("Gruppe" vs "Haushalt", toon-recipe's pinned design
 exceptions, finance print styles, a per-household PWA name or icon), items deferred by design (the N-person
 ledger, D3; the member-leaves veto beyond finance) and recorded observations. New open items go there, not here.

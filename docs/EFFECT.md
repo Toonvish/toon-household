@@ -122,7 +122,13 @@ in `docs/adr/`, the ADR edits this text in the same commit.
   "include"`, the upload size cap and `PUBLIC_API_URL` rules keep their semantics (the CSP `connect-src
   'self'` gotcha included). `@effect/atom-react` is an owner decision for later (`docs/open-work.md`), not
   this migration. The web bundle must stay tree-shaken: import from `effect` and `effect/http` only, check the
-  gzipped size in the E6 record.
+  gzipped size in the E6 record. **As built (E6):** the runtime is `apps/web/src/lib/runtime.ts` over
+  `FetchHttpClient` (a late-bound `Fetch`, `credentials: "include"`, trace propagation off) with the `ApiClient`
+  service of `apps/web/src/lib/api-client.ts`; READS decode with `disableChecks` (structure and types, never the wire
+  checks), a WRITE's response never fails on its decode, `invalid_response` is never retried, and a response
+  literal or shape that widens is a two-step deploy while `skipWaiting` is off; idioms rule (13) is the edge
+  (plan `docs/plans/e6-web-client.md` P7, P7a, P13, section 7 D5). The gzipped bundle grew from 402.54 kB to
+  419.99 kB (17.45 kB, under the 60 kB threshold: no ADR).
 - **E12 — The idioms are a gate.** From `repos/effect/LLMS.md`: `Effect.gen` inline, `Effect.fn("Service.method")`
   for reusable functions (traced) and `Effect.fnUntraced` on hot paths, no function that only wraps an
   `Effect.gen`, combinators as extra arguments of `Effect.fn` (never `.pipe` on it), `return yield*` when
