@@ -114,12 +114,14 @@ export function startAccrualTick(): Effect.Effect<void, never, DatabaseService> 
  * The manifest's `start`: the boot catch-up (awaited: a failure of `financeHouseholdIds` itself fails `start`, which the
  * API logs as `[api] start of module finance failed:`, and the tick is then not started), then the 6-hour tick.
  */
-export function startAccrualSchedule(): Effect.Effect<void, DatabaseError, DatabaseService> {
-  return Effect.gen(function* () {
-    yield* withFinanceServices(runForEveryHousehold("boot"));
-    yield* startAccrualTick();
-  });
-}
+export const startAccrualSchedule = Effect.fn("FinanceScheduler.startAccrualSchedule")(function* (): Effect.fn.Return<
+  void,
+  DatabaseError,
+  DatabaseService
+> {
+  yield* withFinanceServices(runForEveryHousehold("boot"));
+  yield* startAccrualTick();
+});
 
 /** Stops the tick: the manifest's `shutdown`, and the tests. */
 export function stopAccrualSchedule(): Effect.Effect<void> {
