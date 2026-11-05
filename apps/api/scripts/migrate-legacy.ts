@@ -1,25 +1,37 @@
 /**
  * bun run migrate:legacy: the one-shot import of toon-recipe's and toon-finance's databases into
- * this app (SPEC section 6, plan m5 decisions 5, 6, 15 and 16).
+ * this app (SPEC section 6, plan m5 decisions 5, 6, 15 and 16), as an Effect program since E5
+ * (docs/EFFECT.md E10; plan `docs/plans/e5-scripts.md` P10, E5-T08).
  *
  * THE ORDER OF THIS FILE IS LOAD-BEARING. Everything in the legacy library reaches the shared
  * database client (and, through it, the env module, which freezes `DATABASE_URL` when it first
  * loads). A dry run must never open, create or switch to WAL the real target, so:
- *   - this file imports only node builtins and TYPES statically;
+ *   - this file imports only node builtins, the `effect` and `@effect/platform-bun` packages, and
+ *     TYPES statically (the two packages read no environment and open no database; plan e5
+ *     deviation 3);
  *   - `main` resolves the environment itself (`resolveCliEnv`), copies the target into a scratch
  *     directory and points `process.env.DATABASE_URL` at that copy;
  *   - only then does it load the client, the migrator and the library, in the order
- *     `scripts/migrate.ts` and `import-order.test.ts` prove;
+ *     `scripts/migrate.ts` and `import-order.test.ts` prove (no repo file is loaded before it);
  *   - the env module is never loaded here, not even after the redirect (nothing in this file needs
  *     it: the target and the upload directory are resolved by `resolveCliEnv`).
  * `legacy-cli.test.ts` guards the order textually and by subprocess (a dry run leaves no target
- * file and no `-wal` behind).
+ * file and no `-wal` behind); `legacy-cli-usage.test.ts` spawns the usage and input errors.
+ *
+ * Exit codes travel as the program's success value (0, 1, 2); the runner's teardown sets
+ * `process.exitCode` and never ends the process itself, so the report reaches a piped stdout in
+ * full, as `process.exitCode = await main()` did. Every resource (the scratch directory, the
+ * scratch client, the legacy snapshots, the real target) is released by the program's scope, in
+ * the reverse order of acquisition.
  */
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import type { Client } from "@libsql/client";
+import { BunRuntime } from "@effect/platform-bun";
+import { Console, Effect, Exit, Predicate, Runtime, Schema } from "effect";
+import type { MappingError } from "./legacy/mapping.ts";
+import type { LegacyInputError } from "./legacy/sources.ts";
 import type { LegacyDb, MappingOverride, Report, TargetDb } from "./legacy/types.ts";
 
 /** Monorepo root, computed here (the env module's own export may not be loaded; see above). */
@@ -50,9 +62,10 @@ apply output and its --report file are credentials, keep them out of any reposit
 Exit codes: 0 success, 1 the run found errors, 2 usage, mapping or input error (nothing written).`;
 
 /** A usage or environment problem found before anything is written (exit code 2). */
-export class CliUsageError extends Error {
+export class CliUsageError extends Schema.TaggedError<CliUsageError>()("CliUsageError", {
+  message: Schema.String,
+}) {
   readonly exitCode = 2;
-  override readonly name = "CliUsageError";
 }
 
 /**
@@ -102,18 +115,22 @@ export function resolveCliEnv(
   const merged = mergeRootDotEnv(processEnv, repoRoot);
   const raw = merged.DATABASE_URL;
   if (raw === undefined || raw === "") {
-    throw new CliUsageError(
-      "DATABASE_URL is not set (process environment or the repo's root .env); point it at the target, e.g. DATABASE_URL=file:./migration-out/toon.db",
-    );
+    throw new CliUsageError({
+      message:
+        "DATABASE_URL is not set (process environment or the repo's root .env); point it at the target, e.g. DATABASE_URL=file:./migration-out/toon.db",
+    });
   }
   if (!raw.startsWith("file:")) {
-    throw new CliUsageError(
-      "DATABASE_URL must be a local file: URL (e.g. file:./migration-out/toon.db); migrate:legacy does not write to a remote database",
-    );
+    throw new CliUsageError({
+      message:
+        "DATABASE_URL must be a local file: URL (e.g. file:./migration-out/toon.db); migrate:legacy does not write to a remote database",
+    });
   }
   const path = raw.slice("file:".length);
   if (path.length === 0 || path.startsWith(":memory:")) {
-    throw new CliUsageError("DATABASE_URL names an in-memory database; point it at a file (e.g. file:./migration-out/toon.db)");
+    throw new CliUsageError({
+      message: "DATABASE_URL names an in-memory database; point it at a file (e.g. file:./migration-out/toon.db)",
+    });
   }
   const absolute = isAbsolute(path) ? path : resolve(repoRoot, path);
   const firstOrigin = (merged.WEB_ORIGIN || DEFAULT_WEB_ORIGIN)
@@ -164,7 +181,7 @@ export function parseCliArgs(argv: string[], repoRoot: string): CliOptions {
       },
     }));
   } catch (error) {
-    throw new CliUsageError(error instanceof Error ? error.message : String(error));
+    throw new CliUsageError({ message: Predicate.isError(error) ? error.message : String(error) });
   }
   const path = (value: string | undefined): string | undefined => (value === undefined ? undefined : resolve(repoRoot, value));
   const options: CliOptions = { apply: values.apply === true, help: values.help === true };
@@ -180,142 +197,198 @@ export function parseCliArgs(argv: string[], repoRoot: string): CliOptions {
   if (report) options.report = report;
   if (options.help) return options;
   if (!options.recipeDb && !options.financeDb) {
-    throw new CliUsageError("give at least one of --recipe-db and --finance-db");
+    throw new CliUsageError({ message: "give at least one of --recipe-db and --finance-db" });
   }
-  if (options.recipeUploads && !options.recipeDb) throw new CliUsageError("--recipe-uploads needs --recipe-db");
-  if (options.mapping && !options.financeDb) throw new CliUsageError("--mapping needs --finance-db");
+  if (options.recipeUploads && !options.recipeDb) throw new CliUsageError({ message: "--recipe-uploads needs --recipe-db" });
+  if (options.mapping && !options.financeDb) throw new CliUsageError({ message: "--mapping needs --finance-db" });
   return options;
 }
 
 /** Copies a target database (`<db>` and `<db>-wal` when present, never `-shm`) to `dest`. */
 function snapshotTarget(source: string, dest: string): void {
   if (!existsSync(source)) return;
-  if (!statSync(source).isFile()) throw new CliUsageError(`the target is not a file: ${source}`);
+  if (!statSync(source).isFile()) throw new CliUsageError({ message: `the target is not a file: ${source}` });
   copyFileSync(source, dest);
   if (existsSync(`${source}-wal`)) copyFileSync(`${source}-wal`, `${dest}-wal`);
 }
 
-function isExitTwo(error: unknown): error is Error & { exitCode: 2 } {
-  return error instanceof Error && (error as { exitCode?: unknown }).exitCode === 2;
+/** The three refusals the CLI answers with exit 2 (plan e5 P5, P10). */
+type ExitTwoError = CliUsageError | MappingError | LegacyInputError;
+
+function isExitTwoError(u: unknown): u is ExitTwoError {
+  return Predicate.isTagged(u, "CliUsageError") || Predicate.isTagged(u, "MappingError") || Predicate.isTagged(u, "LegacyInputError");
 }
 
-export async function main(argv: string[] = process.argv.slice(2), env: NodeJS.ProcessEnv = process.env): Promise<number> {
-  const closers: (() => void)[] = [];
-  let scratch: string | undefined;
-  try {
+/**
+ * Calls a pure function that throws one of the exit-2 errors synchronously (`parseCliArgs`, `resolveCliEnv`,
+ * `snapshotTarget`, `parseMappingFile`). Inside Effect code a bare `throw` is a defect that `Effect.catchTags` never
+ * sees (the run would exit 1 without its stderr lines), so the lift turns such a throw into a typed failure; any
+ * other throw is rethrown and stays a defect, as it was a crash before (plan e5 P10).
+ */
+function liftExitTwo<A>(f: () => A): Effect.Effect<A, ExitTwoError> {
+  return Effect.suspend(() => {
+    try {
+      return Effect.succeed(f());
+    } catch (error) {
+      if (isExitTwoError(error)) return Effect.fail(error);
+      throw error;
+    }
+  });
+}
+
+/** The stderr lines of an exit-2 refusal, then the exit code (the usage hint for a usage error only). */
+const refuse = Effect.fnUntraced(function* (message: string, usageHint: boolean) {
+  yield* Console.error(`[migrate:legacy] error: ${message}`);
+  if (usageHint) yield* Console.error("Run with --help for the usage.");
+  yield* Console.error("[migrate:legacy] nothing was written.");
+  return 2;
+});
+
+/** Closes a libSQL client; a second close (or a failing one) is ignored, as the old `closers` loop did. */
+function closeQuietly(close: () => void): Effect.Effect<void> {
+  return Effect.ignoreCause(Effect.sync(close));
+}
+
+/**
+ * The whole run (steps a to h); its success value is the exit code: 0, 1 (the run found errors) or 2 (usage, mapping
+ * or input error, nothing written). Anything else fails the program (a crash, exit 1).
+ */
+export const main = Effect.fn("migrate-legacy.main")(
+  function* (argv: string[] = process.argv.slice(2), env: NodeJS.ProcessEnv = process.env) {
     // a. arguments and usage
-    const options = parseCliArgs(argv, REPO_ROOT);
+    const options = yield* liftExitTwo(() => parseCliArgs(argv, REPO_ROOT));
     if (options.help) {
-      console.log(USAGE);
+      yield* Console.log(USAGE);
       return 0;
     }
 
     // b. the environment, resolved without the env module
-    const { databaseUrl, uploadDir, webOrigin } = resolveCliEnv(env, REPO_ROOT);
+    const { databaseUrl, uploadDir, webOrigin } = yield* liftExitTwo(() => resolveCliEnv(env, REPO_ROOT));
     const targetPath = databaseUrl.slice("file:".length);
-    console.log(
+    yield* Console.log(
       options.apply
         ? `[migrate:legacy] mode: apply (target ${targetPath})`
         : `[migrate:legacy] mode: dry-run (nothing is written to ${targetPath})`,
     );
-    console.log(`[migrate:legacy] uploads: ${uploadDir}`);
+    yield* Console.log(`[migrate:legacy] uploads: ${uploadDir}`);
 
-    // c. the scratch copy of the target; the shared client must open THAT file
-    scratch = mkdtempSync(join(tmpdir(), "toon-migrate-legacy-"));
+    // c. the scratch copy of the target (acquired first, removed last); the shared client must open THAT file
+    const scratch = yield* Effect.acquireRelease(
+      Effect.sync(() => mkdtempSync(join(tmpdir(), "toon-migrate-legacy-"))),
+      (dir) => Effect.sync(() => rmSync(dir, { recursive: true, force: true })),
+    );
     const scratchTarget = join(scratch, "target.db");
-    snapshotTarget(targetPath, scratchTarget);
-    process.env.DATABASE_URL = `file:${scratchTarget}`;
-    process.env.SESSION_SECRET ||= "migrate-legacy-does-not-use-the-session-secret";
-
-    // d. the library, loaded only now
-    const { client: scratchClient, db: scratchDb, dbReady, createDatabase } = await import("../src/db/client.ts");
-    const { runMigrations } = await import("../src/db/migrate.ts");
-    const { openLegacy } = await import("./legacy/sources.ts");
-    const { parseMappingFile } = await import("./legacy/mapping.ts");
-    const { exitCodeFor, renderReport, reportToJson } = await import("./legacy/report.ts");
-    const { knownLegacyIds, runLegacy, runLegacyMigration } = await import("./legacy/run.ts");
-    closers.push(() => scratchClient.close());
-
-    // e. inputs and the mapping, before any pass writes anything
-    const recipe: LegacyDb | undefined = options.recipeDb ? await openLegacy("recipe", options.recipeDb, scratch) : undefined;
-    if (recipe) closers.push(() => recipe.client.close());
-    const finance: LegacyDb | undefined = options.financeDb ? await openLegacy("finance", options.financeDb, scratch) : undefined;
-    if (finance) closers.push(() => finance.client.close());
-    let mapping: MappingOverride | undefined;
-    if (options.mapping) {
-      if (!existsSync(options.mapping) || !statSync(options.mapping).isFile()) {
-        throw new CliUsageError(`--mapping: file not found: ${options.mapping}`);
-      }
-      mapping = parseMappingFile(readFileSync(options.mapping, "utf8"), await runLegacy(knownLegacyIds(recipe, finance)));
-    }
-    const common = {
-      ...(recipe ? { recipe } : {}),
-      ...(finance ? { finance } : {}),
-      ...(mapping ? { mapping } : {}),
-    };
-
-    // f. pass 1: the scratch copy, uploads planned and never copied
-    await dbReady;
-    await runMigrations(scratchDb);
-    const dryTarget: TargetDb = { db: scratchDb, client: scratchClient, url: databaseUrl };
-    const dryReport: Report = await runLegacyMigration({
-      ...common,
-      mode: "dry-run",
-      target: dryTarget,
-      uploads: { ...(options.recipeUploads ? { sourceDir: options.recipeUploads } : {}), targetDir: uploadDir, copy: false },
+    yield* liftExitTwo(() => snapshotTarget(targetPath, scratchTarget));
+    yield* Effect.sync(() => {
+      process.env.DATABASE_URL = `file:${scratchTarget}`;
+      process.env.SESSION_SECRET ||= "migrate-legacy-does-not-use-the-session-secret";
     });
-    let last = dryReport;
-    let code: number = exitCodeFor(dryReport);
-    if (!options.apply || code !== 0) {
-      process.stdout.write(renderReport(dryReport));
-    } else {
-      // g. --apply: the dry pass was clean, so write the real target. Only this pass gets the web
-      //    origin: claim links (credentials) appear in its report and nowhere else (plan m3b
-      //    decision 14); a later --apply re-prints a still-pending link and writes nothing.
-      console.log(`[migrate:legacy] dry pass clean; writing ${targetPath}`);
-      const real = createDatabase({ url: databaseUrl });
-      closers.push(() => real.client.close());
-      await real.ready;
-      await runMigrations(real.db);
-      const applied: Report = await runLegacyMigration({
-        ...common,
-        mode: "apply",
-        webOrigin,
-        target: { db: real.db, client: real.client as Client, url: databaseUrl },
-        uploads: { ...(options.recipeUploads ? { sourceDir: options.recipeUploads } : {}), targetDir: uploadDir, copy: true },
-      });
-      // the rows sit in the WAL until a checkpoint: leave one self-contained file behind (the
-      // operator copies the target to the server)
-      await real.client.execute("PRAGMA wal_checkpoint(TRUNCATE)");
-      process.stdout.write(renderReport(applied));
-      last = applied;
-      code = exitCodeFor(applied);
-    }
 
-    // h. the JSON report of the last pass
-    if (options.report) {
-      mkdirSync(dirname(options.report), { recursive: true });
-      writeFileSync(options.report, reportToJson(last));
-    }
-    return code;
-  } catch (error) {
-    if (isExitTwo(error)) {
-      console.error(`[migrate:legacy] error: ${error.message}`);
-      if (error instanceof CliUsageError) console.error("Run with --help for the usage.");
-      console.error("[migrate:legacy] nothing was written.");
-      return 2;
-    }
-    throw error;
-  } finally {
-    for (const close of closers.reverse()) {
-      try {
-        close();
-      } catch {
-        // already closed
+    // d. the library, loaded only now: the client first, then the migrator, then the legacy files
+    const { client: scratchClient, db: scratchDb, dbReady, createDatabase } = yield* Effect.promise(() => import("../src/db/client.ts"));
+    const { migrateDatabase } = yield* Effect.promise(() => import("../src/db/migrate.ts"));
+    yield* Effect.promise(() => import("./legacy/sources.ts")); // loaded for its place in the order only
+    const { Database } = yield* Effect.promise(() => import("../src/db/database.ts"));
+    const { parseMappingFile } = yield* Effect.promise(() => import("./legacy/mapping.ts"));
+    const { exitCodeFor, renderReport, reportToJson } = yield* Effect.promise(() => import("./legacy/report.ts"));
+    const { LegacyMigration } = yield* Effect.promise(() => import("./legacy/service.ts"));
+    yield* Effect.addFinalizer(() => closeQuietly(() => scratchClient.close()));
+
+    return yield* Effect.gen(function* () {
+      const migration = yield* LegacyMigration;
+
+      // e. inputs and the mapping, before any pass writes anything (each snapshot closes with the scope)
+      const recipe: LegacyDb | undefined = options.recipeDb
+        ? yield* migration.open("recipe", options.recipeDb, scratch)
+        : undefined;
+      const finance: LegacyDb | undefined = options.financeDb
+        ? yield* migration.open("finance", options.financeDb, scratch)
+        : undefined;
+      let mapping: MappingOverride | undefined;
+      if (options.mapping) {
+        const mappingPath = options.mapping;
+        const isFile = yield* Effect.sync(() => existsSync(mappingPath) && statSync(mappingPath).isFile());
+        if (!isFile) {
+          return yield* new CliUsageError({ message: `--mapping: file not found: ${mappingPath}` });
+        }
+        const known = yield* migration.knownLegacyIds(recipe, finance);
+        mapping = yield* liftExitTwo(() => parseMappingFile(readFileSync(mappingPath, "utf8"), known));
       }
-    }
-    if (scratch) rmSync(scratch, { recursive: true, force: true });
-  }
-}
+      const common = {
+        ...(recipe ? { recipe } : {}),
+        ...(finance ? { finance } : {}),
+        ...(mapping ? { mapping } : {}),
+      };
 
-if (import.meta.main) process.exitCode = await main();
+      // f. pass 1: the scratch copy, uploads planned and never copied
+      yield* Effect.promise(() => dbReady);
+      yield* migrateDatabase().pipe(Effect.provide(Database.layerFromExecutor(scratchDb)));
+      const dryTarget: TargetDb = { db: scratchDb, client: scratchClient, url: databaseUrl };
+      const dryReport: Report = yield* migration.run({
+        ...common,
+        mode: "dry-run",
+        target: dryTarget,
+        uploads: { ...(options.recipeUploads ? { sourceDir: options.recipeUploads } : {}), targetDir: uploadDir, copy: false },
+      });
+      let last = dryReport;
+      let code: number = exitCodeFor(dryReport);
+      if (!options.apply || code !== 0) {
+        yield* Effect.sync(() => process.stdout.write(renderReport(dryReport)));
+      } else {
+        // g. --apply: the dry pass was clean, so write the real target. Only this pass gets the web
+        //    origin: claim links (credentials) appear in its report and nowhere else (plan m3b
+        //    decision 14); a later --apply re-prints a still-pending link and writes nothing.
+        yield* Console.log(`[migrate:legacy] dry pass clean; writing ${targetPath}`);
+        const real = yield* Effect.acquireRelease(
+          Effect.sync(() => createDatabase({ url: databaseUrl })),
+          (created) => closeQuietly(() => created.client.close()),
+        );
+        yield* Effect.promise(() => real.ready);
+        yield* migrateDatabase().pipe(Effect.provide(Database.layerFromExecutor(real.db)));
+        const applied: Report = yield* migration.run({
+          ...common,
+          mode: "apply",
+          webOrigin,
+          target: { db: real.db, client: real.client, url: databaseUrl },
+          uploads: { ...(options.recipeUploads ? { sourceDir: options.recipeUploads } : {}), targetDir: uploadDir, copy: true },
+        });
+        // the rows sit in the WAL until a checkpoint: leave one self-contained file behind (the
+        // operator copies the target to the server)
+        yield* Effect.promise(() => real.client.execute("PRAGMA wal_checkpoint(TRUNCATE)"));
+        yield* Effect.sync(() => process.stdout.write(renderReport(applied)));
+        last = applied;
+        code = exitCodeFor(applied);
+      }
+
+      // h. the JSON report of the last pass
+      if (options.report) {
+        const reportPath = options.report;
+        yield* Effect.sync(() => {
+          mkdirSync(dirname(reportPath), { recursive: true });
+          writeFileSync(reportPath, reportToJson(last));
+        });
+      }
+      return code;
+    }).pipe(Effect.provide(LegacyMigration.layer));
+  },
+  (program) =>
+    Effect.catchTags(program, {
+      CliUsageError: (error) => refuse(error.message, true),
+      MappingError: (error) => refuse(error.message, false),
+      LegacyInputError: (error) => refuse(error.message, false),
+    }),
+  Effect.scoped,
+);
+
+/**
+ * The runner's teardown (plan e5 P10): the exit code is the program's numeric success value, else
+ * `Runtime.defaultTeardown`'s (130 for an interruption, the error's marker or 1 for a failure). It only sets
+ * `process.exitCode` and never ends the process itself: the event loop drains, so a piped stdout gets the whole
+ * report.
+ */
+const teardown: Runtime.Teardown = (exit) =>
+  Runtime.defaultTeardown(exit, (code) => {
+    process.exitCode = Exit.isSuccess(exit) && Predicate.isNumber(exit.value) ? exit.value : code;
+  });
+
+if (import.meta.main) BunRuntime.runMain(main(), { teardown });
