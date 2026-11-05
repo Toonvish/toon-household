@@ -7,7 +7,7 @@
  * AS A SERVICE (docs/EFFECT.md E5, E6, E7, E12; plan `docs/plans/e4-finance-services.md` P2, P6, P7, P10). `FinanceCategories`
  * reaches the database through `Database.use` / `Database.transaction` (the CURRENT executor, read on every call), stamps
  * rows with the module clock `financeTimeMillis` and refuses with the tagged family. Every by-id read keeps its
- * `householdId` filter (D8). The one legacy bridge at the end keeps the Promise function the xlsx script still calls.
+ * `householdId` filter (D8).
  */
 import type { CategoryResponse, Locale, ServerKey } from "@toon/shared";
 import { serverText } from "@toon/shared";
@@ -17,10 +17,8 @@ import { isUniqueViolation } from "../../../../core/services/auth/users.ts";
 import { Database } from "../../../../db/database.ts";
 import { BadRequest, Conflict, NotFound } from "../../../../lib/errors.ts";
 import type { DatabaseError } from "../../../../lib/errors.ts";
-import { runFinanceBridge } from "../../bridge.ts";
 import { financeTimeMillis } from "../../lib/clock.ts";
 import { type FinanceCategoryRow as CategoryRow, financeCategories as categories, financeTransactions as transactions } from "../../schema.ts";
-import type { DbLike } from "../support.ts";
 
 /** `categories.name.<slug>`'s mirror in the server catalog (packages/shared/src/i18n/catalogs/server.de.ts). */
 function categoryNameKey(slug: string): ServerKey {
@@ -323,11 +321,4 @@ export class FinanceCategories extends Context.Service<
       });
     }),
   );
-}
-
-/* legacy bridges: only the survivors of plan e4 P1 (callers listed; E5 scripts and E8 pinned tests remove them) */
-
-/** Callers: `apps/api/scripts/finance-import-xlsx.ts` (E5). */
-export function categoryIdBySlug(db: DbLike, householdId: string, slug: string): Promise<string | null> {
-  return runFinanceBridge(FinanceCategories.use((service) => service.categoryIdBySlug(householdId, slug)), db);
 }

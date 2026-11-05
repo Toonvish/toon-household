@@ -12,8 +12,8 @@
  * AS A SERVICE (docs/EFFECT.md E7, E12; plan `docs/plans/e4-finance-services.md` P1, P2, P6, P7, P10). `FinanceParticipants`
  * keeps every old function name with the leading `db` parameter dropped; it reads the current executor of `Database` on
  * every call, takes every timestamp from the module clock (`financeTimeMillis`: the `setClockForTest` override, else the
- * `Clock`), and refuses with the API error family (same status, code, text and details as before). The Promise bridges at
- * the end keep the old `(db, …)` signatures for the callers that are not converted yet.
+ * `Clock`), and refuses with the API error family (same status, code, text and details as before). The two Promise bridges at
+ * the end keep the old `(db, …)` signatures for the pinned `finance-module.test.ts` (E8 removes them).
  */
 import type { FinanceParticipantResponse } from "@toon/shared";
 import { DEFAULT_LOCALE, serverText } from "@toon/shared";
@@ -510,20 +510,7 @@ export class FinanceParticipants extends Context.Service<
   );
 }
 
-/* legacy bridges: only the survivors of plan e4 P1 (callers listed; E5 scripts and E8 pinned tests remove them) */
-
-/** Callers: `apps/api/scripts/finance-import-xlsx.ts` (E5). */
-export function requireOtherMemberId(db: DbLike, householdId: string, viewerId: string): Promise<string> {
-  return runFinanceBridge(
-    FinanceParticipants.use((service) => service.requireOtherMemberId(householdId, viewerId)),
-    db,
-  );
-}
-
-/** Callers: `apps/api/scripts/finance-import-xlsx.ts` (E5). */
-export function slot1UserId(db: DbLike, householdId: string): Promise<string> {
-  return runFinanceBridge(FinanceParticipants.use((service) => service.slot1UserId(householdId)), db);
-}
+/* legacy bridges: only the survivors of plan e4 P1 (callers listed; E8 removes them with the pinned tests) */
 
 /** Callers: `apps/api/test/finance-module.test.ts` (pinned, E8). */
 export function assignParticipants(
