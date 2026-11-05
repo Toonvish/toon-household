@@ -1478,6 +1478,18 @@ The offline-replay pair, run on its own (`bun test apps/api/test/shopping.test.t
 (`mutationId (offline replay safety)` in `shopping.test.ts`, `a replayed mutationId appends no second row` in `shopping-bought.test.ts`); both files
 are byte-identical to the base.
 
+### 9.5b Review round (HEAD `9f0c9cd91`, 2026-11-05)
+
+The Opus review judged HEAD against the base `ddc48af87` and found E3 meeting its exit criteria. One behaviour change turned up and was reverted in
+commit `9f0c9cd91`: `fetchImageBytes` (`apps/api/src/modules/recipe/services/import/url/fetch.ts`) had gained a refusal of a hero image by its
+`Content-Type` label (`HTML_CONTENT_TYPE_RE`); the pre-E3 code let the magic-byte sniff in `image.ts` alone decide, so a real image served as
+`text/plain` or `application/xml` was stored. The check is gone again (the page fetch `fetchHtml` keeps its own content-type rule, as before), with
+cases in `apps/api/test/import/url-pipeline.test.ts` and `apps/api/test/import/import-http.test.ts`. Re-measured after the review: `bun test`
+`14686 pass`, `0 fail`, `Ran 14686 tests across 160 files. [32.27s]` (the floor 14658; 14684 before the review fix, two new cases). The reviewer's boot
+check (a migrated temp DB, `NODE_ENV=development`, port 3923) answered `/api/health` 200 and SIGTERM logged `[api] SIGTERM — stopping modules …`,
+`[db] database closed`, `[api] runtime disposed`, exit 0. `git diff ddc48af87 --` on `docs/API.md`, `apps/api/drizzle`, `packages/shared` and
+`apps/web` is empty.
+
 ### 9.6 Documentation sync
 
 `docs/modules/recipe.md` (section 1.2 "Services (E3)" with the service table and the hooks as Effects, the gotchas "Fold columns and the backfill", "Import
@@ -1504,6 +1516,10 @@ Everything section 7 expected (items 1 to 11) happened as written. In order, wha
    instead of separate `curl` calls; the requests and statuses are the ones the plan lists.
 6. **Pass count 14684 in 160 files against the floor 14658** (section 9.1).
 7. **No new ADR**: ADR 0014 gained its "Status after E3's integration" section only.
-8. **Left for later milestones** (section 8, unchanged): finance (E4; `PromiseApiModule`, `fromPromiseModule`, `runModuleHook`), the scripts (E5; the
+8. **The review reverted one behaviour change** (hero-image refusal by `Content-Type` label, section 9.5b); the pass count after it is 14686 in 160 files.
+   The documentation sync after the review added an "As built (E3)" section to `agent-patterns/effect-schema.md` (the `SsrfError` tagged error with a
+   `Schema.declare` field and the route `readJson` helper); `effect-services`, `effect-stream` and `effect-http-client` already carried their E3 sections
+   in their "In this repo" part. No ADR: no SPEC §1 or EFFECT.md §1 decision was deviated from.
+9. **Left for later milestones** (section 8, unchanged): finance (E4; `PromiseApiModule`, `fromPromiseModule`, `runModuleHook`), the scripts (E5; the
    bridges `backfillFoldedColumns` and `localizeImageUrl`), the web (E6), Hono and the route-file import order (E7; `docs/open-work.md` O-6), and the bridges the
    pinned tests need (E8).

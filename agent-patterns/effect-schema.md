@@ -285,3 +285,24 @@ and `±Infinity`, so a wire number is `Num` (finite filter that aborts). The ora
 `packages/shared/test/support/schema.ts`; a new vocabulary construct gets a `primitives.json` case first. The API
 decodes through `apps/api/src/lib/validate.ts` (`validate`, `decodeOrThrow`, `decodeOption`), which throws
 `Schema.SchemaError`; `toApiError` maps it once to `422 validation_failed`.
+
+**As built (E3):** the recipe module adds no wire schema (the recipe schemas moved in E1 and its routes still decode through
+`apps/api/src/lib/validate.ts`); what E3 adds is the two places the module uses `Schema` as a plain building block.
+
+- **An error that lives OUTSIDE the API family is still a `Schema.TaggedError`** (`apps/api/src/modules/recipe/services/import/url/ssrf.ts`).
+  A field whose runtime values are not worth a codec is a `Schema.declare` with a `Predicate` guard (no hand-written `typeof` chain), and the
+  `message` getter renders the catalog text in English for the log, as the family does:
+  ```ts
+  const SsrfText = Schema.declare<ErrorText>((u): u is ErrorText => Predicate.isString(u) || Predicate.isObject(u));
+  export class SsrfError extends Schema.TaggedError<SsrfError>()("SsrfError", { reason: Schema.String, text: SsrfText }) {
+    override get message(): string { return serverText("en", this.text); }
+  }
+  ```
+  `ImportHttp` maps it once to a `400 fetch_failed` with `details: { reason }`; `assertPublicUrl` (a surviving bridge) rejects with it as is.
+- **A route helper decodes with the one adapter and keeps both failure channels typed** (`apps/api/src/modules/recipe/routes/imports.ts`,
+  `readJson`; the cards route has the same shape): malformed JSON is `BadRequest` (`Effect.tryPromise` with a `catch` that builds it), a failed
+  decode is `Schema.SchemaError` (from `decode(schema, body)` of `lib/validate.ts`, every issue collected), and the return type is
+  `Effect.fn.Return<Decoded<S>, BadRequest | Schema.SchemaError>`. `onErrorHandler` renders the second as `422 validation_failed` exactly as
+  the thrown form did.
+- **Lesson:** a service never decodes a request; the route decodes and hands the service the typed value. A service that needs to parse
+  something from outside (the JSON-LD of a fetched page) keeps its pure parser and wraps only the fallible part.

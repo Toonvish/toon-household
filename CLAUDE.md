@@ -119,7 +119,7 @@ module (`docs/plans/m2-recipe-module.md`), M3 finance module (`docs/plans/m3-fin
 and M7 harden (`docs/plans/m7-harden.md`), 2026-10-13 to 2026-10-15; each plan's last sections are its
 integration record and "what changed vs plan". Two modules are built (`API_MODULES` and `WEB_MODULES` are
 `[recipe, finance]`, `/api/health` reports `modules: ["recipe","finance"]`). The tree typechecks, builds and tests
-green (`bun test`: 14684 pass in 160 files, 32.88 s on the temp file DB after E3 (quiet host); 14658 pass in 158 files after E2 (69.96 s under a host load average of 14 to 50; 39.79 s at E2's quiet baseline), where 11357 of them are
+green (`bun test`: 14686 pass in 160 files on the temp file DB after the E3 review (14684 at E3-T13, 32.88 s on a quiet host); 14658 pass in 158 files after E2 (69.96 s under a host load average of 14 to 50; 39.79 s at E2's quiet baseline), where 11357 of them are
 the golden parity cases of `packages/shared/test/parity/`; 14508 pass in 150 files after the E1 review; 2463 pass in 141 files at the end of E0; `i18n:check` exits 1 with
 the 147 classified false positives (the 146 and the `Effect.die` stopword hit in `apps/api/src/modules/adapter.ts`); M7's integration record, `docs/plans/m7-harden.md` section 9, has the gate logs,
 the walkthrough, the `migrate:legacy` fixture run and the print-to-PDF proof). Milestone E0 of the Effect migration
@@ -139,7 +139,7 @@ listed there with their callers and removal milestones). Milestone E3 (recipe-se
 `ApiModule<RecipeServices>` with its hooks as Effects and no longer behind `fromPromiseModule`, the recipe routes run through
 `runtime.runPromise`, the URL importer fetches through an `HttpClient` wrapped by the SSRF guard, the OCR and PDF subprocesses are
 scoped resources, the capability flags come from `AppConfig`, time from the `Clock`; ADR 0014 updated) is done; its integration
-record is `docs/plans/e3-recipe-services.md` sections 9 and 10 (the surviving bridges with their callers). What is left is the
+record is `docs/plans/e3-recipe-services.md` sections 9 and 10 (the surviving bridges with their callers); the review (HEAD `9f0c9cd91`) restored the pre-E3 rule that a hero-image download is judged by its magic bytes alone, never by its `Content-Type` label. What is left is the
 owner's (see "Open work").
 
 ## Layout (as built)
