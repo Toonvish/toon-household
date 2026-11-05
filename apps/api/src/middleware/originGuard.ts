@@ -31,15 +31,17 @@
  *      always sends `Origin` on a cross-origin unsafe request, the only case this file
  *      is for.
  *
- * Pure functions plus a hoisted factory that reads no imported binding until a request
- * arrives (CLAUDE.md "API import cycle", plan e2 P12). The refusal is the only effect: it
- * fails with `Forbidden` through the runtime and reaches `onErrorHandler` as the rejection.
+ * Pure functions plus a factory that reads no imported binding until a request arrives (CLAUDE.md "API import cycle", plan e2
+ * P12). The refusal is the only effect: the Effect global middleware (plan `docs/plans/e7-http-api.md` P11.4, deviation
+ * D6) answers `errorResponse(new Forbidden(...))` before routing, so it renders through the one boundary renderer.
  */
 import { Effect } from "effect";
-import type { MiddlewareHandler } from "hono";
+import { HttpServerRequest } from "effect/http";
+import type { GlobalMiddleware } from "../http/global.ts";
+import { pathOf } from "../http/request.ts";
+import { errorResponse } from "../http/response.ts";
 import { Forbidden } from "../lib/errors.ts";
-import type { AppEnv } from "../lib/types.ts";
-import { runtime } from "../runtime.ts";
+import { isApiPath } from "./cors.ts";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -98,6 +100,28 @@ export function isForeignOrigin(
   if (originHost === null || requestHost === null) return true;
   return originHost !== requestHost;
 }
+
+/**
+ * The global middleware for `/api/*`: 403 `forbidden` (`server.error.originMismatch`) for a foreign-origin unsafe
+ * request. The request host comes from the full request URL (`originalUrl`, as `c.req.url` was).
+ */
+export function originGuardMiddleware(trustedOrigins: readonly string[]): GlobalMiddleware {
+  return (httpEffect) =>
+    Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) =>
+      isApiPath(pathOf(request.originalUrl)) &&
+      isForeignOrigin(
+        { method: request.method, url: request.originalUrl, header: (name) => request.headers[name.toLowerCase()] },
+        trustedOrigins,
+      )
+        ? errorResponse(new Forbidden({ text: "server.error.originMismatch" }))
+        : httpEffect,
+    );
+}
+
+/* Hono (E7 transition): E7-T12 deletes this section */
+import type { MiddlewareHandler } from "hono";
+import type { AppEnv } from "../lib/types.ts";
+import { runtime } from "../runtime.ts";
 
 /** Hono middleware: 403 `forbidden` (`server.error.originMismatch`) for a foreign-origin unsafe request. */
 export function originGuard(trustedOrigins: readonly string[]): MiddlewareHandler<AppEnv> {

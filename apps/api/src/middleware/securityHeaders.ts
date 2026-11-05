@@ -50,8 +50,9 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { MiddlewareHandler } from "hono";
-import { secureHeaders } from "hono/secure-headers";
+import { Effect } from "effect";
+import { HttpEffect, HttpServerResponse } from "effect/http";
+import type { GlobalMiddleware } from "../http/global.ts";
 
 /** `'sha256-…'` sources for every inline `<script>` body found in `html`. */
 export function inlineScriptHashes(html: string): string[] {
@@ -68,12 +69,72 @@ export function inlineScriptHashes(html: string): string[] {
 }
 
 /** Reads the built index.html (if any) and returns its inline-script hashes. */
-function scriptHashesFor(webDistDir: string | null): string[] {
+export function scriptHashesFor(webDistDir: string | null): string[] {
   if (webDistDir === null) return [];
   const indexPath = join(webDistDir, "index.html");
   if (!existsSync(indexPath)) return [];
   return inlineScriptHashes(readFileSync(indexPath, "utf8"));
 }
+
+/** The Content-Security-Policy directives, in the order and spelling Hono's `secureHeaders` serialised them. */
+function contentSecurityPolicy(scriptHashes: readonly string[]): string {
+  const directives: ReadonlyArray<readonly [string, ReadonlyArray<string>]> = [
+    ["default-src", ["'self'"]],
+    ["script-src", ["'self'", "'wasm-unsafe-eval'", ...scriptHashes]],
+    ["style-src", ["'self'"]],
+    ["img-src", ["'self'", "data:", "blob:", "https:"]],
+    ["media-src", ["'self'", "blob:"]],
+    ["font-src", ["'self'"]],
+    // Presumes PUBLIC_API_URL="" at build time (relative API URLs); see the header comment.
+    ["connect-src", ["'self'"]],
+    ["manifest-src", ["'self'"]],
+    ["worker-src", ["'self'"]],
+    ["frame-ancestors", ["'none'"]],
+    ["base-uri", ["'self'"]],
+    ["form-action", ["'self'"]],
+    ["object-src", ["blob:"]],
+  ];
+  return directives.map(([name, values]) => `${name} ${values.join(" ")}`).join("; ");
+}
+
+/**
+ * The literal header set Hono's `secureHeaders` produced with this file's options (captured in
+ * `apps/api/test/http-contract.test.ts` row 2): the CSP built from the hashes of the built `index.html`, and the
+ * defaults of `secureHeaders` that stayed on. No `Strict-Transport-Security`, no `Permissions-Policy`, no
+ * `X-Powered-By`. Read once when the global layer is built (`http/global.ts`).
+ */
+export function securityHeaderSet(webDistDir: string | null): ReadonlyArray<readonly [string, string]> {
+  return [
+    ["Cross-Origin-Resource-Policy", "same-site"],
+    ["Cross-Origin-Opener-Policy", "same-origin"],
+    ["Origin-Agent-Cluster", "?1"],
+    ["Referrer-Policy", "strict-origin-when-cross-origin"],
+    ["X-Content-Type-Options", "nosniff"],
+    ["X-DNS-Prefetch-Control", "off"],
+    ["X-Download-Options", "noopen"],
+    ["X-Frame-Options", "DENY"],
+    ["X-Permitted-Cross-Domain-Policies", "none"],
+    ["X-XSS-Protection", "0"],
+    ["Content-Security-Policy", contentSecurityPolicy(scriptHashesFor(webDistDir))],
+  ];
+}
+
+/**
+ * The global middleware (plan `docs/plans/e7-http-api.md` P11.2): a pre-response handler registered before anything
+ * inside runs, so EVERY response carries the set, a boundary-rendered error, the preflight `204` and the origin
+ * guard's `403` included. It is a handler, not an `Effect.map`, because a failure skips the success channel.
+ */
+export function securityHeadersMiddleware(headers: ReadonlyArray<readonly [string, string]>): GlobalMiddleware {
+  const record = Object.fromEntries(headers);
+  return (httpEffect) =>
+    HttpEffect.withPreResponseHandler(httpEffect, (_request, response) =>
+      Effect.succeed(HttpServerResponse.setHeaders(response, record)),
+    );
+}
+
+/* Hono (E7 transition): E7-T12 deletes this section */
+import type { MiddlewareHandler } from "hono";
+import { secureHeaders } from "hono/secure-headers";
 
 export function securityHeaders(webDistDir: string | null): MiddlewareHandler {
   const scriptSrc = ["'self'", "'wasm-unsafe-eval'", ...scriptHashesFor(webDistDir)];

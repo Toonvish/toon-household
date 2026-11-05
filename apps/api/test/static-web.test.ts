@@ -19,13 +19,33 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Hono } from "hono";
-import { inlineScriptHashes, securityHeaders } from "../src/middleware/securityHeaders.ts";
-import { webAppMiddleware } from "../src/middleware/staticWeb.ts";
+import { Effect, Layer } from "effect";
+import { HttpRouter, HttpServerResponse } from "effect/http";
+import { fallbackRoutesLayer, globalHttpLayer } from "../src/http/global.ts";
+import { inlineScriptHashes } from "../src/middleware/securityHeaders.ts";
+import { type InMemoryApp, testHttpApp } from "./support/http.ts";
 
 let distDir = "";
 let outsideSecret = "";
-let app: Hono;
+let app: InMemoryApp;
+
+/**
+ * Stand-ins for the real routers (`/api/health`, `/uploads/:filename`), so "the static layer must not shadow them" is
+ * actually observable, next to the fallback route over `dir`: what `src/http/global.ts` registers in the real server.
+ */
+function miniApp(dir: string | null): InMemoryApp {
+  const health = HttpRouter.add("GET", "/api/health", Effect.succeed(HttpServerResponse.jsonUnsafe({ status: "ok" })));
+  const uploads = HttpRouter.add(
+    "GET",
+    "/uploads/:filename",
+    Effect.map(HttpRouter.params, (params) => HttpServerResponse.text(`upload:${params["filename"]}`)),
+  );
+  return testHttpApp(
+    [],
+    Layer.empty,
+    Layer.mergeAll(health, uploads, fallbackRoutesLayer({ webDistDir: dir }), globalHttpLayer({ requestLog: false, webDistDir: dir })),
+  );
+}
 
 beforeAll(() => {
   const base = mkdtempSync(join(tmpdir(), "toon-dist-"));
@@ -47,21 +67,13 @@ beforeAll(() => {
   outsideSecret = join(base, "secret.txt");
   writeFileSync(outsideSecret, "SESSION_SECRET=hunter2");
 
-  app = new Hono();
-  // Stand-ins for the real routers, so "the static layer must not shadow them" is
-  // actually observable.
-  app.get("/api/health", (c) => c.json({ status: "ok" }));
-  app.get("/uploads/:filename", (c) => c.text(`upload:${c.req.param("filename")}`));
-  app.notFound((c) => c.json({ error: { code: "not_found", message: "Nicht gefunden" } }, 404));
-  app.use("*", webAppMiddleware(distDir));
+  app = miniApp(distDir);
 });
 
 afterAll(() => {
   if (distDir) rmSync(join(distDir, ".."), { recursive: true, force: true });
 });
 
-// `Hono.request()` is typed as `Response | Promise<Response>`; awaiting it in one
-// place keeps every test below free of that union.
 const get = async (path: string, init?: RequestInit): Promise<Response> =>
   await app.request(`http://localhost${path}`, init);
 
@@ -195,16 +207,15 @@ describe("path traversal", () => {
 
 describe("without a build", () => {
   test("an unset WEB_DIST_DIR leaves the app untouched (dev mode)", async () => {
-    // The middleware is not mounted at all in that case; this pins the other half:
-    // a mounted middleware pointing at a directory with no index.html must not
+    // With no web directory the fallback only answers the JSON 404; this pins the other half:
+    // a fallback pointing at a directory with no index.html must not
     // start answering routes with an empty 200.
     const empty = mkdtempSync(join(tmpdir(), "toon-empty-"));
-    const bare = new Hono();
-    bare.get("/api/health", (c) => c.json({ status: "ok" }));
-    bare.notFound((c) => c.json({ error: { code: "not_found" } }, 404));
-    bare.use("*", webAppMiddleware(empty));
+    const bare = miniApp(empty);
+    const unset = miniApp(null);
     try {
       expect((await bare.request("http://localhost/")).status).toBe(404);
+      expect((await unset.request("http://localhost/")).status).toBe(404);
       expect(await (await bare.request("http://localhost/api/health")).json()).toEqual({
         status: "ok",
       });
@@ -224,9 +235,7 @@ describe("the CSP of the served shell", () => {
       `<!doctype html><head><script>${theme}</script><script type="module" crossorigin src="/assets/index-1.js"></script></head>` +
         `<body><script>${second}</script></body>`,
     );
-    const served = new Hono();
-    served.use("*", securityHeaders(dist));
-    served.use("*", webAppMiddleware(dist));
+    const served = miniApp(dist);
     try {
       const response = await served.request("http://localhost/");
       expect(response.status).toBe(200);

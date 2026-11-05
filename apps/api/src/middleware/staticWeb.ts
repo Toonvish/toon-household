@@ -24,7 +24,11 @@
  */
 import { existsSync, statSync } from "node:fs";
 import { join, normalize, resolve } from "node:path";
-import type { MiddlewareHandler } from "hono";
+import { Effect } from "effect";
+import { HttpServerRequest, HttpServerResponse } from "effect/http";
+import { pathOf } from "../http/request.ts";
+import { errorResponse } from "../http/response.ts";
+import { routeUnknown } from "../lib/errors.ts";
 
 /**
  * Explicit content types for everything a vite + vite-plugin-pwa build emits.
@@ -77,57 +81,67 @@ function cacheControl(pathname: string): string {
 }
 
 /**
- * Hono middleware serving `distDir`, with an SPA fallback to `index.html`.
+ * The response for `pathname` out of `distDir`, or `undefined` when the static layer declines (the caller answers the
+ * route-unknown `404`): the built file, or the SPA shell `index.html` for a path that looks like a client-side route.
  *
- * A request for a MISSING file that looks like a file (it has an extension) is
- * passed on to the 404 handler rather than answered with the SPA shell. Handing
- * back HTML for a missing `.js` produces a MIME-type console error that says
- * nothing about the real problem, and a typo'd asset path would look like it
- * worked.
+ * A request for a MISSING file that looks like a file (it has an extension) is declined rather than answered with
+ * the SPA shell. Handing back HTML for a missing `.js` produces a MIME-type console error that says nothing about the
+ * real problem, and a typo'd asset path would look like it worked.
  */
-export function webAppMiddleware(distDir: string): MiddlewareHandler {
+export function resolveStatic(distDir: string, method: string, pathname: string): Response | undefined {
   const root = resolve(distDir);
   const indexPath = join(root, "index.html");
 
-  return async (c, next) => {
-    const method = c.req.method;
-    if (method !== "GET" && method !== "HEAD") return next();
+  if (method !== "GET" && method !== "HEAD") return undefined;
 
-    const pathname = new URL(c.req.url).pathname;
-    // The API and the uploads route own these; nothing here may answer them.
-    if (pathname.startsWith("/api/") || pathname.startsWith("/uploads/")) return next();
+  // The API and the uploads route own these; nothing here may answer them.
+  if (pathname.startsWith("/api/") || pathname.startsWith("/uploads/")) return undefined;
 
-    let decoded: string;
-    try {
-      decoded = decodeURIComponent(pathname);
-    } catch {
-      // A malformed escape is not a path we can reason about.
-      return next();
-    }
-    // `%00` and friends would otherwise reach the filesystem layer.
-    if (decoded.includes("\u0000")) return next();
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(pathname);
+  } catch {
+    // A malformed escape is not a path we can reason about.
+    return undefined;
+  }
+  // `%00` and friends would otherwise reach the filesystem layer.
+  if (decoded.includes("\u0000")) return undefined;
 
-    const requested = normalize(decoded);
-    if (requested.includes("..")) return next();
+  const requested = normalize(decoded);
+  if (requested.includes("..")) return undefined;
 
-    const candidate = requested === "/" ? indexPath : join(root, requested);
-    // normalize() plus the prefix check is the same guard the uploads route uses:
-    // it keeps `/..%2f..%2fetc/passwd` inside the dist directory.
-    const inRoot = candidate === root || candidate.startsWith(`${root}/`);
+  const candidate = requested === "/" ? indexPath : join(root, requested);
+  // normalize() plus the prefix check is the same guard the uploads route uses:
+  // it keeps `/..%2f..%2fetc/passwd` inside the dist directory.
+  const inRoot = candidate === root || candidate.startsWith(`${root}/`);
 
-    if (inRoot && existsSync(candidate) && statSync(candidate).isFile()) {
-      return serve(c.req.method, candidate, requested === "/" ? "/index.html" : requested);
-    }
+  if (inRoot && existsSync(candidate) && statSync(candidate).isFile()) {
+    return serve(method, candidate, requested === "/" ? "/index.html" : requested);
+  }
 
-    // Missing and it looks like a file -> a real 404, not the app shell.
-    if (extensionOf(requested).length > 0) return next();
+  // Missing and it looks like a file -> a real 404, not the app shell.
+  if (extensionOf(requested).length > 0) return undefined;
 
-    // Everything else is a client-side route (`/recipes/123`, `/shopping`), which
-    // only the SPA can resolve.
-    if (!existsSync(indexPath)) return next();
-    return serve(c.req.method, indexPath, "/index.html");
-  };
+  // Everything else is a client-side route (`/recipes/123`, `/shopping`), which
+  // only the SPA can resolve.
+  if (!existsSync(indexPath)) return undefined;
+  return serve(method, indexPath, "/index.html");
 }
+
+/**
+ * The fallback route's handler (plan `docs/plans/e7-http-api.md` P11.5; registered by `fallbackRoutesLayer` in
+ * `http/global.ts` on the path `*` for every explicit method but HEAD): with a `distDir` a `GET` (or the `HEAD` the
+ * router hands to the `GET` tree) the static rules accept is served; everything else is the JSON `404`
+ * (`server.error.routeUnknown`) every unknown route has.
+ */
+export const staticFallback = Effect.fn("staticWeb.fallback")(function* (distDir: string | null) {
+  const request = yield* HttpServerRequest.HttpServerRequest;
+  if (distDir !== null) {
+    const response = resolveStatic(distDir, request.method, new URL(request.originalUrl, "http://localhost").pathname);
+    if (response !== undefined) return HttpServerResponse.fromWeb(response);
+  }
+  return yield* errorResponse(routeUnknown(request.method, pathOf(request.originalUrl)));
+});
 
 function serve(method: string, absolutePath: string, pathname: string): Response {
   const file = Bun.file(absolutePath);
@@ -144,4 +158,15 @@ function serve(method: string, absolutePath: string, pathname: string): Response
     return new Response(null, { headers: { ...headers, "Content-Length": String(file.size) } });
   }
   return new Response(file, { headers });
+}
+
+/* Hono (E7 transition): E7-T12 deletes this section */
+import type { MiddlewareHandler } from "hono";
+
+/** Hono middleware serving `distDir` (`resolveStatic`), with an SPA fallback to `index.html`. */
+export function webAppMiddleware(distDir: string): MiddlewareHandler {
+  return async (c, next) => {
+    const response = resolveStatic(distDir, c.req.method, new URL(c.req.url).pathname);
+    return response ?? next();
+  };
 }

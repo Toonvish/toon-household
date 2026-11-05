@@ -3,13 +3,13 @@
  *
  * The limiter is OFF under `NODE_ENV=test` (every integration test would otherwise trip it), so the enforce -> 429
  * path was never exercised by the suite. This file proves it three ways: the service under a non-test `AppConfig`,
- * `RateLimiter.enforce` in a tiny Hono app with `onErrorHandler` (429 `rate_limited` plus `Retry-After`), and
- * a direct call outside Hono. The window cases run on a `TestClock`: `checkIn` reads the `Clock`, not `Date.now()`.
+ * `RateLimiter.enforce` in a mini API behind `ApiErrorBoundary` (429 `rate_limited` plus `Retry-After`), and
+ * a direct call outside HTTP. The window cases run on a `TestClock`: `checkIn` reads the `Clock`, not `Date.now()`.
  */
 import { describe, expect, test } from "bun:test";
 import { Effect, Exit, Layer } from "effect";
 import { TestClock } from "effect/testing";
-import { Hono } from "hono";
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/http-api";
 import { AppConfig } from "../src/config.ts";
 import {
   HOUSEHOLD_CREATE_RULE,
@@ -19,8 +19,11 @@ import {
   checkRateLimit,
   resetRateLimits,
 } from "../src/core/services/auth/rateLimit.ts";
-import { isApiError, onErrorHandler } from "../src/lib/errors.ts";
+import { type BoundaryFailure, coreApi, UNINTERRUPTIBLE } from "../src/http/middleware.ts";
+import { json } from "../src/http/response.ts";
+import { isApiError } from "../src/lib/errors.ts";
 import { runTest } from "./support/effect.ts";
+import { testHttpApp } from "./support/http.ts";
 
 /** A key no other test shares: the store is one module-level map for the whole process. */
 const freshKey = (prefix: string): string => `${prefix}-${crypto.randomUUID()}`;
@@ -160,18 +163,33 @@ describe("enforce at the boundary", () => {
   const enforce = (scope: string, identifier: string) =>
     RateLimiter.use((limiter) => limiter.enforce(scope, identifier, RULE));
 
-  /** A one-route app whose handler runs `effect` on the production limiter; a failure reaches `onErrorHandler`. */
-  const appFor = (effect: Effect.Effect<string, unknown, RateLimiter>): Hono => {
-    const app = new Hono();
-    app.onError(onErrorHandler);
-    app.get("/t", async (c) => {
-      const key = await Effect.runPromise(effect.pipe(Effect.provide(productionLimiter)));
-      return c.json({ key });
-    });
-    return app;
+  /** The effect the one route runs on the production limiter; a failure reaches `ApiErrorBoundary`. */
+  let current: Effect.Effect<string, BoundaryFailure, RateLimiter> = Effect.succeed("unset");
+  const Group = HttpApiGroup.make("rateLimiter.probe").add(HttpApiEndpoint.get("getT", "/t"));
+  const Api = coreApi(HttpApi.make("rateLimiter.probe").add(Group));
+  const handlers = HttpApiBuilder.group(Api, "rateLimiter.probe", (group) =>
+    group.handle(
+      "getT",
+      Effect.fn("rateLimiter.probe.getT")(function* () {
+        // `local`: a layer is memoised by identity in the runtime's memo map, which holds the test-config limiter.
+        const key = yield* current.pipe(
+          Effect.provide(productionLimiter, { local: true }),
+          Effect.mapError((error) => error as BoundaryFailure),
+        );
+        return json({ key });
+      }),
+      UNINTERRUPTIBLE,
+    ),
+  );
+  const probe = testHttpApp([Api], handlers);
+
+  /** A one-route app whose handler runs `effect` on the production limiter. */
+  const appFor = (effect: Effect.Effect<string, BoundaryFailure, RateLimiter>) => {
+    current = effect;
+    return probe;
   };
 
-  test("RateLimiter.enforce answers 200 then 429 with Retry-After in a Hono route", async () => {
+  test("RateLimiter.enforce answers 200 then 429 with Retry-After in an HTTP route", async () => {
     const id = freshKey("route");
     const app = appFor(enforce("t", id));
 
@@ -189,7 +207,7 @@ describe("enforce at the boundary", () => {
     resetRateLimits(`t:${id.toLowerCase()}`);
   });
 
-  test("a direct call outside Hono fails with a family error whose Retry-After the mapper sets", async () => {
+  test("a direct call outside HTTP fails with a family error whose Retry-After the mapper sets", async () => {
     const id = freshKey("direct");
 
     const key = await Effect.runPromise(enforce("t", id).pipe(Effect.provide(productionLimiter)));

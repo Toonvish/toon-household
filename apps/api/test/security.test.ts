@@ -19,14 +19,18 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createClient } from "@libsql/client";
-import { Hono } from "hono";
-import { clientIp } from "../src/core/services/auth/rateLimit.ts";
+import { Effect } from "effect";
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/http-api";
 import { db } from "../src/db/client.ts";
 import { runMigrations } from "../src/db/migrate.ts";
 import { env } from "../src/env.ts";
+import { coreApi, UNINTERRUPTIBLE } from "../src/http/middleware.ts";
+import { clientIp } from "../src/http/request.ts";
+import { HttpServerResponse } from "effect/http";
 import { isForeignOrigin } from "../src/middleware/originGuard.ts";
 import { inlineScriptHashes } from "../src/middleware/securityHeaders.ts";
 import { body, call, createUser } from "./support/finance-harness.ts";
+import { testHttpApp } from "./support/http.ts";
 
 await runMigrations(db);
 
@@ -287,20 +291,32 @@ describe("security headers", () => {
 /* clientIp                                                                   */
 /* -------------------------------------------------------------------------- */
 
+const ClientIpApi = coreApi(
+  HttpApi.make("security.clientIp").add(HttpApiGroup.make("security.clientIp").add(HttpApiEndpoint.get("getIp", "/ip"))),
+);
+const clientIpHandlers = HttpApiBuilder.group(ClientIpApi, "security.clientIp", (handlers) =>
+  handlers.handle(
+    "getIp",
+    Effect.fn("security.clientIp.getIp")(function* () {
+      return HttpServerResponse.text(yield* clientIp);
+    }),
+    UNINTERRUPTIBLE,
+  ),
+);
+
 describe("clientIp", () => {
   test("behind a trusted proxy the LAST X-Forwarded-For entry wins, never the client-chosen first", async () => {
-    const probe = new Hono();
-    probe.get("/", (c) => c.text(clientIp(c)));
+    const probe = testHttpApp([ClientIpApi], clientIpHandlers);
     const mutableEnv = env as { trustProxy: boolean };
     const before = mutableEnv.trustProxy;
     try {
       mutableEnv.trustProxy = true;
-      const forwarded = await probe.request("/", { headers: { "X-Forwarded-For": "6.6.6.6, 10.0.0.7" } });
+      const forwarded = await probe.request("/ip", { headers: { "X-Forwarded-For": "6.6.6.6, 10.0.0.7" } });
       expect(await forwarded.text()).toBe("10.0.0.7");
-      const single = await probe.request("/", { headers: { "X-Forwarded-For": "10.0.0.8" } });
+      const single = await probe.request("/ip", { headers: { "X-Forwarded-For": "10.0.0.8" } });
       expect(await single.text()).toBe("10.0.0.8");
       mutableEnv.trustProxy = false;
-      const untrusted = await probe.request("/", { headers: { "X-Forwarded-For": "6.6.6.6, 10.0.0.7" } });
+      const untrusted = await probe.request("/ip", { headers: { "X-Forwarded-For": "6.6.6.6, 10.0.0.7" } });
       expect(await untrusted.text()).toBe("unknown");
     } finally {
       mutableEnv.trustProxy = before;

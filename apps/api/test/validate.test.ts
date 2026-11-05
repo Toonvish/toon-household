@@ -20,11 +20,12 @@ import {
   trim,
 } from "@toon/shared";
 import { Effect, Option, Result, Schema } from "effect";
-import { Hono } from "hono";
-import { onErrorHandler } from "../src/lib/errors.ts";
-import { localeMiddleware } from "../src/lib/locale.ts";
-import type { AppEnv } from "../src/lib/types.ts";
-import { type Decodable, type Decoded, decodeOption, decodeOrThrow, validate } from "../src/lib/validate.ts";
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/http-api";
+import { coreApi, UNINTERRUPTIBLE } from "../src/http/middleware.ts";
+import { jsonBody, queryParams, rawJsonOrDie } from "../src/http/request.ts";
+import { json } from "../src/http/response.ts";
+import { type Decodable, type Decoded, decode, decodeOption, decodeOrThrow } from "../src/lib/validate.ts";
+import { type InMemoryApp, testHttpApp } from "./support/http.ts";
 
 /** `true` only when `A` and `B` are the same type (readonly and optional modifiers included). */
 type Equals<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
@@ -41,43 +42,86 @@ const LOCALES: ReadonlyArray<Locale> = ["de", "en"];
 
 const UUID = "6f1c1c64-5d3b-4f63-9a51-0d6c7f1d2a10";
 
-/** One app per schema kind: a JSON body, a query, a route param, and a handler that decodes by hand. */
-function makeApp(body: Decodable, query: Decodable, params: Decodable): Hono<AppEnv> {
-  const app = new Hono<AppEnv>();
-  app.use("*", localeMiddleware);
-  app.onError(onErrorHandler);
-  app.post("/body", validate("json", body), (c) => c.json({ value: c.req.valid("json") }));
-  app.get("/list", validate("query", query), (c) => c.json({ value: c.req.valid("query") }));
-  app.get("/items/:id", validate("param", params), (c) => c.json({ value: c.req.valid("param") }));
-  app.post("/by-hand", async (c) => c.json({ value: decodeOrThrow(body, await c.req.json()) }));
-  return app;
+const Body = Schema.Struct({
+  name: Str.pipe(trim).check(minLength(1)),
+  email: Str.check(maxLength(254)).pipe(trim, lowercase, Schema.decodeTo(Email)),
+});
+const Query = Schema.Struct({
+  limit: CoercedInt.check(min(1), max(100)).pipe(Schema.withDecodingDefault(Effect.succeed(24))),
+  offset: CoercedInt.check(min(0)).pipe(Schema.withDecodingDefault(Effect.succeed(0))),
+});
+const Params = Schema.Struct({ id: Uuid });
+
+/**
+ * One mini API per schema kind: a JSON body (`jsonBody`), a query (`queryParams`), a route param (declared as a
+ * string, decoded in the handler as the ports do, plan P3) and a handler that decodes by hand and throws.
+ */
+const ValidateGroup = HttpApiGroup.make("validate.probe").add(
+  HttpApiEndpoint.post("postBody", "/body"),
+  HttpApiEndpoint.get("getList", "/list"),
+  HttpApiEndpoint.get("getItem", "/items/:id", { params: { id: Schema.String } }),
+  HttpApiEndpoint.post("postByHand", "/by-hand"),
+  HttpApiEndpoint.post("postTyped", "/typed"),
+);
+const ValidateApi = coreApi(HttpApi.make("validate.probe").add(ValidateGroup));
+
+const validateHandlers = HttpApiBuilder.group(ValidateApi, "validate.probe", (handlers) =>
+  handlers
+    .handle(
+      "postBody",
+      Effect.fn("validate.probe.postBody")(function* () {
+        return json({ value: yield* jsonBody(Body) });
+      }),
+      UNINTERRUPTIBLE,
+    )
+    .handle(
+      "getList",
+      Effect.fn("validate.probe.getList")(function* () {
+        return json({ value: yield* queryParams(Query) });
+      }),
+      UNINTERRUPTIBLE,
+    )
+    .handle(
+      "getItem",
+      Effect.fn("validate.probe.getItem")(function* ({ params }) {
+        return json({ value: yield* decode(Params, params) });
+      }),
+      UNINTERRUPTIBLE,
+    )
+    .handle(
+      "postByHand",
+      Effect.fn("validate.probe.postByHand")(function* () {
+        // decodeOrThrow throws the SchemaError synchronously: a defect the boundary maps to the same 422.
+        return json({ value: decodeOrThrow(Body, yield* rawJsonOrDie) });
+      }),
+      UNINTERRUPTIBLE,
+    )
+    .handle(
+      "postTyped",
+      Effect.fn("validate.probe.postTyped")(function* () {
+        const value = yield* jsonBody(Body);
+        const sameAsValid: Equals<typeof value, { name: string; email: string }> = true;
+        value.name = value.name.toUpperCase();
+        return json({ value, sameAsValid });
+      }),
+      UNINTERRUPTIBLE,
+    ),
+);
+
+function postJson(app: InMemoryApp, path: string, payload: unknown, locale: Locale = "de"): Promise<Response> {
+  return app.request(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Accept-Language": locale },
+    body: JSON.stringify(payload),
+  });
 }
 
-function postJson(app: Hono<AppEnv>, path: string, payload: unknown, locale: Locale = "de"): Promise<Response> {
-  return Promise.resolve(
-    app.request(path, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Accept-Language": locale },
-      body: JSON.stringify(payload),
-    }),
-  );
-}
-
-function get(app: Hono<AppEnv>, path: string, locale: Locale = "de"): Promise<Response> {
-  return Promise.resolve(app.request(path, { headers: { "Accept-Language": locale } }));
+function get(app: InMemoryApp, path: string, locale: Locale = "de"): Promise<Response> {
+  return app.request(path, { headers: { "Accept-Language": locale } });
 }
 
 describe("validate with shared schemas", () => {
-  const Body = Schema.Struct({
-    name: Str.pipe(trim).check(minLength(1)),
-    email: Str.check(maxLength(254)).pipe(trim, lowercase, Schema.decodeTo(Email)),
-  });
-  const Query = Schema.Struct({
-    limit: CoercedInt.check(min(1), max(100)).pipe(Schema.withDecodingDefault(Effect.succeed(24))),
-    offset: CoercedInt.check(min(0)).pipe(Schema.withDecodingDefault(Effect.succeed(0))),
-  });
-  const Params = Schema.Struct({ id: Uuid });
-  const app = makeApp(Body, Query, Params);
+  const app = testHttpApp([ValidateApi], validateHandlers);
 
   /** What the adapter makes of `input` for `schema`: the expected `details`. */
   function issuesOf(schema: Decodable, input: unknown, locale: Locale) {
@@ -104,7 +148,7 @@ describe("validate with shared schemas", () => {
     expect((de as ErrorBody).error.details?.[0]?.message).not.toBe((en as ErrorBody).error.details?.[0]?.message);
   });
 
-  test("a valid body reaches the handler decoded through c.req.valid", async () => {
+  test("a valid body reaches the handler decoded through jsonBody", async () => {
     const res = await postJson(app, "/body", { name: "  Kim ", email: " KIM@Example.ORG ", extra: 1 });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ value: { name: "Kim", email: "kim@example.org" } });
@@ -161,7 +205,7 @@ describe("validate with shared schemas", () => {
     expect(body.error.details?.map((d) => [d.path, d.code])).toEqual([["id", "invalid_format"]]);
   });
 
-  test("decodeOrThrow behind onErrorHandler gives the same envelope", async () => {
+  test("decodeOrThrow behind ApiErrorBoundary gives the same envelope", async () => {
     const payload = { name: "", email: "nope" };
     for (const locale of LOCALES) {
       const viaValidate = await postJson(app, "/body", payload, locale);
@@ -182,17 +226,12 @@ describe("validate with shared schemas", () => {
     expect(Option.isNone(decodeOption(Body, 42))).toBe(true);
   });
 
-  test("compile time: c.req.valid and Decoded give the decoded, mutable type", async () => {
-    const typed = new Hono<AppEnv>().post("/typed", validate("json", Body), (c) => {
-      const value = c.req.valid("json");
-      const sameAsValid: Equals<typeof value, { name: string; email: string }> = true;
-      value.name = value.name.toUpperCase();
-      return c.json({ value, sameAsValid });
-    });
+  test("compile time: jsonBody and Decoded give the decoded, mutable type", async () => {
+    // The `Equals` check on the type `jsonBody` yields sits in the `postTyped` handler above (a tsc error otherwise).
     const decodedIsMutable: Equals<Decoded<typeof Body>, { name: string; email: string }> = true;
     const queryDecoded: Equals<Decoded<typeof Query>, { limit: number; offset: number }> = true;
     expect([decodedIsMutable, queryDecoded]).toEqual([true, true]);
-    const res = await postJson(typed, "/typed", { name: "kim", email: "kim@example.org" });
+    const res = await postJson(app, "/typed", { name: "kim", email: "kim@example.org" });
     expect(await res.json()).toEqual({ value: { name: "KIM", email: "kim@example.org" }, sameAsValid: true });
   });
 });
