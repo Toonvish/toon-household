@@ -24,7 +24,7 @@
  *
  * Endpoint contract: docs/API.md ("Shopping lists").
  */
-import { Option } from "effect";
+import { Effect, Option } from "effect";
 import {
   AddRecipeToShoppingListRequestSchema,
   AddShoppingItemsRequestSchema,
@@ -39,38 +39,16 @@ import {
   UpdateShoppingListRequestSchema,
 } from "@toon/shared";
 import { Hono } from "hono";
-import { db } from "../../../db/client.ts";
 import { created, json, noContent } from "../../../lib/http.ts";
 import type { AppEnv } from "../../../lib/types.ts";
-import { requireMembership, requireUser } from "../../../lib/types.ts";
+import { currentMembership, currentUser } from "../../../lib/types.ts";
 import { requireVerifiedEmail } from "../../../middleware/verifiedEmail.ts";
 import { decodeOption, validate } from "../../../lib/validate.ts";
-import {
-  clearBoughtSection,
-  listBoughtItems,
-  undoBoughtItem,
-} from "../services/shopping/bought.service.ts";
-import { planShoppingPreview } from "../services/shopping/fromPlan.service.ts";
-import {
-  addCatalogEntryToList,
-  addRecipeToShoppingList,
-  addShoppingItems,
-  checkShoppingItem,
-  clearShoppingList,
-  deleteCatalogEntry,
-  deleteShoppingItem,
-  listShoppingCatalog,
-  removeRecipeFromList,
-  setCatalogEntryHidden,
-  updateShoppingItem,
-} from "../services/shopping/items.service.ts";
-import {
-  createShoppingList,
-  deleteShoppingList,
-  getShoppingListDetail,
-  listShoppingLists,
-  updateShoppingList,
-} from "../services/shopping/lists.service.ts";
+import { runtime } from "../../../runtime.ts";
+import { ShoppingBought } from "../services/shopping/bought.service.ts";
+import { ShoppingFromPlan } from "../services/shopping/fromPlan.service.ts";
+import { ShoppingItems } from "../services/shopping/items.service.ts";
+import { ShoppingLists } from "../services/shopping/lists.service.ts";
 
 /**
  * `?since=<ISO>` on the list index (A03 § 2.1): the client's calendar-day
@@ -109,11 +87,16 @@ shoppingRoutes.use("*", requireVerifiedEmail());
  * GET /?since — all lists of the household with their open-item counts plus the
  * overview-card extras: `boughtCount`, `boughtClearedAt`, `previewItems`.
  */
-shoppingRoutes.get("/", async (c) => {
-  const membership = requireMembership(c);
-  const since = parseSinceQuery(c.req.query("since"));
-  return json(c, { items: await listShoppingLists(db, membership.householdId, since) });
-});
+shoppingRoutes.get("/", (c) =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const listService = yield* ShoppingLists;
+      const membership = yield* currentMembership(c);
+      const since = parseSinceQuery(c.req.query("since"));
+      return json(c, { items: yield* listService.listShoppingLists(membership.householdId, since) });
+    }),
+  ),
+);
 
 /**
  * GET /bought — the household-wide "Bought today" / history feed (A03 § 2.2c).
@@ -121,60 +104,82 @@ shoppingRoutes.get("/", async (c) => {
  * IGNORED here on purpose: `Clear bought` only moves what a list's own DETAIL
  * section shows, never what this archive answers.
  */
-shoppingRoutes.get(
-  "/bought",
-  validate("query", ShoppingBoughtListQuerySchema),
-  async (c) => {
-    const membership = requireMembership(c);
-    const { listId, limit, offset } = c.req.valid("query");
-    return json(c, await listBoughtItems(db, membership.householdId, { listId, limit, offset }));
-  },
+shoppingRoutes.get("/bought", validate("query", ShoppingBoughtListQuerySchema), (c) =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const boughtService = yield* ShoppingBought;
+      const membership = yield* currentMembership(c);
+      const { listId, limit, offset } = c.req.valid("query");
+      return json(
+        c,
+        yield* boughtService.listBoughtItems(membership.householdId, { listId, limit, offset }),
+      );
+    }),
+  ),
 );
 
 /** POST / — create a named list. */
-shoppingRoutes.post(
-  "/",
-  validate("json", CreateShoppingListRequestSchema),
-  async (c) => {
-    const membership = requireMembership(c);
-    const user = requireUser(c);
-    const list = await createShoppingList(db, membership.householdId, user.id, c.req.valid("json"));
-    return created(
-      c,
-      { list },
-      `/api/households/${membership.householdId}/recipe/shopping-lists/${list.id}`,
-    );
-  },
+shoppingRoutes.post("/", validate("json", CreateShoppingListRequestSchema), (c) =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const listService = yield* ShoppingLists;
+      const membership = yield* currentMembership(c);
+      const user = yield* currentUser(c);
+      const list = yield* listService.createShoppingList(
+        membership.householdId,
+        user.id,
+        c.req.valid("json"),
+      );
+      return created(
+        c,
+        { list },
+        `/api/households/${membership.householdId}/recipe/shopping-lists/${list.id}`,
+      );
+    }),
+  ),
 );
 
 /** GET /:listId — list + open items + "Häufig gekauft" suggestions. */
-shoppingRoutes.get("/:listId", async (c) => {
-  const membership = requireMembership(c);
-  return json(c, await getShoppingListDetail(db, membership.householdId, c.req.param("listId")));
-});
+shoppingRoutes.get("/:listId", (c) =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const listService = yield* ShoppingLists;
+      const membership = yield* currentMembership(c);
+      return json(
+        c,
+        yield* listService.getShoppingListDetail(membership.householdId, c.req.param("listId")),
+      );
+    }),
+  ),
+);
 
 /** PATCH /:listId — rename. Any member: the list is shared property. */
-shoppingRoutes.patch(
-  "/:listId",
-  validate("json", UpdateShoppingListRequestSchema),
-  async (c) => {
-    const membership = requireMembership(c);
-    const list = await updateShoppingList(
-      db,
-      membership.householdId,
-      c.req.param("listId"),
-      c.req.valid("json"),
-    );
-    return json(c, { list });
-  },
+shoppingRoutes.patch("/:listId", validate("json", UpdateShoppingListRequestSchema), (c) =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const listService = yield* ShoppingLists;
+      const membership = yield* currentMembership(c);
+      const list = yield* listService.updateShoppingList(
+        membership.householdId,
+        c.req.param("listId"),
+        c.req.valid("json"),
+      );
+      return json(c, { list });
+    }),
+  ),
 );
 
 /** DELETE /:listId — creator or admin+; items, catalog and ledger cascade. */
-shoppingRoutes.delete("/:listId", async (c) => {
-  const membership = requireMembership(c);
-  await deleteShoppingList(db, membership, c.req.param("listId"));
-  return noContent(c);
-});
+shoppingRoutes.delete("/:listId", (c) =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const listService = yield* ShoppingLists;
+      const membership = yield* currentMembership(c);
+      yield* listService.deleteShoppingList(membership, c.req.param("listId"));
+      return noContent(c);
+    }),
+  ),
+);
 
 /* -------------------------------------------------------------------------- */
 /* items                                                                      */
@@ -185,56 +190,70 @@ shoppingRoutes.delete("/:listId", async (c) => {
  * unit, so posting "200 g Mehl" onto a list that already has 200 g yields one 400 g
  * line. Pass `mutationId` to make an offline replay safe.
  */
-shoppingRoutes.post(
-  "/:listId/items",
-  validate("json", AddShoppingItemsRequestSchema),
-  async (c) => {
-    const membership = requireMembership(c);
-    return json(
-      c,
-      await addShoppingItems(db, membership.householdId, c.req.param("listId"), c.req.valid("json")),
-    );
-  },
+shoppingRoutes.post("/:listId/items", validate("json", AddShoppingItemsRequestSchema), (c) =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const itemService = yield* ShoppingItems;
+      const membership = yield* currentMembership(c);
+      return json(
+        c,
+        yield* itemService.addShoppingItems(
+          membership.householdId,
+          c.req.param("listId"),
+          c.req.valid("json"),
+        ),
+      );
+    }),
+  ),
 );
 
 /** DELETE /:listId/items — empty the list. Nothing counts as bought. */
-shoppingRoutes.delete("/:listId/items", async (c) => {
-  const membership = requireMembership(c);
-  return json(c, await clearShoppingList(db, membership.householdId, c.req.param("listId")));
-});
+shoppingRoutes.delete("/:listId/items", (c) =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const itemService = yield* ShoppingItems;
+      const membership = yield* currentMembership(c);
+      return json(c, yield* itemService.clearShoppingList(membership.householdId, c.req.param("listId")));
+    }),
+  ),
+);
 
 /** PATCH /:listId/items/:itemId — edit amount/unit/name/note. */
-shoppingRoutes.patch(
-  "/:listId/items/:itemId",
-  validate("json", UpdateShoppingItemRequestSchema),
-  async (c) => {
-    const membership = requireMembership(c);
-    return json(
-      c,
-      await updateShoppingItem(
-        db,
-        membership.householdId,
-        c.req.param("listId"),
-        c.req.param("itemId"),
-        c.req.valid("json"),
-      ),
-    );
-  },
+shoppingRoutes.patch("/:listId/items/:itemId", validate("json", UpdateShoppingItemRequestSchema), (c) =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const itemService = yield* ShoppingItems;
+      const membership = yield* currentMembership(c);
+      return json(
+        c,
+        yield* itemService.updateShoppingItem(
+          membership.householdId,
+          c.req.param("listId"),
+          c.req.param("itemId"),
+          c.req.valid("json"),
+        ),
+      );
+    }),
+  ),
 );
 
 /** DELETE /:listId/items/:itemId — remove without counting it as bought. Idempotent. */
-shoppingRoutes.delete("/:listId/items/:itemId", async (c) => {
-  const membership = requireMembership(c);
-  return json(
-    c,
-    await deleteShoppingItem(
-      db,
-      membership.householdId,
-      c.req.param("listId"),
-      c.req.param("itemId"),
-    ),
-  );
-});
+shoppingRoutes.delete("/:listId/items/:itemId", (c) =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const itemService = yield* ShoppingItems;
+      const membership = yield* currentMembership(c);
+      return json(
+        c,
+        yield* itemService.deleteShoppingItem(
+          membership.householdId,
+          c.req.param("listId"),
+          c.req.param("itemId"),
+        ),
+      );
+    }),
+  ),
+);
 
 /**
  * POST /:listId/items/:itemId/check — check off.
@@ -245,24 +264,24 @@ shoppingRoutes.delete("/:listId/items/:itemId", async (c) => {
  * item is gone), so a replay is harmless even without a `mutationId`. The body is
  * optional so the client can send `{}`.
  */
-shoppingRoutes.post(
-  "/:listId/items/:itemId/check",
-  validate("json", CheckShoppingItemRequestSchema),
-  async (c) => {
-    const membership = requireMembership(c);
-    const user = requireUser(c);
-    return json(
-      c,
-      await checkShoppingItem(
-        db,
-        membership.householdId,
-        c.req.param("listId"),
-        c.req.param("itemId"),
-        user.id,
-        c.req.valid("json")?.mutationId,
-      ),
-    );
-  },
+shoppingRoutes.post("/:listId/items/:itemId/check", validate("json", CheckShoppingItemRequestSchema), (c) =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const itemService = yield* ShoppingItems;
+      const membership = yield* currentMembership(c);
+      const user = yield* currentUser(c);
+      return json(
+        c,
+        yield* itemService.checkShoppingItem(
+          membership.householdId,
+          c.req.param("listId"),
+          c.req.param("itemId"),
+          user.id,
+          c.req.valid("json")?.mutationId,
+        ),
+      );
+    }),
+  ),
 );
 
 /* -------------------------------------------------------------------------- */
@@ -275,10 +294,15 @@ shoppingRoutes.post(
  * Idempotent, so no `mutationId`: "set the watermark to now" cannot disagree
  * with itself, the same reasoning `DELETE /:listId/items` uses for "alles löschen".
  */
-shoppingRoutes.post("/:listId/bought/clear", async (c) => {
-  const membership = requireMembership(c);
-  return json(c, await clearBoughtSection(db, membership.householdId, c.req.param("listId")));
-});
+shoppingRoutes.post("/:listId/bought/clear", (c) =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const boughtService = yield* ShoppingBought;
+      const membership = yield* currentMembership(c);
+      return json(c, yield* boughtService.clearBoughtSection(membership.householdId, c.req.param("listId")));
+    }),
+  ),
+);
 
 /**
  * POST /:listId/bought/:boughtId/undo — "Zurück auf die Liste".
@@ -288,22 +312,22 @@ shoppingRoutes.post("/:listId/bought/clear", async (c) => {
  * creating a second line. `use_count` is decremented, floored at 0. Idempotent:
  * an unknown/already-undone id is a 200 no-op.
  */
-shoppingRoutes.post(
-  "/:listId/bought/:boughtId/undo",
-  validate("json", CheckShoppingItemRequestSchema),
-  async (c) => {
-    const membership = requireMembership(c);
-    return json(
-      c,
-      await undoBoughtItem(
-        db,
-        membership.householdId,
-        c.req.param("listId"),
-        c.req.param("boughtId"),
-        c.req.valid("json")?.mutationId,
-      ),
-    );
-  },
+shoppingRoutes.post("/:listId/bought/:boughtId/undo", validate("json", CheckShoppingItemRequestSchema), (c) =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const boughtService = yield* ShoppingBought;
+      const membership = yield* currentMembership(c);
+      return json(
+        c,
+        yield* boughtService.undoBoughtItem(
+          membership.householdId,
+          c.req.param("listId"),
+          c.req.param("boughtId"),
+          c.req.valid("json")?.mutationId,
+        ),
+      );
+    }),
+  ),
 );
 
 /* -------------------------------------------------------------------------- */
@@ -318,23 +342,23 @@ shoppingRoutes.post(
  * Also upserts the "Recipes on this list" rail row (`recipe_shopping_list_recipes`) —
  * re-adding at a different portion count is the newest intent.
  */
-shoppingRoutes.post(
-  "/:listId/recipes",
-  validate("json", AddRecipeToShoppingListRequestSchema),
-  async (c) => {
-    const membership = requireMembership(c);
-    const user = requireUser(c);
-    return json(
-      c,
-      await addRecipeToShoppingList(
-        db,
-        membership.householdId,
-        c.req.param("listId"),
-        user.id,
-        c.req.valid("json"),
-      ),
-    );
-  },
+shoppingRoutes.post("/:listId/recipes", validate("json", AddRecipeToShoppingListRequestSchema), (c) =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const itemService = yield* ShoppingItems;
+      const membership = yield* currentMembership(c);
+      const user = yield* currentUser(c);
+      return json(
+        c,
+        yield* itemService.addRecipeToShoppingList(
+          membership.householdId,
+          c.req.param("listId"),
+          user.id,
+          c.req.valid("json"),
+        ),
+      );
+    }),
+  ),
 );
 
 /**
@@ -346,18 +370,22 @@ shoppingRoutes.post(
  * hours later against a list the user can no longer see is exactly the class
  * `persist.ts` excludes). Idempotent: an unknown recipe id is a 200 no-op.
  */
-shoppingRoutes.delete("/:listId/recipes/:recipeId", async (c) => {
-  const membership = requireMembership(c);
-  return json(
-    c,
-    await removeRecipeFromList(
-      db,
-      membership.householdId,
-      c.req.param("listId"),
-      c.req.param("recipeId"),
-    ),
-  );
-});
+shoppingRoutes.delete("/:listId/recipes/:recipeId", (c) =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const itemService = yield* ShoppingItems;
+      const membership = yield* currentMembership(c);
+      return json(
+        c,
+        yield* itemService.removeRecipeFromList(
+          membership.householdId,
+          c.req.param("listId"),
+          c.req.param("recipeId"),
+        ),
+      );
+    }),
+  ),
+);
 
 /**
  * GET /:listId/from-plan?from&to — "From this week's plan" (SPEC § 4.5 / A03 § 5).
@@ -366,17 +394,18 @@ shoppingRoutes.delete("/:listId/recipes/:recipeId", async (c) => {
  * same schema `GET /plan` validates against, since the range rules (`from <= to`,
  * under `PLAN_LIMITS.rangeDays`) are identical.
  */
-shoppingRoutes.get(
-  "/:listId/from-plan",
-  validate("query", MealPlanRangeQuerySchema),
-  async (c) => {
-    const membership = requireMembership(c);
-    const { from, to } = c.req.valid("query");
-    return json(
-      c,
-      await planShoppingPreview(db, membership.householdId, c.req.param("listId"), { from, to }),
-    );
-  },
+shoppingRoutes.get("/:listId/from-plan", validate("query", MealPlanRangeQuerySchema), (c) =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const fromPlanService = yield* ShoppingFromPlan;
+      const membership = yield* currentMembership(c);
+      const { from, to } = c.req.valid("query");
+      return json(
+        c,
+        yield* fromPlanService.planShoppingPreview(membership.householdId, c.req.param("listId"), { from, to }),
+      );
+    }),
+  ),
 );
 
 /* -------------------------------------------------------------------------- */
@@ -389,21 +418,22 @@ shoppingRoutes.get(
  * offline-capable path; this is reached only from the "Ausgeblendete anzeigen"
  * toggle on that sheet, is online-only and is never persisted.
  */
-shoppingRoutes.get(
-  "/:listId/catalog",
-  validate("query", ShoppingCatalogListQuerySchema),
-  async (c) => {
-    const membership = requireMembership(c);
-    const { includeHidden, limit, offset } = c.req.valid("query");
-    return json(
-      c,
-      await listShoppingCatalog(db, membership.householdId, c.req.param("listId"), {
-        includeHidden: includeHidden ?? false,
-        limit,
-        offset,
-      }),
-    );
-  },
+shoppingRoutes.get("/:listId/catalog", validate("query", ShoppingCatalogListQuerySchema), (c) =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const itemService = yield* ShoppingItems;
+      const membership = yield* currentMembership(c);
+      const { includeHidden, limit, offset } = c.req.valid("query");
+      return json(
+        c,
+        yield* itemService.listShoppingCatalog(membership.householdId, c.req.param("listId"), {
+          includeHidden: includeHidden ?? false,
+          limit,
+          offset,
+        }),
+      );
+    }),
+  ),
 );
 
 /**
@@ -415,50 +445,57 @@ shoppingRoutes.get(
 shoppingRoutes.patch(
   "/:listId/catalog/:entryId",
   validate("json", UpdateShoppingCatalogEntryRequestSchema),
-  async (c) => {
-    const membership = requireMembership(c);
-    return json(
-      c,
-      await setCatalogEntryHidden(
-        db,
-        membership.householdId,
-        c.req.param("listId"),
-        c.req.param("entryId"),
-        c.req.valid("json").hidden,
-      ),
-    );
-  },
+  (c) =>
+    runtime.runPromise(
+      Effect.gen(function* () {
+        const itemService = yield* ShoppingItems;
+        const membership = yield* currentMembership(c);
+        return json(
+          c,
+          yield* itemService.setCatalogEntryHidden(
+            membership.householdId,
+            c.req.param("listId"),
+            c.req.param("entryId"),
+            c.req.valid("json").hidden,
+          ),
+        );
+      }),
+    ),
 );
 
 /** POST /:listId/catalog/:entryId — re-add a suggestion, without an amount. */
-shoppingRoutes.post(
-  "/:listId/catalog/:entryId",
-  validate("json", CheckShoppingItemRequestSchema),
-  async (c) => {
-    const membership = requireMembership(c);
-    return json(
-      c,
-      await addCatalogEntryToList(
-        db,
-        membership.householdId,
-        c.req.param("listId"),
-        c.req.param("entryId"),
-        c.req.valid("json")?.mutationId,
-      ),
-    );
-  },
+shoppingRoutes.post("/:listId/catalog/:entryId", validate("json", CheckShoppingItemRequestSchema), (c) =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const itemService = yield* ShoppingItems;
+      const membership = yield* currentMembership(c);
+      return json(
+        c,
+        yield* itemService.addCatalogEntryToList(
+          membership.householdId,
+          c.req.param("listId"),
+          c.req.param("entryId"),
+          c.req.valid("json")?.mutationId,
+        ),
+      );
+    }),
+  ),
 );
 
 /** DELETE /:listId/catalog/:entryId — "nicht mehr vorschlagen". Idempotent. */
-shoppingRoutes.delete("/:listId/catalog/:entryId", async (c) => {
-  const membership = requireMembership(c);
-  await deleteCatalogEntry(
-    db,
-    membership.householdId,
-    c.req.param("listId"),
-    c.req.param("entryId"),
-  );
-  return noContent(c);
-});
+shoppingRoutes.delete("/:listId/catalog/:entryId", (c) =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const itemService = yield* ShoppingItems;
+      const membership = yield* currentMembership(c);
+      yield* itemService.deleteCatalogEntry(
+        membership.householdId,
+        c.req.param("listId"),
+        c.req.param("entryId"),
+      );
+      return noContent(c);
+    }),
+  ),
+);
 
 export default shoppingRoutes;
