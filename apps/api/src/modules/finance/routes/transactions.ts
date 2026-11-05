@@ -108,3 +108,5 @@ export const transactionRoutes = effectBridge(
   Layer.suspend(() => Layer.provideMerge(transactionsHandlers, RequireFinanceParticipantLayer)),
   "/api/households/:householdId/finance/transactions",
 );
+
+export default transactionRoutes;

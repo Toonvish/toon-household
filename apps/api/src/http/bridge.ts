@@ -68,6 +68,14 @@ export function effectBridgeHandler(api: AnyApi, handlers: Layer.Any): InMemoryA
   );
 }
 
+/**
+ * An empty Hono router for a module `routes/index.ts` to `.route(…)` the bridges onto, so that file need not import the
+ * framework itself (E7-T09 fix round 1; transitional, deleted with this file by E7-T11).
+ */
+export function bridgeRouter(): Hono<AppEnv> {
+  return new Hono<AppEnv>();
+}
+
 /** A Hono sub-app for `app.route(mountedAt, …)` serving exactly the endpoints of `api` through its Effect handler (P1). */
 export function effectBridge(api: AnyApi, handlers: Layer.Any, mountedAt: string): Hono<AppEnv> {
   const handler = effectBridgeHandler(api, handlers);

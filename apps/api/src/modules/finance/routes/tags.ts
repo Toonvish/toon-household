@@ -59,3 +59,5 @@ export const tagRoutes = effectBridge(
   Layer.suspend(() => Layer.provideMerge(financeTagsHandlers, RequireFinanceParticipantLayer)),
   "/api/households/:householdId/finance/tags",
 );
+
+export default tagRoutes;

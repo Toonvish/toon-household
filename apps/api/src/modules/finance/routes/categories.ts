@@ -75,3 +75,5 @@ export const categoryRoutes = effectBridge(
   Layer.suspend(() => Layer.provideMerge(categoriesHandlers, RequireFinanceParticipantLayer)),
   "/api/households/:householdId/finance/categories",
 );
+
+export default categoryRoutes;

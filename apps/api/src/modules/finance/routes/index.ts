@@ -11,8 +11,7 @@
  * `/:transactionId` stays inside transactions.ts. Hono copies a sub-app's routes when
  * `.route()` is called, so every router file registers its handlers at module top level.
  */
-import { Hono } from "hono";
-import type { AppEnv } from "../../../lib/types.ts";
+import { bridgeRouter } from "../../../http/bridge.ts";
 import { balanceRoutes } from "./balance.ts";
 import { categoryRoutes } from "./categories.ts";
 import { participantRoutes } from "./participants.ts";
@@ -21,7 +20,7 @@ import { settlementRoutes } from "./settlements.ts";
 import { tagRoutes } from "./tags.ts";
 import { transactionRoutes } from "./transactions.ts";
 
-export const financeHouseholdRouter = new Hono<AppEnv>()
+export const financeHouseholdRouter = bridgeRouter()
   .route("/participants", participantRoutes)
   .route("/transactions", transactionRoutes)
   .route("/categories", categoryRoutes)
