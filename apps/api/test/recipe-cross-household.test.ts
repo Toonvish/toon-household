@@ -460,16 +460,22 @@ describe("every by-id recipe route refuses another household's id", () => {
   test("covers every by-id route of the five household routers", async () => {
     // Guards the list above against a router growing a route nobody sweeps: every
     // by-id (`:param`) route of the ported routers is named by at least one probe.
+    // A router whose endpoints moved onto an `HttpApi` (E7, plan Table R) declares them in its sibling `<name>.api.ts`
+    // (`HttpApiEndpoint.get("name", "/:id", …)`, the path relative to the router as before); one not yet moved still
+    // registers `xRoutes.get("/:id", …)` in `<name>.ts`.
+    const routesDir = join(import.meta.dir, "..", "src", "modules", "recipe", "routes");
     const source = await Promise.all(
-      ["recipes", "imports", "shopping", "plan"].map((name) =>
-        Bun.file(join(import.meta.dir, "..", "src", "modules", "recipe", "routes", `${name}.ts`)).text(),
-      ),
+      ["recipes", "imports", "shopping", "plan"].map(async (name) => {
+        const api = Bun.file(join(routesDir, `${name}.api.ts`));
+        return (await api.exists()) ? api.text() : Bun.file(join(routesDir, `${name}.ts`)).text();
+      }),
     );
     const declared = source
       .flatMap((text) =>
-        [...text.matchAll(/Routes\.(get|post|put|patch|delete)\(\s*"([^"]+)"/g)].map(
-          (match) => `${(match[1] ?? "").toUpperCase()} ${match[2] ?? ""}`,
-        ),
+        [
+          ...text.matchAll(/Routes\.(get|post|put|patch|delete)\(\s*"([^"]+)"/g),
+          ...text.matchAll(/HttpApiEndpoint\.(get|post|put|patch|delete)\(\s*"[^"]+",\s*"([^"]+)"/g),
+        ].map((match) => `${(match[1] ?? "").toUpperCase()} ${match[2] ?? ""}`),
       )
       .filter((route) => route.includes(":"));
 
