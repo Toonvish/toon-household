@@ -1,45 +1,74 @@
 /**
- * `requireModule(id)` — the module gate (SPEC D8). A household reaches a module's
- * routes only once it has enabled it, i.e. a `household_modules` row exists for
- * `(householdId, id)`. Absent -> 404 `module_disabled`.
+ * The module gate (SPEC D8). A household reaches a module's routes only once it has enabled it, i.e. a
+ * `household_modules` row exists for `(householdId, id)`. Absent -> 404 `module_disabled`.
  *
- * ORDER: after `requireSession()` and `requireHouseholdRole()`, because it reads
- * `c.get("membership")`. Role before module on purpose: a non-member of a
- * household gets 403 `forbidden`, never a `module_disabled` that would confirm
- * which modules some other household has switched on.
- * `mountModules()` (modules/mount.ts) applies the chain, so a module router never
- * mounts this itself.
+ * ORDER: after the session and the household middleware, because it reads the membership. Role before module on
+ * purpose: a non-member of a household gets 403 `forbidden`, never a `module_disabled` that would confirm which
+ * modules some other household has switched on.
+ *
+ * - The Effect HTTP layer (docs/EFFECT.md E8; plan `docs/plans/e7-http-api.md` P5, P14): `RequireModuleLayer`
+ *   implements the tag `RequireModule` of `apps/api/src/http/middleware.ts`. The module id comes from the `ModuleId`
+ *   annotation `householdModuleApi` puts on every group of a module API (`moduleIdOf(group)`), never from the URL;
+ *   `householdModuleApi` attaches the chain, so a module API never attaches this itself.
+ * - The Hono section at the end (until E7-T12 deletes it): `requireModule(id)`; `mountModules()` (modules/mount.ts)
+ *   applies the chain, so a module router never mounts this itself.
+ *
+ * Both sides share `checkModuleEnabled`.
  */
 import type { ModuleId } from "@toon/shared";
 import { and, eq } from "drizzle-orm";
-import { Effect } from "effect";
-import type { MiddlewareHandler } from "hono";
+import { Effect, Layer } from "effect";
 import { Database } from "../db/database.ts";
 import { householdModules } from "../db/schema.ts";
+import { CurrentMembership } from "../http/context.ts";
+import { moduleIdOf, RequireModule } from "../http/middleware.ts";
 import { ApiFailure } from "../lib/errors.ts";
-import type { AppContext, AppEnv } from "../lib/types.ts";
-import { currentMembership } from "../lib/types.ts";
-import { runtime } from "../runtime.ts";
 
-/** The gate as one effect: 404 `module_disabled` unless the household row for `id` exists. */
-const checkModuleEnabled = Effect.fn("Module.check")(function* (c: AppContext, id: ModuleId) {
-  const membership = yield* currentMembership(c);
+/** The gate as one effect: 404 `module_disabled` unless the row of `householdId` for module `id` exists. */
+export const checkModuleEnabled = Effect.fn("Module.check")(function* (householdId: string, id: ModuleId) {
   const database = yield* Database;
   const rows = yield* database.use((db) =>
     db
       .select({ moduleId: householdModules.moduleId })
       .from(householdModules)
-      .where(
-        and(
-          eq(householdModules.householdId, membership.householdId),
-          eq(householdModules.moduleId, id),
-        ),
-      )
+      .where(and(eq(householdModules.householdId, householdId), eq(householdModules.moduleId, id)))
       .limit(1),
   );
   if (rows.length === 0) {
     return yield* new ApiFailure({ status: 404, code: "module_disabled", text: "server.module.disabled" });
   }
+});
+
+/** A `RequireModule` on a group no `householdModuleApi` annotated is a wiring bug of the API definition. */
+const UNANNOTATED_GROUP = new Error("RequireModule runs on a group without a ModuleId annotation (use householdModuleApi)");
+
+/** `RequireModule` (P5, P14): 404 `module_disabled` unless the household of the membership has the group's module. */
+export const RequireModuleLayer = Layer.effect(
+  RequireModule,
+  Effect.gen(function* () {
+    const database = yield* Database;
+    return RequireModule.of(
+      Effect.fn("RequireModule")(function* (httpEffect, { group }) {
+        const id = moduleIdOf(group);
+        if (id === undefined) return yield* Effect.die(UNANNOTATED_GROUP);
+        const membership = yield* CurrentMembership;
+        yield* Effect.provideService(checkModuleEnabled(membership.householdId, id), Database, database);
+        return yield* httpEffect;
+      }),
+    );
+  }),
+);
+
+/* Hono (E7 transition): E7-T12 deletes this section */
+import type { MiddlewareHandler } from "hono";
+import type { AppContext, AppEnv } from "../lib/types.ts";
+import { currentMembership } from "../lib/types.ts";
+import { runtime } from "../runtime.ts";
+
+/** `checkModuleEnabled` for the membership of the Hono request `c`. */
+const checkModuleEnabledOn = Effect.fn("Module.checkOn")(function* (c: AppContext, id: ModuleId) {
+  const membership = yield* currentMembership(c);
+  yield* checkModuleEnabled(membership.householdId, id);
 });
 
 /**
@@ -48,7 +77,7 @@ const checkModuleEnabled = Effect.fn("Module.check")(function* (c: AppContext, i
  */
 export function requireModule(id: ModuleId): MiddlewareHandler<AppEnv> {
   return async (c, next) => {
-    await runtime.runPromise(checkModuleEnabled(c, id));
+    await runtime.runPromise(checkModuleEnabledOn(c, id));
     await next();
   };
 }

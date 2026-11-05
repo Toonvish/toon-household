@@ -24,16 +24,44 @@
  * after `requireHouseholdRole()` is a judgement call and it is mounted AFTER: a
  * non-member should be told they are a non-member (404/403 `forbidden`) rather
  * than being handed a confirmation prompt for a household they cannot see anyway.
+ *
+ * The Effect HTTP layer (docs/EFFECT.md E8; plan `docs/plans/e7-http-api.md` P5): `RequireVerifiedEmailLayer`
+ * implements the tag `RequireVerifiedEmail` of `apps/api/src/http/middleware.ts` (it requires `CurrentUser`; a group
+ * attaches it with `chain(RequireVerifiedEmail)` where a Hono router mounted it with `use("*")`). The Hono section at
+ * the end (until E7-T12 deletes it) keeps `requireVerifiedEmail()`. Both sides share `READ_METHODS` and
+ * `VerifiedEmail.assertVerified`.
  */
-import { Effect } from "effect";
-import type { MiddlewareHandler } from "hono";
-import type { AppContext, AppEnv } from "../lib/types.ts";
-import { currentUser } from "../lib/types.ts";
+import { Effect, Layer } from "effect";
+import { HttpServerRequest } from "effect/http";
 import { VerifiedEmail } from "../core/services/auth/verifiedEmail.ts";
-import { runtime } from "../runtime.ts";
+import { CurrentUser } from "../http/context.ts";
+import { RequireVerifiedEmail } from "../http/middleware.ts";
 
 /** Methods that never change anything, so the gate lets them past. */
 const READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+/** `RequireVerifiedEmail` (P5): 403 `email_unverified` on a write from an account with an unconfirmed address. */
+export const RequireVerifiedEmailLayer = Layer.effect(
+  RequireVerifiedEmail,
+  Effect.gen(function* () {
+    const verifiedEmail = yield* VerifiedEmail;
+    return RequireVerifiedEmail.of(
+      Effect.fn("RequireVerifiedEmail")(function* (httpEffect) {
+        const request = yield* HttpServerRequest.HttpServerRequest;
+        if (!READ_METHODS.has(request.method)) {
+          yield* verifiedEmail.assertVerified(yield* CurrentUser);
+        }
+        return yield* httpEffect;
+      }),
+    );
+  }),
+);
+
+/* Hono (E7 transition): E7-T12 deletes this section */
+import type { MiddlewareHandler } from "hono";
+import type { AppContext, AppEnv } from "../lib/types.ts";
+import { currentUser } from "../lib/types.ts";
+import { runtime } from "../runtime.ts";
 
 /** The gate as one effect: `VerifiedEmail.assertVerified` for the session user. */
 const checkVerified = Effect.fn("VerifiedEmail.check")(function* (c: AppContext) {

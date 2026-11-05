@@ -30,6 +30,13 @@
  *   returning one. A cookie is keyed by its name on the Effect response: setting the same cookie twice in one request
  *   (a stale-cookie clear, then a new session) sends ONE `Set-Cookie` with the last value, where Hono appended two
  *   headers (a browser ends in the same state). `householdModuleApi` takes the `@toon/shared` `ModuleId` union as its id.
+ * - E7-T03: none. Notes: the implementations are `RequireSessionLayer`, `OptionalSessionLayer`,
+ *   `RequireHouseholdMemberLayer` / `AdminLayer` / `OwnerLayer`, `RequireModuleLayer`, `RequireVerifiedEmailLayer`
+ *   (`apps/api/src/middleware/*.ts`), merged with `ApiErrorBoundaryLayer` by `httpMiddlewareLayer()`
+ *   (`apps/api/src/http/middleware-layer.ts`); `effectBridge(api, handlers, mountedAt)` (`apps/api/src/http/bridge.ts`)
+ *   provides them itself, so a route file passes only its handler layer. `RequireModule` reads the group's `ModuleId`
+ *   and treats a group without one as a defect: attach it through `householdModuleApi` only. The household tags
+ *   resolve the household from `:householdId`, else `:inviteId` (no `via` option on the Effect side).
  */
 import type { ModuleId as SharedModuleId } from "@toon/shared";
 import { Context, Schema } from "effect";
