@@ -231,10 +231,10 @@ The web, which has no throw-and-catch boundary, uses `Schema.decodeUnknownResult
 one (`Schema.withDecodingDefault(Effect.succeed("member" as const))`, a default is an `Effect`).
 
 **As built (E2):** the runtime is no longer empty. `apps/api/src/runtime.ts` is `ManagedRuntime.make(AppLayer, { memoMap })` with
-`AppLayer = Layer.suspend(appLayer)` (`Layer.Layer<AppServices, AppLayerError, never>`); every Hono handler of the core routes is
-`(c) => runtime.runPromise(Effect.gen(function* () { … }))`, the Hono context operations (`c.req`, `c.json`, cookies) stay inside the
-generator, and a refusal is `return yield* new <TaggedError>(…)`, which `runPromise` rejects with as the squashed error itself, so
-`onErrorHandler` renders it as before. What the integration found about the edge helpers:
+`AppLayer = Layer.suspend(appLayer)` (`Layer.Layer<AppServices, AppLayerError, never>`); every Hono handler of the core routes was
+`(c) => runtime.runPromise(Effect.gen(function* () { … }))` (E7 replaced Hono; the handlers below are `HttpApiBuilder.group` handlers),
+and a refusal is `return yield* new <TaggedError>(…)`, which `runPromise` rejected with as the squashed error itself, so
+`onErrorHandler` rendered it as before. What the integration found about the edge helpers:
 - `Effect.runSync(effect)` is the right bridge for a SYNCHRONOUS legacy export over a service-free effect (the `Clock` is a default
   service, so `Clock.currentTimeMillis` works); it THROWS the tagged error itself (`Cause.squash`) and cannot run anything asynchronous.
   Every such bridge carries an explicit return type copied from the old signature, so `tsc` refuses one that became a `Promise`.
@@ -243,16 +243,19 @@ generator, and a refusal is `return yield* new <TaggedError>(…)`, which `runPr
 - A `Context.Service` class is itself an `Effect` of its shape, so `runtime.runPromise(Passwords.use((p) => p.hashPassword(x)))` is the
   one-liner a bridge needs; the fewer places that read a service class at module scope the fewer TDZ crashes (`effect-services.md`).
 
-**In this repo (E2 example):** `apps/api/src/core/routes/members.ts`, a route is one `runtime.runPromise` over a generator; the Hono context
-is read inside it, the service is a `yield*`, and nothing throws:
+**In this repo (E7 example):** `apps/api/src/core/routes/members.ts`, a route is one `Effect.fn` handler of a `HttpApiBuilder.group` layer; the
+service and the request context are `yield*`s, a body is decoded by `jsonBody`, a refusal is a returned tagged error, and nothing throws (the
+E2 form was `router.get(…, (c) => runtime.runPromise(Effect.gen(…)))` on a Hono router):
 ```ts
-router.get("/:householdId/members", requireSession(), requireHouseholdRole("member"), (c) =>
-  runtime.runPromise(
-    Effect.gen(function* () {
+export const membersHandlers = HttpApiBuilder.group(HouseholdsApi, "members", (handlers) =>
+  handlers.handle(
+    "getByHouseholdIdMembers",
+    Effect.fn("members.getByHouseholdIdMembers")(function* () {
       const households = yield* Households;
-      const membership = yield* currentMembership(c);
-      return json(c, { items: yield* households.listMembers(membership.householdId) });
+      const membership = yield* CurrentMembership;
+      return json({ items: yield* households.listMembers(membership.householdId) });
     }),
+    UNINTERRUPTIBLE,
   ),
 );
 ```

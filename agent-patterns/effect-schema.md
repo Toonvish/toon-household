@@ -221,8 +221,8 @@ Source: `repos/effect/migration/schema.md` summary table and notes.
   `packages/shared/src/modules/recipe/schemas/*.ts`, `packages/shared/src/modules/finance/schemas/*.ts`,
   `packages/shared/src/core/i18n/issues.ts` (the issue-to-catalog adapter is a `SchemaIssue` walk, `flattenIssue`,
   over the `WIRE_ISSUE` annotations of the vocabulary `packages/shared/src/core/schemas/checks.ts`; `refineKey`
-  becomes `keyed` / `keyedIssue` there), `apps/api/src/core/services/households/validation.ts` (`onValidationError`) and the route files that use
-  `@hono/zod-validator` (a `validate(target, schema)` helper decoding with `{ errors: "all" }`),
+  becomes `keyed` / `keyedIssue` there), `apps/api/src/core/services/households/validation.ts` (`onValidationError`) and the route files that used
+  `@hono/zod-validator` (now `jsonBody` / `queryParams` of `apps/api/src/http/request.ts` over `apps/api/src/lib/validate.ts`, decoding with `ALL_ISSUES`),
   `apps/web/src/lib/validation.ts`.
 - Tests: `packages/shared/test/` keeps its assertions; add table-driven accept/reject parity cases per schema file;
   run schemas with `Schema.decodeUnknownSync` / `decodeUnknownExit` under `bun test`.

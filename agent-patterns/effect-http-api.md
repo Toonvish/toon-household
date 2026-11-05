@@ -6,7 +6,7 @@ Distilled from the vendored source only (`repos/effect/LLMS.md` "Building HttpAp
 HttpApiSecurity,HttpApiError,HttpApiClient,HttpApiTest,HttpApiScalar}.ts`, `repos/effect/packages/effect/src/http/{HttpRouter,HttpEffect}.ts`,
 `repos/effect/packages/platform/bun/src/BunHttpServer.ts`, `repos/effect/migration/annotations/effect__platform__HttpApi*.yaml`).
 Look a signature up there before using it. Your memory of Effect is v3; section 5 lists what changed. This is E7 material
-(`docs/EFFECT.md` milestone E7, decision E8): nothing here is wired until Hono is replaced.
+(`docs/EFFECT.md` milestone E7, decision E8); section 7 is what E7 built in this repo.
 
 ## 1. What this is for, and the imports
 

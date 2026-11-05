@@ -165,11 +165,11 @@ Source: `migration/error-handling.md`, `migration/cause.md`.
 
 ## 7. In this repo
 
-- `apps/api/src/lib/errors.ts`: today's `ApiError` (a class with `status`, `code`, `text`, `toBody(locale)`, static helpers, thrown and caught by
-  Hono's `onError`). E2 turned it into a family of `Schema.TaggedError` classes with the same `status`, `code`, `text`, plus one `toApiError` /
-  `errorBody` mapper at the HTTP boundary (`ERROR_CODES` in `packages/shared` stays the wire contract; "As built (E2)" below).
+- `apps/api/src/lib/errors.ts`: the error family: `Schema.TaggedError` classes with the `status`, `code` and `text` of the old `ApiError` class (E2; the `ApiError` class itself remains as a compatibility class and no code throws it, idioms rule (10)), plus one `toApiError` / `errorBody` mapper at the HTTP boundary (`ERROR_CODES` in `packages/shared` stays the wire
+  contract; "As built (E2)" below). Since E7 the boundary is the `ApiErrorBoundary` `HttpApiMiddleware` (tag in `apps/api/src/http/middleware.ts`, layer in `apps/api/src/http/response.ts`, outermost on every
+  `HttpApi`): it recovers the whole cause of a handler and renders the envelope, so a handler just does `return yield* new NotFound()`.
 - `apps/api/src/core/services/**` and `apps/api/src/modules/<id>/services/**`: methods are `Effect.fn("Service.method")` with the failures in
-  the signature; handlers recover with `Effect.catchTag(s)`. `apps/api/src/runtime.ts` (E0, new) is where `runPromiseExit` meets Hono until E7.
+  the signature; handlers recover with `Effect.catchTag(s)`. `apps/api/src/runtime.ts` (E0) is the one `ManagedRuntime`; since E7 the HTTP server's own fiber runs the handlers on its services.
 - `apps/api/test/effect-idioms.test.ts` pins "no `Context.Tag(`" and, since E2, rule (10) "no `throw ApiError` outside the recipe and finance prefixes".
 - Tests assert a failure with `Effect.flip` or `Effect.exit` + `Exit.isFailure`; a defect shows up as `Cause.hasDies`.
 
@@ -225,7 +225,7 @@ code, text })` / `new RateLimited({ retryAfterSeconds })` (the mapper sets `Retr
 - **The sync bridges:** `Effect.runSync(effect)` throws `Cause.squash(cause)`, i.e. the tagged error itself
   (`internal/effect.ts` `runSyncWith`); `requireUser(c)` is `Effect.runSync(currentUser(c))` with the explicit return type `User`.
 - **Hono's `compose` passes only `Error` instances to `onError`**; a thrown non-`Error` (the string `"ManagedRuntime disposed"`)
-  is rethrown by Hono, so `toApiError` maps it to `Internal` for callers outside Hono, and a route never lets one escape.
+  is rethrown by Hono, so `toApiError` maps it to `Internal` for callers outside Hono, and a route never lets one escape (E2-era finding; Hono is gone since E7).
 - **Bun's `expect(() => new X()).not.toThrow()` fails when the arrow RETURNS an Error**; construct outside the arrow
   (`apps/api/test/errors.test.ts`).
 

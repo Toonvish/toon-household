@@ -11,6 +11,6 @@ Status: see the "Status" section of `CLAUDE.md` for what is built and what comes
 
 Deployment: `docs/deployment.md`; migration of the two old apps: `docs/migration.md`.
 
-Stack: Bun 1.4 workspaces, Bun.serve + Hono, libSQL + Drizzle, React 19 + Vite + TanStack Router +
+Stack: Bun 1.4 workspaces, Effect 4 (`effect/http-api` on `BunHttpServer`), libSQL + Drizzle, React 19 + Vite + TanStack Router +
 TanStack Query + Tailwind v4, TypeScript 7 strict, German-first UI with an English interface
 option, one Docker container behind its own Caddy.
