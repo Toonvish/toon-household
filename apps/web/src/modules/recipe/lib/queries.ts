@@ -20,25 +20,11 @@ import {
   STALE_TIME,
 } from "@/lib/queries";
 import {
-  fetchCards,
-  fetchCollection,
-  fetchCollections,
-  fetchImportDraft,
-  fetchImportDrafts,
-  fetchLastPlanned,
-  fetchPlanRange,
-  fetchPlanShoppingPreview,
-  fetchRecipe,
-  fetchRecipes,
-  fetchScaledRecipe,
-  fetchShoppingBoughtHistory,
-  fetchShoppingCatalogPage,
-  fetchShoppingList,
-  fetchShoppingLists,
-  fetchTags,
+  RecipeApi,
   type ShoppingBoughtHistoryQuery,
   type ShoppingCatalogPageQuery,
 } from "./api";
+import { runPromise } from "@/lib/runtime";
 
 export * from "@/lib/queries";
 
@@ -127,42 +113,42 @@ export const queryKeys = {
 export const recipesQuery = (householdId: string, query: Partial<RecipeListQuery> = {}) =>
   queryOptions({
     queryKey: queryKeys.recipes(householdId, query),
-    queryFn: ({ signal }) => fetchRecipes(householdId, query, { signal }),
+    queryFn: ({ signal }) => runPromise(RecipeApi.fetchRecipes(householdId, query), { signal }),
     staleTime: STALE_TIME.list,
   });
 
 export const recipeQuery = (householdId: string, recipeId: string) =>
   queryOptions({
     queryKey: queryKeys.recipe(householdId, recipeId),
-    queryFn: ({ signal }) => fetchRecipe(householdId, recipeId, { signal }),
+    queryFn: ({ signal }) => runPromise(RecipeApi.fetchRecipe(householdId, recipeId), { signal }),
     staleTime: STALE_TIME.detail,
   });
 
 export const recipeScaleQuery = (householdId: string, recipeId: string, servings: number) =>
   queryOptions({
     queryKey: queryKeys.recipeScale(householdId, recipeId, servings),
-    queryFn: ({ signal }) => fetchScaledRecipe(householdId, recipeId, servings, { signal }),
+    queryFn: ({ signal }) => runPromise(RecipeApi.fetchScaledRecipe(householdId, recipeId, servings), { signal }),
     staleTime: STALE_TIME.detail,
   });
 
 export const tagsQuery = (householdId: string) =>
   queryOptions({
     queryKey: queryKeys.tags(householdId),
-    queryFn: ({ signal }) => fetchTags(householdId, { signal }),
+    queryFn: ({ signal }) => runPromise(RecipeApi.fetchTags(householdId), { signal }),
     staleTime: STALE_TIME.meta,
   });
 
 export const collectionsQuery = (householdId: string) =>
   queryOptions({
     queryKey: queryKeys.collections(householdId),
-    queryFn: ({ signal }) => fetchCollections(householdId, { signal }),
+    queryFn: ({ signal }) => runPromise(RecipeApi.fetchCollections(householdId), { signal }),
     staleTime: STALE_TIME.meta,
   });
 
 export const collectionQuery = (householdId: string, collectionId: string) =>
   queryOptions({
     queryKey: queryKeys.collection(householdId, collectionId),
-    queryFn: ({ signal }) => fetchCollection(householdId, collectionId, { signal }),
+    queryFn: ({ signal }) => runPromise(RecipeApi.fetchCollection(householdId, collectionId), { signal }),
     staleTime: STALE_TIME.detail,
   });
 
@@ -172,14 +158,14 @@ export const importDraftsQuery = (
 ) =>
   queryOptions({
     queryKey: queryKeys.importDrafts(householdId, query),
-    queryFn: ({ signal }) => fetchImportDrafts(householdId, query, { signal }),
+    queryFn: ({ signal }) => runPromise(RecipeApi.fetchImportDrafts(householdId, query), { signal }),
     staleTime: STALE_TIME.list,
   });
 
 export const importDraftQuery = (householdId: string, draftId: string) =>
   queryOptions({
     queryKey: queryKeys.importDraft(householdId, draftId),
-    queryFn: ({ signal }) => fetchImportDraft(householdId, draftId, { signal }),
+    queryFn: ({ signal }) => runPromise(RecipeApi.fetchImportDraft(householdId, draftId), { signal }),
     /** A draft is edited locally; don't fight the form with background refetches. */
     staleTime: Infinity,
   });
@@ -195,7 +181,7 @@ export const importDraftQuery = (householdId: string, draftId: string) =>
 export const cardsQuery = () =>
   queryOptions({
     queryKey: queryKeys.cards(),
-    queryFn: ({ signal }) => fetchCards({ signal }),
+    queryFn: ({ signal }) => runPromise(RecipeApi.fetchCards(), { signal }),
     staleTime: STALE_TIME.meta,
     networkMode: "offlineFirst",
   });
@@ -203,7 +189,7 @@ export const cardsQuery = () =>
 export const shoppingListsQuery = (householdId: string) =>
   queryOptions({
     queryKey: queryKeys.shoppingLists(householdId),
-    queryFn: ({ signal }) => fetchShoppingLists(householdId, { signal }),
+    queryFn: ({ signal }) => runPromise(RecipeApi.fetchShoppingLists(householdId), { signal }),
     staleTime: STALE_TIME.list,
   });
 
@@ -220,7 +206,7 @@ export const shoppingListsQuery = (householdId: string) =>
 export const shoppingListQuery = (householdId: string, listId: string) =>
   queryOptions({
     queryKey: queryKeys.shoppingList(householdId, listId),
-    queryFn: ({ signal }) => fetchShoppingList(householdId, listId, { signal }),
+    queryFn: ({ signal }) => runPromise(RecipeApi.fetchShoppingList(householdId, listId), { signal }),
     staleTime: 0,
     networkMode: "offlineFirst",
   });
@@ -233,7 +219,7 @@ export const shoppingListQuery = (householdId: string, listId: string) =>
 export const planQuery = (householdId: string, range: MealPlanRangeQuery) =>
   queryOptions({
     queryKey: queryKeys.plan(householdId, range),
-    queryFn: ({ signal }) => fetchPlanRange(householdId, range, { signal }),
+    queryFn: ({ signal }) => runPromise(RecipeApi.fetchPlanRange(householdId, range), { signal }),
     staleTime: STALE_TIME.list,
     networkMode: "offlineFirst",
   });
@@ -242,7 +228,7 @@ export const planQuery = (householdId: string, range: MealPlanRangeQuery) =>
 export const lastPlannedQuery = (householdId: string, before: string) =>
   queryOptions({
     queryKey: queryKeys.planLastPlanned(householdId, before),
-    queryFn: ({ signal }) => fetchLastPlanned(householdId, before, { signal }),
+    queryFn: ({ signal }) => runPromise(RecipeApi.fetchLastPlanned(householdId, before), { signal }),
     staleTime: STALE_TIME.list,
     networkMode: "offlineFirst",
   });
@@ -256,7 +242,7 @@ export const lastPlannedQuery = (householdId: string, before: string) =>
 export const planShoppingQuery = (householdId: string, listId: string, range: { from: string; to: string }) =>
   queryOptions({
     queryKey: queryKeys.planShopping(householdId, listId),
-    queryFn: ({ signal }) => fetchPlanShoppingPreview(householdId, listId, range, { signal }),
+    queryFn: ({ signal }) => runPromise(RecipeApi.fetchPlanShoppingPreview(householdId, listId, range), { signal }),
     staleTime: STALE_TIME.list,
   });
 
@@ -264,7 +250,7 @@ export const planShoppingQuery = (householdId: string, listId: string, range: { 
 export const boughtHistoryQuery = (householdId: string, query: ShoppingBoughtHistoryQuery = {}) =>
   queryOptions({
     queryKey: queryKeys.boughtHistory(householdId, query),
-    queryFn: ({ signal }) => fetchShoppingBoughtHistory(householdId, query, { signal }),
+    queryFn: ({ signal }) => runPromise(RecipeApi.fetchShoppingBoughtHistory(householdId, query), { signal }),
     staleTime: STALE_TIME.list,
   });
 
@@ -276,7 +262,7 @@ export const catalogPageQuery = (
 ) =>
   queryOptions({
     queryKey: queryKeys.catalogPage(householdId, listId, query),
-    queryFn: ({ signal }) => fetchShoppingCatalogPage(householdId, listId, query, { signal }),
+    queryFn: ({ signal }) => runPromise(RecipeApi.fetchShoppingCatalogPage(householdId, listId, query), { signal }),
     staleTime: STALE_TIME.list,
   });
 

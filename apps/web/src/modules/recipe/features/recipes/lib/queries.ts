@@ -17,7 +17,7 @@ import type {
   UpdateRecipeRequest,
   UploadResponse,
 } from "@toon/shared";
-import { createRecipe, deleteRecipe, fetchRecipes, updateRecipe, uploadRecipeImage } from "@/modules/recipe/lib/api";
+import { RecipeApi, createRecipe, deleteRecipe, updateRecipe, uploadRecipeImage } from "@/modules/recipe/lib/api";
 import { translate } from "@/lib/i18n";
 import {
   invalidate,
@@ -28,6 +28,7 @@ import {
   recipesQuery,
   STALE_TIME,
 } from "@/modules/recipe/lib/queries";
+import { runPromise } from "@/lib/runtime";
 
 export const RECIPE_PAGE_SIZE = 24;
 
@@ -71,7 +72,7 @@ export function useRecipeList(householdId: string | null, filters: RecipeListFil
     staleTime: STALE_TIME.list,
     initialPageParam: 0,
     queryFn: ({ pageParam, signal }) =>
-      fetchRecipes(householdId ?? "", { ...wire, offset: pageParam }, { signal }),
+      runPromise(RecipeApi.fetchRecipes(householdId ?? "", { ...wire, offset: pageParam }), { signal }),
     getNextPageParam: (lastPage) => {
       const next = lastPage.offset + lastPage.items.length;
       return next < lastPage.total ? next : undefined;

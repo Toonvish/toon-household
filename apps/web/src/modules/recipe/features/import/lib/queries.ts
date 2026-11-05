@@ -15,13 +15,12 @@ import { healthQuery, invalidateAfterRecipeMutation } from "@/modules/recipe/lib
 import {
   commitDraft,
   deleteDraft,
-  getDraft,
+  ImportApi,
   isImportApiError,
-  listDrafts,
-  listHouseholdTags,
   patchDraft,
   ImportApiError,
 } from "./importApi";
+import { runPromise } from "@/lib/runtime";
 
 export const importKeys = {
   all: (householdId: string) => ["toon", "household", householdId, "recipe", "import"] as const,
@@ -81,7 +80,7 @@ export function useDraftList(
     retry: retryPolicy,
     staleTime: 15_000,
     queryFn: async ({ signal }) => {
-      const response = await listDrafts(householdId!, { status, limit }, signal);
+      const response = await runPromise(ImportApi.listDrafts(householdId!, { status, limit }), { signal });
       return { items: response.items, total: response.total };
     },
   });
@@ -113,7 +112,7 @@ export function useDraft(
       let lastError: unknown;
       for (const householdId of candidateHouseholdIds) {
         try {
-          const draft = await getDraft(householdId, draftId!, signal);
+          const draft = await runPromise(ImportApi.getDraft(householdId, draftId!), { signal });
           return { draft, householdId };
         } catch (error) {
           if (isImportApiError(error) && (error.kind === "not_found" || error.kind === "forbidden")) {
@@ -146,7 +145,7 @@ export function useHouseholdTags(householdId: string | undefined): UseQueryResul
     enabled: typeof householdId === "string" && householdId.length > 0,
     retry: retryPolicy,
     staleTime: 60_000,
-    queryFn: ({ signal }) => listHouseholdTags(householdId!, signal),
+    queryFn: ({ signal }) => runPromise(ImportApi.listHouseholdTags(householdId!), { signal }),
   });
 }
 
