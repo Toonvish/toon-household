@@ -10,6 +10,11 @@
  * Idempotent: recipes are skipped by title, and each block skips itself once its table
  * already has a row for this household/list. Content language is German on purpose
  * (demo data, not interface copy), so nothing here goes through `t()`.
+ *
+ * The hook is an Effect since E3 (docs/EFFECT.md E7; plan `docs/plans/e3-recipe-services.md` P5):
+ * `seedRecipeDemo(context)` runs the unchanged Promise body `seedRecipeDemoOn(db, context)` on the
+ * current executor of `Database` (`scripts/seed.ts` hands in its `db` through `runModuleHook`).
+ * `Date.now()` here is outside `services/` and stays (demo timestamps relative to the wall clock).
  */
 import {
   foldText,
@@ -21,7 +26,8 @@ import {
   type RecipeStep,
 } from "@toon/shared";
 import { eq } from "drizzle-orm";
-import type { Database } from "../../db/client.ts";
+import { Effect } from "effect";
+import { Database, type DbExecutor } from "../../db/database.ts";
 import {
   mealPlanEntries,
   recipeCookLog,
@@ -74,8 +80,18 @@ function parseSectionedSteps(text: string): RecipeStep[] {
   return out;
 }
 
-export async function seedRecipeDemo(
-  db: Database,
+/** The manifest's `seedDemo` hook: the demo content on the current executor. */
+export const seedRecipeDemo = Effect.fn("RecipeModule.seedRecipeDemo")(function* (context: {
+  householdId: string;
+  userId: string;
+}) {
+  const database = yield* Database;
+  yield* database.use((db) => seedRecipeDemoOn(db, context));
+});
+
+/** The demo content on `db` (the Promise body of M2-T05, unchanged). */
+export async function seedRecipeDemoOn(
+  db: DbExecutor,
   { householdId, userId }: { householdId: string; userId: string },
 ): Promise<void> {
   const now = Date.now();

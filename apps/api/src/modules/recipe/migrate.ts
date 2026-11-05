@@ -3,12 +3,25 @@
  * `backfillFoldedColumns` from `apps/api/src/db/migrate.ts`, moved here verbatim.
  * `runMigrations` (db/migrate.ts) calls it through the manifest's `afterMigrate`
  * hook after every `migrate()`, so the core never names it.
+ *
+ * An Effect since E3 (docs/EFFECT.md E7; plan `docs/plans/e3-recipe-services.md` P5): `foldBackfill()`
+ * runs on the current executor of `Database` (the database `runMigrations` just migrated, handed in
+ * through `runModuleHook`). `backfillFoldedColumns(database?)` is the Promise bridge for the legacy
+ * migration and its test.
+ *
+ * Import order: this file imports neither `src/runtime.ts` nor `src/env.ts` nor the manifest.
+ * `scripts/legacy/recipe.ts` imports it after `migrate-legacy.ts` redirected `DATABASE_URL`
+ * (CLAUDE.md "The CLI never imports `src/env.ts`, and its import order is load-bearing"); the bridge
+ * runs through `runModuleHook` (`../adapter.ts`), which never imports the runtime either.
  */
 import { foldText } from "@toon/shared";
 import { and, eq, ne } from "drizzle-orm";
-import type { Database } from "../../db/client.ts";
+import { Effect } from "effect";
+import type { DrizzleDatabase } from "../../db/client.ts";
 import { db as sharedDb } from "../../db/client.ts";
+import { Database } from "../../db/database.ts";
 import { recipeIngredients, recipes } from "../../db/schema.ts";
+import { runModuleHook } from "../adapter.ts";
 
 /**
  * Fills `recipe_recipes.title_fold` / `description_fold` and
@@ -41,30 +54,46 @@ import { recipeIngredients, recipes } from "../../db/schema.ts";
  * Cheap by construction — on an up-to-date database both SELECTs match nothing.
  * It is not built for millions of rows, and a family recipe box does not have them.
  */
-export async function backfillFoldedColumns(database: Database = sharedDb): Promise<number> {
-  const staleRecipes = await database
-    .select({ id: recipes.id, title: recipes.title, description: recipes.description })
-    .from(recipes)
-    .where(and(eq(recipes.titleFold, ""), ne(recipes.title, "")));
+export const foldBackfill = Effect.fn("RecipeModule.foldBackfill")(function* () {
+  const database = yield* Database;
+  const staleRecipes = yield* database.use((db) =>
+    db
+      .select({ id: recipes.id, title: recipes.title, description: recipes.description })
+      .from(recipes)
+      .where(and(eq(recipes.titleFold, ""), ne(recipes.title, ""))),
+  );
 
   for (const row of staleRecipes) {
-    await database
-      .update(recipes)
-      .set({ titleFold: foldText(row.title), descriptionFold: foldText(row.description ?? "") })
-      .where(eq(recipes.id, row.id));
+    yield* database.use((db) =>
+      db
+        .update(recipes)
+        .set({ titleFold: foldText(row.title), descriptionFold: foldText(row.description ?? "") })
+        .where(eq(recipes.id, row.id)),
+    );
   }
 
-  const staleIngredients = await database
-    .select({ id: recipeIngredients.id, name: recipeIngredients.name })
-    .from(recipeIngredients)
-    .where(and(eq(recipeIngredients.nameFold, ""), ne(recipeIngredients.name, "")));
+  const staleIngredients = yield* database.use((db) =>
+    db
+      .select({ id: recipeIngredients.id, name: recipeIngredients.name })
+      .from(recipeIngredients)
+      .where(and(eq(recipeIngredients.nameFold, ""), ne(recipeIngredients.name, ""))),
+  );
 
   for (const row of staleIngredients) {
-    await database
-      .update(recipeIngredients)
-      .set({ nameFold: foldText(row.name) })
-      .where(eq(recipeIngredients.id, row.id));
+    yield* database.use((db) =>
+      db.update(recipeIngredients).set({ nameFold: foldText(row.name) }).where(eq(recipeIngredients.id, row.id)),
+    );
   }
 
   return staleRecipes.length + staleIngredients.length;
+});
+
+/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
+
+/**
+ * Callers: `apps/api/scripts/legacy/recipe.ts` (E5), `apps/api/test/legacy-recipe.test.ts`. The fold backfill on
+ * `database` (default: the shared db), outside the runtime. Resolves with the number of filled rows.
+ */
+export function backfillFoldedColumns(database: DrizzleDatabase = sharedDb): Promise<number> {
+  return runModuleHook(foldBackfill(), database);
 }

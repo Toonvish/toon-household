@@ -7,7 +7,7 @@
  * (or synchronously thrown) API error arrives as the SAME object in the error channel and from `runModuleHook`'s
  * rejection; a rejected plain `Error` is a defect; `start` keeps its rejection value; `afterMigrate` through
  * `runMigrations(createDatabase(...).db)` runs on that database (identity, and recipe's real fold backfill there);
- * `API_MODULES` wraps the two manifests with their ids and `healthFeatures`.
+ * `API_MODULES` lists recipe unwrapped (E3, with its `layer`) and wraps finance, with their ids and `healthFeatures`.
  *
  * Most cases run on a temp `file:` database of their own with one probe table, never on the shared test DB.
  */
@@ -259,14 +259,19 @@ describe("the registry", () => {
   test("API_MODULES wraps the two manifests: ids and healthFeatures are theirs", () => {
     expect(API_MODULES.map((module) => module.id)).toEqual(["recipe", "finance"]);
     const [recipe, finance] = API_MODULES;
+    // Since E3 recipe implements the Effect contract itself and is listed unwrapped (plan e3 P3).
+    expect(recipe).toBe(recipeModule);
     expect(recipe?.healthFeatures).toBe(recipeModule.healthFeatures);
-    expect(finance?.healthFeatures).toBe(financeModule.healthFeatures);
+    // Finance has no healthFeatures; the adapter wraps a synchronous one with Effect.sync when present.
+    expect(financeModule.healthFeatures).toBeUndefined();
+    expect(finance?.healthFeatures).toBeUndefined();
     expect(recipe?.householdRouter).toBe(recipeModule.householdRouter);
     expect(recipe?.userRouter).toBe(recipeModule.userRouter);
     expect(finance?.householdRouter).toBe(financeModule.householdRouter);
     expect(recipe?.schema).toBe(recipeModule.schema);
     expect(finance?.schema).toBe(financeModule.schema);
-    expect(recipe?.layer).toBeUndefined();
+    expect(recipe?.layer).toBeDefined();
+    expect(recipe?.layer).toBe(recipeModule.layer);
     expect(finance?.layer).toBeUndefined();
     expect(finance?.onEnable).toBeDefined();
     expect(finance?.onMemberRemoving).toBeDefined();

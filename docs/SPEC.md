@@ -178,14 +178,17 @@ export type ModuleId = (typeof MODULE_IDS)[number]
 
 // apps/api/src/modules/types.ts (since E2: the hooks are Effects; docs/EFFECT.md E7)
 type HookError = ApiErrorFamily | DatabaseError   // a refusal of the API error family, or a database failure
-export interface ApiModule {
+type ModuleRequirements = InfraServices | CoreServices   // what a module layer may need (since E3)
+export interface ApiModule<Services = never> {   // Services: what the module's own layer provides (since E3)
   id: ModuleId
   householdRouter?: Hono          // mounted at /api/households/:householdId/<id>, after requireModule(id)
   userRouter?: Hono               // mounted at /api/<id> (user-scoped, e.g. recipe cards)
   schema: Record<string, Table>   // drizzle tables, all prefixed `<id>_`
-  healthFeatures?(): Record<string, boolean>   // merged into /api/health features (synchronous)
-  layer?: Layer<never, never, AppConfig | Database>   // the module's own services (E3, E4), merged into the
-                                              // runtime's AppLayer by moduleLayers(); absent for both in E2
+  healthFeatures?(): Effect<Record<string, boolean>, never, AppConfig>   // merged into /api/health features,
+                                              // in module order after the core's verifiedEmailRequired (an Effect since E3)
+  layer?: Layer<Services, never, ModuleRequirements>   // the module's own services, merged into the runtime's
+                                              // AppLayer by moduleLayers() OVER the core services and the infrastructure;
+                                              // recipe: Layer.suspend(recipeLayer) (E3), finance: E4
   // Every hook below that writes reads its executor from the `Database` service: the current executor is the
   // transaction the core opened around the operation (household creation, enabling, removeMember), else the root.
   onHouseholdCreated?(householdId): Effect<void, HookError, Database>   // e.g. finance seeds its 21 categories
@@ -207,11 +210,12 @@ export interface ApiModule {
                                               // uploads:gc keeps a file iff the core or any module references it
 }
 
-// apps/api/src/modules/types.ts: the Promise-based contract of M0 to M7, which the recipe and finance manifests
-// (apps/api/src/modules/<id>/index.ts) implement until E3 and E4; src/modules/index.ts wraps each with
-// fromPromiseModule (apps/api/src/modules/adapter.ts)
+// apps/api/src/modules/types.ts: the Promise-based contract of M0 to M7, which the finance manifest
+// (apps/api/src/modules/finance/index.ts) implements until E4 (recipe implements ApiModule<RecipeServices> itself
+// since E3); src/modules/index.ts wraps it with fromPromiseModule (apps/api/src/modules/adapter.ts)
 export interface PromiseApiModule {
-  // id, householdRouter, userRouter, schema, healthFeatures as above; the hooks take the executor as an argument:
+  // id, householdRouter, userRouter, schema as above; healthFeatures?(): Record<string, boolean> (synchronous,
+  // wrapped with Effect.sync); the hooks take the executor as an argument:
   onHouseholdCreated?(householdId, tx): Promise<void>
   onEnable?(householdId, settings, tx): Promise<void>
   onMemberRemoving?(householdId, userId, tx): Promise<void>
@@ -270,6 +274,16 @@ Rules:
   hook on the bare drizzle executor a Promise-based core caller holds (`runMigrations`, `initializeHousehold`,
   `enableModule`, `removeMember`, `collectUploadReferences`, `seed`) and rejects with the hook's own error; it never
   imports `apps/api/src/runtime.ts`. `start` and `shutdown` run on the app runtime in `apps/api/src/index.ts`.
+- A module carries its own services since E3 (docs/EFFECT.md E7; plan `docs/plans/e3-recipe-services.md` P3, P4).
+  `ApiModule<Services>` names what the manifest's `layer` provides; `apps/api/src/modules/index.ts` exports
+  `ModuleServices` (recipe's `RecipeServices`; E4 adds finance's) and `apps/api/src/runtime.ts` adds it to
+  `AppServices`, nesting `Layer.mergeAll(Layer.empty, ...moduleLayers())` over `coreServicesLayer()` over
+  `infraLayer()`. The manifest's annotation is the compile-time guard: recipe's `layer: Layer.suspend(recipeLayer)`
+  (`apps/api/src/modules/recipe/layer.ts`, the areas nested by dependency) fails `tsc` when the composition leaves a
+  requirement outside `ModuleRequirements` open or does not output a service `RecipeServices` names. The registry
+  lists the manifests as plain `ApiModule`s (a layer's output is contravariant), and `moduleLayers()` holds the one
+  cast to `ModuleServices`. `healthFeatures` is an Effect over `AppConfig` since E3; `fromPromiseModule` wraps a
+  synchronous one with `Effect.sync`.
 - `NavItem.trailing?: ComponentType<{ isActive: boolean }>` (M4) is a SIDEBAR-ONLY slot: `SideNav`
   renders it at the end of the item's row (`ml-auto`), the phone tab bar ignores it. It carries what
   toon-recipe drew in its sidebar and the core cannot compute because it cannot count a module's rows

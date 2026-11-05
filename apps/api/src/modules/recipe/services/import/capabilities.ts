@@ -31,11 +31,18 @@
  * `setMailer` / `setOcrEngine` / `setPdfRasterizer`: `bun test` runs every file in
  * ONE process, so a file that overrides this MUST hand it back
  * (`afterAll(() => setOcrImportEnabled(null))`) or the next file inherits it.
+ *
+ * AS A SERVICE (docs/EFFECT.md E7; plan `docs/plans/e3-recipe-services.md` P7). `ImportCapabilities`
+ * reads the two flags from `AppConfig` (captured when the layer is built) under the seams above,
+ * which are read on every call, so a test still flips them between requests. `capabilityFlags` is
+ * the service-free form `/api/health` uses (the manifest's `healthFeatures`). The sync reads
+ * `isOcrImportEnabled()` / `isPdfImportEnabled()` stay plain functions over `env`; the three
+ * `assert…` exports are the synchronous bridges `routes/imports.ts` calls until E3-T11.
  */
-import type { ServerFeatures } from "@toon/shared";
+import { Context, Effect, Layer } from "effect";
+import { AppConfig } from "../../../../config.ts";
 import { env } from "../../../../env.ts";
-import { ApiError } from "../../../../lib/errors.ts";
-import { isVerifiedEmailRequired } from "../../../../core/services/auth/verifiedEmail.ts";
+import { ApiFailure } from "../../../../lib/errors.ts";
 
 /** Test overrides; `null` means "ask env". */
 let override: boolean | null = null;
@@ -75,15 +82,28 @@ export function setPdfImportEnabled(value: boolean | null): void {
   pdfOverride = value;
 }
 
+/** The two flags as `AppConfig` holds them under the seams, read at call time. */
+function flagsOf(config: { readonly ocrImportEnabled: boolean; readonly pdfImportEnabled: boolean }): {
+  ocrImport: boolean;
+  pdfImport: boolean;
+} {
+  return { ocrImport: override ?? config.ocrImportEnabled, pdfImport: pdfOverride ?? config.pdfImportEnabled };
+}
+
+/** `501 ocr_disabled` with the given catalog text (a wire contract: same code for photos and PDFs). */
+function ocrDisabled(text: "server.import.ocrDisabled" | "server.import.pdfDisabled"): ApiFailure {
+  return new ApiFailure({ status: 501, code: "ocr_disabled", text });
+}
+
 /**
  * Guard for the photo endpoints. Call it FIRST in the handler — before the rate
  * limiter and before the multipart body is read — so a disabled server does not
  * accept 15 MB it is only going to throw away.
  */
-export function assertOcrImportEnabled(): void {
-  if (isOcrImportEnabled()) return;
-  throw new ApiError(501, "ocr_disabled", "server.import.ocrDisabled");
-}
+const checkOcr = Effect.fnUntraced(function* (flags: { ocrImport: boolean }) {
+  if (flags.ocrImport) return;
+  return yield* ocrDisabled("server.import.ocrDisabled");
+});
 
 /**
  * Guard for the PDF endpoints.
@@ -94,14 +114,10 @@ export function assertOcrImportEnabled(): void {
  * should be told that photos DO work. Same `ocr_disabled` code either way — it is
  * a wire contract, and the client's handling is identical.
  */
-export function assertPdfImportEnabled(): void {
-  if (isPdfImportEnabled()) return;
-  throw new ApiError(
-    501,
-    "ocr_disabled",
-    isOcrImportEnabled() ? "server.import.pdfDisabled" : "server.import.ocrDisabled",
-  );
-}
+const checkPdf = Effect.fnUntraced(function* (flags: { ocrImport: boolean; pdfImport: boolean }) {
+  if (flags.pdfImport) return;
+  return yield* ocrDisabled(flags.ocrImport ? "server.import.pdfDisabled" : "server.import.ocrDisabled");
+});
 
 /**
  * Guard for `/imports/file`, which accepts either kind. It can only rule out the
@@ -109,29 +125,69 @@ export function assertPdfImportEnabled(): void {
  * it is the whole lean deployment. Which specific kind arrived is not known until
  * the body has been sniffed, so the per-kind guard runs after the read.
  */
-export function assertAnyUploadImportEnabled(): void {
-  if (isOcrImportEnabled() || isPdfImportEnabled()) return;
-  throw new ApiError(501, "ocr_disabled", "server.import.ocrDisabled");
-}
+const checkAnyUpload = Effect.fnUntraced(function* (flags: { ocrImport: boolean; pdfImport: boolean }) {
+  if (flags.ocrImport || flags.pdfImport) return;
+  return yield* ocrDisabled("server.import.ocrDisabled");
+});
 
 /**
- * The capability block `/api/health` reports, so the UI can hide what is off.
- *
- * `verifiedEmailRequired` is the odd one out — it is an AUTHORISATION rule, not a
- * build-time capability, and it lives in core/services/auth/verifiedEmail.ts. It rides
- * along because `features` is already the "what is this server" probe the client
- * reads once, and splitting it into a second field would mean a second request
- * for one boolean.
- *
- * In toon-household `/api/health` assembles the same block itself: the core's
- * `verifiedEmailRequired` plus every module's `healthFeatures()` — the recipe
- * manifest (modules/recipe/index.ts) reports the two flags above. This function
- * stays as toon-recipe's one-call form of that block.
+ * The capability block the recipe manifest's `healthFeatures` reports on `/api/health`
+ * (`features.ocrImport`, `features.pdfImport`), so the UI can hide what is off. The core adds
+ * `verifiedEmailRequired` ahead of it (`src/core/health.ts`).
  */
-export function serverFeatures(): ServerFeatures {
-  return {
-    ocrImport: isOcrImportEnabled(),
-    pdfImport: isPdfImportEnabled(),
-    verifiedEmailRequired: isVerifiedEmailRequired(),
-  };
+export const capabilityFlags: Effect.Effect<{ ocrImport: boolean; pdfImport: boolean }, never, AppConfig> =
+  Effect.gen(function* () {
+    return flagsOf(yield* AppConfig);
+  });
+
+/** Which import sources this deployment offers, as a service (plan e3 P7). */
+export class ImportCapabilities extends Context.Service<
+  ImportCapabilities,
+  {
+    /** True when PHOTO import is available. */
+    readonly ocrImportEnabled: Effect.Effect<boolean>;
+    /** True when PDF import is available. */
+    readonly pdfImportEnabled: Effect.Effect<boolean>;
+    /** `501 ocr_disabled` (`server.import.ocrDisabled`) unless photo import is on. */
+    readonly checkOcrImportEnabled: Effect.Effect<void, ApiFailure>;
+    /** `501 ocr_disabled` unless PDF import is on; the text depends on the photo flag. */
+    readonly checkPdfImportEnabled: Effect.Effect<void, ApiFailure>;
+    /** `501 ocr_disabled` (`server.import.ocrDisabled`) when neither kind is on. */
+    readonly checkAnyUploadImportEnabled: Effect.Effect<void, ApiFailure>;
+  }
+>()("toon/api/modules/recipe/services/import/capabilities/ImportCapabilities") {
+  static readonly layer = Layer.effect(
+    this,
+    Effect.gen(function* () {
+      const config = yield* AppConfig;
+      const flags = Effect.sync(() => flagsOf(config));
+      return ImportCapabilities.of({
+        ocrImportEnabled: Effect.map(flags, (current) => current.ocrImport),
+        pdfImportEnabled: Effect.map(flags, (current) => current.pdfImport),
+        checkOcrImportEnabled: Effect.flatMap(flags, checkOcr),
+        checkPdfImportEnabled: Effect.flatMap(flags, checkPdf),
+        checkAnyUploadImportEnabled: Effect.flatMap(flags, checkAnyUpload),
+      });
+    }),
+  );
+}
+
+/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
+
+// SYNCHRONOUS with a `void` return type (plan e3 P1): `routes/imports.ts` calls them as plain statements until
+// E3-T11. `Effect.runSync` over the service-free check throws the `501 ocr_disabled` refusal itself.
+
+/** Callers: `routes/imports.ts` (`assertUploadKindEnabled`, the photo endpoints). Synchronous. */
+export function assertOcrImportEnabled(): void {
+  Effect.runSync(checkOcr(flagsOf(env)));
+}
+
+/** Callers: `routes/imports.ts` (`assertUploadKindEnabled`, the PDF endpoints). Synchronous. */
+export function assertPdfImportEnabled(): void {
+  Effect.runSync(checkPdf(flagsOf(env)));
+}
+
+/** Callers: `routes/imports.ts` (`assertAcceptedKindEnabled`, `/imports/file`). Synchronous. */
+export function assertAnyUploadImportEnabled(): void {
+  Effect.runSync(checkAnyUpload(flagsOf(env)));
 }

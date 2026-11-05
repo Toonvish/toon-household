@@ -105,7 +105,7 @@ export class UploadReferences extends Context.Service<
 
 /* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
 
-/** `scripts/uploads-gc.ts`, `apps/api/test/recipe-module.test.ts`: the service on `database`. */
+/** `scripts/uploads-gc.ts` (E5): the service on `database`. */
 export function collectUploadReferences(
   database: DrizzleDatabase,
   modules: readonly ApiModule[] = API_MODULES,

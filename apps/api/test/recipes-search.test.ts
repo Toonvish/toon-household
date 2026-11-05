@@ -22,7 +22,7 @@ import { describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "../src/db/client.ts";
 import { runMigrations } from "../src/db/migrate.ts";
-import { backfillFoldedColumns } from "../src/modules/recipe/migrate.ts";
+import { foldBackfill } from "../src/modules/recipe/migrate.ts";
 import {
   householdModules,
   households,
@@ -32,6 +32,7 @@ import {
   users,
 } from "../src/db/schema.ts";
 import { app } from "../src/index.ts";
+import { runTest } from "./support/effect.ts";
 import { explain } from "./support/explain.ts";
 
 await runMigrations(db);
@@ -162,7 +163,7 @@ describe("folded search columns", () => {
       });
     }
 
-    await backfillFoldedColumns(db);
+    await runTest(foldBackfill());
 
     for (const [id, sample] of ids) {
       const [row] = await db.select().from(recipes).where(eq(recipes.id, id));
@@ -198,9 +199,9 @@ describe("folded search columns", () => {
       createdBy: userId,
     });
 
-    expect(await backfillFoldedColumns(db)).toBeGreaterThan(0);
+    expect(await runTest(foldBackfill())).toBeGreaterThan(0);
     // Second run finds nothing left to do.
-    expect(await backfillFoldedColumns(db)).toBe(0);
+    expect(await runTest(foldBackfill())).toBe(0);
 
     const [row] = await db.select().from(recipes).where(eq(recipes.id, id));
     expect(row?.titleFold).toBe("mohrensuppe");
@@ -221,7 +222,7 @@ describe("folded search columns", () => {
       descriptionFold: "",
       createdBy: user.id,
     });
-    await backfillFoldedColumns(db);
+    await runTest(foldBackfill());
 
     expect((await search(user, householdId, "creme brulee")).sort()).toEqual([
       "CRÈME BRÛLÉE alt",

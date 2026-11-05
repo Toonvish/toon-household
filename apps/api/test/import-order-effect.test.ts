@@ -8,7 +8,8 @@
  * '…' before initialization".
  *
  * E2-T03 lists the composition (`config`, `database`, `infra`, the core services layer, `runtime`); E2-T05 adds
- * `./src/modules/adapter.ts` and `./src/core/services/media/references.ts` (`UploadReferences`), E2-T12 the middlewares, the core routes and the services they reach.
+ * `./src/modules/adapter.ts` and `./src/core/services/media/references.ts` (`UploadReferences`), E2-T12 the middlewares, the core routes and the services they reach,
+ * E3-T01 the recipe module's composition (`./src/modules/recipe/layer.ts`) and `./src/modules/recipe/migrate.ts`.
  */
 import { describe, expect, test } from "bun:test";
 import { resolve } from "node:path";
@@ -55,6 +56,10 @@ describe("import order does not matter for the Effect composition", () => {
     "./src/core/services/auth/sessions.ts",
     "./src/modules/finance/index.ts",
     "./src/modules/recipe/index.ts",
+    // E3-T01: the recipe module's composition (hoisted area functions, `ImportCapabilities`) and the fold backfill
+    // (`foldBackfill`, imported by `scripts/legacy/recipe.ts` without the manifest)
+    "./src/modules/recipe/layer.ts",
+    "./src/modules/recipe/migrate.ts",
   ]) {
     test(`${entry} loads first in a fresh process and the AppLayer builds after it`, async () => {
       const { code, stderr } = await importThenBuildInFreshProcess(entry);

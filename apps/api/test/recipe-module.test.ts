@@ -8,8 +8,10 @@
  */
 import { afterAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
-import { collectUploadReferences, filenameOf } from "../src/core/services/media/references.ts";
+import { Effect } from "effect";
+import { filenameOf, UploadReferences } from "../src/core/services/media/references.ts";
 import { createDatabase } from "../src/db/client.ts";
+import { Database } from "../src/db/database.ts";
 import { runMigrations } from "../src/db/migrate.ts";
 import {
   collections,
@@ -22,15 +24,35 @@ import {
 import { signUploadUrl } from "../src/lib/uploadUrls.ts";
 import { API_MODULES } from "../src/modules/index.ts";
 import { recipeModule } from "../src/modules/recipe/index.ts";
-import { backfillFoldedColumns } from "../src/modules/recipe/migrate.ts";
+import { foldBackfill } from "../src/modules/recipe/migrate.ts";
 import { recipeTables } from "../src/modules/recipe/schema.ts";
 import {
   setOcrImportEnabled,
   setPdfImportEnabled,
 } from "../src/modules/recipe/services/import/capabilities.ts";
+import type { ApiModule } from "../src/modules/types.ts";
+import { runTest } from "./support/effect.ts";
 
 const { client, db } = createDatabase({ url: "file::memory:" });
 await runMigrations(db);
+
+/** The fold backfill (the manifest's `afterMigrate`) on this file's own database, through the app runtime. */
+function backfillFoldedColumns(): Promise<number> {
+  return runTest(foldBackfill().pipe(Database.withExecutor(db)));
+}
+
+/** The `UploadReferences` service on this file's own database (what `uploads:gc` runs). */
+function collectUploadReferences(modules?: readonly ApiModule[]): Promise<Set<string>> {
+  return runTest(
+    UploadReferences.use((references) => references.collectUploadReferences(modules)).pipe(Database.withExecutor(db)),
+  );
+}
+
+/** The manifest's `healthFeatures` effect, run on the app runtime. */
+function healthFeatures(): Promise<Record<string, boolean>> {
+  const hook = recipeModule.healthFeatures;
+  return runTest(hook === undefined ? Effect.succeed({}) : hook());
+}
 
 afterAll(() => {
   setOcrImportEnabled(null);
@@ -177,7 +199,7 @@ describe("(c) afterMigrate fold backfill", () => {
     await runMigrations(db);
     const [again] = await db.select().from(recipes).where(eq(recipes.id, recipeId));
     expect(again).toEqual(folded);
-    expect(await backfillFoldedColumns(db)).toBe(0);
+    expect(await backfillFoldedColumns()).toBe(0);
   });
 
   test("an empty title keeps its correctly empty fold", async () => {
@@ -191,7 +213,7 @@ describe("(c) afterMigrate fold backfill", () => {
       descriptionFold: "",
       createdBy: userId,
     });
-    expect(await backfillFoldedColumns(db)).toBe(0);
+    expect(await backfillFoldedColumns()).toBe(0);
     const [row] = await db.select().from(recipes).where(eq(recipes.id, recipeId));
     expect(row?.titleFold).toBe("");
   });
@@ -279,7 +301,7 @@ describe("(e) collectUploadReferences", () => {
       createdBy: userId,
     });
 
-    const referenced = await collectUploadReferences(db);
+    const referenced = await collectUploadReferences();
     for (const filename of [
       "avatar.webp",
       "household.jpg",
@@ -295,7 +317,7 @@ describe("(e) collectUploadReferences", () => {
     );
 
     // Without the module, only the core's two columns are collected.
-    const coreOnly = await collectUploadReferences(db, []);
+    const coreOnly = await collectUploadReferences([]);
     expect([...coreOnly].sort()).toEqual(["avatar.webp", "household.jpg"]);
   });
 
@@ -313,13 +335,13 @@ describe("(e) collectUploadReferences", () => {
 });
 
 describe("(f) healthFeatures", () => {
-  test("follows the two capability flags", () => {
+  test("follows the two capability flags", async () => {
     setOcrImportEnabled(true);
     setPdfImportEnabled(false);
-    expect(recipeModule.healthFeatures?.()).toEqual({ ocrImport: true, pdfImport: false });
+    expect(await healthFeatures()).toEqual({ ocrImport: true, pdfImport: false });
     setOcrImportEnabled(false);
     setPdfImportEnabled(true);
-    expect(recipeModule.healthFeatures?.()).toEqual({ ocrImport: false, pdfImport: true });
+    expect(await healthFeatures()).toEqual({ ocrImport: false, pdfImport: true });
     setOcrImportEnabled(null);
     setPdfImportEnabled(null);
   });

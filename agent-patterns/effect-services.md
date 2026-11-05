@@ -289,3 +289,26 @@ export class Passwords extends Context.Service<Passwords, {
   }));
 }
 ```
+
+**As built (E3, E3-T01):** a module's own layer, nested over the core (plan `docs/plans/e3-recipe-services.md` P3, P4).
+- The contract is generic: `ApiModule<Services = never>` with `layer?: Layer.Layer<Services, never, ModuleRequirements>` and
+  `ModuleRequirements = InfraServices | CoreServices` (`apps/api/src/modules/types.ts`). `Layer`'s `ROut` is CONTRAVARIANT
+  (`Variance<in ROut, out E, out RIn>`, `src/Layer.ts`), so a `Layer<RecipeServices, …>` IS a `Layer<never, …>`: the registry
+  lists every manifest as a plain `ApiModule`, and the guard sits where the concrete type is written,
+  `export const recipeModule: ApiModule<RecipeServices> = { …, layer: Layer.suspend(recipeLayer) }`. Tried in E3-T01: a
+  service of `RecipeServices` missing from the composition is `Type 'Layer<never, never, never>' is not assignable to type
+  'Layer<ImportCapabilities, never, ModuleRequirements>'` at that line; a requirement outside `ModuleRequirements` is `Type
+  'AppConfig | Stranger' is not assignable to type 'ModuleRequirements'` there.
+- `apps/api/src/runtime.ts` nests the modules OVER the core: `Layer.mergeAll(Layer.empty, ...moduleLayers()).pipe(
+  Layer.provideMerge(coreServicesLayer()), Layer.provideMerge(infraLayer()))`. `Layer.mergeAll` takes a NON-EMPTY tuple
+  (`[Layer<never, any, any>, ...Array<…>]`), hence the leading `Layer.empty` when the module list is spread in.
+  `moduleLayers()` returns `ModuleLayer<ModuleServices>[]` with the one cast of the composition (the registry knows which
+  module brings which services); `AppServices = InfraServices | CoreServices | ModuleServices`.
+- `apps/api/src/modules/recipe/layer.ts` `recipeLayer()` nests the areas by dependency (plan e3 P4), each area a hoisted
+  `export function <area>Layer()` in `services/<area>/layer.ts` beside `export type <Area>Services` (a stub area is
+  `Layer.empty` typed `never`). `Layer.suspend(recipeLayer)` at the manifest's module scope is TDZ-safe because
+  `recipeLayer` is a hoisted function binding and `suspend` calls it only when the runtime builds.
+- A hook that used to be a Promise is an `Effect.fn` over `Database` (`foldBackfill`, `seedRecipeDemo`, the upload
+  references); the Promise bridge outside the runtime is `runModuleHook(effect, executor)` (`backfillFoldedColumns`), and
+  a capability read by `/api/health` is a service-free effect over `AppConfig` (`capabilityFlags`) next to the service
+  (`ImportCapabilities`) whose test seams are read on every call.

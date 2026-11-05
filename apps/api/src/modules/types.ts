@@ -8,8 +8,10 @@
  * - {@link ApiModule}, the contract the core calls: every hook is an `Effect`. A hook that
  *   writes reads its executor from the `Database` service (`src/db/database.ts`): the current
  *   executor is the transaction the core opened around the operation, or the root.
- * - {@link PromiseApiModule}, the Promise-based contract of M0 to M7, which the recipe and
- *   finance manifests still implement until E3 and E4. `fromPromiseModule`
+ *   Its type parameter names the services the module's own `layer` provides (E3, plan
+ *   `docs/plans/e3-recipe-services.md` P3): recipe is an `ApiModule<RecipeServices>`.
+ * - {@link PromiseApiModule}, the Promise-based contract of M0 to M7, which the finance
+ *   manifest still implements until E4 (recipe left it in E3). `fromPromiseModule`
  *   (`src/modules/adapter.ts`) turns one into an `ApiModule`; `runModuleHook` runs an Effect
  *   hook on the bare executor a Promise-based core caller holds.
  */
@@ -18,8 +20,10 @@ import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import type { Effect, Layer } from "effect";
 import type { Hono } from "hono";
 import type { AppConfig } from "../config.ts";
+import type { CoreServices } from "../core/services/layer.ts";
 import type { Database } from "../db/client.ts";
 import type { Database as DatabaseService } from "../db/database.ts";
+import type { InfraServices } from "../infra.ts";
 import type { ApiErrorFamily, DatabaseError } from "../lib/errors.ts";
 import type { AppEnv } from "../lib/types.ts";
 
@@ -49,13 +53,27 @@ export interface SeedDemoContext {
 }
 
 /**
- * A module's own services (E3, E4), merged into the runtime's `AppLayer` by `moduleLayers()`
- * (`src/runtime.ts`) beside the core services and over the infrastructure.
+ * What a module's own `layer` may require: the infrastructure and the core services. The runtime
+ * (`src/runtime.ts` `appLayer()`) nests the modules' layers OVER the core, so a module service may
+ * yield `Database`, `AppConfig`, `Uploads`, `Users`, … but never another module's service.
  */
-export type ModuleLayer = Layer.Layer<never, never, AppConfig | DatabaseService>;
+export type ModuleRequirements = InfraServices | CoreServices;
 
-/** The module contract the core calls (SPEC §2): the hooks are Effects. */
-export interface ApiModule {
+/**
+ * A module's own services (E3, E4): `Services` is what the layer outputs. Merged into the
+ * runtime's `AppLayer` by `moduleLayers()` (`src/runtime.ts`), over the core services and the
+ * infrastructure. A `Layer`'s output is contravariant, so a `ModuleLayer<RecipeServices>` is a
+ * `ModuleLayer` (outputs `never`): the registry lists every manifest as a plain `ApiModule`.
+ */
+export type ModuleLayer<Services = never> = Layer.Layer<Services, never, ModuleRequirements>;
+
+/**
+ * The module contract the core calls (SPEC §2): the hooks are Effects. `Services` is what the
+ * module's `layer` provides; the manifest annotates it (`ApiModule<RecipeServices>`), so a layer that
+ * leaves a requirement outside {@link ModuleRequirements} open, or does not output every service it
+ * names, is a `tsc` error at the manifest (plan e3 P3).
+ */
+export interface ApiModule<Services = never> {
   id: ModuleId;
   /**
    * Mounted at `/api/households/:householdId/<id>` after
@@ -68,10 +86,16 @@ export interface ApiModule {
   userRouter?: Hono<AppEnv>;
   /** The module's drizzle tables, every one prefixed `<id>_` (SPEC D7). */
   schema: Record<string, SQLiteTable>;
-  /** Merged into `/api/health` `features` (e.g. recipe's `ocrImport`). Synchronous. */
-  healthFeatures?(): Record<string, boolean>;
-  /** The module's own services (E3, E4); absent for both modules in E2. */
-  layer?: ModuleLayer;
+  /**
+   * Merged into `/api/health` `features` (e.g. recipe's `ocrImport`), in module order after the
+   * core's `verifiedEmailRequired`. An Effect over `AppConfig` (E3).
+   */
+  healthFeatures?(): Effect.Effect<Record<string, boolean>, never, AppConfig>;
+  /**
+   * The module's own services (E3: recipe's `Layer.suspend(recipeLayer)`; finance's in E4). Built
+   * once into the one `AppLayer`, over the core services and the infrastructure.
+   */
+  layer?: ModuleLayer<Services>;
   /**
    * Runs inside household creation, e.g. finance seeds its 21 categories. The current
    * executor of `Database` is the creation's transaction.
@@ -128,9 +152,9 @@ export interface ApiModule {
 }
 
 /**
- * The Promise-based contract of M0 to M7, verbatim: what the recipe and finance manifests
- * implement until E3 and E4 move them onto {@link ApiModule}. The core never calls it
- * directly: `src/modules/index.ts` wraps each manifest with `fromPromiseModule`.
+ * The Promise-based contract of M0 to M7, verbatim: what the finance manifest implements
+ * until E4 moves it onto {@link ApiModule} (recipe moved in E3). The core never calls it
+ * directly: `src/modules/index.ts` wraps it with `fromPromiseModule`.
  */
 export interface PromiseApiModule {
   id: ModuleId;

@@ -2,8 +2,9 @@
  * The bridge between the Promise-based module manifests and the Effect contract (docs/EFFECT.md
  * E7; plan `docs/plans/e2-api-core-services.md` P11; SPEC §2).
  *
- * - `fromPromiseModule(m)` turns a {@link PromiseApiModule} (recipe and finance until E3 and E4)
- *   into an {@link ApiModule}. Each hook reads the CURRENT executor of `Database` (the open
+ * - `fromPromiseModule(m)` turns a {@link PromiseApiModule} (finance until E4; recipe implements
+ *   `ApiModule` itself since E3) into an {@link ApiModule}. A synchronous `healthFeatures` becomes
+ *   `Effect.sync` over it. Each hook reads the CURRENT executor of `Database` (the open
  *   transaction inside `Database.transaction`, a handed-in executor, else the root) and calls the
  *   Promise hook with exactly that executor, as the core did before. A rejection that is a member
  *   of the API error family becomes the typed failure UNCHANGED (the same object, so a refusal
@@ -58,6 +59,7 @@ function fromLifecycle(run: () => Promise<void>): Effect.Effect<void, unknown> {
 /** Wraps a Promise-based manifest into the Effect contract (plan e2 P11). */
 export function fromPromiseModule(module: PromiseApiModule): ApiModule {
   const {
+    healthFeatures,
     onHouseholdCreated,
     onEnable,
     onMemberRemoving,
@@ -72,7 +74,7 @@ export function fromPromiseModule(module: PromiseApiModule): ApiModule {
     householdRouter: module.householdRouter,
     userRouter: module.userRouter,
     schema: module.schema,
-    healthFeatures: module.healthFeatures,
+    healthFeatures: healthFeatures && (() => Effect.sync(() => healthFeatures())),
     onHouseholdCreated:
       onHouseholdCreated &&
       ((householdId) => callWithExecutor((executor) => onHouseholdCreated(householdId, executor))),

@@ -4,22 +4,30 @@
  * the `recipe_` tables of `./schema.ts`. The core reaches it only through
  * `modules/index.ts`.
  *
- * Hooks (plan M2 decision 4):
+ * The manifest implements the Effect contract `ApiModule<RecipeServices>` directly since E3
+ * (docs/EFFECT.md E7; SPEC §2; plan `docs/plans/e3-recipe-services.md` P3, P5): `layer` is
+ * `Layer.suspend(recipeLayer)` (`./layer.ts`, a hoisted function, so reading it here at module
+ * scope is TDZ-safe), merged by the runtime into the one `AppLayer` over the core.
+ *
+ * Hooks (plan M2 decision 4), each an Effect:
  * - `healthFeatures` — the two import capability flags (toon-recipe gotcha "PHOTO
- *   AND PDF IMPORT ARE TWO FEATURE FLAGS"), merged into `/api/health` `features`.
- * - `afterMigrate` — the fold backfill (`./migrate.ts`), idempotent, no transaction.
+ *   AND PDF IMPORT ARE TWO FEATURE FLAGS"), merged into `/api/health` `features`
+ *   (`capabilityFlags` over `AppConfig`).
+ * - `afterMigrate` — the fold backfill (`./migrate.ts` `foldBackfill`), idempotent, no transaction.
  * - `uploadReferences` — the recipe half of toon-recipe's `uploads:gc` collect list.
  * - `seedDemo` (`./seed.ts`, M2-T05) runs from `scripts/seed.ts`.
  * - `shutdown` — stops the OCR worker (`shutdownOcr`), called by `index.ts`'s SIGTERM/SIGINT handler.
  */
+import { Effect, Layer, Predicate } from "effect";
+import { Database } from "../../db/database.ts";
 import { collections, importDrafts, recipes, recipeTables } from "./schema.ts";
-import { backfillFoldedColumns } from "./migrate.ts";
+import { type RecipeServices, recipeLayer } from "./layer.ts";
+import { foldBackfill } from "./migrate.ts";
 import { recipeHouseholdRouter, recipeUserRouter } from "./routes/index.ts";
 import { seedRecipeDemo } from "./seed.ts";
-import { isOcrImportEnabled, isPdfImportEnabled } from "./services/import/capabilities.ts";
+import { capabilityFlags } from "./services/import/capabilities.ts";
 import { shutdownOcr } from "./services/ocr/index.ts";
-import type { Database } from "../../db/client.ts";
-import type { PromiseApiModule } from "../types.ts";
+import type { ApiModule } from "../types.ts";
 
 /**
  * Every upload a recipe row references, as stored (the caller normalises bare,
@@ -31,34 +39,34 @@ import type { PromiseApiModule } from "../types.ts";
  *                                       into `parsed.imageUrl`
  * Missing one here makes `uploads:gc` delete a live image.
  */
-async function uploadReferences(database: Database): Promise<string[]> {
+const recipeUploadReferences = Effect.fn("RecipeModule.uploadReferences")(function* () {
+  const database = yield* Database;
   const values: string[] = [];
   const add = (value: unknown): void => {
-    if (typeof value === "string" && value.length > 0) values.push(value);
+    if (Predicate.isString(value) && value.length > 0) values.push(value);
   };
-  for (const row of await database.select({ url: recipes.imageUrl }).from(recipes)) add(row.url);
-  for (const row of await database.select({ url: collections.coverImageUrl }).from(collections)) {
+  for (const row of yield* database.use((db) => db.select({ url: recipes.imageUrl }).from(recipes))) add(row.url);
+  for (const row of yield* database.use((db) => db.select({ url: collections.coverImageUrl }).from(collections))) {
     add(row.url);
   }
-  for (const row of await database
-    .select({ meta: importDrafts.sourceMeta, parsed: importDrafts.parsed })
-    .from(importDrafts)) {
+  for (const row of yield* database.use((db) =>
+    db.select({ meta: importDrafts.sourceMeta, parsed: importDrafts.parsed }).from(importDrafts),
+  )) {
     add(row.meta?.storedPath);
     add(row.parsed?.imageUrl);
   }
   return values;
-}
+});
 
-export const recipeModule: PromiseApiModule = {
+export const recipeModule: ApiModule<RecipeServices> = {
   id: "recipe",
   householdRouter: recipeHouseholdRouter,
   userRouter: recipeUserRouter,
   schema: recipeTables,
-  healthFeatures: () => ({ ocrImport: isOcrImportEnabled(), pdfImport: isPdfImportEnabled() }),
-  afterMigrate: async (database) => {
-    await backfillFoldedColumns(database);
-  },
-  uploadReferences,
-  seedDemo: seedRecipeDemo,
-  shutdown: shutdownOcr,
+  layer: Layer.suspend(recipeLayer),
+  healthFeatures: () => capabilityFlags,
+  afterMigrate: () => Effect.asVoid(foldBackfill()),
+  uploadReferences: () => recipeUploadReferences(),
+  seedDemo: (context) => seedRecipeDemo(context),
+  shutdown: () => Effect.tryPromise({ try: () => shutdownOcr(), catch: (cause): unknown => cause }),
 };

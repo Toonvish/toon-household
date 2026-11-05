@@ -9,7 +9,8 @@
  *
  * Run through the one runtime (`src/runtime.ts`) by `GET /api/health` in
  * `src/index.ts`. `AppConfig` (the database kind) and `VerifiedEmail` (the gate flag) are services read
- * INSIDE the generator (E2-T12); the registry and the feature flags are read inside it too, never at module scope (CLAUDE.md "API import cycle"); the key
+ * INSIDE the generator (E2-T12); each module's `healthFeatures()` is an Effect over `AppConfig` (E3), run in module
+ * order with `Effect.forEach` and merged after `verifiedEmailRequired`; the registry and the feature flags are read inside it too, never at module scope (CLAUDE.md "API import cycle"); the key
  * order `ok, status, version, time, database, modules, features` is the wire
  * order. `time` comes from the `Clock` (`DateTime.now`); `DateTime.formatIso` is
  * `Date#toISOString` of the UTC instant, the format the route always sent.
@@ -34,7 +35,7 @@ export const healthResponse: Effect.Effect<HealthResponse, never, AppConfig | Ve
       verifiedEmailRequired: yield* verifiedEmail.isRequired,
       ...(Object.assign(
         {},
-        ...API_MODULES.map((module) => module.healthFeatures?.() ?? {}),
+        ...(yield* Effect.forEach(API_MODULES, (module) => module.healthFeatures?.() ?? Effect.succeed({}))),
       ) as Record<string, boolean>),
     },
   };
