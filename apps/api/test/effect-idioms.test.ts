@@ -10,7 +10,7 @@
 // PENDING_RULES (switched on by the milestone named; each is a new `describe` in the same commit as the
 // migration that makes it true):
 //   E7  (http-api)       No `hono` import or dependency (the HttpApi server replaces it; docs/EFFECT.md E7).
-// (E1 switched on rule (9), E2 rules (10) and (11) below.)
+// (E1 switched on rule (9), E2 rules (10) and (11), E5 rule (12) below.)
 //
 // Comment lines (trimmed line starting with `*`, `//`, `/*`, `{/*`) are never scanned. No test reads git history.
 import { describe, expect, test } from "bun:test";
@@ -448,5 +448,75 @@ describe("(11) no Date.now() / new Date( in services, no nowMs( in the core or t
     expect(SERVICE_DATE.test("const at = yield* Clock.currentTimeMillis;")).toBe(false);
     expect(NOW_MS_CALL.test("const at = nowMs();")).toBe(true);
     expect(NOW_MS_CALL.test("const at = yield* Clock.currentTimeMillis;")).toBe(false);
+  });
+});
+
+// --- (12) the E5 rule: the scripts are Effect programs (plan docs/plans/e5-scripts.md P12, P14; docs/EFFECT.md E10) ----
+
+const SCRIPT_FILES = ALL_FILES.filter((f) => rel(f).startsWith("apps/api/scripts/"));
+/** The files directly under apps/api/scripts/ (the entry points; `support/`, `legacy/`, `finance-import/` are libraries). */
+const SCRIPT_ENTRIES = SCRIPT_FILES.filter((f) => /^apps\/api\/scripts\/[^/]+\.ts$/.test(rel(f)));
+const SCRIPT_LIBRARY_FILES = SCRIPT_FILES.filter(
+  (f) => rel(f).startsWith("apps/api/scripts/legacy/") || rel(f).startsWith("apps/api/scripts/finance-import/"),
+);
+const SCRIPT_AND_SRC_FILES = [...API_SRC_FILES, ...SCRIPT_FILES];
+
+const RUNS_AS_PROGRAM = /\brunScript\s*\(|\bBunRuntime\.runMain\s*\(/;
+const PROCESS_EXIT = /\bprocess\.exit\s*\(/;
+const AWAIT = /\bawait\s/;
+const RUN_MODULE_HOOK = /\brunModuleHook\b/;
+
+// Pinned allow list (file -> reason) for `process.exit(` under apps/api/scripts/: the runner's teardown only.
+const ALLOW_PROCESS_EXIT: PathAllow = {
+  "apps/api/scripts/support/main.ts": "the runner's teardown, which ends the process after the scope closed (plan e5 P1)",
+};
+
+describe("(12) the scripts are Effect programs (E10, E12)", () => {
+  test("(a) every entry point directly under apps/api/scripts/ runs through runScript( or BunRuntime.runMain(", () => {
+    const missing = SCRIPT_ENTRIES.filter((f) => !codeLines(f).some((l) => RUNS_AS_PROGRAM.test(l.text)));
+    expectNoProblems(
+      "a script is an Effect program run by `runScript(` (apps/api/scripts/support/main.ts) or `BunRuntime.runMain(` (docs/EFFECT.md E10)",
+      missing.map((f) => `${rel(f)}:1: no runScript( or BunRuntime.runMain( call`),
+    );
+  });
+
+  test("the scan sees the entry points", () => {
+    expect(SCRIPT_ENTRIES.length).toBeGreaterThanOrEqual(8);
+  });
+
+  test("(b) no `process.exit(` under apps/api/scripts/ outside the pinned allow list", () => {
+    expectNone(
+      "a script ends through its exit code, the runner's teardown calls process.exit once (plan e5 P1, P14)",
+      scan(SCRIPT_FILES, (l) => PROCESS_EXIT.test(l.text) && !allowedPath(ALLOW_PROCESS_EXIT)(l)),
+    );
+  });
+
+  test("(b) every process.exit allow-list entry still matches", () => {
+    expectNoStaleEntries("(12) process.exit", ALLOW_PROCESS_EXIT, scan(SCRIPT_FILES, (l) => PROCESS_EXIT.test(l.text)));
+  });
+
+  test("(c) no `await ` under apps/api/scripts/legacy/ and apps/api/scripts/finance-import/ (the library is Effect)", () => {
+    expectNone(
+      "the migrate:legacy and finance-import libraries are Effects; a Promise bridge returns runLegacy(...) without awaiting (plan e5 P14)",
+      scan(SCRIPT_LIBRARY_FILES, (l) => AWAIT.test(l.text)),
+    );
+  });
+
+  test("(d) no runModuleHook under apps/api/src or apps/api/scripts (deleted by E5-T09)", () => {
+    expectNone(
+      "a hook runs outside the runtime with Database.layerFromExecutor provided (plan e5 P12)",
+      scan(SCRIPT_AND_SRC_FILES, (l) => RUN_MODULE_HOOK.test(l.text)),
+    );
+  });
+
+  test("the rule bites on its shapes", () => {
+    expect(RUNS_AS_PROGRAM.test("runScript(program);")).toBe(true);
+    expect(RUNS_AS_PROGRAM.test("BunRuntime.runMain(program, { teardown });")).toBe(true);
+    expect(RUNS_AS_PROGRAM.test("main();")).toBe(false);
+    expect(PROCESS_EXIT.test("  process.exit(1);")).toBe(true);
+    expect(PROCESS_EXIT.test("  process.exitCode = 1;")).toBe(false);
+    expect(AWAIT.test("  const rows = await client.execute(sql);")).toBe(true);
+    expect(AWAIT.test("  const rows = yield* Effect.promise(() => client.execute(sql));")).toBe(false);
+    expect(RUN_MODULE_HOOK.test("import { runModuleHook } from '../adapter.ts';")).toBe(true);
   });
 });

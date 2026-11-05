@@ -145,7 +145,7 @@ renamed): from F `transaction_amount_zero`, `transaction_generated`, `balance_st
 Every hook is an Effect over `Database` only (the contract of `docs/SPEC.md` section 2), so each manifest entry wraps its program in
 `withFinanceServices` (`apps/api/src/modules/finance/layer.ts`): the finance services are built over the CURRENT `Database` of the
 calling fiber (the core's open transaction for a hook) with a local memo map, which keeps the hooks, the bridges and the scheduler
-off the runtime's memoized copies and lets `runModuleHook` run them outside the runtime (`apps/api/scripts/seed.ts`). The module
+off the runtime's memoized copies and lets them run outside the runtime on a bare executor (`Database.layerFromExecutor`, `apps/api/scripts/seed.ts`). The module
 has no `uploadReferences`, `afterMigrate` or `healthFeatures`.
 
 The module clock is `apps/api/src/modules/finance/lib/clock.ts` (`financeTimeMillis`, `setClockForTest`, the synchronous

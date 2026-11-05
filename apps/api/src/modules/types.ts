@@ -9,8 +9,8 @@
  * (`src/db/database.ts`): the current executor is the transaction the core opened around the
  * operation, or the root. Its type parameter names the services the module's own `layer` provides
  * (E3, E4): recipe is an `ApiModule<RecipeServices>`, finance an `ApiModule<FinanceServices>`.
- * `runModuleHook` (`src/modules/adapter.ts`) runs a hook on the bare executor a Promise-based core
- * caller holds.
+ * A caller outside the runtime provides `Database.layerFromExecutor(executor)` and runs the hook
+ * on the bare executor it holds.
  */
 import type { ModuleId } from "@toon/shared";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";

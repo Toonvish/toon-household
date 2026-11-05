@@ -13,7 +13,7 @@
  *
  * The hook is an Effect since E3 (docs/EFFECT.md E7; plan `docs/plans/e3-recipe-services.md` P5):
  * `seedRecipeDemo(context)` runs the unchanged Promise body `seedRecipeDemoOn(db, context)` on the
- * current executor of `Database` (`scripts/seed.ts` hands in its `db` through `runModuleHook`).
+ * current executor of `Database` (`scripts/seed.ts` hands in its `db` through `Database.layerFromExecutor`).
  * `Date.now()` here is outside `services/` and stays (demo timestamps relative to the wall clock).
  */
 import {

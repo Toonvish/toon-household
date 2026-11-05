@@ -6,7 +6,7 @@
  * incomes, the plan enabled from two periods ago and one catch-up run.
  *
  * Called by `scripts/seed.ts` after the core demo rows, on the shared `db` client (the current
- * executor of `Database`, handed in through `runModuleHook`): this module never closes it and never
+ * executor of `Database`, handed in through `Database.layerFromExecutor`): this module never closes it and never
  * runs migrations. Idempotent: users are matched by
  * e-mail, the participants are seated only when the household has none, and the ledger
  * block is skipped once the household has a `finance_transactions` row. Everything is

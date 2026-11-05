@@ -8,7 +8,7 @@
  * '…' before initialization".
  *
  * E2-T03 lists the composition (`config`, `database`, `infra`, the core services layer, `runtime`); E2-T05 adds
- * `./src/modules/adapter.ts` and `./src/core/services/media/references.ts` (`UploadReferences`), E2-T12 the middlewares, the core routes and the services they reach,
+ * `./src/db/migrate.ts` (the module adapter's slot until E5-T09 deleted it; it holds `migrateDatabase`) and `./src/core/services/media/references.ts` (`UploadReferences`), E2-T12 the middlewares, the core routes and the services they reach,
  * E3-T01 the recipe module's composition (`./src/modules/recipe/layer.ts`) and `./src/modules/recipe/migrate.ts`,
  * E3-T13 three recipe service files (`recipes.service.ts`, `import/url/fetch.ts`, `ocr/index.ts`; never the route files),
  * E4-T01 the finance module's composition (`./src/modules/finance/layer.ts`), its bridge runner (`bridge.ts`) and its
@@ -47,8 +47,8 @@ describe("import order does not matter for the Effect composition", () => {
     "./src/infra.ts",
     "./src/core/services/layer.ts",
     "./src/runtime.ts",
-    // E2-T05: the module adapter (imported by db/migrate.ts and the registry) and the first core service
-    "./src/modules/adapter.ts",
+    // E2-T05 and E5-T09: db/migrate.ts (it took the module adapter's entry when E5 deleted that file) and the first core service
+    "./src/db/migrate.ts",
     "./src/core/services/media/references.ts",
     // E2-T12: the middlewares (factories the routers call at module scope), the core routes, the services they
     // reach and the two module manifests

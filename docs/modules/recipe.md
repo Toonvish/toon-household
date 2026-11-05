@@ -302,7 +302,7 @@ a one-line pointer. Paths are repo-relative.
   `backfillFoldedColumns(database?)` live in `apps/api/src/modules/recipe/migrate.ts`; `foldBackfill` runs
   as the module's `afterMigrate` after every `runMigrations` (db:migrate, seed, tests): idempotent, no
   transaction. `migrate:legacy` (`apps/api/scripts/legacy/recipe.ts`) calls the bridge for imported rows; the
-  file imports neither `runtime.ts` nor `env.ts` (the bridge goes through `runModuleHook`).
+  file imports neither `runtime.ts` nor `env.ts` (the bridge provides `Database.layerFromExecutor` itself).
 
 - **Import route tests use real sessions.** toon-recipe's `services/import/middleware-bridge.ts` is not
   ported: it only stubbed the session and group middleware, and the mount chain now runs the real

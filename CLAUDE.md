@@ -121,7 +121,7 @@ integration record and "what changed vs plan". Two modules are built (`API_MODUL
 `[recipe, finance]`, `/api/health` reports `modules: ["recipe","finance"]`). The tree typechecks, builds and tests
 green (`bun test`: 14725 pass in 163 files on the temp file DB at E4 (37.07 s under a host load average of about 3.7); 14686 pass in 160 files after the E3 review (14684 at E3-T13, 32.88 s on a quiet host); 14658 pass in 158 files after E2 (69.96 s under a host load average of 14 to 50; 39.79 s at E2's quiet baseline), where 11357 of them are
 the golden parity cases of `packages/shared/test/parity/`; 14508 pass in 150 files after the E1 review; 2463 pass in 141 files at the end of E0; `i18n:check` exits 1 with
-the 145 classified false positives at E4 (the 146 of before E2, 147 with the `Effect.die` stopword hit of the old `apps/api/src/modules/adapter.ts`; E4 deleted that line and reworded one comment line of `apps/api/src/modules/finance/lib/clock.ts`, no new hit); M7's integration record, `docs/plans/m7-harden.md` section 9, has the gate logs,
+the 145 classified false positives at E4 (the 146 of before E2, 147 with the `Effect.die` stopword hit of the old module adapter file, since deleted; E4 deleted that line and reworded one comment line of `apps/api/src/modules/finance/lib/clock.ts`, no new hit); M7's integration record, `docs/plans/m7-harden.md` section 9, has the gate logs,
 the walkthrough, the `migrate:legacy` fixture run and the print-to-PDF proof). Milestone E0 of the Effect migration
 (foundation: the vendored source fenced off, the pinned Effect packages, the one `ManagedRuntime` serving
 `/api/health`, the idioms test, ADR 0012) is done; its integration record is `docs/plans/e0-foundation.md` sections
@@ -141,7 +141,7 @@ listed there with their callers and removal milestones). Milestone E3 (recipe-se
 scoped resources, the capability flags come from `AppConfig`, time from the `Clock`; ADR 0014 updated) is done; its integration
 record is `docs/plans/e3-recipe-services.md` sections 9 and 10 (the surviving bridges with their callers); the review (HEAD `9f0c9cd91`) restored the pre-E3 rule that a hero-image download is judged by its magic bytes alone, never by its `Content-Type` label. Milestone E4 (finance-services: every finance service that does I/O is a `Context.Service`
 with a static `layer`, the module's `layer` is part of the one `AppLayer`, `financeModule` is an `ApiModule<FinanceServices>` with its
-hooks as Effects, `PromiseApiModule` and `fromPromiseModule` are deleted (`runModuleHook` stays for the scripts, E5), the finance routes
+hooks as Effects, `PromiseApiModule` and `fromPromiseModule` are deleted (`runModuleHook` stayed for the scripts and was deleted at E5-T09), the finance routes
 and the participant gate run through `runtime.runPromise`, the boot catch-up and the 6-hour tick run on `Schedule` driven by the `Clock`
 with a `TestClock` test, idioms rule (10) is empty and rule (11) covers finance; ADR 0014 updated) is done; its integration record is
 `docs/plans/e4-finance-services.md` sections 9 and 10 (the nine surviving finance bridges with their callers). What is left is the
@@ -238,8 +238,7 @@ Package names are `@toon/shared`, `@toon/api`, `@toon/web`; the root is `toon-ho
   `apps/api/src/core/services/layer.ts` (`coreServicesLayer()`, `baseServicesLayer()`) with
   `apps/api/src/core/services/auth/layer.ts` and `apps/api/src/core/services/households/layer.ts` (one hoisted
   composition function each), `apps/api/src/lib/errors.ts` (the tagged error family, `ApiError` kept for the modules,
-  `toApiError`, `errorBody`, `onErrorHandler`), `apps/api/src/modules/adapter.ts` (`runModuleHook`
-  only since E4), `apps/api/test/support/effect.ts` (`runTest`, `runTestExit`, `itEffect`, `recordingMailer`,
+  `toApiError`, `errorBody`, `onErrorHandler`), `apps/api/test/support/effect.ts` (`runTest`, `runTestExit`, `itEffect`, `recordingMailer`,
   `withMailer`) and `apps/api/test/import-order-effect.test.ts` (the fresh-process import guard for the files the
   runtime pulls into the cycle). Core services (`Context.Service` classes): `Mailer` (`mail/index.ts`, exported as
   `MailerService`), `RateLimiter`, `VerifiedEmail`, `Thumbnails`, `Uploads`, `UploadReferences`, `HouseholdModules`,
@@ -471,9 +470,10 @@ ones; the module gotchas are indexed below and live in the module docs.
   a fresh memo map: a plain `Effect.provide` would reuse the services the runtime's `AppLayer` memoized, bound to the runtime's
   database, and a test's private `Database.layerFrom(…)` would silently never be reached (`apps/api/test/finance-services-local.test.ts`
   proves it; the finance services hold no state, so the copies cannot disagree). Outside the runtime (`runMigrations`,
-  `collectUploadReferences(database)`, `apps/api/scripts/seed.ts`, every finance bridge) a hook runs through
-  `runModuleHook(effect, executor)`, which provides `Database.layerFromExecutor` and never imports `runtime.ts`, so `db/migrate.ts`
-  keeps `migrate-legacy.ts`'s import-order rule; E5 deletes `runModuleHook` with the last script that needs it. `API_MODULES` in
+  `collectUploadReferences(database)`, `apps/api/scripts/seed.ts`, every finance bridge) a hook runs with
+  `Database.layerFromExecutor(executor)` provided (`Effect.runPromise`; every finance bridge through `runFinanceBridge`,
+  `apps/api/src/modules/finance/bridge.ts`), never importing `runtime.ts`, so `db/migrate.ts` keeps `migrate-legacy.ts`'s
+  import-order rule; `runModuleHook` and its file are deleted (E5-T09). `API_MODULES` in
   `apps/api/src/modules/index.ts` is a lazy array (a `Proxy` over the manifests, built on first access) so a manifest imported FIRST
   in a fresh process does not read the list in its TDZ; a read at module scope still fails loudly. The finance scheduler is not a
   service: `startAccrualSchedule` awaits the boot catch-up and forks ONE detached fiber on `Effect.schedule(tick,

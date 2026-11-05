@@ -1,11 +1,11 @@
 /**
- * The module contract on Effects (`src/modules/adapter.ts`; docs/EFFECT.md E7; plan `docs/plans/e2-api-core-services.md`
+ * The module contract on Effects (`src/modules/types.ts`; docs/EFFECT.md E7; plan `docs/plans/e2-api-core-services.md`
  * P11; SPEC §2).
  *
  * Covered: an Effect hook of an `ApiModule` literal reads the open transaction from `Database` inside
- * `Database.transaction` and the root outside; `runModuleHook(hook, tx)` inside a drizzle transaction hands the hook
+ * `Database.transaction` and the root outside; `runHook(hook, tx)` inside a drizzle transaction hands the hook
  * that very `tx`; an API error the hook fails with (or raises with `return yield*`) arrives as the SAME object in
- * the error channel and from `runModuleHook`'s rejection; a defect (`Effect.die(error)`) stays a defect; `start`
+ * the error channel and from `runHook`'s rejection; a defect (`Effect.die(error)`) stays a defect; `start`
  * keeps its failure value; `afterMigrate` through `runMigrations(createDatabase(...).db)` runs on that database
  * (identity, and recipe's real fold backfill there); `API_MODULES` lists recipe and finance unwrapped (E3, E4: each
  * with its `layer`), with their ids and `healthFeatures`.
@@ -24,7 +24,6 @@ import { Database, type DbExecutor } from "../src/db/database.ts";
 import { runMigrations } from "../src/db/migrate.ts";
 import { households, recipes, users } from "../src/db/schema.ts";
 import { ApiError, type ApiErrorFamily, isApiError, NotFound } from "../src/lib/errors.ts";
-import { runModuleHook } from "../src/modules/adapter.ts";
 import { financeModule } from "../src/modules/finance/index.ts";
 import { API_MODULES } from "../src/modules/index.ts";
 import { recipeModule } from "../src/modules/recipe/index.ts";
@@ -50,6 +49,15 @@ afterAll(() => {
   for (const created of opened) created.client.close();
   rmSync(dir, { recursive: true, force: true });
 });
+
+/**
+ * Runs a hook effect on a bare drizzle executor outside the runtime, as the Promise-based callers do (E5-T09: the
+ * helper that was `runModuleHook`): `executor` is the root of `Database`, a failure or defect rejects with the
+ * squashed value (a refusal is the same object).
+ */
+function runHook<A, E>(effect: Effect.Effect<A, E, Database>, executor: DbExecutor): Promise<A> {
+  return Effect.runPromise(effect.pipe(Effect.provide(Database.layerFromExecutor(executor))));
+}
 
 function onPrimary<A, E>(effect: Effect.Effect<A, E, Database>): Promise<A> {
   return Effect.runPromise(effect.pipe(Effect.provide(Database.layerFrom(primary))));
@@ -156,13 +164,13 @@ describe("the executor an Effect hook reads from Database", () => {
   });
 });
 
-describe("runModuleHook", () => {
+describe("runHook", () => {
   test("inside a drizzle transaction the hook receives that very tx", async () => {
     const { module, seen } = recordingModule();
     let held: DbExecutor | undefined;
     await primary.db.transaction(async (tx) => {
       held = tx;
-      await runModuleHook(enableHook(module), tx);
+      await runHook(enableHook(module), tx);
     });
     expect(held).toBeDefined();
     expect(seen).toEqual([held as DbExecutor]);
@@ -171,7 +179,7 @@ describe("runModuleHook", () => {
 
   test("on a root instance the hook receives that instance", async () => {
     const { module, seen } = recordingModule();
-    await runModuleHook(enableHook(module), primary.db);
+    await runHook(enableHook(module), primary.db);
     expect(seen[0]).toBe(primary.db);
   });
 
@@ -183,7 +191,7 @@ describe("runModuleHook", () => {
     };
     const hook = listing.uploadReferences;
     if (hook === undefined) throw new Error("the fake module has no uploadReferences");
-    expect(await runModuleHook(hook(), primary.db)).toEqual(["/uploads/a.jpg"]);
+    expect(await runHook(hook(), primary.db)).toEqual(["/uploads/a.jpg"]);
   });
 });
 
@@ -192,14 +200,14 @@ describe("failures", () => {
     const refusal = new ApiError(409, "participants_missing", "server.error.conflict");
     const failure = await onPrimary(Effect.flip(enableHook(refusingModule(refusal))));
     expect(failure).toBe(refusal);
-    await expect(runModuleHook(enableHook(refusingModule(refusal)), primary.db)).rejects.toBe(refusal);
+    await expect(runHook(enableHook(refusingModule(refusal)), primary.db)).rejects.toBe(refusal);
   });
 
   test("a family member raised with return yield* is the typed failure too", async () => {
     const refusal = new NotFound();
     const failure = await onPrimary(Effect.flip(enableHook(refusingModule(refusal, "yield"))));
     expect(failure).toBe(refusal);
-    await expect(runModuleHook(enableHook(refusingModule(refusal, "yield")), primary.db)).rejects.toBe(refusal);
+    await expect(runHook(enableHook(refusingModule(refusal, "yield")), primary.db)).rejects.toBe(refusal);
   });
 
   test("a plain Error the hook dies with is a defect", async () => {
@@ -211,7 +219,7 @@ describe("failures", () => {
       expect(Cause.hasFails(exit.cause)).toBe(false);
       expect(Cause.squash(exit.cause)).toBe(boom);
     }
-    await expect(runModuleHook(enableHook(refusingModule(boom, "die")), primary.db)).rejects.toBe(boom);
+    await expect(runHook(enableHook(refusingModule(boom, "die")), primary.db)).rejects.toBe(boom);
   });
 
   test("start keeps its failure value", async () => {

@@ -10,8 +10,9 @@
  *   }
  *
  * `runFinanceBridge(effect, executor)` builds the finance services over `executor` (`withFinanceServices`, a local
- * memo map, `./layer.ts`) and runs the effect with `runModuleHook`, which makes `executor` the root of `Database`
- * (`Database.layerFromExecutor`): a bridge called inside an open drizzle transaction runs on that transaction, one
+ * memo map, `./layer.ts`) and runs the effect outside the runtime with `Effect.runPromise`, providing
+ * `Database.layerFromExecutor(executor)`, which makes `executor` the root of `Database` (a bare drizzle executor, nothing
+ * closed): a bridge called inside an open drizzle transaction runs on that transaction, one
  * called with the `migrate:legacy` target runs on the target. The rejection is mapped once: a `DatabaseError`
  * rejects with its `cause` (the raw driver error the old Promise function threw), anything else with the squashed
  * value unchanged (a refusal of the API error family is the same object, `instanceof ApiError` holds).
@@ -20,18 +21,18 @@
  * order is load-bearing (CLAUDE.md "The CLI never imports `src/env.ts`, and its import order is load-bearing"), and
  * must never reach the shared database. Import cycle (CLAUDE.md "API import cycle"): a hoisted function only.
  */
-import type { Effect } from "effect";
-import type { Database as DatabaseService, DbExecutor } from "../../db/database.ts";
+import { Effect } from "effect";
+import { Database, type DbExecutor } from "../../db/database.ts";
 import { isDatabaseError } from "../../lib/errors.ts";
-import { runModuleHook } from "../adapter.ts";
 import { type FinanceServices, withFinanceServices } from "./layer.ts";
 
 /** Runs a finance effect on a bare drizzle executor, as the old Promise functions did (P1). */
 export function runFinanceBridge<A, E>(
-  effect: Effect.Effect<A, E, FinanceServices | DatabaseService>,
+  effect: Effect.Effect<A, E, FinanceServices | Database>,
   executor: DbExecutor,
 ): Promise<A> {
-  return runModuleHook(withFinanceServices(effect), executor).then(undefined, (error: unknown) =>
-    Promise.reject(isDatabaseError(error) ? error.cause : error),
+  return Effect.runPromise(withFinanceServices(effect).pipe(Effect.provide(Database.layerFromExecutor(executor)))).then(
+    undefined,
+    (error: unknown) => Promise.reject(isDatabaseError(error) ? error.cause : error),
   );
 }

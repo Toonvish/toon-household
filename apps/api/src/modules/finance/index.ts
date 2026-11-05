@@ -10,7 +10,7 @@
  * `Layer.suspend(financeLayer)` (`./layer.ts`, a hoisted function, so reading it here at module scope
  * is TDZ-safe), merged by the runtime into the one `AppLayer` over the core; the routes and the
  * middleware yield the services from there. The database hooks are typed over `Database` only and
- * also run outside the runtime (`runModuleHook`), so each wraps its program in
+ * also run outside the runtime (`Database.layerFromExecutor`), so each wraps its program in
  * `withFinanceServices`, which builds the finance services over the CURRENT `Database` (the core's
  * open transaction for a hook) with a local memo map.
  *
