@@ -253,8 +253,8 @@ export class Ocr extends Context.Service<
         return yield* tesseractRecognize(prepared.bytes, options, native);
       });
 
-      // NOT `Effect.acquireUseRelease`: its acquire runs uninterruptibly, so an interrupt would never reach a queued
-      // waiter. `acquireRelease` with `interruptible` runs the acquire under `restore` and registers the release only
+      // NOT the bracketing form of acquire and release: its acquire runs uninterruptibly, so an interrupt would never
+      // reach a queued waiter. `acquireRelease` with `interruptible` runs the acquire under `restore` and registers the release only
       // once the acquire succeeded (plan e3 P11).
       const withOcrSlot = <A, E>(effect: Effect.Effect<A, E>, waitMs: number = OCR_SLOT_WAIT_MS) =>
         Effect.scoped(
