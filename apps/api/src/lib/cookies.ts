@@ -10,9 +10,11 @@
  * - `toon_oauth_next`   relative path the web app wants to land on afterwards
  * - `toon_oauth_intent` "link" when the flow attaches a provider to the account
  *                       that is already signed in (instead of logging someone in)
+ *
+ * The names, TTLs and attribute values above the Hono section are what both writers read: the Effect cookies of
+ * `apps/api/src/http/cookies.ts` (plan `docs/plans/e7-http-api.md` P8) and the Hono setters and getters of the section
+ * at the end of this file (until E7-T12 deletes it).
  */
-import type { Context } from "hono";
-import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { env } from "../env.ts";
 
 /** Name of the session cookie (documented in docs/API.md). */
@@ -37,7 +39,7 @@ export const OAUTH_COOKIE_TTL_SECONDS = 10 * 60;
  * SameSite=Lax keeps the session cookie on the OAuth redirect back from Google
  * or GitHub (a top-level GET), while still blocking cross-site POSTs.
  */
-function baseOptions(): {
+export function baseCookieOptions(): {
   path: string;
   httpOnly: true;
   sameSite: "Lax";
@@ -51,10 +53,14 @@ function baseOptions(): {
   };
 }
 
+/* Hono (E7 transition): E7-T12 deletes this section */
+import type { Context } from "hono";
+import { deleteCookie, getCookie, setCookie } from "hono/cookie";
+
 /** Sets/refreshes the session cookie so it expires with the DB row. */
 export function setSessionCookie(c: Context, sessionId: string, expiresAt: number): void {
   const maxAge = Math.max(1, Math.floor((expiresAt - Date.now()) / 1000));
-  setCookie(c, SESSION_COOKIE, sessionId, { ...baseOptions(), maxAge });
+  setCookie(c, SESSION_COOKIE, sessionId, { ...baseCookieOptions(), maxAge });
 }
 
 /** Reads the raw session id from the request (undefined when absent). */
@@ -65,7 +71,7 @@ export function readSessionCookie(c: Context): string | undefined {
 
 /** Removes the session cookie (logout, invalid/expired session). */
 export function clearSessionCookie(c: Context): void {
-  deleteCookie(c, SESSION_COOKIE, { ...baseOptions(), maxAge: 0 });
+  deleteCookie(c, SESSION_COOKIE, { ...baseCookieOptions(), maxAge: 0 });
 }
 
 /** Stores state/PKCE/next for a running OAuth flow. */
@@ -73,7 +79,7 @@ export function setOAuthCookies(
   c: Context,
   values: { state: string; codeVerifier?: string; next?: string; intent?: OAuthIntent },
 ): void {
-  const options = { ...baseOptions(), maxAge: OAUTH_COOKIE_TTL_SECONDS };
+  const options = { ...baseCookieOptions(), maxAge: OAUTH_COOKIE_TTL_SECONDS };
   setCookie(c, OAUTH_STATE_COOKIE, values.state, options);
   if (values.codeVerifier) setCookie(c, OAUTH_VERIFIER_COOKIE, values.codeVerifier, options);
   if (values.next) setCookie(c, OAUTH_NEXT_COOKIE, values.next, options);
@@ -98,7 +104,7 @@ export function readOAuthCookies(c: Context): {
 
 /** Always called before redirecting back to the web app. */
 export function clearOAuthCookies(c: Context): void {
-  const options = { ...baseOptions(), maxAge: 0 };
+  const options = { ...baseCookieOptions(), maxAge: 0 };
   deleteCookie(c, OAUTH_STATE_COOKIE, options);
   deleteCookie(c, OAUTH_VERIFIER_COOKIE, options);
   deleteCookie(c, OAUTH_NEXT_COOKIE, options);

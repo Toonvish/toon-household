@@ -12,7 +12,6 @@
  * module-private (plan e3 P20: the enabled path is `RateLimiter.layer` over a production `AppConfig`).
  */
 import { Clock, Context, Effect, Layer } from "effect";
-import type { Context as HonoContext } from "hono";
 import { AppConfig } from "../../../config.ts";
 import { env } from "../../../env.ts";
 import { RateLimited } from "../../../lib/errors.ts";
@@ -178,7 +177,10 @@ export class RateLimiter extends Context.Service<
 }
 
 /**
- * The address a rate-limit bucket is keyed on.
+ * The address a rate-limit bucket is keyed on, from the request's headers (`header(name)`, a lower-case name) and the
+ * peer address off the socket (`socketAddress`, undefined when there is none, e.g. in tests). Pure; the Effect
+ * `clientIp` of `apps/api/src/http/request.ts` (plan `docs/plans/e7-http-api.md` P4) and the Hono `clientIp(c)` of
+ * the section at the end of this file both call it.
  *
  * FORWARDING HEADERS ARE ONLY BELIEVED WHEN `TRUST_PROXY=1`. They are attacker
  * controlled on a directly exposed server, and this used to trust them
@@ -190,7 +192,10 @@ export class RateLimiter extends Context.Service<
  * only if even that is unavailable do we fall back to "unknown" — a single shared
  * bucket, which throttles rather than opens up.
  */
-export function clientIp(c: HonoContext): string {
+export function clientIpFrom(source: {
+  readonly header: (name: string) => string | undefined;
+  readonly socketAddress: string | undefined;
+}): string {
   if (env.trustProxy) {
     // The LAST entry, not the first (toon-finance 1715207, gotchas 18 and 74). The
     // trusted proxy is the one hop we believe, and whatever it appended is the address
@@ -199,29 +204,17 @@ export function clientIp(c: HonoContext): string {
     // both are the same value — and if that line is ever dropped there, "last" still
     // yields the true peer while "first" would turn every rate limit into a
     // client-controlled no-op.
-    const forwarded = c.req.header("x-forwarded-for");
+    const forwarded = source.header("x-forwarded-for");
     if (forwarded) {
       const last = forwarded.split(",").at(-1)?.trim();
       if (last && last.length > 0) return last;
     }
-    const direct = c.req.header("x-real-ip") ?? c.req.header("cf-connecting-ip");
+    const direct = source.header("x-real-ip") ?? source.header("cf-connecting-ip");
     if (direct && direct.length > 0) return direct;
   }
-  return socketAddress(c) ?? "unknown";
+  const address = source.socketAddress;
+  return address && address.length > 0 ? address : "unknown";
 }
-
-/** Peer address straight off the Bun socket, or undefined (e.g. in tests). */
-function socketAddress(c: HonoContext): string | undefined {
-  const server = c.env as { requestIP?: (request: Request) => { address?: string } | null } | undefined;
-  if (!server || typeof server.requestIP !== "function") return undefined;
-  try {
-    const address = server.requestIP(c.req.raw)?.address;
-    return address && address.length > 0 ? address : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 
 /* legacy bridges: the two the tests keep (plan e3 P20; E8 removes them) */
 
@@ -235,4 +228,24 @@ export function checkRateLimit(key: string, rule: RateLimitRule): RateLimitResul
 /** Callers: `apps/api/test/{auth,modules,finance-module,rate-limiter}.test.ts` (the tests' door into the live store). */
 export function resetRateLimits(key?: string): void {
   resetBuckets(key);
+}
+
+/* Hono (E7 transition): E7-T12 deletes this section */
+import type { Context as HonoContext } from "hono";
+
+/** `clientIpFrom` over a Hono context: its headers and the Bun socket address. */
+export function clientIp(c: HonoContext): string {
+  return clientIpFrom({ header: (name) => c.req.header(name), socketAddress: honoSocketAddress(c) });
+}
+
+/** Peer address straight off the Bun socket, or undefined (e.g. in tests). */
+function honoSocketAddress(c: HonoContext): string | undefined {
+  const server = c.env as { requestIP?: (request: Request) => { address?: string } | null } | undefined;
+  if (!server || typeof server.requestIP !== "function") return undefined;
+  try {
+    const address = server.requestIP(c.req.raw)?.address;
+    return address && address.length > 0 ? address : undefined;
+  } catch {
+    return undefined;
+  }
 }

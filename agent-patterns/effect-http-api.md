@@ -216,7 +216,13 @@ const error = yield* client.users.getById({ params: { id } }).pipe(Effect.flip) 
 - `payload` on a no-body method must be a record of fields (query string). The query is decoded through `Schema.toCodecArrayFromSingle`, so a repeated
   parameter is an array and a single one is wrapped.
 - Path params are strings on the wire: declare the coercing schema (`Schema.Int`) for `/:id`.
-- The order of `.middleware(...)` calls matters: the earlier call wraps the later one (HTTPAPI.md "Interdependent Middleware"). Put the session middleware before the ones that read its service.
+- The order of `.middleware(...)` calls matters, and it is the reverse of what HTTPAPI.md's prose ("the earlier middleware wraps the later
+  middleware", "Interdependent Middleware") suggests: `HttpApiBuilder.ts` `applyMiddleware` runs `for (const key of endpoint.middlewares) handler =
+  apply(handler)`, so the middleware attached FIRST is the INNERMOST and the one attached LAST is the OUTERMOST and runs FIRST (group and API
+  `.middleware` append to every endpoint's set, so an API's middleware attached after the groups were built runs before theirs). A middleware that
+  `requires` a service is therefore attached BEFORE the one that `provides` it (HTTPAPI.md's example is right: `.middleware(RequireAuth)` then
+  `.middleware(LoadAuth)`, and `LoadAuth` runs first). This repo attaches through `chain(A, B, C)` (`apps/api/src/http/middleware.ts`), which takes
+  the middlewares in EXECUTION order and attaches them reversed; `apps/api/test/http-foundation.test.ts` pins it (plan `docs/plans/e7-http-api.md` P6).
 - Security handlers receive a `Redacted` credential (`Redacted.value`); an absent credential arrives as an EMPTY redacted string, so a handler must reject `""` itself. A cookie scheme reads the
   cookie by `key` case-sensitively, a header scheme by lowercase key.
 - Provide the middleware layers wherever the routes are built, including tests (`Layer.provideMerge`), or the API layer fails to build.
