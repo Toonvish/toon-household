@@ -29,6 +29,7 @@ import type {
 import { migrateUploads } from "./uploads.ts";
 import { migrateUsers } from "./users.ts";
 import { CHUNK_SIZE } from "./copy.ts";
+import { runLegacy } from "./io.ts";
 
 export interface RunOptions {
   mode: Mode;
@@ -48,10 +49,10 @@ export interface RunOptions {
 
 /** Row counts of every user table of a snapshot (the `== Inputs ==` section). */
 async function tableCounts(legacy: LegacyDb): Promise<Record<string, number>> {
-  const names = await readAll(
+  const names = await runLegacy(readAll(
     legacy,
     "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name <> '__drizzle_migrations' ORDER BY name",
-  );
+  ));
   const counts: Record<string, number> = {};
   for (const row of names) {
     const name = String(row.name);
@@ -64,7 +65,7 @@ async function tableCounts(legacy: LegacyDb): Promise<Record<string, number>> {
 /** The R `groups.id` and F `households.id` sets of the opened snapshots (both LEGACY ids). */
 export async function knownLegacyIds(recipe?: LegacyDb, finance?: LegacyDb): Promise<KnownIds> {
   const ids = async (legacy: LegacyDb | undefined, table: "groups" | "households") =>
-    new Set(legacy ? (await readAll(legacy, `SELECT id FROM ${table}`)).map((row) => String(row.id)) : []);
+    new Set(legacy ? (await runLegacy(readAll(legacy, `SELECT id FROM ${table}`))).map((row) => String(row.id)) : []);
   return { groupIds: await ids(recipe, "groups"), financeIds: await ids(finance, "households") };
 }
 
