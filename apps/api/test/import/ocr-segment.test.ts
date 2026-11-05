@@ -11,8 +11,14 @@
  * failed in CI for exactly that reason. An explicit seam cannot leak that way.
  */
 import { afterEach, describe, expect, test } from "bun:test";
+import { Effect, Fiber } from "effect";
 import { ApiError } from "../../src/lib/errors.ts";
-import { importFromImage, importFromPdf, importFromText } from "../../src/modules/recipe/services/import/ocr/index.ts";
+import {
+  type ImageImportOptions,
+  OcrImporter,
+  type PdfImportOptions,
+  importFromText,
+} from "../../src/modules/recipe/services/import/ocr/index.ts";
 import {
   repairIngredientLine,
   repairOcrText,
@@ -26,22 +32,42 @@ import {
   segmentRecipeText,
 } from "../../src/modules/recipe/services/import/ocr/segment.ts";
 import {
+  PdfText,
+  type PdfToTextOptions,
   isUsableTextLayer,
   normalizePdfText,
-  pdfToText,
   setPdfRasterizer,
 } from "../../src/modules/recipe/services/ocr/pdf.ts";
 import {
+  Ocr,
   ocrInFlight,
   ocrQueued,
   setOcrConcurrencyForTests,
-  withOcrSlot,
-  withOcrTimeout,
+  setOcrEngine,
 } from "../../src/modules/recipe/services/ocr/index.ts";
 import { normalizeLangs } from "../../src/modules/recipe/services/ocr/tesseract.ts";
+import { runTest } from "../support/effect.ts";
 import { createFakeOcrEngine, expectApiError, fixture, makeTestPng } from "./helpers.ts";
 
 const OCR_DUMP = fixture("ocr-zwiebelkuchen.txt");
+
+/*
+ * The pipelines through their services (plan e3 P15). The fake engine is installed through the `setOcrEngine` seam and
+ * handed back in the `afterEach` at the end of the file.
+ */
+const importFromImage = (bytes: Uint8Array, options: ImageImportOptions) =>
+  runTest(OcrImporter.use((importer) => importer.importFromImage(bytes, options)));
+const importFromPdf = (bytes: Uint8Array, options?: PdfImportOptions) =>
+  runTest(OcrImporter.use((importer) => importer.importFromPdf(bytes, options)));
+const pdfToText = (bytes: Uint8Array, options?: PdfToTextOptions) =>
+  runTest(PdfText.use((pdf) => pdf.pdfToText(bytes, options)));
+const withOcrTimeout = <A, E>(effect: Effect.Effect<A, E>, timeoutMs?: number) =>
+  runTest(Ocr.use((ocr) => ocr.withOcrTimeout(effect, timeoutMs)));
+/** `operation` held in a gate slot; a rejection of it is the failure. */
+const withOcrSlot = <T>(operation: () => Promise<T>, waitMs?: number) =>
+  runTest(
+    Ocr.use((ocr) => ocr.withOcrSlot(Effect.tryPromise({ try: operation, catch: (cause): unknown => cause }), waitMs)),
+  );
 
 describe("OCR quantity repair", () => {
   test.each([
@@ -374,7 +400,8 @@ describe("importFromImage with a fake engine", () => {
       text: "Milchreis\nZutaten\n1 l Milch\n250 g Milchreis\n2 EL Zucker\nZubereitung\n1. Milch aufkochen und Reis einruehren.",
       confidence: 0.66,
     });
-    const result = await importFromImage(png, { mimeType: "image/png", engine, store: false });
+    setOcrEngine(engine);
+    const result = await importFromImage(png, { mimeType: "image/png", store: false });
 
     expect(engine.calls).toBe(1);
     // sharp preprocessing ran: the engine never sees the original bytes.
@@ -391,23 +418,22 @@ describe("importFromImage with a fake engine", () => {
 
   test("a recognition failure propagates instead of producing a bogus draft", async () => {
     const png = await makeTestPng(200, 150);
-    const engine = createFakeOcrEngine({ text: "", fail: new Error("worker died") });
-    await expect(importFromImage(png, { mimeType: "image/png", engine, store: false })).rejects.toThrow("worker died");
+    setOcrEngine(createFakeOcrEngine({ text: "", fail: new Error("worker died") }));
+    await expect(importFromImage(png, { mimeType: "image/png", store: false })).rejects.toThrow("worker died");
   });
 
   test("422 ocr_failed when the engine returns nothing usable", async () => {
     const png = await makeTestPng(200, 150);
-    const engine = createFakeOcrEngine({ text: "  \n \n" });
-    const error = await expectApiError(importFromImage(png, { mimeType: "image/png", engine, store: false }));
+    setOcrEngine(createFakeOcrEngine({ text: "  \n \n" }));
+    const error = await expectApiError(importFromImage(png, { mimeType: "image/png", store: false }));
     expect(error.status).toBe(422);
     expect(error.code).toBe("ocr_failed");
   });
 
   test("an unreadable image fails as 415 before OCR is even attempted", async () => {
     const engine = createFakeOcrEngine({ text: "irrelevant" });
-    const error = await expectApiError(
-      importFromImage(new Uint8Array(64), { mimeType: "image/png", engine, store: false }),
-    );
+    setOcrEngine(engine);
+    const error = await expectApiError(importFromImage(new Uint8Array(64), { mimeType: "image/png", store: false }));
     expect(error.status).toBe(415);
     expect(engine.calls).toBe(0);
   });
@@ -415,16 +441,19 @@ describe("importFromImage with a fake engine", () => {
 
 describe("withOcrTimeout", () => {
   test("returns the value when the operation is fast enough", async () => {
-    expect(await withOcrTimeout(async () => "ok", 500)).toBe("ok");
+    expect(await withOcrTimeout(Effect.succeed("ok"), 500)).toBe("ok");
   });
 
   test("answers 504 ocr_failed when the budget is exhausted", async () => {
     const error = await expectApiError(
       withOcrTimeout(
-        (signal) =>
-          new Promise((_resolve, reject) => {
-            signal.addEventListener("abort", () => reject(new Error("aborted")));
-          }),
+        Effect.tryPromise({
+          try: (signal) =>
+            new Promise((_resolve, reject) => {
+              signal.addEventListener("abort", () => reject(new Error("aborted")));
+            }),
+          catch: (cause): unknown => cause,
+        }),
         20,
       ),
     );
@@ -434,7 +463,13 @@ describe("withOcrTimeout", () => {
 
   test("aborts the injected engine via its signal", async () => {
     const engine = createFakeOcrEngine({ text: "zu spät", delayMs: 200 });
-    const promise = withOcrTimeout(async (signal) => await engine.recognize(new Uint8Array(1), { signal }), 20);
+    const promise = withOcrTimeout(
+      Effect.tryPromise({
+        try: (signal) => engine.recognize(new Uint8Array(1), { signal }),
+        catch: (cause): unknown => cause,
+      }),
+      20,
+    );
     await expect(promise).rejects.toThrow(ApiError);
   });
 
@@ -446,7 +481,13 @@ describe("withOcrTimeout", () => {
   test("answers at the deadline even when the operation ignores the signal", async () => {
     const startedAt = Date.now();
     const error = await expectApiError(
-      withOcrTimeout(() => new Promise((resolve) => setTimeout(() => resolve("nie"), 5_000)), 30),
+      withOcrTimeout(
+        Effect.tryPromise({
+          try: () => new Promise((resolve) => setTimeout(() => resolve("nie"), 5_000)),
+          catch: (cause): unknown => cause,
+        }),
+        30,
+      ),
     );
     expect(error.status).toBe(504);
     expect(Date.now() - startedAt).toBeLessThan(1_000);
@@ -581,6 +622,42 @@ describe("withOcrSlot", () => {
     expect(order).toEqual(["queued", "latecomer"]);
   });
 
+  test("an interrupted waiter leaves the queue at once and the slot is still handed on", async () => {
+    setOcrConcurrencyForTests(1);
+
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const running = withOcrSlot(() => gate);
+    expect(ocrInFlight()).toBe(1);
+
+    await runTest(
+      Effect.gen(function* () {
+        const ocr = yield* Ocr;
+        const waiter = yield* Effect.forkChild(ocr.withOcrSlot(Effect.succeed("nie")));
+        yield* Effect.yieldNow;
+        expect(ocrQueued()).toBe(1);
+
+        yield* Fiber.interrupt(waiter);
+        // Gone the moment the interrupt returns, not after the 30 s wait budget; the holder keeps its slot.
+        expect(ocrQueued()).toBe(0);
+        expect(ocrInFlight()).toBe(1);
+      }),
+    );
+
+    // The slot still goes to the next waiter when the holder releases it.
+    const next = withOcrSlot(async () => "nächster");
+    await Promise.resolve();
+    expect(ocrQueued()).toBe(1);
+
+    release();
+    await running;
+    expect(await next).toBe("nächster");
+    expect(ocrInFlight()).toBe(0);
+    expect(ocrQueued()).toBe(0);
+  });
+
   test("releases the slot when the operation throws", async () => {
     await expect(
       withOcrSlot(() => Promise.reject(new Error("boom"))),
@@ -621,17 +698,17 @@ describe("PDF text handling", () => {
   });
 
   test("a PDF without a text layer AND without a rasterizer answers 422 pdf_no_text_layer", async () => {
-    const engine = createFakeOcrEngine({ text: "irrelevant" });
+    setOcrEngine(createFakeOcrEngine({ text: "irrelevant" }));
     const notAPdf = new TextEncoder().encode("this is definitely not a pdf");
-    const error = await expectApiError(pdfToText(notAPdf, engine, { maxPages: 1 }));
+    const error = await expectApiError(pdfToText(notAPdf, { maxPages: 1 }));
     expect(error.status).toBe(422);
     expect(error.code).toBe("pdf_no_text_layer");
   });
 
   test("importFromPdf surfaces the same 422 for an unreadable PDF", async () => {
-    const engine = createFakeOcrEngine({ text: "irrelevant" });
+    setOcrEngine(createFakeOcrEngine({ text: "irrelevant" }));
     const error = await expectApiError(
-      importFromPdf(new TextEncoder().encode("%PDF-1.4 broken"), { engine, store: false, maxPages: 1 }),
+      importFromPdf(new TextEncoder().encode("%PDF-1.4 broken"), { store: false, maxPages: 1 }),
     );
     expect(error.code).toBe("pdf_no_text_layer");
   });
@@ -648,7 +725,8 @@ describe("PDF text handling", () => {
     );
 
     const engine = createFakeOcrEngine({ text: ["Seite eins Text", "Seite zwei Text"], confidence: 0.7 });
-    const result = await pdfToText(new TextEncoder().encode("%PDF-1.4 stub"), engine, {
+    setOcrEngine(engine);
+    const result = await pdfToText(new TextEncoder().encode("%PDF-1.4 stub"), {
       useTextLayer: false,
       maxPages: 2,
     });
@@ -671,8 +749,8 @@ describe("PDF text handling", () => {
       text: "Apfelkuchen\nZutaten\n300 g Mehl\n4 Eier\nZubereitung\n1. Alles verruehren und backen.",
       confidence: 0.9,
     });
+    setOcrEngine(engine);
     const result = await importFromPdf(new TextEncoder().encode("%PDF-1.4 stub"), {
-      engine,
       store: false,
       useTextLayer: false,
       maxPages: 1,
@@ -701,4 +779,6 @@ describe("PDF text handling", () => {
  */
 afterEach(() => {
   setPdfRasterizer(null);
+  // The same discipline for the fake engine: `routes.test.ts` and the real-binary tests must not inherit it.
+  setOcrEngine(null);
 });

@@ -9,7 +9,8 @@
  *                 downscaling huge ones saves seconds per page
  *   png()         lossless hand-off, no JPEG ringing around glyphs
  */
-import { ApiError } from "../../../../lib/errors.ts";
+import { Effect, Predicate } from "effect";
+import { ApiFailure, UnsupportedMediaType } from "../../../../lib/errors.ts";
 
 /** sharp's callable default export (the namespace itself is not callable). */
 type SharpFactory = typeof import("sharp").default;
@@ -31,24 +32,26 @@ export interface PreprocessResult {
 }
 
 /**
- * Normalises an arbitrary photo for OCR.
+ * Normalises an arbitrary photo for OCR (docs/EFFECT.md E7; plan `docs/plans/e3-recipe-services.md` P11: a service-free
+ * effect, R = never).
  *
- * @throws ApiError 415 with an actionable German message when sharp cannot
- *   decode the input. HEIC/HEIF is the realistic case: libvips is frequently
- *   built without the HEIF plugin, so the user is told to convert/re-shoot
- *   instead of getting a generic 500.
+ * Fails with `UnsupportedMediaType` (415) and an actionable message when sharp cannot decode the input. HEIC/HEIF is the
+ * realistic case: libvips is frequently built without the HEIF plugin, so the user is told to convert/re-shoot instead of
+ * getting a generic 500. A missing sharp binary is the `422 ocr_failed` `ApiFailure`.
  */
-export async function preprocessImage(input: Uint8Array): Promise<PreprocessResult> {
-  const sharp = await loadSharp();
+export const preprocessImage = Effect.fnUntraced(function* (
+  input: Uint8Array,
+): Effect.fn.Return<PreprocessResult, ApiFailure | UnsupportedMediaType> {
+  const sharp = yield* loadSharp;
 
-  let pipeline: SharpInstance;
-  let metadata: SharpMetadata;
-  try {
-    pipeline = sharp(Buffer.from(input), { failOn: "none", limitInputPixels: 400_000_000 });
-    metadata = await pipeline.metadata();
-  } catch (error) {
-    throw decodeError(error, input);
-  }
+  const opened = yield* Effect.tryPromise({
+    try: async () => {
+      const pipeline = sharp(Buffer.from(input), { failOn: "none", limitInputPixels: 400_000_000 });
+      return { pipeline, metadata: await pipeline.metadata() };
+    },
+    catch: (error) => decodeError(error, input),
+  });
+  const { pipeline, metadata }: { pipeline: SharpInstance; metadata: SharpMetadata } = opened;
 
   const sourceWidth = metadata.width ?? 0;
   // Rotating by EXIF can swap width/height, so decide the target from the
@@ -57,24 +60,25 @@ export async function preprocessImage(input: Uint8Array): Promise<PreprocessResu
   const resizeWidth = longestEdge === 0 ? TARGET_WIDTH : longestEdge > TARGET_WIDTH ? TARGET_WIDTH : undefined;
   const upscaleWidth = longestEdge > 0 && longestEdge < MIN_WIDTH ? MIN_WIDTH : undefined;
 
-  try {
-    let work = pipeline.rotate().grayscale().normalize();
-    if (resizeWidth !== undefined) {
-      work = work.resize({ width: resizeWidth, fit: "inside", withoutEnlargement: true });
-    } else if (upscaleWidth !== undefined) {
-      work = work.resize({ width: upscaleWidth, fit: "inside", kernel: "lanczos3" });
-    }
-    const { data, info } = await work.png({ compressionLevel: 6 }).toBuffer({ resolveWithObject: true });
-    return {
-      bytes: new Uint8Array(data),
-      width: info.width,
-      height: info.height,
-      inputFormat: metadata.format ?? "unknown",
-    };
-  } catch (error) {
-    throw decodeError(error, input);
-  }
-}
+  return yield* Effect.tryPromise({
+    try: async () => {
+      let work = pipeline.rotate().grayscale().normalize();
+      if (resizeWidth !== undefined) {
+        work = work.resize({ width: resizeWidth, fit: "inside", withoutEnlargement: true });
+      } else if (upscaleWidth !== undefined) {
+        work = work.resize({ width: upscaleWidth, fit: "inside", kernel: "lanczos3" });
+      }
+      const { data, info } = await work.png({ compressionLevel: 6 }).toBuffer({ resolveWithObject: true });
+      return {
+        bytes: new Uint8Array(data),
+        width: info.width,
+        height: info.height,
+        inputFormat: metadata.format ?? "unknown",
+      };
+    },
+    catch: (error) => decodeError(error, input),
+  });
+});
 
 /** True for ISO-BMFF containers with a HEIC/HEIF brand. */
 function looksLikeHeic(input: Uint8Array): boolean {
@@ -87,25 +91,24 @@ function looksLikeHeic(input: Uint8Array): boolean {
   return /^(heic|heix|hevc|hevx|mif1|msf1|heim|heis)$/i.test(brand);
 }
 
-function decodeError(error: unknown, input: Uint8Array): ApiError {
-  const message = error instanceof Error ? error.message : String(error);
+function decodeError(error: unknown, input: Uint8Array): UnsupportedMediaType {
+  const message = Predicate.isError(error) ? error.message : String(error);
   if (looksLikeHeic(input) || /heif|heic/i.test(message)) {
-    return ApiError.unsupportedMediaType("server.ocr.heicUnsupported");
+    return new UnsupportedMediaType({ text: "server.ocr.heicUnsupported" });
   }
-  return ApiError.unsupportedMediaType({
-    key: "server.ocr.imageUnreadable",
-    values: { message: message.slice(0, 120) },
+  return new UnsupportedMediaType({
+    text: { key: "server.ocr.imageUnreadable", values: { message: message.slice(0, 120) } },
   });
 }
 
 /** Lazily loads sharp so a missing native binary fails as a clean 422/415. */
-async function loadSharp(): Promise<SharpFactory> {
-  try {
-    const module = await import("sharp");
-    return module.default;
-  } catch (error) {
-    throw new ApiError(422, "ocr_failed", "server.ocr.imageProcessingUnavailable", {
-      cause: error instanceof Error ? error.message : String(error),
-    });
-  }
-}
+const loadSharp: Effect.Effect<SharpFactory, ApiFailure> = Effect.tryPromise({
+  try: () => import("sharp"),
+  catch: (error) =>
+    new ApiFailure({
+      status: 422,
+      code: "ocr_failed",
+      text: "server.ocr.imageProcessingUnavailable",
+      details: { cause: Predicate.isError(error) ? error.message : String(error) },
+    }),
+}).pipe(Effect.map((module) => module.default));

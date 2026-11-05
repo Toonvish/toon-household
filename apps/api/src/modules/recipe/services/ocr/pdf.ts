@@ -13,15 +13,22 @@
  *
  * Hard cap: 10 pages. A cookbook chapter dump would otherwise burn minutes of
  * OCR for a single recipe.
+ *
+ * AS A SERVICE (docs/EFFECT.md E3, E7; plan `docs/plans/e3-recipe-services.md` P11). `PdfText` has `extractPdfTextLayer`,
+ * `rasterizePdf` and `pdfToText`; the OCR fallback calls `Ocr.recognize`, so the engine is whichever one the
+ * `setOcrEngine` seam installed. The poppler run is scoped to ONE rasterization (temp directory, child process, page
+ * reads) and closes when it ends, however it ends: the hard timeout interrupts it and kills `pdftoppm`.
  */
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ServerKey } from "@toon/shared";
-import { env } from "../../../../env.ts";
-import { ApiError } from "../../../../lib/errors.ts";
-import { preprocessImage } from "./preprocess.ts";
-import type { OcrEngine, OcrOptions, OcrResult } from "./types.ts";
+import { Cause, Context, Effect, Layer, Predicate, type Scope } from "effect";
+import { AppConfig } from "../../../../config.ts";
+import { ApiFailure } from "../../../../lib/errors.ts";
+import { Ocr } from "./index.ts";
+import { type OcrFailure, fromSeamPromise } from "./seam.ts";
+import type { OcrOptions } from "./types.ts";
 
 export const MAX_PDF_PAGES = 10;
 /** Below this many characters the "text layer" is scanner noise, not content. */
@@ -56,27 +63,36 @@ export function isUsableTextLayer(text: string): boolean {
 }
 
 /**
- * Extracts the embedded text layer.
- * @returns the layer, or undefined when the PDF cannot be opened at all.
+ * Extracts the embedded text layer. Resolves to undefined when the PDF cannot be opened at all (the caller falls back to
+ * rasterizing): ANY failure counts, a synchronous throw of the parser included (catch-all, plan e3 P8).
  */
-export async function extractPdfTextLayer(bytes: Uint8Array): Promise<PdfTextLayer | undefined> {
-  return await withPdfTextLock(async () => {
-    try {
-      const { extractText } = await import("unpdf");
-      // A fresh copy: pdf.js transfers/detaches the buffer it is handed.
-      const result = await extractText(new Uint8Array(bytes), { mergePages: false });
-      const pages = (Array.isArray(result.text) ? result.text : [String(result.text)])
-        .slice(0, MAX_PDF_PAGES)
-        .map((page) => normalizePdfText(page));
-      return { pages, totalPages: result.totalPages, text: pages.join("\n\n").trim() };
-    } catch (error) {
-      // Expected for scanned/broken PDFs — the caller falls back to rasterizing.
-      if (!env.isTest) {
-        console.warn("[import] PDF text layer extraction failed:", error instanceof Error ? error.message : error);
-      }
-      return undefined;
-    }
+const extractPdfTextLayerWith = (isTest: boolean) =>
+  Effect.fn("PdfText.extractPdfTextLayer")(function* (bytes: Uint8Array) {
+    return yield* Effect.tryPromise({
+      try: () => withPdfTextLock(() => extractWithUnpdf(bytes)),
+      catch: (cause): unknown => cause,
+    }).pipe(
+      Effect.catchCause((cause) =>
+        Effect.sync(() => {
+          // Expected for scanned/broken PDFs — the caller falls back to rasterizing.
+          if (!isTest) {
+            const error = Cause.squash(cause);
+            console.warn("[import] PDF text layer extraction failed:", Predicate.isError(error) ? error.message : error);
+          }
+          return undefined;
+        }),
+      ),
+    );
   });
+
+async function extractWithUnpdf(bytes: Uint8Array): Promise<PdfTextLayer> {
+  const { extractText } = await import("unpdf");
+  // A fresh copy: pdf.js transfers/detaches the buffer it is handed.
+  const result = await extractText(new Uint8Array(bytes), { mergePages: false });
+  const pages = (Array.isArray(result.text) ? result.text : [String(result.text)])
+    .slice(0, MAX_PDF_PAGES)
+    .map((page) => normalizePdfText(page));
+  return { pages, totalPages: result.totalPages, text: pages.join("\n\n").trim() };
 }
 
 /* ---------------------------- pdf.js text layer --------------------------- */
@@ -153,73 +169,83 @@ export function setPdfRasterizer(next: PdfRasterizer | null): void {
 }
 
 /**
- * Renders PDF pages to PNG.
- *
- * @throws ApiError 422 `pdf_no_text_layer` when rasterization is unavailable (no
- *   `pdftoppm`) or the file cannot be opened — that is the documented fallback
- *   contract.
- */
-export async function rasterizePdf(bytes: Uint8Array, maxPages = MAX_PDF_PAGES): Promise<RasterizedPage[]> {
-  return await (rasterizer ?? rasterizeWithPoppler)(bytes, maxPages);
-}
-
-/**
- * poppler's `pdftoppm`, in a subprocess.
+ * poppler's `pdftoppm`, in a subprocess, as ONE scoped run.
  *
  * It writes NUMBERED FILES (`page-1.png`, or `page-01.png` once the last page has
  * two digits — poppler pads to the width of `-l`), so the output has to be a
  * directory prefix and the page number is read back off the filename rather than
  * assumed from the loop counter. Both the input and the output live in a temp dir
- * that is removed in `finally`, so a crashed render leaves nothing behind.
+ * that is a scoped resource of this run, as is the child: the `Effect.scoped` closes
+ * them when the run ends (success, failure, or the hard timeout's interruption), so a
+ * crashed or abandoned render leaves nothing behind and no `pdftoppm` running.
+ *
+ * Fails `422 pdf_no_text_layer` when rasterization is unavailable (no `pdftoppm`) or
+ * the file cannot be opened — that is the documented fallback contract. `Bun.spawn`
+ * stays the spawn primitive so a missing binary reads as Bun reports it (it is the wire
+ * `details.cause`).
  */
-async function rasterizeWithPoppler(bytes: Uint8Array, maxPages: number): Promise<RasterizedPage[]> {
-  const directory = await mkdtemp(join(tmpdir(), "toon-pdf-"));
-  try {
+const rasterizeWithPoppler = Effect.fnUntraced(
+  function* (bin: string, bytes: Uint8Array, maxPages: number): Effect.fn.Return<RasterizedPage[], ApiFailure, Scope.Scope> {
+    const directory = yield* Effect.acquireRelease(
+      Effect.promise(() => mkdtemp(join(tmpdir(), "toon-pdf-"))),
+      (created) => Effect.promise(() => rm(created, { recursive: true, force: true }).catch(() => undefined)),
+    );
     const input = join(directory, "in.pdf");
-    await writeFile(input, bytes);
+    yield* Effect.promise(() => writeFile(input, bytes));
     const prefix = join(directory, "page");
 
-    let child: ReturnType<typeof Bun.spawn>;
-    try {
-      child = Bun.spawn(
-        [env.PDFTOPPM_BIN, "-png", "-r", String(RASTER_DPI), "-f", "1", "-l", String(maxPages), input, prefix],
-        { stdout: "ignore", stderr: "pipe" },
-      );
-    } catch (error) {
-      // ENOENT: poppler is not installed on this host.
-      throw noTextLayerError(error);
-    }
+    const child = yield* Effect.acquireRelease(
+      Effect.try({
+        try: () =>
+          Bun.spawn([bin, "-png", "-r", String(RASTER_DPI), "-f", "1", "-l", String(maxPages), input, prefix], {
+            stdout: "ignore",
+            stderr: "pipe",
+          }),
+        // ENOENT: poppler is not installed on this host.
+        catch: (error) => noTextLayerError(error),
+      }),
+      // Kills a child that is still running: the hard timeout interrupts the run, which closes this scope.
+      (spawned) =>
+        Effect.sync(() => {
+          if (spawned.exitCode === null) spawned.kill();
+        }),
+    );
 
-    const [exitCode, stderr] = await Promise.all([
-      child.exited,
-      new Response(child.stderr as ReadableStream<Uint8Array>).text(),
-    ]);
+    const [exitCode, stderr] = yield* Effect.promise(() =>
+      Promise.all([child.exited, new Response(child.stderr as ReadableStream<Uint8Array>).text()]),
+    );
     if (exitCode !== 0) {
-      throw noTextLayerError(new Error(stderr.trim() || `pdftoppm exited with ${exitCode}`));
+      return yield* noTextLayerError(new Error(stderr.trim() || `pdftoppm exited with ${exitCode}`));
     }
 
-    const pages: RasterizedPage[] = [];
-    for (const name of await readdir(directory)) {
-      const match = /^page-(\d+)\.png$/.exec(name);
-      if (match === null) continue;
-      pages.push({
-        pageNumber: Number(match[1]),
-        bytes: new Uint8Array(await readFile(join(directory, name))),
-      });
-    }
-    pages.sort((left, right) => left.pageNumber - right.pageNumber);
+    const pages = yield* Effect.promise(async () => {
+      const read: RasterizedPage[] = [];
+      for (const name of await readdir(directory)) {
+        const match = /^page-(\d+)\.png$/.exec(name);
+        if (match === null) continue;
+        read.push({
+          pageNumber: Number(match[1]),
+          bytes: new Uint8Array(await readFile(join(directory, name))),
+        });
+      }
+      return read.sort((left, right) => left.pageNumber - right.pageNumber);
+    });
 
-    if (pages.length === 0) throw noTextLayerError(new Error("rasterizer produced no pages"));
+    if (pages.length === 0) return yield* noTextLayerError(new Error("rasterizer produced no pages"));
     return pages;
-  } finally {
-    await rm(directory, { recursive: true, force: true }).catch(() => undefined);
-  }
-}
+  },
+  Effect.scoped,
+);
 
-function noTextLayerError(error: unknown): ApiError {
-  return new ApiError(422, "pdf_no_text_layer", PDF_NO_TEXT_LAYER_MESSAGE, {
-    reason: "rasterization_unavailable",
-    cause: error instanceof Error ? error.message.slice(0, 200) : String(error).slice(0, 200),
+function noTextLayerError(error: unknown): ApiFailure {
+  return new ApiFailure({
+    status: 422,
+    code: "pdf_no_text_layer",
+    text: PDF_NO_TEXT_LAYER_MESSAGE,
+    details: {
+      reason: "rasterization_unavailable",
+      cause: Predicate.isError(error) ? error.message.slice(0, 200) : String(error).slice(0, 200),
+    },
   });
 }
 
@@ -237,68 +263,103 @@ export interface PdfTextResult {
   langs?: string;
 }
 
-export interface PdfToTextOptions extends OcrOptions {
+/** Without `signal`: an interrupted run needs no abort signal, the scope kills the child. */
+export interface PdfToTextOptions extends Omit<OcrOptions, "signal"> {
   maxPages?: number;
   /** Set false to force OCR (used by tests). */
   useTextLayer?: boolean;
 }
 
-/**
- * Turns a PDF into text: layer first, OCR fallback, 422 when neither works.
- *
- * @throws ApiError 422 `pdf_no_text_layer` when there is no usable text layer
- *   AND rasterization is unavailable.
- */
-export async function pdfToText(
-  bytes: Uint8Array,
-  engine: OcrEngine,
-  options: PdfToTextOptions = {},
-): Promise<PdfTextResult> {
-  const maxPages = options.maxPages ?? MAX_PDF_PAGES;
-
-  const layer = options.useTextLayer === false ? undefined : await extractPdfTextLayer(bytes);
-  if (layer !== undefined && isUsableTextLayer(layer.text)) {
-    return {
-      text: layer.text,
-      method: "pdf-text",
-      pages: layer.pages.length,
-      totalPages: layer.totalPages,
-      confidence: 1,
-    };
+/** The PDF text service. */
+export class PdfText extends Context.Service<
+  PdfText,
+  {
+    /** The embedded text layer, or undefined when the PDF cannot be opened at all. Never fails. */
+    readonly extractPdfTextLayer: (bytes: Uint8Array) => Effect.Effect<PdfTextLayer | undefined>;
+    /**
+     * Renders PDF pages to PNG (the `setPdfRasterizer` seam when installed, otherwise poppler). `422 pdf_no_text_layer`
+     * when rasterization is unavailable or the file cannot be opened.
+     */
+    readonly rasterizePdf: (bytes: Uint8Array, maxPages?: number) => Effect.Effect<RasterizedPage[], OcrFailure>;
+    /**
+     * Turns a PDF into text: layer first, OCR fallback (through `Ocr.recognize`, so the `setOcrEngine` seam applies),
+     * `422 pdf_no_text_layer` when neither works.
+     */
+    readonly pdfToText: (bytes: Uint8Array, options?: PdfToTextOptions) => Effect.Effect<PdfTextResult, OcrFailure>;
   }
+>()("toon/api/modules/recipe/services/ocr/pdf/PdfText") {
+  static readonly layer = Layer.effect(
+    PdfText,
+    Effect.gen(function* () {
+      const config = yield* AppConfig;
+      const ocr = yield* Ocr;
+      const extractPdfTextLayer = extractPdfTextLayerWith(config.isTest);
 
-  const rasterized = await rasterizePdf(bytes, maxPages);
-  const texts: string[] = [];
-  let confidenceSum = 0;
-  let engineName: string | undefined;
-  let langs: string | undefined;
+      const rasterizePdf = Effect.fn("PdfText.rasterizePdf")(function* (
+        bytes: Uint8Array,
+        maxPages: number = MAX_PDF_PAGES,
+      ): Effect.fn.Return<RasterizedPage[], OcrFailure> {
+        const custom = rasterizer;
+        if (custom !== null) return yield* fromSeamPromise(() => custom(bytes, maxPages));
+        return yield* rasterizeWithPoppler(config.PDFTOPPM_BIN, bytes, maxPages);
+      });
 
-  for (const page of rasterized) {
-    options.signal?.throwIfAborted();
-    const prepared = await preprocessImage(page.bytes);
-    const result: OcrResult = await engine.recognize(prepared.bytes, {
-      ...(options.langs === undefined ? {} : { langs: options.langs }),
-      layout: options.layout ?? "page",
-      ...(options.signal === undefined ? {} : { signal: options.signal }),
-    });
-    texts.push(result.text.trim());
-    confidenceSum += result.confidence;
-    engineName = result.engine;
-    langs = result.langs;
-  }
+      const pdfToText = Effect.fn("PdfText.pdfToText")(function* (
+        bytes: Uint8Array,
+        options: PdfToTextOptions = {},
+      ): Effect.fn.Return<PdfTextResult, OcrFailure> {
+        const maxPages = options.maxPages ?? MAX_PDF_PAGES;
 
-  const text = texts.filter((part) => part.length > 0).join("\n\n").trim();
-  if (text.length === 0) {
-    throw new ApiError(422, "pdf_no_text_layer", PDF_NO_TEXT_LAYER_MESSAGE, { reason: "ocr_empty" });
-  }
+        const layer = options.useTextLayer === false ? undefined : yield* extractPdfTextLayer(bytes);
+        if (layer !== undefined && isUsableTextLayer(layer.text)) {
+          return {
+            text: layer.text,
+            method: "pdf-text",
+            pages: layer.pages.length,
+            totalPages: layer.totalPages,
+            confidence: 1,
+          };
+        }
 
-  return {
-    text,
-    method: "ocr",
-    pages: rasterized.length,
-    totalPages: layer?.totalPages ?? rasterized.length,
-    confidence: rasterized.length > 0 ? confidenceSum / rasterized.length : 0,
-    ...(engineName === undefined ? {} : { engine: engineName }),
-    ...(langs === undefined ? {} : { langs }),
-  };
+        const rasterized = yield* rasterizePdf(bytes, maxPages);
+        const texts: string[] = [];
+        let confidenceSum = 0;
+        let engineName: string | undefined;
+        let langs: string | undefined;
+
+        for (const page of rasterized) {
+          const result = yield* ocr.recognize(page.bytes, {
+            ...(options.langs === undefined ? {} : { langs: options.langs }),
+            layout: options.layout ?? "page",
+          });
+          texts.push(result.text.trim());
+          confidenceSum += result.confidence;
+          engineName = result.engine;
+          langs = result.langs;
+        }
+
+        const text = texts.filter((part) => part.length > 0).join("\n\n").trim();
+        if (text.length === 0) {
+          return yield* new ApiFailure({
+            status: 422,
+            code: "pdf_no_text_layer",
+            text: PDF_NO_TEXT_LAYER_MESSAGE,
+            details: { reason: "ocr_empty" },
+          });
+        }
+
+        return {
+          text,
+          method: "ocr",
+          pages: rasterized.length,
+          totalPages: layer?.totalPages ?? rasterized.length,
+          confidence: rasterized.length > 0 ? confidenceSum / rasterized.length : 0,
+          ...(engineName === undefined ? {} : { engine: engineName }),
+          ...(langs === undefined ? {} : { langs }),
+        };
+      });
+
+      return PdfText.of({ extractPdfTextLayer, rasterizePdf, pdfToText });
+    }),
+  );
 }
