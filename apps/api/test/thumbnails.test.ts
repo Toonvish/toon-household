@@ -13,7 +13,7 @@ import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, describe, expect, test } from "bun:test";
-import { Effect, Layer } from "effect";
+import { Effect, Fiber, Layer } from "effect";
 import { TestClock } from "effect/testing";
 import { AppConfig } from "../src/config.ts";
 import { env } from "../src/env.ts";
@@ -27,7 +27,6 @@ import {
   Thumbnails,
   listImageUrlFor,
   thumbnailUrlFor,
-  warmThumbnail,
 } from "../src/core/services/media/thumbnails.ts";
 import { runTest } from "./support/effect.ts";
 import { removeUpload } from "./support/files.ts";
@@ -280,10 +279,17 @@ describe("Thumbnails service", () => {
     expect(outcome.healed).toEqual({ path: join(env.uploadDir, thumbnail), fallback: false });
   }, SHARP_TEST_TIMEOUT_MS);
 
-  test("warm is a no-op under the test env and warmThumbnail returns undefined synchronously", async () => {
-    const result: unknown = warmThumbnail("missing.png");
-    expect(result).toBeUndefined();
-    expect(typeof (result as { then?: unknown } | undefined)?.then).not.toBe("function");
+  test("warm is a no-op under the test env and a detached fork of it returns a fiber at once", async () => {
+    // The convention that replaced the sync bridge (plan e3 P20): a detached fork starts the warm and returns at once.
+    const joined = await runTest(
+      Thumbnails.use((thumbnails) =>
+        Effect.gen(function* () {
+          const fiber = yield* Effect.forkDetach(thumbnails.warm("missing.png"));
+          return yield* Fiber.join(fiber);
+        }),
+      ),
+    );
+    expect(joined).toBeUndefined();
     await runTest(Thumbnails.use((thumbnails) => thumbnails.warm("missing.png")));
   });
 

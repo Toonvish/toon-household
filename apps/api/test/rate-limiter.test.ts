@@ -1,16 +1,15 @@
 /**
- * The rate limiter as a service and through its synchronous bridges (docs/EFFECT.md E7; plan e2 P9).
+ * The rate limiter as a service and through its synchronous bridges (docs/EFFECT.md E7; plan e2 P9, plan e3 P20).
  *
  * The limiter is OFF under `NODE_ENV=test` (every integration test would otherwise trip it), so the enforce -> 429
  * path was never exercised by the suite. This file proves it three ways: the service under a non-test `AppConfig`,
- * the bridge `enforceRateLimit` in a tiny Hono app with `onErrorHandler` (429 `rate_limited` plus `Retry-After`), and
+ * `RateLimiter.enforce` in a tiny Hono app with `onErrorHandler` (429 `rate_limited` plus `Retry-After`), and
  * a direct call outside Hono. The window cases run on a `TestClock`: `checkIn` reads the `Clock`, not `Date.now()`.
  */
 import { describe, expect, test } from "bun:test";
 import { Effect, Exit, Layer } from "effect";
 import { TestClock } from "effect/testing";
 import { Hono } from "hono";
-import type { Context } from "hono";
 import { AppConfig } from "../src/config.ts";
 import {
   HOUSEHOLD_CREATE_RULE,
@@ -18,7 +17,6 @@ import {
   LOGIN_RULE,
   RateLimiter,
   checkRateLimit,
-  enforceRateLimit,
   resetRateLimits,
 } from "../src/core/services/auth/rateLimit.ts";
 import { isApiError, onErrorHandler } from "../src/lib/errors.ts";
@@ -26,6 +24,14 @@ import { runTest } from "./support/effect.ts";
 
 /** A key no other test shares: the store is one module-level map for the whole process. */
 const freshKey = (prefix: string): string => `${prefix}-${crypto.randomUUID()}`;
+
+const PRODUCTION = {
+  NODE_ENV: "production",
+  DATABASE_URL: "file:./data/x.db",
+  SESSION_SECRET: "0123456789abcdef0123456789abcdef",
+};
+/** A production `AppConfig` IS the enabled path (`enforceIn` stays module-private; no test-enabled switch exists). */
+const productionLimiter = RateLimiter.layer.pipe(Layer.provide(AppConfig.layerFrom(PRODUCTION)));
 
 const check = (key: string, rule: typeof LOGIN_RULE) => RateLimiter.use((limiter) => limiter.check(key, rule));
 
@@ -105,7 +111,6 @@ describe("RateLimiter.check on the Clock", () => {
 });
 
 describe("RateLimiter.enforce", () => {
-  const PRODUCTION = { NODE_ENV: "production", DATABASE_URL: "file:./data/x.db", SESSION_SECRET: "0123456789abcdef0123456789abcdef" };
   const RULE = { limit: 1, windowMs: 60_000 };
   const enforce = (scope: string, identifier: string) =>
     RateLimiter.use((limiter) => limiter.enforce(scope, identifier, RULE));
@@ -117,15 +122,13 @@ describe("RateLimiter.enforce", () => {
         const key = yield* enforce("login", identifier);
         const refused = yield* Effect.exit(enforce("login", identifier));
         return { key, refused };
-      }).pipe(Effect.provide(RateLimiter.layer.pipe(Layer.provide(AppConfig.layerFrom(PRODUCTION))))),
+      }).pipe(Effect.provide(productionLimiter)),
     );
 
     expect(exit.key).toBe(`login:${identifier.toLowerCase()}`);
     expect(Exit.isFailure(exit.refused)).toBe(true);
     const error = await Effect.runPromise(
-      Effect.flip(enforce("login", identifier)).pipe(
-        Effect.provide(RateLimiter.layer.pipe(Layer.provide(AppConfig.layerFrom(PRODUCTION)))),
-      ),
+      Effect.flip(enforce("login", identifier)).pipe(Effect.provide(productionLimiter)),
     );
     expect(error._tag).toBe("RateLimited");
     expect(error.status).toBe(429);
@@ -152,18 +155,25 @@ describe("RateLimiter.enforce", () => {
   });
 });
 
-describe("the synchronous bridges", () => {
+describe("enforce at the boundary", () => {
   const RULE = { limit: 1, windowMs: 60_000 };
+  const enforce = (scope: string, identifier: string) =>
+    RateLimiter.use((limiter) => limiter.enforce(scope, identifier, RULE));
 
-  test("enforceRateLimit answers 200 then 429 with Retry-After in a Hono route", async () => {
+  /** A one-route app whose handler runs `effect` on the production limiter; a failure reaches `onErrorHandler`. */
+  const appFor = (effect: Effect.Effect<string, unknown, RateLimiter>): Hono => {
     const app = new Hono();
     app.onError(onErrorHandler);
-    const id = freshKey("route");
-    app.get("/t", (c) => {
-      // A typed assignment: a Promise-returning bridge would fail tsc here.
-      const key: string = enforceRateLimit(c, "t", id, RULE, true);
+    app.get("/t", async (c) => {
+      const key = await Effect.runPromise(effect.pipe(Effect.provide(productionLimiter)));
       return c.json({ key });
     });
+    return app;
+  };
+
+  test("RateLimiter.enforce answers 200 then 429 with Retry-After in a Hono route", async () => {
+    const id = freshKey("route");
+    const app = appFor(enforce("t", id));
 
     const first = await app.request("/t");
     expect(first.status).toBe(200);
@@ -179,34 +189,35 @@ describe("the synchronous bridges", () => {
     resetRateLimits(`t:${id.toLowerCase()}`);
   });
 
-  test("a direct call outside Hono throws a family error synchronously and sets Retry-After on the context", () => {
-    const headers: Array<[string, string]> = [];
-    const context = { header: (name: string, value: string) => headers.push([name, value]) } as unknown as Context;
+  test("a direct call outside Hono fails with a family error whose Retry-After the mapper sets", async () => {
     const id = freshKey("direct");
 
-    expect(enforceRateLimit(context, "t", id, RULE, true)).toBe(`t:${id.toLowerCase()}`);
+    const key = await Effect.runPromise(enforce("t", id).pipe(Effect.provide(productionLimiter)));
+    expect(key).toBe(`t:${id.toLowerCase()}`);
 
-    let thrown: unknown;
-    try {
-      enforceRateLimit(context, "t", id, RULE, true);
-    } catch (error) {
-      thrown = error;
-    }
-    expect(isApiError(thrown)).toBe(true);
-    expect((thrown as { code: string }).code).toBe("rate_limited");
-    expect((thrown as { _tag: string })._tag).toBe("RateLimited");
-    expect(headers).toHaveLength(1);
-    expect(headers[0]?.[0]).toBe("Retry-After");
-    expect(Number(headers[0]?.[1])).toBeGreaterThan(0);
+    const error = await Effect.runPromise(Effect.flip(enforce("t", id)).pipe(Effect.provide(productionLimiter)));
+    expect(isApiError(error)).toBe(true);
+    expect(error.code).toBe("rate_limited");
+    expect(error._tag).toBe("RateLimited");
+    expect(error.retryAfterSeconds).toBeGreaterThan(0);
+
+    // The header is set where the error is rendered: the mapper, not the call site.
+    const response = await appFor(Effect.fail(error)).request("/t");
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe(String(error.retryAfterSeconds));
     resetRateLimits(`t:${id.toLowerCase()}`);
   });
 
-  test("the default for `enabled` is off under NODE_ENV=test", () => {
-    const context = { header: () => undefined } as unknown as Context;
+  test("the default for `enabled` is off under NODE_ENV=test", async () => {
     const id = freshKey("default");
-    expect(enforceRateLimit(context, "t", id, RULE)).toBe(`t:${id.toLowerCase()}`);
-    expect(enforceRateLimit(context, "t", id, RULE)).toBe(`t:${id.toLowerCase()}`);
+    const keys = await runTest(Effect.all([enforce("t", id), enforce("t", id)]));
+    expect(keys[0]).toBe(`t:${id.toLowerCase()}`);
+    expect(keys[1]).toBe(`t:${id.toLowerCase()}`);
   });
+});
+
+describe("the synchronous bridges", () => {
+  const RULE = { limit: 1, windowMs: 60_000 };
 
   test("checkRateLimit is synchronous and shares its store with the service", async () => {
     const key = freshKey("shared");

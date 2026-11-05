@@ -20,9 +20,10 @@ import { db } from "../src/db/client.ts";
 import { runMigrations } from "../src/db/migrate.ts";
 import { householdMembers, importDrafts, recipes } from "../src/db/schema.ts";
 import { Effect } from "effect";
-import { Uploads, storeUploadedImage } from "../src/core/services/media/uploads.ts";
+import { Uploads } from "../src/core/services/media/uploads.ts";
 import { ApiError } from "../src/lib/errors.ts";
 import { app } from "../src/index.ts";
+import { runtime } from "../src/runtime.ts";
 import { SESSION_COOKIE } from "../src/lib/cookies.ts";
 import { env } from "../src/env.ts";
 import { setMailer } from "../src/core/services/mail/index.ts";
@@ -533,12 +534,14 @@ describe("storeUploadedImage", () => {
     expect(error.message).toContain("bild");
   });
 
-  test("the Promise bridge stores the same way and rejects with the family error", async () => {
-    const stored = await storeUploadedImage(formWith(new File([PNG], "foto.png", { type: "image/png" })));
+  test("the runtime's Promise path stores the same way and rejects with the family error", async () => {
+    const storeViaRuntime = (form: FormData) =>
+      runtime.runPromise(Uploads.use((uploads) => uploads.storeUploadedImage(form)));
+    const stored = await storeViaRuntime(formWith(new File([PNG], "foto.png", { type: "image/png" })));
     expect(stored.filename).toMatch(/^[0-9a-f-]{36}\.png$/);
     await removeUpload(stored.filename);
 
-    const error = await storeUploadedImage(formWith(new File([], "leer.png"))).catch((caught: unknown) => caught);
+    const error = await storeViaRuntime(formWith(new File([], "leer.png"))).catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(ApiError);
     expect((error as ApiError).status).toBe(400);
   });

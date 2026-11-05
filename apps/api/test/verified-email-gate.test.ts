@@ -27,7 +27,7 @@ import { app } from "../src/index.ts";
 import { SESSION_COOKIE } from "../src/lib/cookies.ts";
 import { EmailVerification } from "../src/core/services/auth/emailVerification.ts";
 import {
-  isVerifiedEmailRequired,
+  VerifiedEmail,
   setVerifiedEmailRequired,
 } from "../src/core/services/auth/verifiedEmail.ts";
 import { ConsoleMailer, setMailer } from "../src/core/services/mail/index.ts";
@@ -451,9 +451,9 @@ describe("a deployment with no mail transport is not gated at all", () => {
     expect(recipe.status).toBe(201);
   });
 
-  test("`bun test` defaults to OFF, so a mail stub cannot re-authorise another file", () => {
+  test("`bun test` defaults to OFF, so a mail stub cannot re-authorise another file", async () => {
     setVerifiedEmailRequired(null);
-    expect(isVerifiedEmailRequired()).toBe(false);
+    expect(await runTest(VerifiedEmail.use((verified) => verified.isRequired))).toBe(false);
   });
 
   test("/api/health advertises the state either way", async () => {

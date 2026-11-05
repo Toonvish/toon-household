@@ -15,7 +15,7 @@
  * runs the ConsoleMailer and a confirmation link only ever reaches the server log.
  * Gating writes on clicking a link that was never mailed would turn `docker
  * compose up` into a permanently read-only app whose only way out is grepping the
- * log, so {@link isVerifiedEmailRequired} keys off {@link isMailConfigured} — the
+ * log, so `VerifiedEmail.isRequired` keys off the installed mailer's transport name — the
  * same transport-name rule `mailDeliveryOf()` uses. No mail, no gate; configure
  * SMTP or Resend and it switches itself on. There is deliberately NO env variable
  * for this: the one people would set is the one that bricks the install.
@@ -41,15 +41,14 @@
 import { Context, Effect, Layer } from "effect";
 import { AppConfig } from "../../../config.ts";
 import type { UserRow } from "../../../db/schema.ts";
-import { env } from "../../../env.ts";
 import { ApiFailure } from "../../../lib/errors.ts";
-import { MailerService, isMailConfigured } from "../mail/index.ts";
+import { MailerService } from "../mail/index.ts";
 
 /** Test override; `null` means "ask the mailer". */
 let override: boolean | null = null;
 
 /**
- * The rule itself, on plain values so the service and the sync bridge share it. OFF under `bun test` unless a file
+ * The rule itself, on plain values so the service and the `setVerifiedEmailRequired` seam share it. OFF under `bun test` unless a file
  * asks for it. Deriving an AUTHORISATION rule from the installed mailer is right in production and poison in the
  * suite: `bun test` runs every file in one process, so any file that installs a non-console transport for its own
  * reasons (uploads.test.ts uses one named "test") would otherwise switch this gate on for every test after it and
@@ -129,17 +128,3 @@ export function hasVerifiedEmail(user: {
 
 /** Narrowing helper so callers holding a full row read the same way. */
 export type VerifiableUser = Pick<UserRow, "emailVerifiedAt">;
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/**
- * True when this deployment holds unconfirmed accounts to read-only.
- *
- * Follows {@link isMailConfigured} rather than an env variable — see the file
- * header for why an operator must not be able to switch this on without a
- * transport that can deliver the link it demands. Synchronous, as before.
- * Callers: recipe's import `capabilities.ts` (E3), `apps/api/test/verified-email-gate.test.ts`. Synchronous.
- */
-export function isVerifiedEmailRequired(): boolean {
-  return requiredWhen(env.isTest, isMailConfigured);
-}

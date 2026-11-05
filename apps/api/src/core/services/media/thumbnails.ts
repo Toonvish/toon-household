@@ -16,7 +16,7 @@
  * from the row (see `toRecipe`), which knows nothing about what exists on disk, so
  * every recipe stored before this feature, and every one whose image arrived through
  * a path that forgot to warm it, has to work anyway. {@link resolveThumbnail} builds
- * a missing derivative on first request and caches it on disk; {@link warmThumbnail}
+ * a missing derivative on first request and caches it on disk; `Thumbnails.warm`
  * is only a head start for the common case.
  *
  * A FAILED CONVERSION SERVES THE ORIGINAL. sharp may be missing entirely, or built
@@ -30,9 +30,7 @@ import { mkdir, rename, unlink } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { Cause, Clock, Context, Deferred, Effect, Exit, Layer, Predicate, Semaphore } from "effect";
 import { AppConfig } from "../../../config.ts";
-import { env } from "../../../env.ts";
 import { normalizeStoredUploadUrl } from "../../../lib/uploadUrls.ts";
-import { runtime } from "../../../runtime.ts";
 
 /** sharp's callable default export (the namespace itself is not callable). */
 type SharpFactory = typeof import("sharp").default;
@@ -268,17 +266,3 @@ const loadSharp: Effect.Effect<SharpFactory | undefined> = Effect.suspend(() => 
     ),
   );
 });
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/**
- * Builds the derivative for a freshly stored upload without making the caller wait.
- *
- * Stays `void` (plan e2 P1, P10): returns before any work, never throws and never rejects. The upload response must
- * not depend on it, and if this loses a race against the first `GET`, the in-flight sharing de-duplicates the work
- * anyway. Callers: `apps/api/test/thumbnails.test.ts` (`HeroImages` starts `Thumbnails.warm` in a detached fiber instead).
- */
-export function warmThumbnail(filename: string): void {
-  if (env.isTest) return;
-  runtime.runFork(Thumbnails.use((thumbnails) => thumbnails.warm(filename)).pipe(Effect.ignoreCause));
-}

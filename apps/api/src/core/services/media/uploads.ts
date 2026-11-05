@@ -14,7 +14,6 @@ import { Context, Effect, Layer } from "effect";
 import { AppConfig } from "../../../config.ts";
 import { BadRequest, PayloadTooLarge, UnsupportedMediaType } from "../../../lib/errors.ts";
 import { signUploadUrl } from "../../../lib/uploadUrls.ts";
-import { runtime } from "../../../runtime.ts";
 import { Thumbnails } from "./thumbnails.ts";
 
 interface SniffedType {
@@ -131,15 +130,4 @@ export class Uploads extends Context.Service<
       return Uploads.of({ storeUploadedImage });
     }),
   );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/**
- * Reads the multipart `file` field, validates size + real type and stores it.
- * Rejects with the 400/413/415 family error. Callers: `apps/api/src/modules/recipe/routes/recipes.ts` (E3),
- * `apps/api/test/uploads.test.ts`. Promise.
- */
-export function storeUploadedImage(formData: FormData, field = "file"): Promise<UploadResponse> {
-  return runtime.runPromise(Uploads.use((uploads) => uploads.storeUploadedImage(formData, field)));
 }
