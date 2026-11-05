@@ -29,24 +29,19 @@ import {
   type CardListResponse,
   type CardResponse,
 } from "@toon/shared";
+import { Effect, type Schema } from "effect";
 import { Hono } from "hono";
-import { db } from "../../../db/client.ts";
-import { ApiError } from "../../../lib/errors.ts";
-import { decodeOrThrow, type Decodable, type Decoded } from "../../../lib/validate.ts";
+import { BadRequest } from "../../../lib/errors.ts";
+import { decode, type Decodable, type Decoded } from "../../../lib/validate.ts";
 import { created, json, noContent } from "../../../lib/http.ts";
-import { type AppContext, type AppEnv, requireUser } from "../../../lib/types.ts";
+import { type AppContext, type AppEnv, currentUser } from "../../../lib/types.ts";
 import { requireSession } from "../../../middleware/session.ts";
 import { requireVerifiedEmail } from "../../../middleware/verifiedEmail.ts";
-import {
-  createCard,
-  deleteCard,
-  listCards,
-  markCardUsed,
-  updateCard,
-} from "../services/cards/cards.service.ts";
+import { runtime } from "../../../runtime.ts";
+import { Cards } from "../services/cards/cards.service.ts";
 
 /**
- * Parses the body with the schema and lets the decode failure escape to `onErrorHandler`.
+ * Parses the body with the schema and lets the decode failure reach `onErrorHandler`.
  *
  * Every validator renders its issues through `toValidationIssues` since E1 (ADR 0013),
  * so the catalog key survives on every route; the card routes read the body themselves
@@ -55,15 +50,16 @@ import {
  * ("Prüfziffer passt nicht"), so they have to keep their keys. Same shape as
  * `readJson` in routes/auth.ts, which is private to that file.
  */
-async function readJson<S extends Decodable>(c: AppContext, schema: S): Promise<Decoded<S>> {
-  let raw: unknown;
-  try {
-    raw = await c.req.json();
-  } catch {
-    throw ApiError.badRequest("server.auth.invalidJsonBody");
-  }
-  return decodeOrThrow(schema, raw);
-}
+const readJson = Effect.fnUntraced(function* <S extends Decodable>(
+  c: AppContext,
+  schema: S,
+): Effect.fn.Return<Decoded<S>, BadRequest | Schema.SchemaError> {
+  const raw: unknown = yield* Effect.tryPromise({
+    try: (): Promise<unknown> => c.req.json(),
+    catch: () => new BadRequest({ text: "server.auth.invalidJsonBody" }),
+  });
+  return yield* decode(schema, raw);
+});
 
 export const cardRoutes = new Hono<AppEnv>();
 
@@ -71,36 +67,56 @@ cardRoutes.use("*", requireSession());
 cardRoutes.use("*", requireVerifiedEmail());
 
 /** GET / — the whole wallet. No pagination: `CARD_LIMITS.perUser` is the page. */
-cardRoutes.get("/", async (c) => {
-  const user = requireUser(c);
-  const payload: CardListResponse = { items: await listCards(db, user.id) };
-  return json(c, payload);
-});
+cardRoutes.get("/", (c) =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const cards = yield* Cards;
+      const user = yield* currentUser(c);
+      const payload: CardListResponse = { items: yield* cards.listCards(user.id) };
+      return json(c, payload);
+    }),
+  ),
+);
 
 /** POST / — save a card. The value is normalised by the schema before it lands. */
-cardRoutes.post("/", async (c) => {
-  const user = requireUser(c);
-  const body = await readJson(c, CreateCardRequestSchema);
-  const card = await createCard(db, user.id, body);
-  const payload: CardResponse = { card };
-  return created(c, payload, `/api/cards/${card.id}`);
-});
+cardRoutes.post("/", (c) =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const cards = yield* Cards;
+      const user = yield* currentUser(c);
+      const body = yield* readJson(c, CreateCardRequestSchema);
+      const card = yield* cards.createCard(user.id, body);
+      const payload: CardResponse = { card };
+      return created(c, payload, `/api/cards/${card.id}`);
+    }),
+  ),
+);
 
 /** PATCH /:cardId — label, note, or the code itself (format + value together). */
-cardRoutes.patch("/:cardId", async (c) => {
-  const user = requireUser(c);
-  const body = await readJson(c, UpdateCardRequestSchema);
-  const card = await updateCard(db, user.id, c.req.param("cardId"), body);
-  const payload: CardResponse = { card };
-  return json(c, payload);
-});
+cardRoutes.patch("/:cardId", (c) =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const cards = yield* Cards;
+      const user = yield* currentUser(c);
+      const body = yield* readJson(c, UpdateCardRequestSchema);
+      const card = yield* cards.updateCard(user.id, c.req.param("cardId"), body);
+      const payload: CardResponse = { card };
+      return json(c, payload);
+    }),
+  ),
+);
 
 /** DELETE /:cardId. */
-cardRoutes.delete("/:cardId", async (c) => {
-  const user = requireUser(c);
-  await deleteCard(db, user.id, c.req.param("cardId"));
-  return noContent(c);
-});
+cardRoutes.delete("/:cardId", (c) =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const cards = yield* Cards;
+      const user = yield* currentUser(c);
+      yield* cards.deleteCard(user.id, c.req.param("cardId"));
+      return noContent(c);
+    }),
+  ),
+);
 
 /**
  * POST /:cardId/used — the card was shown at a till.
@@ -109,11 +125,16 @@ cardRoutes.delete("/:cardId", async (c) => {
  * does not wait for it. No body, and idempotent in the only sense that matters:
  * calling it twice just moves the timestamp forward.
  */
-cardRoutes.post("/:cardId/used", async (c) => {
-  const user = requireUser(c);
-  const card = await markCardUsed(db, user.id, c.req.param("cardId"));
-  const payload: CardResponse = { card };
-  return json(c, payload);
-});
+cardRoutes.post("/:cardId/used", (c) =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const cards = yield* Cards;
+      const user = yield* currentUser(c);
+      const card = yield* cards.markCardUsed(user.id, c.req.param("cardId"));
+      const payload: CardResponse = { card };
+      return json(c, payload);
+    }),
+  ),
+);
 
 export default cardRoutes;

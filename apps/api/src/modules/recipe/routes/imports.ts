@@ -4,7 +4,7 @@
  * Mounted at /api/households/:householdId/recipe/imports (via routes/index.ts, behind the
  * module chain), so paths declared here are relative: "/url", "/image", "/pdf", "/text", "/:draftId", ...
  * Every import creates an ImportDraft that the user reviews before it becomes a
- * recipe. OCR lives behind the OcrEngine interface in src/services/ocr/.
+ * recipe. OCR lives behind the OcrEngine interface in services/ocr/.
  *
  * Endpoint contract: docs/API.md (section "Imports").
  * Auth: the module chain (modules/mount.ts) runs `requireSession()` ->
@@ -42,38 +42,23 @@ import {
   ParsedRecipeSchema,
   UpdateImportDraftRequestSchema,
 } from "@toon/shared";
-import { Hono, type Context } from "hono";
-import { ApiError } from "../../../lib/errors.ts";
-import { decodeOrThrow, type Decodable, type Decoded } from "../../../lib/validate.ts";
+import { Effect, type Schema } from "effect";
+import { Hono } from "hono";
+import { BadRequest, Conflict, NotFound } from "../../../lib/errors.ts";
+import { decode, type Decodable, type Decoded } from "../../../lib/validate.ts";
 import { created, json, noContent } from "../../../lib/http.ts";
-import { type AppEnv, requireMembership, requireUser } from "../../../lib/types.ts";
-import { IMPORT_RULE, enforceRateLimit } from "../../../core/services/auth/rateLimit.ts";
-import {
-  assertAnyUploadImportEnabled,
-  assertOcrImportEnabled,
-  assertPdfImportEnabled,
-} from "../services/import/capabilities.ts";
-import { commitDraft } from "../services/import/commit.ts";
-import { importDb } from "../services/import/db.ts";
-import {
-  createDraft,
-  deleteDraft,
-  getDraftOr404,
-  listDrafts,
-  storedFilenameOf,
-  toDraftWire,
-  updateDraft,
-} from "../services/import/drafts.ts";
-import {
-  type ImportFileKind,
-  deleteUpload,
-  readUploadedFile,
-  resolveUploadPath,
-} from "../services/import/files.ts";
+import { type AppContext, type AppEnv, currentMembership, currentUser } from "../../../lib/types.ts";
+import { IMPORT_RULE, RateLimiter } from "../../../core/services/auth/rateLimit.ts";
 import { requireVerifiedEmail } from "../../../middleware/verifiedEmail.ts";
-import { importFromImage, importFromPdf, importFromText } from "../services/import/ocr/index.ts";
-import { importFromUrl } from "../services/import/url/index.ts";
-import { withOcrSlot } from "../services/ocr/index.ts";
+import { runtime } from "../../../runtime.ts";
+import { ImportCapabilities } from "../services/import/capabilities.ts";
+import { ImportCommit } from "../services/import/commit.ts";
+/* the import database seam (plan e3 P6) */ import { withImportDb } from "../services/import/db.ts";
+import { ImportDrafts, storedFilenameOf, toDraftWire } from "../services/import/drafts.ts";
+import { type ImportFileKind, ImportFiles } from "../services/import/files.ts";
+import { OcrImporter } from "../services/import/ocr/index.ts";
+import { UrlImporter } from "../services/import/url/index.ts";
+import { Ocr } from "../services/ocr/index.ts";
 
 export const importRoutes = new Hono<AppEnv>();
 
@@ -85,56 +70,56 @@ importRoutes.use("*", requireVerifiedEmail());
 
 /* -------------------------------- helpers --------------------------------- */
 
-/** Parses a JSON body with a shared schema, mapping malformed JSON to 400. */
-async function readJson<S extends Decodable>(request: Request, schema: S): Promise<Decoded<S>> {
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    throw ApiError.badRequest("server.import.invalidJsonBody");
-  }
-  // A decode failure becomes 422 validation_failed in the global error handler.
-  return decodeOrThrow(schema, body);
-}
+/**
+ * Parses a JSON body with a shared schema, mapping malformed JSON to 400. A decode failure fails with the
+ * `Schema.SchemaError` the boundary renders as 422 validation_failed.
+ */
+const readJson = Effect.fnUntraced(function* <S extends Decodable>(
+  c: AppContext,
+  schema: S,
+): Effect.fn.Return<Decoded<S>, BadRequest | Schema.SchemaError> {
+  const body: unknown = yield* Effect.tryPromise({
+    try: (): Promise<unknown> => c.req.json(),
+    catch: () => new BadRequest({ text: "server.import.invalidJsonBody" }),
+  });
+  return yield* decode(schema, body);
+});
 
 /* ------------------------------ URL import -------------------------------- */
 
 /** POST /api/households/:householdId/recipe/imports/url */
-importRoutes.post("/url", async (c) => {
-  const user = requireUser(c);
-  const { householdId } = requireMembership(c);
-  const { url } = await readJson(c.req.raw, ImportUrlRequestSchema);
-  // An unmetered outbound fetcher (5 MB x 5 redirects per call) is an
-  // amplification tool pointed at third parties, not just a load problem here.
-  enforceRateLimit(c, "import", user.id, IMPORT_RULE);
+importRoutes.post("/url", (c) =>
+  runtime.runPromise(
+    withImportDb(
+      Effect.gen(function* () {
+        const rateLimiter = yield* RateLimiter;
+        const urlImporter = yield* UrlImporter;
+        const drafts = yield* ImportDrafts;
+        const user = yield* currentUser(c);
+        const { householdId } = yield* currentMembership(c);
+        const { url } = yield* readJson(c, ImportUrlRequestSchema);
+        // An unmetered outbound fetcher (5 MB x 5 redirects per call) is an
+        // amplification tool pointed at third parties, not just a load problem here.
+        yield* rateLimiter.enforce("import", user.id, IMPORT_RULE);
 
-  const result = await importFromUrl(url);
-  const draft = await createDraft(importDb(), {
-    householdId,
-    createdBy: user.id,
-    sourceType: "url",
-    parsed: result.parsed,
-    rawText: result.rawText,
-    sourceUrl: result.sourceUrl,
-    sourceMeta: result.sourceMeta,
-  });
+        const result = yield* urlImporter.importFromUrl(url);
+        const draft = yield* drafts.createDraft({
+          householdId,
+          createdBy: user.id,
+          sourceType: "url",
+          parsed: result.parsed,
+          rawText: result.rawText,
+          sourceUrl: result.sourceUrl,
+          sourceMeta: result.sourceMeta,
+        });
 
-  return created<ImportDraftResponse>(c, { draft });
-});
+        return created<ImportDraftResponse>(c, { draft });
+      }),
+    ),
+  ),
+);
 
 /* -------------------- OCR uploads: image / pdf / file --------------------- */
-
-/** The up-front guard: what this route accepts, against what the server offers. */
-function assertAcceptedKindEnabled(accept: readonly ImportFileKind[]): void {
-  if (accept.length > 1) return assertAnyUploadImportEnabled();
-  return assertUploadKindEnabled(accept[0]!);
-}
-
-/** The precise guard, once the kind is known (sniffed content, never the name). */
-function assertUploadKindEnabled(kind: ImportFileKind): void {
-  if (kind === "pdf") assertPdfImportEnabled();
-  else assertOcrImportEnabled();
-}
 
 /**
  * The three multipart OCR endpoints, which differ ONLY in which sniffed kinds
@@ -153,34 +138,50 @@ function assertUploadKindEnabled(kind: ImportFileKind): void {
  * the reason the single-kind routes keep their own precise guard.
  */
 function ocrUploadHandler(accept: readonly ImportFileKind[]) {
-  return async (c: Context<AppEnv>) => {
-    const user = requireUser(c);
-    const { householdId } = requireMembership(c);
+  return (c: AppContext) =>
+    runtime.runPromise(
+      withImportDb(
+        Effect.gen(function* () {
+          const capabilities = yield* ImportCapabilities;
+          const rateLimiter = yield* RateLimiter;
+          const files = yield* ImportFiles;
+          const ocr = yield* Ocr;
+          const importer = yield* OcrImporter;
+          const drafts = yield* ImportDrafts;
+          const user = yield* currentUser(c);
+          const { householdId } = yield* currentMembership(c);
 
-    assertAcceptedKindEnabled(accept);
-    enforceRateLimit(c, "import", user.id, IMPORT_RULE);
+          // The up-front guard: what this route accepts, against what the server offers.
+          if (accept.length > 1) yield* capabilities.checkAnyUploadImportEnabled;
+          else if (accept[0] === "pdf") yield* capabilities.checkPdfImportEnabled;
+          else yield* capabilities.checkOcrImportEnabled;
+          yield* rateLimiter.enforce("import", user.id, IMPORT_RULE);
 
-    const file = await readUploadedFile(c.req.raw, { accept });
-    assertUploadKindEnabled(file.kind);
-    // Omitted rather than undefined: the option types are exactOptionalPropertyTypes-shaped.
-    const named = file.originalName === undefined ? {} : { originalName: file.originalName };
-    const result = await withOcrSlot(() =>
-      file.kind === "pdf"
-        ? importFromPdf(file.bytes, named)
-        : importFromImage(file.bytes, { mimeType: file.mimeType, ...named }),
+          const file = yield* files.readUploadedFile(c.req.raw, { accept });
+          // The precise guard, once the kind is known (sniffed content, never the name).
+          if (file.kind === "pdf") yield* capabilities.checkPdfImportEnabled;
+          else yield* capabilities.checkOcrImportEnabled;
+          // Omitted rather than undefined: the option types are exactOptionalPropertyTypes-shaped.
+          const named = file.originalName === undefined ? {} : { originalName: file.originalName };
+          const result = yield* ocr.withOcrSlot(
+            file.kind === "pdf"
+              ? importer.importFromPdf(file.bytes, named)
+              : importer.importFromImage(file.bytes, { mimeType: file.mimeType, ...named }),
+          );
+
+          const draft = yield* drafts.createDraft({
+            householdId,
+            createdBy: user.id,
+            sourceType: "ocr",
+            parsed: result.parsed,
+            rawText: result.rawText,
+            sourceMeta: result.sourceMeta,
+          });
+
+          return created<ImportDraftResponse>(c, { draft });
+        }),
+      ),
     );
-
-    const draft = await createDraft(importDb(), {
-      householdId,
-      createdBy: user.id,
-      sourceType: "ocr",
-      parsed: result.parsed,
-      rawText: result.rawText,
-      sourceMeta: result.sourceMeta,
-    });
-
-    return created<ImportDraftResponse>(c, { draft });
-  };
 }
 
 /** POST /api/households/:householdId/recipe/imports/image — multipart `file`, image/* only. */
@@ -199,132 +200,186 @@ importRoutes.post("/file", ocrUploadHandler(["image", "pdf"]));
 /* ------------------------------ text import ------------------------------- */
 
 /** POST /api/households/:householdId/recipe/imports/text */
-importRoutes.post("/text", async (c) => {
-  const user = requireUser(c);
-  const { householdId } = requireMembership(c);
-  const body = await readJson(c.req.raw, ImportTextRequestSchema);
-  enforceRateLimit(c, "import", user.id, IMPORT_RULE);
+importRoutes.post("/text", (c) =>
+  runtime.runPromise(
+    withImportDb(
+      Effect.gen(function* () {
+        const rateLimiter = yield* RateLimiter;
+        const importer = yield* OcrImporter;
+        const drafts = yield* ImportDrafts;
+        const user = yield* currentUser(c);
+        const { householdId } = yield* currentMembership(c);
+        const body = yield* readJson(c, ImportTextRequestSchema);
+        yield* rateLimiter.enforce("import", user.id, IMPORT_RULE);
 
-  const result = importFromText(body.rawText, body.title === undefined ? {} : { title: body.title });
-  const draft = await createDraft(importDb(), {
-    householdId,
-    createdBy: user.id,
-    sourceType: "manual",
-    parsed: result.parsed,
-    rawText: result.rawText,
-    sourceMeta: result.sourceMeta,
-  });
+        const result = yield* importer.importFromText(body.rawText, body.title === undefined ? {} : { title: body.title });
+        const draft = yield* drafts.createDraft({
+          householdId,
+          createdBy: user.id,
+          sourceType: "manual",
+          parsed: result.parsed,
+          rawText: result.rawText,
+          sourceMeta: result.sourceMeta,
+        });
 
-  return created<ImportDraftResponse>(c, { draft });
-});
+        return created<ImportDraftResponse>(c, { draft });
+      }),
+    ),
+  ),
+);
 
 /* --------------------------------- listing -------------------------------- */
 
 /** GET /api/households/:householdId/recipe/imports?status=pending */
-importRoutes.get("/", async (c) => {
-  const { householdId } = requireMembership(c);
-  const query = decodeOrThrow(ImportDraftListQuerySchema, c.req.query());
-  const list = await listDrafts(importDb(), householdId, query);
-  return json<ImportDraftListResponse>(c, list);
-});
+importRoutes.get("/", (c) =>
+  runtime.runPromise(
+    withImportDb(
+      Effect.gen(function* () {
+        const drafts = yield* ImportDrafts;
+        const { householdId } = yield* currentMembership(c);
+        const query = yield* decode(ImportDraftListQuerySchema, c.req.query());
+        const list = yield* drafts.listDrafts(householdId, query);
+        return json<ImportDraftListResponse>(c, list);
+      }),
+    ),
+  ),
+);
 
 /* ------------------------------ single draft ------------------------------ */
 
 /** GET /api/households/:householdId/recipe/imports/:draftId */
-importRoutes.get("/:draftId", async (c) => {
-  const { householdId } = requireMembership(c);
-  const row = await getDraftOr404(importDb(), householdId, c.req.param("draftId"));
-  return json<ImportDraftResponse>(c, { draft: toDraftWire(row) });
-});
+importRoutes.get("/:draftId", (c) =>
+  runtime.runPromise(
+    withImportDb(
+      Effect.gen(function* () {
+        const drafts = yield* ImportDrafts;
+        const { householdId } = yield* currentMembership(c);
+        const row = yield* drafts.getDraftOr404(householdId, c.req.param("draftId"));
+        return json<ImportDraftResponse>(c, { draft: toDraftWire(row) });
+      }),
+    ),
+  ),
+);
 
 /**
  * GET /api/households/:householdId/recipe/imports/:draftId/source — the uploaded photo/PDF this
  * draft came from. Membership-checked (unlike the public /uploads/:filename route
  * in src/index.ts) and path-traversal-safe. Additive to the contract.
  */
-importRoutes.get("/:draftId/source", async (c) => {
-  const { householdId } = requireMembership(c);
-  const row = await getDraftOr404(importDb(), householdId, c.req.param("draftId"));
+importRoutes.get("/:draftId/source", (c) =>
+  runtime.runPromise(
+    withImportDb(
+      Effect.gen(function* () {
+        const drafts = yield* ImportDrafts;
+        const files = yield* ImportFiles;
+        const { householdId } = yield* currentMembership(c);
+        const row = yield* drafts.getDraftOr404(householdId, c.req.param("draftId"));
 
-  const filename = storedFilenameOf(row);
-  if (filename === undefined) throw ApiError.notFound("server.import.noSourceFile");
+        const filename = storedFilenameOf(row);
+        if (filename === undefined) return yield* new NotFound({ text: "server.import.noSourceFile" });
 
-  const absolute = resolveUploadPath(filename);
-  if (!existsSync(absolute)) throw ApiError.notFound("server.import.sourceFileDeleted");
+        const absolute = yield* files.resolveUploadPath(filename);
+        if (!existsSync(absolute)) return yield* new NotFound({ text: "server.import.sourceFileDeleted" });
 
-  const file = Bun.file(absolute);
-  return new Response(file, {
-    headers: {
-      "Content-Type": file.type || "application/octet-stream",
-      "Cache-Control": "private, max-age=3600",
-      "Content-Disposition": `inline; filename="${filename}"`,
-    },
-  });
-});
+        const file = Bun.file(absolute);
+        return new Response(file, {
+          headers: {
+            "Content-Type": file.type || "application/octet-stream",
+            "Cache-Control": "private, max-age=3600",
+            "Content-Disposition": `inline; filename="${filename}"`,
+          },
+        });
+      }),
+    ),
+  ),
+);
 
 /** PATCH /api/households/:householdId/recipe/imports/:draftId — save review-screen edits. */
-importRoutes.patch("/:draftId", async (c) => {
-  const { householdId } = requireMembership(c);
-  const draftId = c.req.param("draftId");
-  const row = await getDraftOr404(importDb(), householdId, draftId);
-  if (row.status === "reviewed") {
-    throw ApiError.conflict("conflict", "server.import.draftAlreadyCommitted");
-  }
+importRoutes.patch("/:draftId", (c) =>
+  runtime.runPromise(
+    withImportDb(
+      Effect.gen(function* () {
+        const drafts = yield* ImportDrafts;
+        const { householdId } = yield* currentMembership(c);
+        const draftId = c.req.param("draftId");
+        const row = yield* drafts.getDraftOr404(householdId, draftId);
+        if (row.status === "reviewed") {
+          return yield* new Conflict({ code: "conflict", text: "server.import.draftAlreadyCommitted" });
+        }
 
-  const body = await readJson(c.req.raw, UpdateImportDraftRequestSchema);
-  await updateDraft(importDb(), draftId, {
-    parsed: body.parsed,
-    ...(body.status === undefined ? {} : { status: body.status }),
-  });
+        const body = yield* readJson(c, UpdateImportDraftRequestSchema);
+        yield* drafts.updateDraft(draftId, {
+          parsed: body.parsed,
+          ...(body.status === undefined ? {} : { status: body.status }),
+        });
 
-  const updated = await getDraftOr404(importDb(), householdId, draftId);
-  return json<ImportDraftResponse>(c, { draft: toDraftWire(updated) });
-});
+        const updated = yield* drafts.getDraftOr404(householdId, draftId);
+        return json<ImportDraftResponse>(c, { draft: toDraftWire(updated) });
+      }),
+    ),
+  ),
+);
 
 /** POST /api/households/:householdId/recipe/imports/:draftId/commit — create the real recipe. */
-importRoutes.post("/:draftId/commit", async (c) => {
-  const user = requireUser(c);
-  const { householdId } = requireMembership(c);
-  const draftId = c.req.param("draftId");
+importRoutes.post("/:draftId/commit", (c) =>
+  runtime.runPromise(
+    withImportDb(
+      Effect.gen(function* () {
+        const drafts = yield* ImportDrafts;
+        const commit = yield* ImportCommit;
+        const user = yield* currentUser(c);
+        const { householdId } = yield* currentMembership(c);
+        const draftId = c.req.param("draftId");
 
-  const row = await getDraftOr404(importDb(), householdId, draftId);
-  if (row.status === "reviewed" && row.recipeId !== null) {
-    throw ApiError.conflict("conflict", "server.import.draftAlreadyCommitted");
-  }
+        const row = yield* drafts.getDraftOr404(householdId, draftId);
+        if (row.status === "reviewed" && row.recipeId !== null) {
+          return yield* new Conflict({ code: "conflict", text: "server.import.draftAlreadyCommitted" });
+        }
 
-  const body = await readJson(c.req.raw, CommitImportDraftRequestSchema);
-  // The client may send the edited payload; otherwise the stored draft is used.
-  const parsed = body.parsed ?? decodeOrThrow(ParsedRecipeSchema, row.parsed);
+        const body = yield* readJson(c, CommitImportDraftRequestSchema);
+        // The client may send the edited payload; otherwise the stored draft is used.
+        const parsed = body.parsed ?? (yield* decode(ParsedRecipeSchema, row.parsed));
 
-  const result = await commitDraft(importDb(), {
-    householdId,
-    draftId,
-    userId: user.id,
-    parsed,
-    ...(body.tags === undefined ? {} : { tagNames: body.tags }),
-    ...(body.collectionIds === undefined ? {} : { collectionIds: body.collectionIds }),
-  });
+        const result = yield* commit.commitDraft({
+          householdId,
+          draftId,
+          userId: user.id,
+          parsed,
+          ...(body.tags === undefined ? {} : { tagNames: body.tags }),
+          ...(body.collectionIds === undefined ? {} : { collectionIds: body.collectionIds }),
+        });
 
-  const committed = await getDraftOr404(importDb(), householdId, draftId);
-  return created<CommitImportDraftResponse>(
-    c,
-    { recipe: result.recipe, draft: toDraftWire(committed) },
-    `/api/households/${householdId}/recipe/recipes/${result.recipeId}`,
-  );
-});
+        const committed = yield* drafts.getDraftOr404(householdId, draftId);
+        return created<CommitImportDraftResponse>(
+          c,
+          { recipe: result.recipe, draft: toDraftWire(committed) },
+          `/api/households/${householdId}/recipe/recipes/${result.recipeId}`,
+        );
+      }),
+    ),
+  ),
+);
 
 /** DELETE /api/households/:householdId/recipe/imports/:draftId — discard + unlink the upload. */
-importRoutes.delete("/:draftId", async (c) => {
-  const { householdId } = requireMembership(c);
-  const draftId = c.req.param("draftId");
-  const row = await getDraftOr404(importDb(), householdId, draftId);
+importRoutes.delete("/:draftId", (c) =>
+  runtime.runPromise(
+    withImportDb(
+      Effect.gen(function* () {
+        const drafts = yield* ImportDrafts;
+        const files = yield* ImportFiles;
+        const { householdId } = yield* currentMembership(c);
+        const draftId = c.req.param("draftId");
+        const row = yield* drafts.getDraftOr404(householdId, draftId);
 
-  await deleteDraft(importDb(), draftId);
-  // Only after the row is gone: an orphaned file is better than a draft that
-  // points at a file which no longer exists.
-  await deleteUpload(storedFilenameOf(row));
+        yield* drafts.deleteDraft(draftId);
+        // Only after the row is gone: an orphaned file is better than a draft that
+        // points at a file which no longer exists.
+        yield* files.deleteUpload(storedFilenameOf(row));
 
-  return noContent(c);
-});
+        return noContent(c);
+      }),
+    ),
+  ),
+);
 
 export default importRoutes;

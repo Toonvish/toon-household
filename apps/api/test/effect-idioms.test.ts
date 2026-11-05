@@ -375,7 +375,6 @@ const API_SRC_FILES = ALL_FILES.filter((f) => rel(f).startsWith("apps/api/src/")
 
 // Pinned allow list (path prefix -> reason): the module code that E3 and E4 move onto the tagged family.
 const ALLOW_THROW_API_ERROR: PathAllow = {
-  "apps/api/src/modules/recipe/": "E3 moves recipe onto the tagged family",
   "apps/api/src/modules/finance/": "E4 moves finance onto the tagged family",
 };
 const THROW_API_ERROR = /\bthrow\s+(?:new\s+)?ApiError\b/;
