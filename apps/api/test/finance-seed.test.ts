@@ -1,20 +1,25 @@
 /**
  * The finance demo seed (plan M3-T09, `modules/finance/seed.ts`): idempotent, three logins
  * (demo and Robin seated as participants, Kim a plain member), and the non-participant gets
- * 403 on the ledger. Runs on the shared memory DB through the service-level entry point; the
- * CLI twice-on-a-fresh-file check is the task's verify command.
+ * 403 on the ledger. Runs on the shared test DB through the manifest's `seedDemo` hook on the app
+ * runtime (`runTest`); the CLI twice-on-a-fresh-file check is the task's verify command.
  *
  * M3b-T06 (plan m3b decision 17): the logins use the `demoPassword` of the `seedDemo` context,
  * never a constant of the module. That case runs on its own temp `file:` database, because
- * robin@ and kim@ are matched by e-mail and the shared memory DB already holds them.
+ * robin@ and kim@ are matched by e-mail and the shared memory DB already holds them. It reaches that
+ * database with `Database.withExecutor(created.db)`: `HouseholdModules.initializeHousehold` and the hook
+ * read the current executor, and the finance services the hook builds through `withFinanceServices`
+ * (a local memo map) read it too (docs/EFFECT.md E9; plan `docs/plans/e4-finance-services.md` P4, P11).
  */
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { eq, inArray } from "drizzle-orm";
-import { initializeHousehold } from "../src/core/services/households/modules.ts";
+import type { Effect } from "effect";
+import { HouseholdModules } from "../src/core/services/households/modules.ts";
 import { createDatabase, db } from "../src/db/client.ts";
+import { Database } from "../src/db/database.ts";
 import { runMigrations } from "../src/db/migrate.ts";
 import { householdMembers, households, users } from "../src/db/schema.ts";
 import {
@@ -24,10 +29,19 @@ import {
   financeParticipants,
   financeTransactions,
 } from "../src/modules/finance/schema.ts";
-import { seedFinanceDemo } from "../src/modules/finance/seed.ts";
+import { financeModule } from "../src/modules/finance/index.ts";
+import type { HookError, SeedDemoContext } from "../src/modules/types.ts";
+import { runTest } from "./support/effect.ts";
 import { call, createPlainHousehold, createUser } from "./support/finance-harness.ts";
 
 await runMigrations(db);
+
+/** The manifest's `seedDemo` hook (an Effect over `Database`). */
+function seedFinanceDemo(context: SeedDemoContext): Effect.Effect<void, HookError, Database> {
+  const seedDemo = financeModule.seedDemo;
+  if (!seedDemo) throw new Error("financeModule has no seedDemo hook");
+  return seedDemo(context);
+}
 
 async function login(email: string): Promise<string> {
   const response = await call("/api/auth/login", {
@@ -59,7 +73,7 @@ describe("seedFinanceDemo", () => {
     const demo = await createUser("Demo");
     const householdId = await createPlainHousehold(demo, "Familie Seed");
 
-    await seedFinanceDemo(db, { householdId, userId: demo.id, demoPassword: "demo1234" });
+    await runTest(seedFinanceDemo({ householdId, userId: demo.id, demoPassword: "demo1234" }));
     const first = await counts(householdId);
     expect(first.participants).toBe(2);
     expect(first.members).toBe(3);
@@ -67,7 +81,7 @@ describe("seedFinanceDemo", () => {
     expect(first.items).toBe(2);
     expect(first.incomes).toBe(2);
 
-    await seedFinanceDemo(db, { householdId, userId: demo.id, demoPassword: "demo1234" });
+    await runTest(seedFinanceDemo({ householdId, userId: demo.id, demoPassword: "demo1234" }));
     expect(await counts(householdId)).toEqual(first);
 
     const base = `/api/households/${householdId}/finance`;
@@ -108,9 +122,17 @@ describe("seedFinanceDemo uses the context's demoPassword", () => {
       await created.db
         .insert(householdMembers)
         .values({ id: crypto.randomUUID(), householdId, userId: demoId, role: "owner", createdAt: now });
-      await initializeHousehold(created.db, householdId);
+      await runTest(
+        HouseholdModules.use((modules) => modules.initializeHousehold(householdId)).pipe(
+          Database.withExecutor(created.db),
+        ),
+      );
 
-      await seedFinanceDemo(created.db, { householdId, userId: demoId, demoPassword: "x-test-pass-123" });
+      await runTest(
+        seedFinanceDemo({ householdId, userId: demoId, demoPassword: "x-test-pass-123" }).pipe(
+          Database.withExecutor(created.db),
+        ),
+      );
 
       const logins = await created.db
         .select({ email: users.email, passwordHash: users.passwordHash })

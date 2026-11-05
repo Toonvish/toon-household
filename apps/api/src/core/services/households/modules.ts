@@ -7,16 +7,17 @@
  *
  * The `HouseholdModules` service (docs/EFFECT.md E7; plan `docs/plans/e2-api-core-services.md` P2, P7, P11) reads
  * the current executor of `Database` on every call, takes `enabledAt` from the `Clock`, and runs the module hooks
- * (Effects since E2-T05) with `yield*` on that same executor: inside `database.transaction` the open transaction,
- * which a Promise-based manifest behind `fromPromiseModule` receives as its `tx`. `modules` defaults to the build's
- * `API_MODULES`, read when a method is called, never at import (CLAUDE.md "API import cycle"). The two Promise bridges
- * at the end of the file (`initializeHousehold`, `enableModule`) keep the seed script, the finance seed and
- * `finance-seed.test.ts` working until E4/E5.
+ * (Effects since E2-T05) with `yield*` on that same executor: inside `database.transaction` the open transaction.
+ * Both build manifests (recipe since E3, finance since E4) implement the Effect contract `ApiModule` directly, so a
+ * hook reads that open transaction as the current executor of `Database` (finance builds its own services over it,
+ * `modules/finance/layer.ts` `withFinanceServices`). `modules` defaults to the build's `API_MODULES`, read when a
+ * method is called, never at import (CLAUDE.md "API import cycle"). The one Promise bridge at the end of the file
+ * (`initializeHousehold`) keeps the seed script working until E5; the finance seed enables finance through the service
+ * since E4 (plan `docs/plans/e4-finance-services.md` P16).
  */
 import { DEFAULT_ENABLED_MODULES, MODULE_IDS, type ModuleId, isModuleId } from "@toon/shared";
 import { and, eq, inArray } from "drizzle-orm";
 import { Clock, Context, Effect, Layer } from "effect";
-import type { Database as DrizzleDatabase } from "../../../db/client.ts";
 import { Database } from "../../../db/database.ts";
 import { householdModules } from "../../../db/schema.ts";
 import type { DatabaseError } from "../../../lib/errors.ts";
@@ -102,8 +103,8 @@ export class HouseholdModules extends Context.Service<
             .values(DEFAULT_ENABLED_MODULES.map((moduleId) => ({ householdId, moduleId, enabledAt: now, settings: null })))
             .onConflictDoNothing(),
         );
-        // Each hook runs on the current executor (the creation's transaction inside `createHousehold`), which a
-        // Promise-based manifest receives as its `tx` (plan e2 P11).
+        // Each hook runs on the current executor (the creation's transaction inside `createHousehold`), which the
+        // module reads from `Database` (plan e2 P11).
         for (const module of modules) {
           if (module.onHouseholdCreated) {
             yield* module.onHouseholdCreated(householdId).pipe(Effect.provideService(Database, database));
@@ -163,7 +164,7 @@ export class HouseholdModules extends Context.Service<
 
 /**
  * Runs on `db`, the executor the caller holds (the creation's transaction inside `createHousehold`).
- * Callers: `scripts/seed.ts` (E5), `apps/api/test/finance-seed.test.ts` (E4). Promise.
+ * Callers: `scripts/seed.ts` (E5). Promise.
  */
 export function initializeHousehold(
   db: DbLike,
@@ -172,20 +173,5 @@ export function initializeHousehold(
 ): Promise<void> {
   return runtime.runPromise(
     HouseholdModules.use((service) => service.initializeHousehold(householdId, modules)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `modules/finance/seed.ts` (E4). Promise. */
-export function enableModule(
-  db: DrizzleDatabase,
-  householdId: string,
-  moduleId: ModuleId,
-  settings: Record<string, unknown> | undefined,
-  modules: readonly ApiModule[] = API_MODULES,
-): Promise<void> {
-  return runtime.runPromise(
-    HouseholdModules.use((service) => service.enableModule(householdId, moduleId, settings, modules)).pipe(
-      Database.withExecutor(db),
-    ),
   );
 }

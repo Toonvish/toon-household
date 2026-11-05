@@ -13,8 +13,8 @@
  * (c) a `FinanceTransactions.createTransaction` whose tag insert fails leaves neither the transaction nor its
  *     claim, and the same `mutationId` can be delivered again afterwards;
  *
- * (b) and (c) run the services of the app runtime on this file's database through `Database.withExecutor`
- * (docs/EFFECT.md E9; plan `docs/plans/e4-finance-services.md` P11).
+ * (b) and (c), and the `FinanceSetup.ensureFinanceHousehold` of the setup, run the services of the app runtime on
+ * this file's database through `Database.withExecutor` (docs/EFFECT.md E9; plan `docs/plans/e4-finance-services.md` P11).
  * (d) on the SHARED client the same holds: a throw inside the finance and the core
  *     `withTransaction` rolls the insert back (under ADR 0003 this case documented the
  *     opposite: on `file::memory:` the insert survived).
@@ -42,7 +42,7 @@ import {
   transactionsSupported,
 } from "../src/core/services/households/support.ts";
 import { withTransaction } from "../src/modules/finance/services/support.ts";
-import { ensureFinanceHousehold } from "../src/modules/finance/setup.ts";
+import { FinanceSetup } from "../src/modules/finance/setup.ts";
 import { runTest } from "./support/effect.ts";
 
 await runMigrations(sharedDb);
@@ -104,7 +104,7 @@ beforeAll(async () => {
     { householdId, userId: user1, memberSlot: 1, displayName: "Eins", joinedAt: now },
     { householdId, userId: user2, memberSlot: 2, displayName: "Zwei", joinedAt: now },
   ]);
-  await ensureFinanceHousehold(created.db, householdId);
+  await runTest(onCreated(FinanceSetup.use((setup) => setup.ensureFinanceHousehold(householdId))));
 });
 
 afterAll(() => {
