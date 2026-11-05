@@ -22,10 +22,10 @@
  * invented too (see that file's header), so the comparison had nothing left to
  * compare and was removed rather than left to rot as a tautology.
  */
-import { rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, describe, expect, test } from "bun:test";
 import { and, eq } from "drizzle-orm";
 import {
   COLUMN_B,
@@ -54,6 +54,7 @@ import {
   financeTransactions as transactions,
 } from "../src/modules/finance/schema.ts";
 import { body, call, createHousehold, createUser, joinAsSecondMember, type TestUser } from "./support/finance-harness.ts";
+import { runTest } from "./support/effect.ts";
 import { writeSyntheticWorkbook } from "./support/finance-synthetic-workbook.ts";
 
 await runMigrations(db);
@@ -489,11 +490,11 @@ describe("writeImportRecords against a synthetic workbook (docs/spec.md §7.6)",
 
     const result = buildImport(readWorkbook(SYNTHETIC_XLSX_PATH), false, REAL_IMPORT_DATE);
 
-    const firstRun = await writeImportRecords(db, householdId, result.records);
+    const firstRun = await runTest(writeImportRecords(householdId, result.records));
     expect(firstRun.inserted).toBe(SYNTHETIC_ROW_COUNT);
     expect(firstRun.alreadyPresent).toBe(0);
 
-    const secondRun = await writeImportRecords(db, householdId, result.records);
+    const secondRun = await runTest(writeImportRecords(householdId, result.records));
     expect(secondRun.inserted).toBe(0);
     expect(secondRun.alreadyPresent).toBe(SYNTHETIC_ROW_COUNT);
 
@@ -517,12 +518,12 @@ describe("writeImportRecords against a synthetic workbook (docs/spec.md §7.6)",
 
     const result = buildImport(readWorkbook(SYNTHETIC_XLSX_PATH), false, REAL_IMPORT_DATE);
 
-    expect((await writeImportRecords(db, householdA, result.records)).inserted).toBe(SYNTHETIC_ROW_COUNT);
+    expect((await runTest(writeImportRecords(householdA, result.records))).inserted).toBe(SYNTHETIC_ROW_COUNT);
 
     // The guarded bug reported every row as "already present" — it matched the
     // unique index on `external_key` alone instead of `(household_id,
     // external_key)` — and silently wrote nothing for the second household.
-    const b = await writeImportRecords(db, householdB, result.records);
+    const b = await runTest(writeImportRecords(householdB, result.records));
     expect(b.inserted).toBe(SYNTHETIC_ROW_COUNT);
     expect(b.alreadyPresent).toBe(0);
   });
@@ -547,7 +548,7 @@ describe("writeImportRecords against a synthetic workbook (docs/spec.md §7.6)",
     // …and the plan may only start AFTER the last period the import covered.
     expect(result.planSeed.planStartPeriod).toBe("2022-11");
 
-    const seedResult = await seedFixedCostPlan(db, householdId, result.planSeed);
+    const seedResult = await runTest(seedFixedCostPlan(householdId, result.planSeed));
     expect(seedResult.seeded).toBe(true);
     expect(seedResult.itemCount).toBe(3);
     expect(seedResult.incomeCount).toBe(2);
@@ -559,7 +560,7 @@ describe("writeImportRecords against a synthetic workbook (docs/spec.md §7.6)",
     expect(planRows[0]?.startPeriod).toBe("2022-11");
 
     // Idempotent: seeding an already-seeded household changes nothing.
-    expect((await seedFixedCostPlan(db, householdId, result.planSeed)).seeded).toBe(false);
+    expect((await runTest(seedFixedCostPlan(householdId, result.planSeed))).seeded).toBe(false);
     const itemsAfter = await db.select({ id: fixedCostItems.id }).from(fixedCostItems).where(eq(fixedCostItems.householdId, householdId));
     expect(itemsAfter).toHaveLength(3);
 
@@ -584,6 +585,49 @@ describe("writeImportRecords against a synthetic workbook (docs/spec.md §7.6)",
     expect(proc.exitCode).toBe(0);
     expect(stdout).toContain(`Total transactions: ${SYNTHETIC_ROW_COUNT}`);
     expect(stdout).toContain("no --household given: no database write performed.");
+  });
+
+  // The case above inherits NODE_ENV=test, under which env.ts quietly picks its own temp DB: it cannot see a database
+  // opened by mistake. This one spawns with NODE_ENV=development, an explicit DATABASE_URL and NO SESSION_SECRET, so a
+  // value import of src/db/*, src/runtime or a finance module (which opens or validates the database at import) fails
+  // the run or leaves a file behind (plan docs/plans/e5-scripts.md P2, P13; E5-T05).
+  describe("--dry-run never opens the database (NODE_ENV=development, no SESSION_SECRET)", () => {
+    let scratch = "";
+    afterEach(() => rmSync(scratch, { recursive: true, force: true }));
+
+    function dryRun(extraArgs: string[]) {
+      scratch = mkdtempSync(join(tmpdir(), "toon-xlsx-dry-"));
+      const env: Record<string, string | undefined> = { ...process.env };
+      delete env.SESSION_SECRET;
+      delete env.TEST_DATABASE_URL;
+      delete env.DATABASE_URL;
+      env.NODE_ENV = "development";
+      env.DATABASE_URL = `file:${join(scratch, "x.db")}`;
+      const proc = Bun.spawnSync({
+        cmd: ["bun", "apps/api/scripts/finance-import-xlsx.ts", SYNTHETIC_XLSX_PATH, ...extraArgs],
+        cwd: `${import.meta.dir}/../../..`,
+        env,
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      return { proc, stdout: proc.stdout.toString(), stderr: proc.stderr.toString() };
+    }
+
+    test("without --household: exit 0, no database file", () => {
+      const { proc, stdout, stderr } = dryRun(["--dry-run"]);
+      expect({ exit: proc.exitCode, stderr }).toEqual({ exit: 0, stderr: expect.any(String) });
+      expect(stdout).toContain("[import-xlsx] no --household given: no database write performed.");
+      expect(existsSync(join(scratch, "x.db"))).toBe(false);
+      expect(existsSync(join(scratch, "x.db-wal"))).toBe(false);
+    }, 120_000);
+
+    test("with --household nope --dry-run: exit 0, no database file", () => {
+      const { proc, stdout, stderr } = dryRun(["--household", "nope", "--dry-run"]);
+      expect({ exit: proc.exitCode, stderr }).toEqual({ exit: 0, stderr: expect.any(String) });
+      expect(stdout).toContain("[import-xlsx] --dry-run: no database write performed.");
+      expect(existsSync(join(scratch, "x.db"))).toBe(false);
+      expect(existsSync(join(scratch, "x.db-wal"))).toBe(false);
+    }, 120_000);
   });
 });
 

@@ -8,16 +8,18 @@
  * participants directly, and runs the finance write paths against it, isolated from the rest
  * of the run (case (c) installs a trigger):
  *
- * (a) a finance `withTransaction` that throws after an insert leaves no row;
+ * (a) a `Database.transaction` (on `Database.layerFrom(created)`) that fails after an insert leaves no row;
  * (b) `FinanceSettlements.createSettlement` with a `mutationId`, twice, books one row and holds one claim;
  * (c) a `FinanceTransactions.createTransaction` whose tag insert fails leaves neither the transaction nor its
  *     claim, and the same `mutationId` can be delivered again afterwards;
  *
  * (b) and (c), and the `FinanceSetup.ensureFinanceHousehold` of the setup, run the services of the app runtime on
  * this file's database through `Database.withExecutor` (docs/EFFECT.md E9; plan `docs/plans/e4-finance-services.md` P11).
- * (d) on the SHARED client the same holds: a throw inside the finance and the core
- *     `withTransaction` rolls the insert back (under ADR 0003 this case documented the
+ * (d) on the SHARED client the same holds: a throw inside `Database.transaction` (the app runtime's) and inside the
+ *     core `withTransaction` rolls the insert back (under ADR 0003 this case documented the
  *     opposite: on `file::memory:` the insert survived).
+ *
+ * The finance module's own `withTransaction` was deleted with E5 (plan `docs/plans/e5-scripts.md` P11).
  */
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -38,10 +40,10 @@ import {
 import { FinanceSettlements } from "../src/modules/finance/services/ledger/settlements.service.ts";
 import { FinanceTransactions } from "../src/modules/finance/services/ledger/transactions.service.ts";
 import {
+  type DbLike,
   withTransaction as coreWithTransaction,
   transactionsSupported,
 } from "../src/core/services/households/support.ts";
-import { withTransaction } from "../src/modules/finance/services/support.ts";
 import { FinanceSetup } from "../src/modules/finance/setup.ts";
 import { runTest } from "./support/effect.ts";
 
@@ -112,29 +114,38 @@ afterAll(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-describe("finance withTransaction on a real file database", () => {
+describe("Database.transaction on a real file database", () => {
   test("(a) a throw after an insert rolls the insert back", async () => {
     const before = await transactionCount();
     const timestamp = Date.now();
     await expect(
-      withTransaction(created.db, async (tx) => {
-        await tx.insert(financeTransactions).values({
-          id: crypto.randomUUID(),
-          householdId,
-          payerId: user1,
-          splitMode: "SPLIT_EQUAL",
-          amountCents: 100,
-          description: "wird zurückgerollt",
-          bookedAt: timestamp,
-          dateSource: "exact",
-          origin: "manual",
-          categorySource: "manual",
-          createdBy: user1,
-          createdAt: timestamp,
-          updatedAt: timestamp,
-        });
-        throw new Error("forced rollback");
-      }),
+      runTest(
+        Effect.gen(function* () {
+          const database = yield* Database;
+          yield* database.transaction(
+            Effect.gen(function* () {
+              yield* database.use((tx) =>
+                tx.insert(financeTransactions).values({
+                  id: crypto.randomUUID(),
+                  householdId,
+                  payerId: user1,
+                  splitMode: "SPLIT_EQUAL",
+                  amountCents: 100,
+                  description: "wird zurückgerollt",
+                  bookedAt: timestamp,
+                  dateSource: "exact",
+                  origin: "manual",
+                  categorySource: "manual",
+                  createdBy: user1,
+                  createdAt: timestamp,
+                  updatedAt: timestamp,
+                }),
+              );
+              return yield* Effect.fail(new Error("forced rollback"));
+            }),
+          );
+        }).pipe(Effect.provide(Database.layerFrom(created))),
+      ),
     ).rejects.toThrow("forced rollback");
     expect(await transactionCount()).toBe(before);
   });
@@ -219,10 +230,23 @@ describe("finance withTransaction on a real file database", () => {
 });
 
 describe("the shared client is a real file database (ADR 0009)", () => {
-  test("(d) withTransaction on the shared client rolls back: a throw leaves no row", async () => {
+  test("(d) a transaction on the shared client rolls back: a throw leaves no row", async () => {
     expect(transactionsSupported).toBe(true);
+    // `Database.transaction` of the app runtime (the shared client) and the core's `withTransaction`, same body.
+    const databaseTransaction = (_db: typeof sharedDb, work: (tx: DbLike) => Promise<void>): Promise<void> =>
+      runTest(
+        Effect.gen(function* () {
+          const database = yield* Database;
+          yield* database.transaction(
+            Effect.gen(function* () {
+              const tx = yield* database.executor;
+              return yield* Effect.tryPromise({ try: () => work(tx), catch: (cause): unknown => cause });
+            }),
+          );
+        }),
+      );
     for (const [label, run] of [
-      ["finance", withTransaction],
+      ["database", databaseTransaction],
       ["core", coreWithTransaction],
     ] as const) {
       const id = crypto.randomUUID();

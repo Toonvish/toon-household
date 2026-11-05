@@ -23,20 +23,27 @@
  * faithful (docs/ledger-spec.md §6.7). The DEFAULT import always recovers
  * that amount — the whole reason this importer exists is to fix that quiet
  * 31.47 EUR bug, not to reproduce it.
+ *
+ * An Effect program run by `runScript` (docs/EFFECT.md E10; plan
+ * `docs/plans/e5-scripts.md` P1, P2, P4, P6, P18). The dry-run path imports no
+ * database module: `Database`, the finance services and the finance schema are
+ * loaded by dynamic `import(...)` INSIDE `writeImportRecords` /
+ * `seedFixedCostPlan` (a value import at the top would open — or, without
+ * `SESSION_SECRET` / `DATABASE_URL`, crash on — the database on every run,
+ * because `src/db/database.ts` imports `src/db/client.ts`), and the program
+ * loads `../src/runtime.ts` only in its write branch.
  */
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { computeBalance, computePlanForPeriod, formatCents, nextPeriod, periodStartMs, type BalanceTransaction } from "@toon/shared";
 import { and, eq } from "drizzle-orm";
-// Type-only: erased at build time, so importing it does NOT pull in
-// `../src/db/client.ts` (and therefore does not require DATABASE_URL) —
-// `--dry-run` still never touches the database module.
-import type { Database } from "../src/db/client.ts";
+import { Clock, Console, Effect } from "effect";
 import { categorize, DEFAULT_CATEGORY_FALLBACK } from "./finance-import/categorize.ts";
 import { AmountParseError, parseAmountCell } from "./finance-import/amounts.ts";
 import { type CalendarDate, dateStartMsBerlin, resolveColumnDates } from "./finance-import/dates.ts";
 import { expandRentSeries, RENT_SERIES_START, type RentSeriesPair } from "./finance-import/rent.ts";
 import { cellText, readWorkbook, type XlsxWorkbook } from "./finance-import/xlsx-reader.ts";
+import { runScript, ScriptExit } from "./support/main.ts";
 
 /* -------------------------------------------------------------------------- */
 /* CLI args                                                                   */
@@ -49,7 +56,16 @@ interface CliArgs {
   excelTextQuirk: boolean;
 }
 
-function parseArgs(argv: readonly string[]): CliArgs {
+/**
+ * What `parseArgs` decided: the arguments, or a line to print and the exit code to end with (`--help`: the usage line on
+ * stdout and 0; an unrecognised argument or a missing path: the `[import-xlsx] …` line on stderr and 1). Pure: the program
+ * prints and exits (plan e5 P4).
+ */
+type ParsedArgs =
+  | { readonly ok: true; readonly args: CliArgs }
+  | { readonly ok: false; readonly stream: "log" | "error"; readonly line: string; readonly code: number };
+
+function parseArgs(argv: readonly string[]): ParsedArgs {
   let filePath: string | undefined;
   let householdId: string | undefined;
   let dryRun = false;
@@ -62,22 +78,23 @@ function parseArgs(argv: readonly string[]): CliArgs {
     else if (arg === "--household") householdId = argv[++i];
     else if (arg.startsWith("--household=")) householdId = arg.slice("--household=".length);
     else if (arg === "--help" || arg === "-h") {
-      console.log(
-        "Usage: bun run finance:import-xlsx -- <path-to-Haushalt.xlsx> [--household <id>] [--dry-run] [--excel-text-quirk]",
-      );
-      process.exit(0);
+      return {
+        ok: false,
+        stream: "log",
+        line: "Usage: bun run finance:import-xlsx -- <path-to-Haushalt.xlsx> [--household <id>] [--dry-run] [--excel-text-quirk]",
+        code: 0,
+      };
     } else if (!arg.startsWith("-") && filePath === undefined) filePath = arg;
-    else {
-      console.error(`[import-xlsx] unrecognised argument: ${arg}`);
-      process.exit(1);
-    }
+    else return { ok: false, stream: "error", line: `[import-xlsx] unrecognised argument: ${arg}`, code: 1 };
   }
 
   if (!filePath) {
-    console.error("[import-xlsx] missing required argument: <path-to-Haushalt.xlsx>");
-    process.exit(1);
+    return { ok: false, stream: "error", line: "[import-xlsx] missing required argument: <path-to-Haushalt.xlsx>", code: 1 };
   }
-  return { filePath: resolve(process.cwd(), filePath), householdId, dryRun: dryRun || !householdId, excelTextQuirk };
+  return {
+    ok: true,
+    args: { filePath: resolve(process.cwd(), filePath), householdId, dryRun: dryRun || !householdId, excelTextQuirk },
+  };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -108,13 +125,14 @@ const COLUMNS: readonly ColumnSpec[] = [
 /* Calendar helpers                                                           */
 /* -------------------------------------------------------------------------- */
 
-function todayBerlin(): CalendarDate {
+/** The Berlin calendar date of `nowMs` (the Clock's time, plan e5 P6). */
+function todayBerlin(nowMs: number): CalendarDate {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Berlin",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).formatToParts(new Date());
+  }).formatToParts(new Date(nowMs));
   const get = (type: string): number => Number(parts.find((p) => p.type === type)?.value);
   return { year: get("year"), month: get("month"), day: get("day") };
 }
@@ -548,11 +566,12 @@ export interface WriteImportResult {
 }
 
 /**
- * The actual DB write, factored out from `main()` so it can run against an
- * ALREADY-OPEN `db` handle — the shared `apps/api/test` connection in
- * particular (apps/api/test/import-haushalt.test.ts), which must never be
- * closed out from under the rest of the test suite. `main()`'s CLI path is
- * the only caller that opens its own connection and closes it afterwards.
+ * The actual DB write, factored out from the program so it runs on whatever
+ * `Database` the caller provides — the shared `apps/api/test` runtime in
+ * particular (apps/api/test/finance-import-xlsx.test.ts, through `runTest`),
+ * which must never be closed out from under the rest of the test suite. The
+ * program's write branch provides the `AppLayer`, whose scope closes the
+ * database when the run ends.
  *
  * Idempotency is scoped to `(householdId, externalKey)` — matching the
  * `transactions_household_external_key_uidx` unique index this mirrors
@@ -562,70 +581,85 @@ export interface WriteImportResult {
  * report every one of them as "already present" without ever having written
  * anything for itself (review finding: `import-xlsx.ts` idempotency check).
  */
-export async function writeImportRecords(
-  db: Database,
+export const writeImportRecords = Effect.fn("finance-import-xlsx.writeImportRecords")(function* (
   householdId: string,
   records: readonly ImportRecord[],
-): Promise<WriteImportResult> {
-  const { financeTransactions: transactions } = await import("../src/modules/finance/schema.ts");
-  const { slot1UserId, requireOtherMemberId } = await import("../src/modules/finance/services/participants/participants.service.ts");
-  const { categoryIdBySlug } = await import("../src/modules/finance/services/categories/categories.service.ts");
-  const { syncTransactionTags } = await import("../src/modules/finance/services/tags/tags.service.ts");
-  const { withTransaction } = await import("../src/modules/finance/services/support.ts");
+) {
+  // Values only here, never at the top of the file: `src/db/database.ts` imports `src/db/client.ts`, which opens the
+  // database at import, and `--dry-run` must never do that (plan e5 P2).
+  const { financeTransactions: transactions } = yield* Effect.promise(() => import("../src/modules/finance/schema.ts"));
+  const { Database } = yield* Effect.promise(() => import("../src/db/database.ts"));
+  const { FinanceParticipants } = yield* Effect.promise(
+    () => import("../src/modules/finance/services/participants/participants.service.ts"),
+  );
+  const { FinanceCategories } = yield* Effect.promise(
+    () => import("../src/modules/finance/services/categories/categories.service.ts"),
+  );
+  const { FinanceTags } = yield* Effect.promise(() => import("../src/modules/finance/services/tags/tags.service.ts"));
+  const database = yield* Database;
+  const participants = yield* FinanceParticipants;
+  const categories = yield* FinanceCategories;
+  const tags = yield* FinanceTags;
 
-  const p1Id = await slot1UserId(db, householdId);
-  const p2Id = await requireOtherMemberId(db, householdId, p1Id);
+  const p1Id = yield* participants.slot1UserId(householdId);
+  const p2Id = yield* participants.requireOtherMemberId(householdId, p1Id);
 
   const categoryIds = new Map<string, string | null>();
-  async function resolveCategoryId(slug: string): Promise<string | null> {
-    if (!categoryIds.has(slug)) categoryIds.set(slug, await categoryIdBySlug(db, householdId, slug));
+  const resolveCategoryId = Effect.fnUntraced(function* (slug: string) {
+    if (!categoryIds.has(slug)) categoryIds.set(slug, yield* categories.categoryIdBySlug(householdId, slug));
     return categoryIds.get(slug)!;
-  }
-
-  let inserted = 0;
-  let alreadyPresent = 0;
-
-  await withTransaction(db, async (tx) => {
-    for (const record of records) {
-      const existing = await tx
-        .select({ id: transactions.id })
-        .from(transactions)
-        .where(and(eq(transactions.householdId, householdId), eq(transactions.externalKey, record.externalKey)))
-        .limit(1);
-      if (existing[0]) {
-        alreadyPresent++;
-        continue;
-      }
-
-      const id = crypto.randomUUID();
-      const now = Date.now();
-      const categoryId = await resolveCategoryId(record.categorySlug);
-      await tx.insert(transactions).values({
-        id,
-        householdId,
-        payerId: record.payer === "P1" ? p1Id : p2Id,
-        splitMode: record.splitMode,
-        amountCents: record.amountCents,
-        description: record.description,
-        categoryId,
-        bookedAt: record.bookedAtMs,
-        dateSource: record.dateSource,
-        origin: "import",
-        planPeriod: record.planPeriod,
-        categorySource: record.categorySource,
-        importSeq: record.importSeq,
-        externalKey: record.externalKey,
-        createdBy: null,
-        createdAt: now,
-        updatedAt: now,
-      });
-      await syncTransactionTags(tx, householdId, id, record.tags);
-      inserted++;
-    }
   });
 
-  return { inserted, alreadyPresent };
-}
+  // The statements and `syncTransactionTags` run on the open transaction: `Database.use` reads the current executor.
+  return yield* database.transaction(
+    Effect.gen(function* () {
+      let inserted = 0;
+      let alreadyPresent = 0;
+      for (const record of records) {
+        const existing = yield* database.use((tx) =>
+          tx
+            .select({ id: transactions.id })
+            .from(transactions)
+            .where(and(eq(transactions.householdId, householdId), eq(transactions.externalKey, record.externalKey)))
+            .limit(1),
+        );
+        if (existing[0]) {
+          alreadyPresent++;
+          continue;
+        }
+
+        const id = crypto.randomUUID();
+        const now = yield* Clock.currentTimeMillis;
+        const categoryId = yield* resolveCategoryId(record.categorySlug);
+        yield* database.use((tx) =>
+          tx.insert(transactions).values({
+            id,
+            householdId,
+            payerId: record.payer === "P1" ? p1Id : p2Id,
+            splitMode: record.splitMode,
+            amountCents: record.amountCents,
+            description: record.description,
+            categoryId,
+            bookedAt: record.bookedAtMs,
+            dateSource: record.dateSource,
+            origin: "import",
+            planPeriod: record.planPeriod,
+            categorySource: record.categorySource,
+            importSeq: record.importSeq,
+            externalKey: record.externalKey,
+            createdBy: null,
+            createdAt: now,
+            updatedAt: now,
+          }),
+        );
+        yield* tags.syncTransactionTags(householdId, id, record.tags);
+        inserted++;
+      }
+      const result: WriteImportResult = { inserted, alreadyPresent };
+      return result;
+    }),
+  );
+});
 
 export interface SeedPlanResult {
   seeded: boolean;
@@ -644,133 +678,168 @@ export interface SeedPlanResult {
  * run, or the user already set the plan up by hand), it does nothing and
  * reports `seeded: false`, never a second, duplicate set of items/incomes.
  */
-export async function seedFixedCostPlan(db: Database, householdId: string, seed: PlanSeed): Promise<SeedPlanResult> {
-  const { financeFixedCostItems: fixedCostItems, financeIncomes: incomes, financeFixedCostPlans: fixedCostPlans } = await import("../src/modules/finance/schema.ts");
-  const { slot1UserId, requireOtherMemberId } = await import("../src/modules/finance/services/participants/participants.service.ts");
-  const { withTransaction } = await import("../src/modules/finance/services/support.ts");
+export const seedFixedCostPlan = Effect.fn("finance-import-xlsx.seedFixedCostPlan")(function* (
+  householdId: string,
+  seed: PlanSeed,
+) {
+  const {
+    financeFixedCostItems: fixedCostItems,
+    financeIncomes: incomes,
+    financeFixedCostPlans: fixedCostPlans,
+  } = yield* Effect.promise(() => import("../src/modules/finance/schema.ts"));
+  const { Database } = yield* Effect.promise(() => import("../src/db/database.ts"));
+  const { FinanceParticipants } = yield* Effect.promise(
+    () => import("../src/modules/finance/services/participants/participants.service.ts"),
+  );
+  const database = yield* Database;
+  const participants = yield* FinanceParticipants;
 
-  const p1Id = await slot1UserId(db, householdId);
-  const p2Id = await requireOtherMemberId(db, householdId, p1Id);
+  const p1Id = yield* participants.slot1UserId(householdId);
+  const p2Id = yield* participants.requireOtherMemberId(householdId, p1Id);
 
-  return withTransaction(db, async (tx) => {
-    const existingItems = await tx.select({ id: fixedCostItems.id }).from(fixedCostItems).where(eq(fixedCostItems.householdId, householdId)).limit(1);
-    const existingIncomes = await tx.select({ id: incomes.id }).from(incomes).where(eq(incomes.householdId, householdId)).limit(1);
-    if (existingItems.length > 0 || existingIncomes.length > 0) {
-      return { seeded: false, itemCount: 0, incomeCount: 0 };
-    }
+  return yield* database.transaction(
+    Effect.gen(function* () {
+      const existingItems = yield* database.use((tx) =>
+        tx.select({ id: fixedCostItems.id }).from(fixedCostItems).where(eq(fixedCostItems.householdId, householdId)).limit(1),
+      );
+      const existingIncomes = yield* database.use((tx) =>
+        tx.select({ id: incomes.id }).from(incomes).where(eq(incomes.householdId, householdId)).limit(1),
+      );
+      if (existingItems.length > 0 || existingIncomes.length > 0) {
+        const untouched: SeedPlanResult = { seeded: false, itemCount: 0, incomeCount: 0 };
+        return untouched;
+      }
 
-    const now = Date.now();
-    const labels = fixedCostItemLabels(seed.fixedCostItemCents);
-    for (const [index, amountCents] of seed.fixedCostItemCents.entries()) {
-      await tx.insert(fixedCostItems).values({
-        id: crypto.randomUUID(),
-        householdId,
-        label: labels[index]!,
-        amountCents,
-        activeFrom: seed.validSincePeriod,
-        activeTo: null,
-        position: index,
-        createdAt: now,
-        updatedAt: now,
-      });
-    }
+      const now = yield* Clock.currentTimeMillis;
+      const labels = fixedCostItemLabels(seed.fixedCostItemCents);
+      for (const [index, amountCents] of seed.fixedCostItemCents.entries()) {
+        yield* database.use((tx) =>
+          tx.insert(fixedCostItems).values({
+            id: crypto.randomUUID(),
+            householdId,
+            label: labels[index]!,
+            amountCents,
+            activeFrom: seed.validSincePeriod,
+            activeTo: null,
+            position: index,
+            createdAt: now,
+            updatedAt: now,
+          }),
+        );
+      }
 
-    await tx.insert(incomes).values([
-      {
-        id: crypto.randomUUID(),
-        householdId,
-        personId: p1Id,
-        amountCents: seed.ownerSalaryCents,
-        validFrom: seed.validSincePeriod,
-        validTo: null,
-        createdAt: now,
-        updatedAt: now,
-      },
-      {
-        id: crypto.randomUUID(),
-        householdId,
-        personId: p2Id,
-        amountCents: seed.partnerSalaryCents,
-        validFrom: seed.validSincePeriod,
-        validTo: null,
-        createdAt: now,
-        updatedAt: now,
-      },
-    ]);
+      yield* database.use((tx) =>
+        tx.insert(incomes).values([
+          {
+            id: crypto.randomUUID(),
+            householdId,
+            personId: p1Id,
+            amountCents: seed.ownerSalaryCents,
+            validFrom: seed.validSincePeriod,
+            validTo: null,
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: crypto.randomUUID(),
+            householdId,
+            personId: p2Id,
+            amountCents: seed.partnerSalaryCents,
+            validFrom: seed.validSincePeriod,
+            validTo: null,
+            createdAt: now,
+            updatedAt: now,
+          },
+        ]),
+      );
 
-    // startPeriod = the first period the import did NOT already book as rent
-    // (never seed.validSincePeriod itself — that is typically already
-    // covered by the imported rent series, and booking it again would be
-    // exactly the collision review findings #3/#4 fixed isPeriodBooked for).
-    await tx
-      .update(fixedCostPlans)
-      .set({ startPeriod: seed.planStartPeriod, enabled: true, updatedAt: now })
-      .where(eq(fixedCostPlans.householdId, householdId));
+      // startPeriod = the first period the import did NOT already book as rent
+      // (never seed.validSincePeriod itself — that is typically already
+      // covered by the imported rent series, and booking it again would be
+      // exactly the collision review findings #3/#4 fixed isPeriodBooked for).
+      yield* database.use((tx) =>
+        tx
+          .update(fixedCostPlans)
+          .set({ startPeriod: seed.planStartPeriod, enabled: true, updatedAt: now })
+          .where(eq(fixedCostPlans.householdId, householdId)),
+      );
 
-    return { seeded: true, itemCount: seed.fixedCostItemCents.length, incomeCount: 2 };
-  });
-}
+      const seeded: SeedPlanResult = { seeded: true, itemCount: seed.fixedCostItemCents.length, incomeCount: 2 };
+      return seeded;
+    }),
+  );
+});
 
 /* -------------------------------------------------------------------------- */
 /* main                                                                       */
 /* -------------------------------------------------------------------------- */
 
-async function main(): Promise<void> {
-  const args = parseArgs(process.argv.slice(2));
+/** `readWorkbook` is a synchronous read-and-parse (plan e5 P7): a failure keeps the raw error, as the uncaught throw did. */
+const readWorkbookEffect = (filePath: string) =>
+  Effect.try({ try: () => readWorkbook(filePath), catch: (cause): unknown => cause });
+
+/** The whole script as one program; the write branch provides the `AppLayer` itself (plan e5 P1, P2). */
+const program = Effect.gen(function* () {
+  const parsed = parseArgs(process.argv.slice(2));
+  if (!parsed.ok) {
+    yield* parsed.stream === "log" ? Console.log(parsed.line) : Console.error(parsed.line);
+    return yield* new ScriptExit({ code: parsed.code });
+  }
+  const args = parsed.args;
 
   if (!existsSync(args.filePath)) {
-    console.error(`[import-xlsx] file not found: ${args.filePath}`);
-    process.exit(1);
+    yield* Console.error(`[import-xlsx] file not found: ${args.filePath}`);
+    return yield* new ScriptExit({ code: 1 });
   }
 
-  console.log(`[import-xlsx] reading ${args.filePath}`);
-  const workbook = readWorkbook(args.filePath);
-  console.log("[import-xlsx] sheets skipped (dead, not imported): Urlaub, Nahrung, Grundriss");
+  yield* Console.log(`[import-xlsx] reading ${args.filePath}`);
+  const workbook = yield* readWorkbookEffect(args.filePath);
+  yield* Console.log("[import-xlsx] sheets skipped (dead, not imported): Urlaub, Nahrung, Grundriss");
 
-  const importDate = todayBerlin();
+  const importDate = todayBerlin(yield* Clock.currentTimeMillis);
   const defaultResult = buildImport(workbook, false, importDate);
   const quirkResult = buildImport(workbook, true, importDate);
 
   const { ok } = printReport(workbook, defaultResult, quirkResult);
 
   if (args.dryRun) {
-    console.log("");
-    console.log(
+    yield* Console.log("");
+    yield* Console.log(
       args.householdId
         ? "[import-xlsx] --dry-run: no database write performed."
         : "[import-xlsx] no --household given: no database write performed.",
     );
   } else if (ok) {
-    // Opened here, not inside `writeImportRecords` — that function also runs
-    // against the shared test connection, which must outlive this call.
-    const { db, client } = await import("../src/db/client.ts");
-    const { inserted, alreadyPresent } = await writeImportRecords(db, args.householdId!, defaultResult.records);
-    console.log("");
-    console.log(`[import-xlsx] wrote ${inserted} new transaction(s), ${alreadyPresent} already present (idempotent re-run).`);
+    // Loaded here, in the write branch only: the runtime opens the database. The layer is provided INSIDE the program,
+    // so its scope (the client's close) has ended before the teardown runs.
+    const { AppLayer } = yield* Effect.promise(() => import("../src/runtime.ts"));
+    const householdId = args.householdId!;
+    yield* Effect.gen(function* () {
+      const { inserted, alreadyPresent } = yield* writeImportRecords(householdId, defaultResult.records);
+      yield* Console.log("");
+      yield* Console.log(`[import-xlsx] wrote ${inserted} new transaction(s), ${alreadyPresent} already present (idempotent re-run).`);
 
-    const planSeedResult = await seedFixedCostPlan(db, args.householdId!, defaultResult.planSeed);
-    console.log(
-      planSeedResult.seeded
-        ? `[import-xlsx] seeded the fixed-cost plan: ${planSeedResult.itemCount} item(s), ${planSeedResult.incomeCount} income(s), enabled, startPeriod=${defaultResult.planSeed.planStartPeriod}.`
-        : "[import-xlsx] fixed-cost plan already has items/incomes — left untouched (idempotent re-run).",
-    );
-
-    await client.close();
+      const planSeedResult = yield* seedFixedCostPlan(householdId, defaultResult.planSeed);
+      yield* Console.log(
+        planSeedResult.seeded
+          ? `[import-xlsx] seeded the fixed-cost plan: ${planSeedResult.itemCount} item(s), ${planSeedResult.incomeCount} income(s), enabled, startPeriod=${defaultResult.planSeed.planStartPeriod}.`
+          : "[import-xlsx] fixed-cost plan already has items/incomes — left untouched (idempotent re-run).",
+      );
+    }).pipe(Effect.provide(AppLayer));
   } else {
-    console.error("[import-xlsx] reconciliation failed — skipping database write. See FAIL line above.");
+    yield* Console.error("[import-xlsx] reconciliation failed — skipping database write. See FAIL line above.");
   }
 
   if (!ok) {
-    console.error("[import-xlsx] reconciliation failed — see FAIL line above.");
-    process.exit(1);
+    yield* Console.error("[import-xlsx] reconciliation failed — see FAIL line above.");
+    return yield* new ScriptExit({ code: 1 });
   }
-  process.exit(0);
-}
+});
 
-// Guarded so `apps/api/test/import-haushalt.test.ts` can `import { buildImport,
+// Guarded so `apps/api/test/finance-import-xlsx.test.ts` can `import { buildImport,
 // writeImportRecords } from "../scripts/finance-import-xlsx.ts"` for a real DB-write
-// integration test without ALSO running the CLI's argv parsing / process.exit
+// integration test without ALSO running the CLI's argv parsing / process exit
 // (Bun sets `import.meta.main` only for the entry module actually executed).
 if (import.meta.main) {
-  await main();
+  runScript(program);
 }

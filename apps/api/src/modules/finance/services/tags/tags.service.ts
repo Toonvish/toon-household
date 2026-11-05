@@ -9,9 +9,8 @@
  *
  * AS A SERVICE (docs/EFFECT.md E5, E6, E7, E12; plan `docs/plans/e4-finance-services.md` P2, P6, P7, P10). `FinanceTags` runs on
  * the CURRENT executor of `Database` (inside a transaction a caller opened, every write here is part of it) and stamps new
- * tags with the module clock `financeTimeMillis`. The one legacy bridge at the end keeps the Promise function the xlsx
- * script still calls; the xlsx script calls `syncTransactionTags` INSIDE its own
- * transaction, which the bridge honours (it runs on the executor it is handed).
+ * tags with the module clock `financeTimeMillis`. The xlsx script (E5) calls `syncTransactionTags` as a method of the
+ * yielded service INSIDE `Database.transaction`, so it runs on the open transaction.
  */
 import type { FinanceTagResponse as TagResponse } from "@toon/shared";
 import { normalizeTagName } from "@toon/shared";
@@ -20,10 +19,9 @@ import { Context, Effect, Layer } from "effect";
 import { Database } from "../../../../db/database.ts";
 import { Conflict, NotFound } from "../../../../lib/errors.ts";
 import type { DatabaseError } from "../../../../lib/errors.ts";
-import { runFinanceBridge } from "../../bridge.ts";
 import { financeTimeMillis } from "../../lib/clock.ts";
 import { type FinanceTagRow as TagRow, financeTags as tags, financeTransactionTags as transactionTags } from "../../schema.ts";
-import { type DbLike, escapeLikePattern } from "../support.ts";
+import { escapeLikePattern } from "../support.ts";
 
 export function toTagResponse(row: TagRow): TagResponse {
   return { id: row.id, name: row.name, usageCount: row.usageCount };
@@ -283,18 +281,4 @@ export class FinanceTags extends Context.Service<
       });
     }),
   );
-}
-
-/* legacy bridges: only the survivors of plan e4 P1 (callers listed; E5 scripts and E8 pinned tests remove them) */
-
-/**
- * Callers: `apps/api/scripts/finance-import-xlsx.ts` (E5; it calls this INSIDE its own `withTransaction`, so the handed executor is the open transaction).
- */
-export function syncTransactionTags(
-  db: DbLike,
-  householdId: string,
-  transactionId: string,
-  tagNames: readonly string[],
-): Promise<void> {
-  return runFinanceBridge(FinanceTags.use((service) => service.syncTransactionTags(householdId, transactionId, tagNames)), db);
 }
