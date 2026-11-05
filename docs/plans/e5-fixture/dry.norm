@@ -1,0 +1,173 @@
+[migrate:legacy] mode: dry-run (nothing is written to <D>/target.db)
+[migrate:legacy] uploads: <D>/uploads
+== Inputs ==
+Mode: dry-run
+Target: file:<D>/target.db
+recipe: <ROOT>/apps/api/test/fixtures/legacy/recipe.db (schema 0008_shopping_bought (9 migrations))
+  Table                      Rows
+  -------------------------  ----
+  cards                      2
+  collection_recipes         2
+  collections                1
+  email_verification_tokens  1
+  group_invites              1
+  group_members              8
+  groups                     3
+  import_drafts              1
+  meal_plan_entries          2
+  oauth_accounts             1
+  password_reset_tokens      1
+  recipe_cook_log            1
+  recipe_ingredients         10
+  recipe_steps               12
+  recipe_tags                7
+  recipes                    6
+  sessions                   1
+  shopping_bought_items      2
+  shopping_list_catalog      2
+  shopping_list_items        2
+  shopping_list_recipes      1
+  shopping_lists             1
+  shopping_mutations         1
+  tags                       5
+  users                      4
+finance: <ROOT>/apps/api/test/fixtures/legacy/finance.db (schema 0002_placeholder_members (3 migrations))
+  Table                  Rows
+  ---------------------  ----
+  accrual_runs           1
+  categories             106
+  fixed_cost_items       2
+  fixed_cost_plans       6
+  household_members      9
+  households             6
+  incomes                4
+  invites                2
+  mutation_claims        2
+  password_reset_tokens  1
+  sessions               1
+  tags                   2
+  transaction_tags       3
+  transactions           28
+  users                  8
+
+== Household mapping proposal ==
+Finance household                                         Members                                                              Decision  Target household                                         Reason
+--------------------------------------------------------  -------------------------------------------------------------------  --------  -------------------------------------------------------  ------------------------------------------------------------------
+Kasse Anna & Ben (<uuid>)   anna@example.test, ben@example.test                                  merge     Familie Beispiel (<uuid>)  most-recipes
+Kasse Cleo & Dana (<uuid>)  cleo@example.test, dana@example.test                                 merge     WG Gartenstraße (<uuid>)   only-group
+Emil & Fritz (<uuid>)       emil@example.test, fritz@example.test                                new       Emil & Fritz (<uuid>)      no-group
+Gina allein (<uuid>)        gina@example.test                                                    new       Gina allein (<uuid>)       no-group
+Leer (<uuid>)               -                                                                    skip      -                                                        no-members
+Kasse Anna & Pia (<uuid>)   anna@example.test, placeholder <uuid>  merge     Freundeskreis (<uuid>)     only-group (adds placeholder <uuid>)
+
+== Users ==
+Recipe users: 4
+Finance users: 8
+Finance placeholders (no account): 1
+Target users: 8
+Collisions (same e-mail in both apps):
+E-mail             Recipe id                             Finance id                            Target id                             Password  Note
+-----------------  ------------------------------------  ------------------------------------  ------------------------------------  --------  -------------------------------------------------------------------------------
+anna@example.test  <uuid>  <uuid>  <uuid>  recipe
+ben@example.test   <uuid>  <uuid>  <uuid>  none      finance password not carried (recipe account is OAuth-only; use password reset)
+cleo@example.test  <uuid>  <uuid>  <uuid>  recipe
+dana@example.test  <uuid>  <uuid>  <uuid>  recipe
+
+== Rows per table ==
+Table                         Source   Read  Written  Already migrated  Skipped
+----------------------------  -------  ----  -------  ----------------  -------
+users                         recipe   4     4        0                 0
+users                         finance  8     8        0                 0
+oauth_accounts                recipe   1     1        0                 0
+password_reset_tokens         recipe   1     1        0                 0
+email_verification_tokens     recipe   1     1        0                 0
+households                    recipe   3     3        0                 0
+household_members             recipe   8     8        0                 0
+household_invites             recipe   1     1        0                 0
+household_modules             recipe   3     3        0                 0
+households                    finance  6     5        0                 1
+household_members             finance  4     4        0                 0
+finance_participants          finance  9     9        0                 0
+finance_settings              finance  5     5        0                 0
+household_modules             finance  5     5        0                 0
+users (active_household_id)   finance  4     4        0                 0
+recipe_tags                   recipe   5     5        0                 0
+recipe_recipes                recipe   6     6        0                 0
+recipe_recipe_ingredients     recipe   10    10       0                 0
+recipe_recipe_steps           recipe   12    12       0                 0
+recipe_recipe_tags            recipe   7     7        0                 0
+recipe_collections            recipe   1     1        0                 0
+recipe_collection_recipes     recipe   2     2        0                 0
+recipe_meal_plan_entries      recipe   2     2        0                 0
+recipe_recipe_cook_log        recipe   1     1        0                 0
+recipe_import_drafts          recipe   1     1        0                 0
+recipe_shopping_lists         recipe   1     1        0                 0
+recipe_shopping_list_items    recipe   2     2        0                 0
+recipe_shopping_list_catalog  recipe   2     2        0                 0
+recipe_shopping_bought_items  recipe   2     2        0                 0
+recipe_shopping_list_recipes  recipe   1     1        0                 0
+recipe_shopping_mutations     recipe   1     1        0                 0
+recipe_cards                  recipe   2     2        0                 0
+finance_categories            finance  106   106      0                 0
+finance_tags                  finance  2     2        0                 0
+finance_transactions          finance  28    28       0                 0
+finance_transaction_tags      finance  3     3        0                 0
+finance_mutation_claims       finance  2     2        0                 0
+finance_fixed_cost_items      finance  2     2        0                 0
+finance_incomes               finance  4     4        0                 0
+finance_fixed_cost_plans      finance  6     5        0                 1
+finance_accrual_runs          finance  1     1        0                 0
+household_invites             finance  1     1        0                 0
+Total                                  276   274      0                 2
+
+== Skipped rows ==
+Table                     Source   Legacy id                             Error  Reason
+------------------------  -------  ------------------------------------  -----  --------------------------------------------------------------------------
+households                finance  <uuid>  no     finance household <uuid> skipped: no members
+finance_fixed_cost_plans  finance  <uuid>  no     finance household <uuid> skipped: no members
+
+== Not migrated by design ==
+Table                  Source   Rows  Reason
+---------------------  -------  ----  -------------------------------------------------------------
+sessions               recipe   1     everyone logs in again
+sessions               finance  1     everyone logs in again
+password_reset_tokens  finance  1     short-lived tokens; request a new reset link
+invites                finance  1     pending finance invites expire; invite again from the new app
+
+== Uploads ==
+Source files: 7
+Would copy: 7
+Already present: 0
+Bytes copied: 0
+Conflicts: (none)
+Referenced but missing:
+  <uuid>.jpg
+Ignored entries: (none)
+
+== Finance balance per household ==
+Finance household                                         Target household                      Slot 1             Legacy balance  Migrated balance  Legacy tx  Migrated tx  Legacy sum  Migrated sum  Result
+--------------------------------------------------------  ------------------------------------  -----------------  --------------  ----------------  ---------  -----------  ----------  ------------  ------
+Kasse Anna & Ben (<uuid>)   <uuid>  anna@example.test  119486 ct       119486 ct         13         13           166995 ct   166995 ct     OK
+Kasse Cleo & Dana (<uuid>)  <uuid>  cleo@example.test  1675 ct         1675 ct           6          6            14651 ct    14651 ct      OK
+Emil & Fritz (<uuid>)       <uuid>  emil@example.test  1900 ct         1900 ct           4          4            9998 ct     9998 ct       OK
+Gina allein (<uuid>)        <uuid>  gina@example.test  2500 ct         2500 ct           2          2            3500 ct     3500 ct       OK
+Kasse Anna & Pia (<uuid>)   <uuid>  anna@example.test  2100 ct         2100 ct           3          3            6900 ct     6900 ct       OK
+
+== Placeholders and claim invites ==
+Finance user                          Target user                           Finance household                     Target household                      Slot  Claim invite
+------------------------------------  ------------------------------------  ------------------------------------  ------------------------------------  ----  ------------
+<uuid>  <uuid>  <uuid>  <uuid>  2     would-reuse
+
+== Warnings ==
+- user gina@example.test (finance id <uuid>): the id is already taken in the target, new id <uuid>
+- finance household <uuid> (Emil & Fritz): the id <uuid> is already taken in the target, new id <uuid>
+- finance household <uuid> (Gina allein): one participant; seat the second with PUT …/finance/participants (gina@example.test is the only participant)
+- finance household <uuid> (Gina allein): the only participant gina@example.test sat in slot 2 and is re-seated in slot 1 (ADR 0005)
+- uploads: <uuid>.jpg is referenced by a legacy row but missing in <ROOT>/apps/api/test/fixtures/legacy/uploads
+- income <uuid> of finance household <uuid> names fritz@example.test, who is not a participant; the plan stays incomplete until an admin deletes or replaces it
+- finance household <uuid>: plan payer fritz@example.test is not a participant; payer set to gina@example.test
+
+== Errors ==
+(none)
+
+[migrate:legacy] dry run complete: 274 rows would be written, 7 files would be copied. Nothing was written.
