@@ -1,11 +1,18 @@
 /**
  * API client for the import endpoints.
  *
- * This module is deliberately self-contained (no dependency on the shell's
- * generic `src/lib/api.ts`) because the upload calls need XHR to report real
- * progress and a long timeout for server-side OCR — neither of which a generic
- * JSON fetch helper provides. Cookies are always sent (`credentials: include` /
- * `xhr.withCredentials`), exactly like the rest of the app.
+ * This module is deliberately self-contained (it does not use the shell's generic JSON client in
+ * `src/lib/api.ts`): it keeps its own request headers (`Accept`, and `Content-Type` for a body; NO
+ * `Accept-Language` on the JSON calls), no 401 redirect hook and its own failure mapping to
+ * `ImportApiError`. It no longer calls `fetch`: the three JSON calls go through the runtime's
+ * `HttpClient` (`@/lib/runtime`, which sends the cookies: `credentials: "include"`), and the upload
+ * calls need XHR to report real progress and a long timeout for server-side OCR (neither of which a
+ * fetch-based client provides), so the XHR is wrapped in `Effect.callback` (the one
+ * `new XMLHttpRequest` of the web app). The cookies go with it too (`xhr.withCredentials`), exactly
+ * like the rest of the app.
+ *
+ * The endpoints are Effects on the `ImportApi` namespace; the exported functions with the old names
+ * and signatures (a positional `signal`, the `UploadHandle`) run them through `runPromise`.
  *
  * Every failure is mapped to an ImportApiError carrying a specific title and
  * hint, so no screen ever has to render a bare "Error".
@@ -17,6 +24,10 @@
  * would leave a stale sentence on screen. Resolution therefore belongs to the
  * renderer — `useImportError()` / `resolveImportErrorText()` in
  * `./importErrorText.ts` — which is also what docs/i18n.md §10 rule 6 requires.
+ *
+ * `statusText`: the runtime's `HttpClientResponse` has none, so the three JSON paths map a failure with
+ * `toImportApiError(status, payload, undefined)`: an unmapped status without an envelope `message` shows the
+ * catalog headline `recipe.import.error.unknown.title` (plan e6 D4). The XHR path keeps `xhr.statusText`.
  */
 import {
   ImportDraftListResponseSchema,
@@ -33,11 +44,13 @@ import {
   type MessageValues,
   type UpdateImportDraftRequest,
 } from "@toon/shared";
-import { Result, Schema } from "effect";
+import { Effect, Predicate, Result, Schema } from "effect";
+import { HttpBody, HttpClient, HttpClientRequest, type HttpClientResponse } from "effect/http";
 import type { Decodable, Decoded } from "@/lib/validation";
 import { API_BASE_URL } from "@/modules/recipe/lib/api";
 import type { MessageKey } from "@/lib/i18n/catalogs/index.ts";
 import { getLocale } from "@/lib/i18n/store.ts";
+import { runPromise } from "@/lib/runtime";
 
 /** Base URL of the API without trailing slash (single source of truth: @/lib/api). */
 export function apiBaseUrl(): string {
@@ -48,23 +61,27 @@ export function apiBaseUrl(): string {
 /* errors                                                                      */
 /* -------------------------------------------------------------------------- */
 
-export type ImportErrorKind =
-  | "network"
-  | "unauthorized"
-  | "forbidden"
-  | "not_found"
-  | "too_large"
-  | "unsupported_media_type"
-  | "no_recipe_data"
-  | "fetch_failed"
-  | "ocr_failed"
-  | "ocr_timeout"
-  | "pdf_no_text_layer"
-  | "validation"
-  | "rate_limited"
-  | "server"
-  | "aborted"
-  | "unknown";
+/** The 16 kinds, in one place: the type below and the `kind` field of `ImportApiError` derive from it. */
+const ImportErrorKindSchema = Schema.Literals([
+  "network",
+  "unauthorized",
+  "forbidden",
+  "not_found",
+  "too_large",
+  "unsupported_media_type",
+  "no_recipe_data",
+  "fetch_failed",
+  "ocr_failed",
+  "ocr_timeout",
+  "pdf_no_text_layer",
+  "validation",
+  "rate_limited",
+  "server",
+  "aborted",
+  "unknown",
+] as const);
+
+export type ImportErrorKind = typeof ImportErrorKindSchema.Type;
 
 /**
  * Copy that has not been rendered yet: either one of OUR catalog keys, or a
@@ -87,39 +104,31 @@ function errorTextForLog(text: ImportErrorText): string {
   return "text" in text ? text.text : text.key;
 }
 
-export class ImportApiError extends Error {
-  readonly kind: ImportErrorKind;
-  readonly code: string;
-  readonly status: number;
-  readonly details: unknown;
-  /** Short headline for the UI, unrendered — see `ImportErrorText`. */
-  readonly title: ImportErrorText;
-  /** Long, actionable explanation for the UI, unrendered. */
-  readonly hint: ImportErrorText;
-  /** True when simply pressing the button again can help. */
-  readonly retryable: boolean;
+/**
+ * The `title` / `hint` fields: typed as `ImportErrorText`, accepting any object at runtime (no check on the key or
+ * the values), so a constructor never throws inside an error path (the `Text` pattern of apps/api/src/lib/errors.ts).
+ */
+const ImportErrorTextSchema = Schema.declare<ImportErrorText>((u): u is ImportErrorText => Predicate.isObject(u));
 
-  constructor(init: {
-    kind: ImportErrorKind;
-    code: string;
-    status: number;
-    title: ImportErrorText;
-    hint: ImportErrorText;
-    retryable: boolean;
-    details?: unknown;
-  }) {
-    // `Error.message` is for the console and for a crash report, so it holds the
-    // KEY: a translated message in a log is unsearchable and depends on whoever
-    // happened to be looking at the screen.
-    super(errorTextForLog(init.title));
-    this.name = "ImportApiError";
-    this.kind = init.kind;
-    this.code = init.code;
-    this.status = init.status;
-    this.title = init.title;
-    this.hint = init.hint;
-    this.retryable = init.retryable;
-    this.details = init.details;
+/**
+ * Every import failure. A `Schema.TaggedError` (`_tag` and `name` are `"ImportApiError"`) with permissive field
+ * schemas, and `message` is the KEY of the title: `Error.message` is for the console and for a crash report, so a
+ * translated message in a log would be unsearchable and depend on whoever happened to be looking at the screen.
+ */
+export class ImportApiError extends Schema.TaggedError<ImportApiError>()("ImportApiError", {
+  kind: ImportErrorKindSchema,
+  code: Schema.String,
+  status: Schema.Number,
+  /** Short headline for the UI, unrendered — see `ImportErrorText`. */
+  title: ImportErrorTextSchema,
+  /** Long, actionable explanation for the UI, unrendered. */
+  hint: ImportErrorTextSchema,
+  /** True when simply pressing the button again can help. */
+  retryable: Schema.Boolean,
+  details: Schema.optional(Schema.Unknown),
+}) {
+  override get message(): string {
+    return errorTextForLog(this.title);
   }
 }
 
@@ -241,7 +250,7 @@ function passThroughOr(serverMessage: string | undefined, fallbackKey: MessageKe
 }
 
 export function isImportApiError(error: unknown): error is ImportApiError {
-  return error instanceof ImportApiError;
+  return Predicate.isTagged(error, "ImportApiError");
 }
 
 /** A described error: never a bare "Error", always a title + explanation. */
@@ -312,55 +321,62 @@ function parseOrPassThrough<S extends Decodable>(schema: S, payload: unknown, la
   return payload as Decoded<S>;
 }
 
-async function readJson(response: Response): Promise<unknown> {
-  const text = await response.text();
-  if (text.length === 0) return undefined;
-  try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    return { error: { code: "internal_error", message: text.slice(0, 300) } };
-  }
+/** Any transport failure (the request never completed, or the body could not be read) is the `network` kind. */
+const networkFailure = () => Effect.fail(toImportApiError(0, undefined));
+
+const readJson = Effect.fnUntraced(
+  function* (response: HttpClientResponse.HttpClientResponse) {
+    const text = yield* response.text;
+    if (text.length === 0) return undefined;
+    try {
+      return JSON.parse(text) as unknown;
+    } catch {
+      return { error: { code: "internal_error", message: text.slice(0, 300) } } as unknown;
+    }
+  },
+);
+
+interface JsonRequest {
+  readonly method?: "POST" | "PATCH" | "DELETE";
+  readonly body?: unknown;
 }
 
-async function requestJson<S extends Decodable>(
-  path: string,
-  schema: S,
-  init: RequestInit = {},
-): Promise<Decoded<S>> {
-  let response: Response;
-  try {
-    response = await fetch(`${apiBaseUrl()}${path}`, {
-      credentials: "include",
-      ...init,
-      headers: {
-        Accept: "application/json",
-        ...(init.body === undefined ? {} : { "Content-Type": "application/json" }),
-        ...(init.headers ?? {}),
-      },
-    });
-  } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") throw error;
-    throw toImportApiError(0, undefined);
-  }
-  const payload = await readJson(response);
-  if (!response.ok) throw toImportApiError(response.status, payload, response.statusText);
-  return parseOrPassThrough(schema, payload, path);
-}
+const requestJson = Effect.fnUntraced(
+  function* <S extends Decodable>(path: string, schema: S, init: JsonRequest = {}) {
+    const client = yield* HttpClient.HttpClient;
+    // Own headers: `Accept` and, for a body, `Content-Type`. NO `Accept-Language`, no 401 hook.
+    let request = HttpClientRequest.make(init.method ?? "GET")(`${apiBaseUrl()}${path}`).pipe(
+      HttpClientRequest.setHeader("accept", "application/json"),
+    );
+    if (init.body !== undefined) {
+      request = HttpClientRequest.setBody(
+        request,
+        HttpBody.raw(JSON.stringify(init.body), { contentType: "application/json" }),
+      );
+    }
+    const response = yield* client.execute(request);
+    const payload = yield* readJson(response);
+    if (response.status < 200 || response.status > 299) {
+      return yield* toImportApiError(response.status, payload, undefined);
+    }
+    return parseOrPassThrough(schema, payload, path);
+  },
+  Effect.catchTag("HttpClientError", networkFailure),
+);
 
-async function requestNoContent(path: string, init: RequestInit = {}): Promise<void> {
-  let response: Response;
-  try {
-    response = await fetch(`${apiBaseUrl()}${path}`, {
-      credentials: "include",
-      ...init,
-      headers: { Accept: "application/json", ...(init.headers ?? {}) },
-    });
-  } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") throw error;
-    throw toImportApiError(0, undefined);
-  }
-  if (!response.ok) throw toImportApiError(response.status, await readJson(response), response.statusText);
-}
+const requestNoContent = Effect.fnUntraced(
+  function* (path: string, method: "DELETE") {
+    const client = yield* HttpClient.HttpClient;
+    const request = HttpClientRequest.make(method)(`${apiBaseUrl()}${path}`).pipe(
+      HttpClientRequest.setHeader("accept", "application/json"),
+    );
+    const response = yield* client.execute(request);
+    if (response.status < 200 || response.status > 299) {
+      return yield* toImportApiError(response.status, yield* readJson(response), undefined);
+    }
+  },
+  Effect.catchTag("HttpClientError", networkFailure),
+);
 
 export interface UploadHandle {
   /** 0..1 while bytes are on the wire; 1 means "server is working". */
@@ -377,15 +393,17 @@ const DEFAULT_UPLOAD_TIMEOUT_MS = 240_000;
 
 /**
  * multipart upload with real progress via XHR (fetch cannot report request
- * progress in any shipping browser).
+ * progress in any shipping browser), wrapped in `Effect.callback`: it resumes once, from `onload`, `onerror`,
+ * `ontimeout` or `onabort`, and interrupting the effect aborts the request. The caller's `handle.signal` aborts the
+ * XHR itself (the facades pass no signal to `runPromise`: the XHR owns its abort).
  */
 function uploadFile<S extends Decodable>(
   path: string,
   file: File,
   schema: S,
   handle: UploadHandle = {},
-): Promise<Decoded<S>> {
-  return new Promise<Decoded<S>>((resolve, reject) => {
+): Effect.Effect<Decoded<S>, ImportApiError | DOMException> {
+  return Effect.callback<Decoded<S>, ImportApiError | DOMException>((resume) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${apiBaseUrl()}${path}`, true);
     xhr.withCredentials = true;
@@ -410,29 +428,31 @@ function uploadFile<S extends Decodable>(
     };
     xhr.onerror = () => {
       cleanup();
-      reject(toImportApiError(0, undefined));
+      resume(Effect.fail(toImportApiError(0, undefined)));
     };
     xhr.ontimeout = () => {
       cleanup();
-      reject(
-        new ImportApiError({
-          kind: "ocr_timeout",
-          code: "timeout",
-          status: 504,
-          title: { key: "recipe.import.error.ocrTimeout.title" },
-          // A CLIENT-side timeout: the server never answered at all, which is a
-          // different situation from the 504 above (where it gave up itself),
-          // hence its own hint.
-          hint: { key: "recipe.import.error.ocrTimeoutClient.hint" },
-          retryable: true,
-        }),
+      resume(
+        Effect.fail(
+          new ImportApiError({
+            kind: "ocr_timeout",
+            code: "timeout",
+            status: 504,
+            title: { key: "recipe.import.error.ocrTimeout.title" },
+            // A CLIENT-side timeout: the server never answered at all, which is a
+            // different situation from the 504 above (where it gave up itself),
+            // hence its own hint.
+            hint: { key: "recipe.import.error.ocrTimeoutClient.hint" },
+            retryable: true,
+          }),
+        ),
       );
     };
     xhr.onabort = () => {
       cleanup();
       // English literal, not a key: `describeError()` matches on `name`, so this
       // string only ever reaches a console or a stack trace.
-      reject(new DOMException("Upload aborted", "AbortError"));
+      resume(Effect.fail(new DOMException("Upload aborted", "AbortError")));
     };
     xhr.onload = () => {
       cleanup();
@@ -443,15 +463,21 @@ function uploadFile<S extends Decodable>(
         payload = { error: { code: "internal_error", message: xhr.responseText.slice(0, 300) } };
       }
       if (xhr.status < 200 || xhr.status >= 300) {
-        reject(toImportApiError(xhr.status, payload, xhr.statusText));
+        resume(Effect.fail(toImportApiError(xhr.status, payload, xhr.statusText)));
         return;
       }
-      resolve(parseOrPassThrough(schema, payload, path));
+      resume(Effect.succeed(parseOrPassThrough(schema, payload, path)));
     };
 
     const form = new FormData();
     form.append("file", file, file.name);
     xhr.send(form);
+
+    // Interrupted before the XHR finished: stop the request.
+    return Effect.sync(() => {
+      cleanup();
+      xhr.abort();
+    });
   });
 }
 
@@ -461,96 +487,152 @@ function uploadFile<S extends Decodable>(
 
 const householdBase = (householdId: string) => `/api/households/${encodeURIComponent(householdId)}/recipe`;
 
-export async function importFromUrl(householdId: string, url: string, signal?: AbortSignal): Promise<ImportDraft> {
-  const response = await requestJson(`${householdBase(householdId)}/imports/url`, ImportDraftResponseSchema, {
-    method: "POST",
-    body: JSON.stringify({ url }),
-    signal,
-  });
-  return response.draft;
+/**
+ * Fetches the SOURCE SCAN of a draft (the uploaded photo or PDF) as an object URL.
+ * See the facade `fetchDraftSource` below for why this goes through the membership-checked endpoint.
+ */
+const draftSource = Effect.fnUntraced(
+  function* (householdId: string, draftId: string) {
+    const client = yield* HttpClient.HttpClient;
+    // No `Accept` header here: the source is a photo or a PDF, as before.
+    const request = HttpClientRequest.get(
+      `${apiBaseUrl()}${householdBase(householdId)}/imports/${encodeURIComponent(draftId)}/source`,
+    );
+    const response = yield* client.execute(request);
+    if (response.status < 200 || response.status > 299) {
+      return yield* toImportApiError(response.status, yield* readJson(response), undefined);
+    }
+    const buffer = yield* response.arrayBuffer;
+    // `new Blob` lower-cases the type, as `Response.blob()` did.
+    const blob = new Blob([buffer], { type: response.headers["content-type"] ?? "" });
+    return { objectUrl: URL.createObjectURL(blob), mimeType: blob.type };
+  },
+  Effect.catchTag("HttpClientError", networkFailure),
+);
+
+/** The endpoints as Effects; the functions below keep today's names and signatures and run them. */
+export const ImportApi = {
+  importFromUrl: (householdId: string, url: string) =>
+    requestJson(`${householdBase(householdId)}/imports/url`, ImportDraftResponseSchema, {
+      method: "POST",
+      body: { url },
+    }).pipe(Effect.map((response): ImportDraft => response.draft)),
+
+  importFromText: (householdId: string, rawText: string, title?: string) =>
+    requestJson(`${householdBase(householdId)}/imports/text`, ImportDraftResponseSchema, {
+      method: "POST",
+      body: title === undefined || title.length === 0 ? { rawText } : { rawText, title },
+    }).pipe(Effect.map((response): ImportDraft => response.draft)),
+
+  importImage: (householdId: string, file: File, handle?: UploadHandle) =>
+    uploadFile(`${householdBase(householdId)}/imports/image`, file, ImportDraftResponseSchema, handle).pipe(
+      Effect.map((response): ImportDraft => response.draft),
+    ),
+
+  importPdf: (householdId: string, file: File, handle?: UploadHandle) =>
+    uploadFile(`${householdBase(householdId)}/imports/pdf`, file, ImportDraftResponseSchema, handle).pipe(
+      Effect.map((response): ImportDraft => response.draft),
+    ),
+
+  listDrafts: (householdId: string, query: Partial<ImportDraftListQuery> = {}) => {
+    const search = new URLSearchParams();
+    if (query.status !== undefined) search.set("status", query.status);
+    if (query.limit !== undefined) search.set("limit", String(query.limit));
+    if (query.offset !== undefined) search.set("offset", String(query.offset));
+    const queryString = search.toString();
+    const suffix = queryString.length > 0 ? `?${queryString}` : "";
+    return requestJson(`${householdBase(householdId)}/imports${suffix}`, ImportDraftListResponseSchema);
+  },
+
+  getDraft: (householdId: string, draftId: string) =>
+    requestJson(`${householdBase(householdId)}/imports/${encodeURIComponent(draftId)}`, ImportDraftResponseSchema).pipe(
+      Effect.map((response): ImportDraft => response.draft),
+    ),
+
+  patchDraft: (householdId: string, draftId: string, body: UpdateImportDraftRequest) =>
+    requestJson(`${householdBase(householdId)}/imports/${encodeURIComponent(draftId)}`, ImportDraftResponseSchema, {
+      method: "PATCH",
+      body,
+    }).pipe(Effect.map((response): ImportDraft => response.draft)),
+
+  commitDraft: (householdId: string, draftId: string, body: CommitImportDraftRequest) =>
+    requestJson(
+      `${householdBase(householdId)}/imports/${encodeURIComponent(draftId)}/commit`,
+      CommitImportDraftResponseSchema,
+      { method: "POST", body },
+    ),
+
+  deleteDraft: (householdId: string, draftId: string) =>
+    requestNoContent(`${householdBase(householdId)}/imports/${encodeURIComponent(draftId)}`, "DELETE"),
+
+  fetchDraftSource: draftSource,
+
+  /** Tag suggestions for the review screen's tag input. */
+  listHouseholdTags: (householdId: string) =>
+    requestJson(`${householdBase(householdId)}/tags`, TagListResponseSchema).pipe(
+      Effect.map((response): Tag[] => response.items),
+    ),
+};
+
+/* -------------------------------------------------------------------------- */
+/* facades: today's names and signatures                                       */
+/* -------------------------------------------------------------------------- */
+
+export function importFromUrl(householdId: string, url: string, signal?: AbortSignal): Promise<ImportDraft> {
+  return runPromise(ImportApi.importFromUrl(householdId, url), { signal });
 }
 
-export async function importFromText(
+export function importFromText(
   householdId: string,
   rawText: string,
   title?: string,
   signal?: AbortSignal,
 ): Promise<ImportDraft> {
-  const response = await requestJson(`${householdBase(householdId)}/imports/text`, ImportDraftResponseSchema, {
-    method: "POST",
-    body: JSON.stringify(title === undefined || title.length === 0 ? { rawText } : { rawText, title }),
-    signal,
-  });
-  return response.draft;
+  return runPromise(ImportApi.importFromText(householdId, rawText, title), { signal });
 }
 
-export async function importImage(householdId: string, file: File, handle?: UploadHandle): Promise<ImportDraft> {
-  const response = await uploadFile(
-    `${householdBase(householdId)}/imports/image`,
-    file,
-    ImportDraftResponseSchema,
-    handle,
-  );
-  return response.draft;
+/** The XHR owns its abort (`handle.signal`), so nothing is passed to `runPromise`. */
+export function importImage(householdId: string, file: File, handle?: UploadHandle): Promise<ImportDraft> {
+  return runPromise(ImportApi.importImage(householdId, file, handle));
 }
 
-export async function importPdf(householdId: string, file: File, handle?: UploadHandle): Promise<ImportDraft> {
-  const response = await uploadFile(`${householdBase(householdId)}/imports/pdf`, file, ImportDraftResponseSchema, handle);
-  return response.draft;
+/** The XHR owns its abort (`handle.signal`), so nothing is passed to `runPromise`. */
+export function importPdf(householdId: string, file: File, handle?: UploadHandle): Promise<ImportDraft> {
+  return runPromise(ImportApi.importPdf(householdId, file, handle));
 }
 
-export async function listDrafts(
+export function listDrafts(
   householdId: string,
   query: Partial<ImportDraftListQuery> = {},
   signal?: AbortSignal,
 ): Promise<ImportDraftListResponse> {
-  const search = new URLSearchParams();
-  if (query.status !== undefined) search.set("status", query.status);
-  if (query.limit !== undefined) search.set("limit", String(query.limit));
-  if (query.offset !== undefined) search.set("offset", String(query.offset));
-  const queryString = search.toString();
-  const suffix = queryString.length > 0 ? `?${queryString}` : "";
-  return requestJson(`${householdBase(householdId)}/imports${suffix}`, ImportDraftListResponseSchema, { signal });
+  return runPromise(ImportApi.listDrafts(householdId, query), { signal });
 }
 
-export async function getDraft(householdId: string, draftId: string, signal?: AbortSignal): Promise<ImportDraft> {
-  const response = await requestJson(
-    `${householdBase(householdId)}/imports/${encodeURIComponent(draftId)}`,
-    ImportDraftResponseSchema,
-    { signal },
-  );
-  return response.draft;
+export function getDraft(householdId: string, draftId: string, signal?: AbortSignal): Promise<ImportDraft> {
+  return runPromise(ImportApi.getDraft(householdId, draftId), { signal });
 }
 
-export async function patchDraft(
+export function patchDraft(
   householdId: string,
   draftId: string,
   body: UpdateImportDraftRequest,
   signal?: AbortSignal,
 ): Promise<ImportDraft> {
-  const response = await requestJson(
-    `${householdBase(householdId)}/imports/${encodeURIComponent(draftId)}`,
-    ImportDraftResponseSchema,
-    { method: "PATCH", body: JSON.stringify(body), signal },
-  );
-  return response.draft;
+  return runPromise(ImportApi.patchDraft(householdId, draftId, body), { signal });
 }
 
-export async function commitDraft(
+export function commitDraft(
   householdId: string,
   draftId: string,
   body: CommitImportDraftRequest,
   signal?: AbortSignal,
 ): Promise<CommitImportDraftResponse> {
-  return requestJson(
-    `${householdBase(householdId)}/imports/${encodeURIComponent(draftId)}/commit`,
-    CommitImportDraftResponseSchema,
-    { method: "POST", body: JSON.stringify(body), signal },
-  );
+  return runPromise(ImportApi.commitDraft(householdId, draftId, body), { signal });
 }
 
-export async function deleteDraft(householdId: string, draftId: string): Promise<void> {
-  await requestNoContent(`${householdBase(householdId)}/imports/${encodeURIComponent(draftId)}`, { method: "DELETE" });
+export function deleteDraft(householdId: string, draftId: string): Promise<void> {
+  return runPromise(ImportApi.deleteDraft(householdId, draftId));
 }
 
 /**
@@ -563,36 +645,21 @@ export async function deleteDraft(householdId: string, draftId: string): Promise
  * been removed from the household. The public route now also demands a signature, and
  * the API mints none for source scans, so this is the ONLY way to read one.
  *
- * A cross-origin `<img src>` cannot send the session cookie, hence fetch + blob.
+ * A cross-origin `<img src>` cannot send the session cookie, hence a request + blob.
  * THE CALLER MUST `URL.revokeObjectURL()` the result when it stops rendering it,
  * or the bytes stay alive for the lifetime of the document.
  */
-export async function fetchDraftSource(
+export function fetchDraftSource(
   householdId: string,
   draftId: string,
   signal?: AbortSignal,
 ): Promise<{ objectUrl: string; mimeType: string }> {
-  let response: Response;
-  try {
-    response = await fetch(
-      `${apiBaseUrl()}${householdBase(householdId)}/imports/${encodeURIComponent(draftId)}/source`,
-      { credentials: "include", ...(signal === undefined ? {} : { signal }) },
-    );
-  } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") throw error;
-    throw toImportApiError(0, undefined);
-  }
-  if (!response.ok) {
-    throw toImportApiError(response.status, await readJson(response), response.statusText);
-  }
-  const blob = await response.blob();
-  return { objectUrl: URL.createObjectURL(blob), mimeType: blob.type };
+  return runPromise(ImportApi.fetchDraftSource(householdId, draftId), { signal });
 }
 
 /** Tag suggestions for the review screen's tag input. */
-export async function listHouseholdTags(householdId: string, signal?: AbortSignal): Promise<Tag[]> {
-  const response = await requestJson(`${householdBase(householdId)}/tags`, TagListResponseSchema, { signal });
-  return response.items;
+export function listHouseholdTags(householdId: string, signal?: AbortSignal): Promise<Tag[]> {
+  return runPromise(ImportApi.listHouseholdTags(householdId), { signal });
 }
 
 export type { ImportDraftStatus };
