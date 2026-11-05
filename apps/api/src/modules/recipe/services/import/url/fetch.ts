@@ -410,7 +410,7 @@ export class ImportHttp extends Context.Service<
 }
 
 /* ------------------------------------------------------------------------------------------------------------------ *
- * legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them
+ * legacy bridge: the pinned-test entry point of this file after E3 (plan e3 P1); E8 removes it
  * ------------------------------------------------------------------------------------------------------------------ */
 
 /**

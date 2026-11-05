@@ -36,8 +36,7 @@
  * reads the two flags from `AppConfig` (captured when the layer is built) under the seams above,
  * which are read on every call, so a test still flips them between requests. `capabilityFlags` is
  * the service-free form `/api/health` uses (the manifest's `healthFeatures`). The sync reads
- * `isOcrImportEnabled()` / `isPdfImportEnabled()` stay plain functions over `env`; the three
- * `assert…` exports are the synchronous bridges `routes/imports.ts` calls until E3-T11.
+ * `isOcrImportEnabled()` / `isPdfImportEnabled()` stay plain functions over `env`.
  */
 import { Context, Effect, Layer } from "effect";
 import { AppConfig } from "../../../../config.ts";
@@ -170,24 +169,4 @@ export class ImportCapabilities extends Context.Service<
       });
     }),
   );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-// SYNCHRONOUS with a `void` return type (plan e3 P1): `routes/imports.ts` calls them as plain statements until
-// E3-T11. `Effect.runSync` over the service-free check throws the `501 ocr_disabled` refusal itself.
-
-/** Callers: `routes/imports.ts` (`assertUploadKindEnabled`, the photo endpoints). Synchronous. */
-export function assertOcrImportEnabled(): void {
-  Effect.runSync(checkOcr(flagsOf(env)));
-}
-
-/** Callers: `routes/imports.ts` (`assertUploadKindEnabled`, the PDF endpoints). Synchronous. */
-export function assertPdfImportEnabled(): void {
-  Effect.runSync(checkPdf(flagsOf(env)));
-}
-
-/** Callers: `routes/imports.ts` (`assertAcceptedKindEnabled`, `/imports/file`). Synchronous. */
-export function assertAnyUploadImportEnabled(): void {
-  Effect.runSync(checkAnyUpload(flagsOf(env)));
 }

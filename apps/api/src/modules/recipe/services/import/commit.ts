@@ -12,8 +12,7 @@
  * AS A SERVICE (docs/EFFECT.md E7, E12; plan `docs/plans/e3-recipe-services.md` P2, P8, P9, P12). `ImportCommit` reads the
  * current executor of `Database` on every call (the import routes hand in the pinned tests' file DB with `withImportDb`,
  * P6), takes its timestamp from the `Clock`, localizes the hero image through `RemoteImages` BEFORE the transaction opens
- * and refuses with the tagged family. The Promise bridges at the end of the file keep `routes/imports.ts` working until
- * E3-T11.
+ * and refuses with the tagged family.
  */
 import {
   DEFAULT_LOCALE,
@@ -30,7 +29,6 @@ import {
 } from "@toon/shared";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { Clock, Context, Effect, Layer, Predicate } from "effect";
-import type { Database as DrizzleDatabase } from "../../../../db/client.ts";
 import { Database, type DatabaseShape } from "../../../../db/database.ts";
 import {
   collectionRecipes,
@@ -44,7 +42,6 @@ import {
   users,
 } from "../../../../db/schema.ts";
 import { type DatabaseError, NotFound, ValidationFailed } from "../../../../lib/errors.ts";
-import { runtime } from "../../../../runtime.ts";
 import { toIso } from "../../../../lib/http.ts";
 import { normalizeStoredUploadUrl, signUploadUrl } from "../../../../lib/uploadUrls.ts";
 import { toPublicUser } from "../../../../core/services/households/mappers.ts";
@@ -437,13 +434,3 @@ const loadRecipeDetail = Effect.fnUntraced(function* (database: DatabaseShape, i
   };
   return detail;
 });
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-// Every bridge honours its `db` argument with `Database.withExecutor(db)` (plan e3 P1). A failure rejects with the
-// tagged error itself (an `ApiError`). Promise.
-
-/** Caller: `routes/imports.ts` (E3-T11). */
-export function commitDraft(db: DrizzleDatabase, input: CommitDraftInput): Promise<CommitDraftResult> {
-  return runtime.runPromise(ImportCommit.use((s) => s.commitDraft(input)).pipe(Database.withExecutor(db)));
-}

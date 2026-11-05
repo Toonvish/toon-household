@@ -93,12 +93,11 @@ export class RemoteImages extends Context.Service<
   );
 }
 
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
+/* legacy bridge: the one survivor of this file after E3 (plan e3 P1); E5 removes it */
 
 /**
- * `RemoteImages.localizeImageUrl` for Promise code. Callers: `services/recipes/recipes.service.ts`,
- * `services/recipes/collections.service.ts`, `services/import/commit.ts` (until E3-T06 and E3-T07),
- * `apps/api/scripts/localize-images.ts` (E5). Never rejects.
+ * `RemoteImages.localizeImageUrl` for Promise code. Callers: `apps/api/scripts/localize-images.ts` (E5). Never
+ * rejects.
  */
 export function localizeImageUrl(
   value: string | null | undefined,

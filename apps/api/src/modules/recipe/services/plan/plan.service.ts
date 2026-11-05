@@ -16,8 +16,7 @@
  *
  * AS A SERVICE (docs/EFFECT.md E7, E12; plan `docs/plans/e3-recipe-services.md` P2, P8, P9). `MealPlan` reads the current
  * executor of `Database` on every call (inside `Database.transaction` that is the open transaction), takes its
- * timestamps from the `Clock`, looks a recipe up through `Recipes` and refuses with the tagged family. The Promise
- * bridges at the end of the file keep the routes working until E3-T10.
+ * timestamps from the `Clock`, looks a recipe up through `Recipes` and refuses with the tagged family.
  */
 import {
   PLAN_LIMITS,
@@ -33,9 +32,7 @@ import { mealPlanEntries, recipes } from "../../../../db/schema.ts";
 import type { MealPlanEntryRow, NewMealPlanEntryRow } from "../../../../db/schema.ts";
 import { Conflict, NotFound } from "../../../../lib/errors.ts";
 import type { DatabaseError } from "../../../../lib/errors.ts";
-import { runtime } from "../../../../runtime.ts";
 import { isUniqueViolation } from "../../../../core/services/auth/users.ts";
-import type { DbLike } from "../../../../core/services/households/support.ts";
 import { Recipes } from "../recipes/recipes.service.ts";
 import { toMealPlanEntry } from "./mappers.ts";
 
@@ -358,57 +355,4 @@ export class MealPlan extends Context.Service<
       });
     }),
   );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-// Every bridge honours its `db` argument with `Database.withExecutor(db)` (plan e3 P1). A failure rejects with the
-// tagged error itself.
-
-/** Callers: `routes/plan.ts` (E3-T10). Promise. */
-export function listPlanEntries(
-  db: DbLike,
-  householdId: string,
-  from: PlanDate,
-  to: PlanDate,
-): Promise<MealPlanEntry[]> {
-  return runtime.runPromise(MealPlan.use((s) => s.listPlanEntries(householdId, from, to)).pipe(Database.withExecutor(db)));
-}
-
-/** Callers: `routes/plan.ts` (E3-T10). Promise. */
-export function listLastPlanned(
-  db: DbLike,
-  householdId: string,
-  before: PlanDate,
-): Promise<Array<{ recipeId: string; plannedOn: PlanDate }>> {
-  return runtime.runPromise(MealPlan.use((s) => s.listLastPlanned(householdId, before)).pipe(Database.withExecutor(db)));
-}
-
-/** Callers: `routes/plan.ts` (E3-T10). Promise. */
-export function createPlanEntry(
-  db: DbLike,
-  householdId: string,
-  userId: string,
-  input: CreateMealPlanEntryRequest,
-): Promise<{ entry: MealPlanEntry; created: boolean }> {
-  return runtime.runPromise(
-    MealPlan.use((s) => s.createPlanEntry(householdId, userId, input)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `routes/plan.ts` (E3-T10). Promise. */
-export function updatePlanEntry(
-  db: DbLike,
-  householdId: string,
-  entryId: string,
-  input: UpdateMealPlanEntryRequest,
-): Promise<MealPlanEntry> {
-  return runtime.runPromise(
-    MealPlan.use((s) => s.updatePlanEntry(householdId, entryId, input)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `routes/plan.ts` (E3-T10). Promise. */
-export function deletePlanEntry(db: DbLike, householdId: string, entryId: string): Promise<void> {
-  return runtime.runPromise(MealPlan.use((s) => s.deletePlanEntry(householdId, entryId)).pipe(Database.withExecutor(db)));
 }

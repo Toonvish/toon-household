@@ -256,3 +256,28 @@ router.get("/:householdId/members", requireSession(), requireHouseholdRole("memb
   ),
 );
 ```
+
+**As built (E3):** a recipe route is one `runtime.runPromise` over the services; a service method is `Effect.fn("Service.method")` and a
+resource wait is a scoped acquire that stays interruptible. From `apps/api/src/modules/recipe/services/ocr/index.ts` (the OCR slot gate; the
+bracketing `acquireUseRelease` runs its acquire uninterruptibly in v4, so a queued waiter could never be cancelled):
+
+```ts
+const withOcrSlot = <A, E>(effect: Effect.Effect<A, E>, waitMs: number = OCR_SLOT_WAIT_MS) =>
+  Effect.scoped(
+    Effect.andThen(
+      Effect.acquireRelease(acquireSlot(waitMs, limit), () => Effect.sync(releaseSlot), { interruptible: true }),
+      effect,
+    ),
+  );
+const withOcrTimeout = <A, E>(effect: Effect.Effect<A, E>, timeoutMs: number = OCR_TIMEOUT_MS, text: ErrorText = "server.ocr.recognitionTimedOut") =>
+  Effect.timeoutOrElse(effect, {
+    duration: timeoutMs,
+    orElse: () => Effect.fail(new ApiFailure({ status: 504, code: "ocr_failed", text, details: { timeoutMs } })),
+  });
+```
+
+A write that must be idempotent claims inside the SAME transaction as the write it guards (`services/shopping/items.service.ts`):
+`yield* database.transaction(Effect.gen(function* () { if (!(yield* mutations.claimMutation(listId, input.mutationId))) return; yield* withDatabase(applyAdditions(...)); }))`,
+then the ledger prune runs after it. A cycle between two services (`ShoppingItems` and `ShoppingBought`) is broken by exported
+`Effect.fnUntraced` helpers over `Database`, never by two services needing each other. Each service reads the dependencies it needs inside its own
+generator; the areas nest in `apps/api/src/modules/recipe/layer.ts` with `Layer.provideMerge` (a sibling in `Layer.mergeAll` would not feed its neighbour).

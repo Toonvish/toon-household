@@ -260,3 +260,20 @@ const enable = (settings: Record<string, unknown> | undefined) =>
 expect(await runTest(Effect.flip(enable(undefined)))).toBe(refusal);
 expect(await moduleRow(owner.householdId, "finance")).toBeUndefined();
 ```
+
+**As built (E3):** a recipe test that called a function directly now runs the service on the app runtime and, for another database, hands it in with
+`Database.withExecutor(db)` (`apps/api/test/import/commit.test.ts`):
+
+```ts
+function onDb<A, E>(effect: Effect.Effect<A, E, AppServices>): Promise<A> {
+  return runTest(effect.pipe(Database.withExecutor(db)));
+}
+const commitDraft = (input: CommitDraftInput) => onDb(ImportCommit.use((s) => s.commitDraft(input)));
+```
+
+A test against a real socket opens the SSRF guard for ONE host and hands it back (`apps/api/test/import/url-import-local.test.ts`): a `Bun.serve` fixture on
+`127.0.0.1:0`, `setImportGuardForTests({ allowHosts: ["127.0.0.1"] })` in `beforeAll`, `setImportGuardForTests(null)` and `server.stop(true)` in `afterAll`, an
+explicit `URL_IMPORT_TEST_TIMEOUT_MS = 30_000` as the third argument of every `test(...)`, and a refusal proved by the status, `details.reason`, a
+`performance.now()` bound and the fixture's own request log (the redirect route hit once, nothing sent to `169.254.169.254`). Never the
+`IMPORT_ALLOW_PRIVATE_HOSTS` escape hatch: it skips every host check. `apps/api/test/import-order-effect.test.ts` gained three recipe service files and
+deliberately not the two route files (`docs/open-work.md` O-6).

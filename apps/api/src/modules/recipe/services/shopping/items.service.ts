@@ -29,8 +29,7 @@
  * replayed `mutationId` applies once (P13); the ledger prune and the bought-log prune run after the transaction, where
  * they ran before. Every by-id read keeps its `householdId` filter (D8). `applyAdditions` and the catalog helpers are
  * exported `Effect.fnUntraced` helpers over `Database` (not a service): `bought.service.ts` re-adds an undone
- * check-off through the same `applyAdditions`, and no service depends on a service of its own cycle (P2). The
- * Promise bridges at the end keep `routes/shopping.ts` working until E3-T10.
+ * check-off through the same `applyAdditions`, and no service depends on a service of its own cycle (P2).
  */
 import {
   SHOPPING_LIMITS,
@@ -63,8 +62,6 @@ import {
 import type { ShoppingListItemRow } from "../../../../db/schema.ts";
 import { Conflict, NotFound } from "../../../../lib/errors.ts";
 import type { DatabaseError } from "../../../../lib/errors.ts";
-import type { DbLike } from "../../../../core/services/households/support.ts";
-import { runtime } from "../../../../runtime.ts";
 import { toIngredientRecord } from "../recipes/mappers.ts";
 import { Recipes } from "../recipes/recipes.service.ts";
 import { appendBoughtItem, pruneBoughtLog } from "./bought.service.ts";
@@ -851,135 +848,3 @@ export class ShoppingItems extends Context.Service<
 }
 
 export { ingredientToShoppingItem };
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-// Every bridge honours its `db` argument with `Database.withExecutor(db)` (plan e3 P1). A failure rejects with the
-// tagged error itself. All callers are `routes/shopping.ts` (E3-T10 deletes them). Promise.
-
-export function deleteCatalogEntry(db: DbLike, householdId: string, listId: string, entryId: string): Promise<void> {
-  return runtime.runPromise(
-    ShoppingItems.use((s) => s.deleteCatalogEntry(householdId, listId, entryId)).pipe(Database.withExecutor(db)),
-  );
-}
-
-export function setCatalogEntryHidden(
-  db: DbLike,
-  householdId: string,
-  listId: string,
-  entryId: string,
-  hidden: boolean,
-): Promise<ShoppingListDetailResponse> {
-  return runtime.runPromise(
-    ShoppingItems.use((s) => s.setCatalogEntryHidden(householdId, listId, entryId, hidden)).pipe(
-      Database.withExecutor(db),
-    ),
-  );
-}
-
-export function listShoppingCatalog(
-  db: DbLike,
-  householdId: string,
-  listId: string,
-  options: { includeHidden: boolean; limit: number; offset: number },
-): Promise<ShoppingCatalogListResponse> {
-  return runtime.runPromise(
-    ShoppingItems.use((s) => s.listShoppingCatalog(householdId, listId, options)).pipe(Database.withExecutor(db)),
-  );
-}
-
-export function addShoppingItems(
-  db: DbLike,
-  householdId: string,
-  listId: string,
-  input: AddShoppingItemsRequest,
-): Promise<ShoppingListDetailResponse> {
-  return runtime.runPromise(
-    ShoppingItems.use((s) => s.addShoppingItems(householdId, listId, input)).pipe(Database.withExecutor(db)),
-  );
-}
-
-export function addRecipeToShoppingList(
-  db: DbLike,
-  householdId: string,
-  listId: string,
-  userId: string,
-  input: AddRecipeToShoppingListRequest,
-): Promise<ShoppingListDetailResponse> {
-  return runtime.runPromise(
-    ShoppingItems.use((s) => s.addRecipeToShoppingList(householdId, listId, userId, input)).pipe(
-      Database.withExecutor(db),
-    ),
-  );
-}
-
-export function removeRecipeFromList(
-  db: DbLike,
-  householdId: string,
-  listId: string,
-  recipeId: string,
-): Promise<ShoppingListDetailResponse> {
-  return runtime.runPromise(
-    ShoppingItems.use((s) => s.removeRecipeFromList(householdId, listId, recipeId)).pipe(Database.withExecutor(db)),
-  );
-}
-
-export function updateShoppingItem(
-  db: DbLike,
-  householdId: string,
-  listId: string,
-  itemId: string,
-  input: UpdateShoppingItemRequest,
-): Promise<ShoppingListDetailResponse> {
-  return runtime.runPromise(
-    ShoppingItems.use((s) => s.updateShoppingItem(householdId, listId, itemId, input)).pipe(
-      Database.withExecutor(db),
-    ),
-  );
-}
-
-export function deleteShoppingItem(
-  db: DbLike,
-  householdId: string,
-  listId: string,
-  itemId: string,
-): Promise<ShoppingListDetailResponse> {
-  return runtime.runPromise(
-    ShoppingItems.use((s) => s.deleteShoppingItem(householdId, listId, itemId)).pipe(Database.withExecutor(db)),
-  );
-}
-
-export function checkShoppingItem(
-  db: DbLike,
-  householdId: string,
-  listId: string,
-  itemId: string,
-  boughtBy: string,
-  mutationId?: string,
-): Promise<ShoppingListDetailResponse> {
-  return runtime.runPromise(
-    ShoppingItems.use((s) => s.checkShoppingItem(householdId, listId, itemId, boughtBy, mutationId)).pipe(
-      Database.withExecutor(db),
-    ),
-  );
-}
-
-export function clearShoppingList(db: DbLike, householdId: string, listId: string): Promise<ShoppingListDetailResponse> {
-  return runtime.runPromise(
-    ShoppingItems.use((s) => s.clearShoppingList(householdId, listId)).pipe(Database.withExecutor(db)),
-  );
-}
-
-export function addCatalogEntryToList(
-  db: DbLike,
-  householdId: string,
-  listId: string,
-  entryId: string,
-  mutationId?: string,
-): Promise<ShoppingListDetailResponse> {
-  return runtime.runPromise(
-    ShoppingItems.use((s) => s.addCatalogEntryToList(householdId, listId, entryId, mutationId)).pipe(
-      Database.withExecutor(db),
-    ),
-  );
-}

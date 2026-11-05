@@ -15,8 +15,7 @@
  * median against a scratch file DB.
  *
  * AS A SERVICE (docs/EFFECT.md E7, E12; plan `docs/plans/e3-recipe-services.md` P2). `ShoppingFromPlan` reads the
- * current executor of `Database`, the window through `MealPlan` and the list through `ShoppingLists`; the Promise
- * bridge at the end keeps the route working until E3-T10.
+ * current executor of `Database`, the window through `MealPlan` and the list through `ShoppingLists`.
  */
 import {
   PLAN_LIMITS,
@@ -30,8 +29,6 @@ import { Context, Effect, Layer } from "effect";
 import { Database } from "../../../../db/database.ts";
 import { recipeIngredients, shoppingListItems } from "../../../../db/schema.ts";
 import type { DatabaseError, NotFound } from "../../../../lib/errors.ts";
-import { runtime } from "../../../../runtime.ts";
-import type { DbLike } from "../../../../core/services/households/support.ts";
 import { toIngredientRecord } from "../recipes/mappers.ts";
 import { MealPlan } from "../plan/plan.service.ts";
 import { ShoppingLists } from "./lists.service.ts";
@@ -196,19 +193,5 @@ export class ShoppingFromPlan extends Context.Service<
 
       return ShoppingFromPlan.of({ planShoppingPreview });
     }),
-  );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/** Callers: `routes/shopping.ts` (E3-T10). Promise; honours `db` with `Database.withExecutor` (plan e3 P1). */
-export function planShoppingPreview(
-  db: DbLike,
-  householdId: string,
-  listId: string,
-  range: { from: string; to: string },
-): Promise<PlanShoppingPreviewResponse> {
-  return runtime.runPromise(
-    ShoppingFromPlan.use((s) => s.planShoppingPreview(householdId, listId, range)).pipe(Database.withExecutor(db)),
   );
 }

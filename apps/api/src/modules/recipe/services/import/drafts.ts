@@ -12,8 +12,8 @@
  * AS A SERVICE (docs/EFFECT.md E7, E12; plan `docs/plans/e3-recipe-services.md` P2, P8, P9). `ImportDrafts` reads the
  * current executor of `Database` on every call (the import routes hand in the pinned tests' file DB with
  * `withImportDb`, P6), takes its timestamps from the `Clock` and refuses with the tagged family.
- * `toDraftWire` and `storedFilenameOf` stay pure exports. The Promise bridges at the end of the file keep
- * `routes/imports.ts` and the import tests working until E3-T07 and E3-T11.
+ * `toDraftWire` and `storedFilenameOf` stay pure exports.
+ * The one Promise bridge at the end of the file, `createDraft(db, input)`, serves the pinned `ocr-disabled.test.ts`.
  */
 import {
   type ImportDraft,
@@ -229,34 +229,12 @@ export function storedFilenameOf(row: ImportDraftRow): string | undefined {
   return typeof storedPath === "string" && storedPath.length > 0 ? storedPath : undefined;
 }
 
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
+/* legacy bridge: the one survivor of this file after E3 (plan e3 P1) */
 
-// Every bridge honours its `db` argument with `Database.withExecutor(db)` (plan e3 P1). A failure rejects with the
-// tagged error itself (`getDraftOr404`: the `NotFound`, which is an `ApiError`). Promise.
-
-/** Callers: `routes/imports.ts` (E3-T11), `apps/api/test/import/{commit,ocr-disabled}.test.ts` (pinned: E3-T13, E8). */
+/**
+ * Honours `db` with `Database.withExecutor(db)`; a failure rejects with the tagged error itself. Callers:
+ * `apps/api/test/import/ocr-disabled.test.ts` (pinned; E8). Promise.
+ */
 export function createDraft(db: DrizzleDatabase, input: CreateDraftInput): Promise<ImportDraft> {
   return runtime.runPromise(ImportDrafts.use((s) => s.createDraft(input)).pipe(Database.withExecutor(db)));
-}
-
-/** Callers: `routes/imports.ts` (E3-T11), `apps/api/test/import/commit.test.ts`. */
-export function getDraftOr404(db: DrizzleDatabase, householdId: string, draftId: string): Promise<ImportDraftRow> {
-  return runtime.runPromise(
-    ImportDrafts.use((s) => s.getDraftOr404(householdId, draftId)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `routes/imports.ts` (E3-T11), `apps/api/test/import/commit.test.ts`. */
-export function listDrafts(db: DrizzleDatabase, householdId: string, query: ListDraftsQuery): Promise<DraftList> {
-  return runtime.runPromise(ImportDrafts.use((s) => s.listDrafts(householdId, query)).pipe(Database.withExecutor(db)));
-}
-
-/** Callers: `routes/imports.ts` (E3-T11), `apps/api/test/import/commit.test.ts`. */
-export function updateDraft(db: DrizzleDatabase, draftId: string, input: UpdateDraftInput): Promise<void> {
-  return runtime.runPromise(ImportDrafts.use((s) => s.updateDraft(draftId, input)).pipe(Database.withExecutor(db)));
-}
-
-/** Callers: `routes/imports.ts` (E3-T11). */
-export function deleteDraft(db: DrizzleDatabase, draftId: string): Promise<void> {
-  return runtime.runPromise(ImportDrafts.use((s) => s.deleteDraft(draftId)).pipe(Database.withExecutor(db)));
 }

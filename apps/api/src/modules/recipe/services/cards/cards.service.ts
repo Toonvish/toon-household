@@ -13,7 +13,7 @@
  *
  * AS A SERVICE (docs/EFFECT.md E7, E12; plan `docs/plans/e3-recipe-services.md` P2, P8, P9). `Cards` reads the current
  * executor of `Database` on every call, takes its timestamps from the `Clock` and refuses with the tagged family. The
- * Promise bridges at the end of the file keep `routes/cards.ts` working until E3-T11. The mapper `toCard` stays pure.
+ * mapper `toCard` stays pure.
  */
 import {
   CARD_LIMITS,
@@ -28,8 +28,6 @@ import { cards, type CardRow } from "../../../../db/schema.ts";
 import { Conflict, NotFound } from "../../../../lib/errors.ts";
 import type { DatabaseError } from "../../../../lib/errors.ts";
 import { toIso, toIsoOrNull } from "../../../../lib/http.ts";
-import type { DbLike } from "../../../../core/services/households/support.ts";
-import { runtime } from "../../../../runtime.ts";
 
 /* -------------------------------------------------------------------------- */
 /* mapping                                                                    */
@@ -207,34 +205,4 @@ export class Cards extends Context.Service<
       return Cards.of({ listCards, createCard, updateCard, deleteCard, markCardUsed });
     }),
   );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-// Every bridge honours its `db` argument with `Database.withExecutor(db)` (plan e3 P1). A failure rejects with the
-// tagged error itself. Callers: `routes/cards.ts` (E3-T11), Promise.
-
-/** Callers: `routes/cards.ts` (E3-T11). Promise. */
-export function listCards(db: DbLike, userId: string): Promise<Card[]> {
-  return runtime.runPromise(Cards.use((s) => s.listCards(userId)).pipe(Database.withExecutor(db)));
-}
-
-/** Callers: `routes/cards.ts` (E3-T11). Promise. */
-export function createCard(db: DbLike, userId: string, input: CreateCardInput): Promise<Card> {
-  return runtime.runPromise(Cards.use((s) => s.createCard(userId, input)).pipe(Database.withExecutor(db)));
-}
-
-/** Callers: `routes/cards.ts` (E3-T11). Promise. */
-export function updateCard(db: DbLike, userId: string, cardId: string, input: UpdateCardInput): Promise<Card> {
-  return runtime.runPromise(Cards.use((s) => s.updateCard(userId, cardId, input)).pipe(Database.withExecutor(db)));
-}
-
-/** Callers: `routes/cards.ts` (E3-T11). Promise. */
-export function deleteCard(db: DbLike, userId: string, cardId: string): Promise<void> {
-  return runtime.runPromise(Cards.use((s) => s.deleteCard(userId, cardId)).pipe(Database.withExecutor(db)));
-}
-
-/** Callers: `routes/cards.ts` (E3-T11). Promise. */
-export function markCardUsed(db: DbLike, userId: string, cardId: string): Promise<Card> {
-  return runtime.runPromise(Cards.use((s) => s.markCardUsed(userId, cardId)).pipe(Database.withExecutor(db)));
 }

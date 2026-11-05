@@ -88,7 +88,7 @@ export const foldBackfill = Effect.fn("RecipeModule.foldBackfill")(function* () 
   return staleRecipes.length + staleIngredients.length;
 });
 
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
+/* legacy bridge: the one survivor of this file after E3 (plan e3 P1); E5 removes it */
 
 /**
  * Callers: `apps/api/scripts/legacy/recipe.ts` (E5), `apps/api/test/legacy-recipe.test.ts`. The fold backfill on

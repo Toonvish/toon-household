@@ -9,7 +9,8 @@
  *
  * E2-T03 lists the composition (`config`, `database`, `infra`, the core services layer, `runtime`); E2-T05 adds
  * `./src/modules/adapter.ts` and `./src/core/services/media/references.ts` (`UploadReferences`), E2-T12 the middlewares, the core routes and the services they reach,
- * E3-T01 the recipe module's composition (`./src/modules/recipe/layer.ts`) and `./src/modules/recipe/migrate.ts`.
+ * E3-T01 the recipe module's composition (`./src/modules/recipe/layer.ts`) and `./src/modules/recipe/migrate.ts`,
+ * E3-T13 three recipe service files (`recipes.service.ts`, `import/url/fetch.ts`, `ocr/index.ts`; never the route files).
  */
 import { describe, expect, test } from "bun:test";
 import { resolve } from "node:path";
@@ -60,6 +61,12 @@ describe("import order does not matter for the Effect composition", () => {
     // (`foldBackfill`, imported by `scripts/legacy/recipe.ts` without the manifest)
     "./src/modules/recipe/layer.ts",
     "./src/modules/recipe/migrate.ts",
+    // E3-T13: the three recipe service files that load first and build the `AppLayer` (plan e3 P17). The recipe and
+    // import route files are NOT entries: imported first they die on the base tree
+    // (`routes/index.ts` reads them at module scope); `docs/open-work.md` keeps that for E7.
+    "./src/modules/recipe/services/recipes/recipes.service.ts",
+    "./src/modules/recipe/services/import/url/fetch.ts",
+    "./src/modules/recipe/services/ocr/index.ts",
   ]) {
     test(`${entry} loads first in a fresh process and the AppLayer builds after it`, async () => {
       const { code, stderr } = await importThenBuildInFreshProcess(entry);

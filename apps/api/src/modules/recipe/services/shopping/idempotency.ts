@@ -29,17 +29,13 @@
  *
  * AS A SERVICE (docs/EFFECT.md E7, E12; plan `docs/plans/e3-recipe-services.md` P2, P9, P13). `ShoppingMutations` runs on
  * the CURRENT executor of `Database` and takes `appliedAt` from the `Clock`: called inside a `database.transaction`
- * (the write it guards), the claim is an INSERT on that transaction, so a replayed `mutationId` applies once. The
- * bridges at the end keep `items.service.ts` and `bought.service.ts` working until E3-T09; they honour their `db`
- * argument with `Database.withExecutor(db)`, so a claim made inside an unconverted `withTransaction` writes on that `tx`.
+ * (the write it guards), the claim is an INSERT on that transaction, so a replayed `mutationId` applies once.
  */
 import { and, eq, lt } from "drizzle-orm";
 import { Clock, Context, Effect, Layer } from "effect";
 import { Database } from "../../../../db/database.ts";
 import { shoppingMutations } from "../../../../db/schema.ts";
 import type { DatabaseError } from "../../../../lib/errors.ts";
-import type { DbLike } from "../../../../core/services/households/support.ts";
-import { runtime } from "../../../../runtime.ts";
 
 /**
  * How long a mutation id is remembered. A queued offline mutation older than this is
@@ -116,21 +112,4 @@ export class ShoppingMutations extends Context.Service<
       return ShoppingMutations.of({ claimMutation, hasAppliedMutation, pruneMutationLedger });
     }),
   );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-// Both honour their `db` argument with `Database.withExecutor(db)` (plan e3 P1): inside the callers' open
-// `withTransaction(db, async (tx) => …)` the claim is written on that `tx`. Promise.
-
-/** Callers: `shopping/items.service.ts`, `shopping/bought.service.ts` (E3-T09), on their transaction. Promise. */
-export function claimMutation(db: DbLike, listId: string, mutationId: string | undefined): Promise<boolean> {
-  return runtime.runPromise(
-    ShoppingMutations.use((s) => s.claimMutation(listId, mutationId)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `shopping/items.service.ts`, `shopping/bought.service.ts` (E3-T09). Promise. */
-export function pruneMutationLedger(db: DbLike): Promise<void> {
-  return runtime.runPromise(ShoppingMutations.use((s) => s.pruneMutationLedger).pipe(Database.withExecutor(db)));
 }

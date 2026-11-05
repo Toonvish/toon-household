@@ -246,3 +246,17 @@ failedAt.set(thumbnailPath, yield* Clock.currentTimeMillis);
 // …later, on the next request:
 if (failure !== undefined && (yield* Clock.currentTimeMillis) - failure < FAILURE_TTL_MS) return false;
 ```
+
+**As built (E3):** every recipe service reads `Clock.currentTimeMillis` inside the method body (a draft's `createdAt`, the commit time, the shopping
+timestamps, the cook-log undo window, the duration of a URL import):
+
+```ts
+const startedAt = yield* Clock.currentTimeMillis;
+const fetched = yield* http.fetchHtml(rawUrl, { timeoutMs: options.timeoutMs, maxBytes: options.maxBytes, maxRedirects: options.maxRedirects });
+// …
+const sourceMeta: ImportSourceMeta = { method: extraction.method, host: extraction.host.slice(0, 200), durationMs: (yield* Clock.currentTimeMillis) - startedAt };
+```
+
+Idioms rule (11) now covers the recipe module twice: no `Date.now(` / `new Date(` under any `services/` directory (the recipe prefix left the allow list in E3-T07)
+and no `nowMs(` call under `apps/api/src/core/` or `apps/api/src/modules/recipe/` (widened in E3-T13). `Date.now()` stays where rule (11) does not look:
+`apps/api/src/modules/recipe/seed.ts`, the column defaults of `schema.ts` and `parseSinceQuery` in `routes/shopping.ts`.

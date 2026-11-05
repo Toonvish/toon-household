@@ -6,7 +6,7 @@
  * AS A SERVICE (docs/EFFECT.md E7, E12; plan `docs/plans/e3-recipe-services.md` P2, P8, P9). `RecipeTags` reads the
  * current executor of `Database` on every call (inside `Database.transaction` that is the open transaction, so
  * `recipes.service.ts` tags a recipe on its own `tx`), takes `createdAt` from the `Clock`, and refuses with the tagged
- * family. The Promise bridges at the end of the file keep the not-yet-converted callers working until E3-T06 and E3-T10.
+ * family.
  */
 import type { CreateTagRequest, Tag, TagKind, UpdateTagRequest } from "@toon/shared";
 import { and, asc, count, eq, inArray, ne } from "drizzle-orm";
@@ -16,8 +16,7 @@ import { recipeTags, tags } from "../../../../db/schema.ts";
 import type { TagRow } from "../../../../db/schema.ts";
 import { Conflict, NotFound } from "../../../../lib/errors.ts";
 import type { DatabaseError } from "../../../../lib/errors.ts";
-import { type DbLike, eqFolded, foldText, unique } from "../../../../core/services/households/support.ts";
-import { runtime } from "../../../../runtime.ts";
+import { eqFolded, foldText, unique } from "../../../../core/services/households/support.ts";
 import { toTag } from "./mappers.ts";
 
 /** Tags of a household: CRUD, the get-or-create by name and the per-recipe lookup. */
@@ -217,48 +216,4 @@ export class RecipeTags extends Context.Service<
       return RecipeTags.of({ listTags, loadTagRow, createTag, updateTag, deleteTag, getOrCreateTagIds, tagsByRecipe });
     }),
   );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-// Every bridge honours its `db` argument with `Database.withExecutor(db)` (plan e3 P1): called inside an open
-// `withTransaction(db, async (tx) => …)` it runs on that `tx`. A failure rejects with the tagged error itself.
-
-/** Callers: `routes/recipes.ts` (E3-T10). Promise. */
-export function listTags(db: DbLike, householdId: string): Promise<Tag[]> {
-  return runtime.runPromise(RecipeTags.use((s) => s.listTags(householdId)).pipe(Database.withExecutor(db)));
-}
-
-/** Callers: `routes/recipes.ts` (E3-T10). Promise. */
-export function createTag(db: DbLike, householdId: string, input: CreateTagRequest): Promise<Tag> {
-  return runtime.runPromise(RecipeTags.use((s) => s.createTag(householdId, input)).pipe(Database.withExecutor(db)));
-}
-
-/** Callers: `routes/recipes.ts` (E3-T10). Promise. */
-export function updateTag(db: DbLike, householdId: string, tagId: string, input: UpdateTagRequest): Promise<Tag> {
-  return runtime.runPromise(
-    RecipeTags.use((s) => s.updateTag(householdId, tagId, input)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `routes/recipes.ts` (E3-T10). Promise. */
-export function deleteTag(db: DbLike, householdId: string, tagId: string): Promise<void> {
-  return runtime.runPromise(RecipeTags.use((s) => s.deleteTag(householdId, tagId)).pipe(Database.withExecutor(db)));
-}
-
-/** Callers: `recipes/recipes.service.ts` (E3-T06), on its transaction. Promise. */
-export function getOrCreateTagIds(
-  db: DbLike,
-  householdId: string,
-  names: readonly string[],
-  kind: TagKind = "free",
-): Promise<string[]> {
-  return runtime.runPromise(
-    RecipeTags.use((s) => s.getOrCreateTagIds(householdId, names, kind)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `recipes/recipes.service.ts` (E3-T06). Promise. */
-export function tagsByRecipe(db: DbLike, recipeIds: readonly string[]): Promise<Map<string, Tag[]>> {
-  return runtime.runPromise(RecipeTags.use((s) => s.tagsByRecipe(recipeIds)).pipe(Database.withExecutor(db)));
 }

@@ -8,8 +8,7 @@
  *
  * AS A SERVICE (docs/EFFECT.md E7; plan `docs/plans/e3-recipe-services.md` P2, P8): `ImportFiles` reads the upload
  * directory from `AppConfig`; its refusals are the tagged family (`BadRequest`, `PayloadTooLarge`,
- * `UnsupportedMediaType`). The sniffing and the MIME lists stay pure exports. The bridge section keeps the Promise
- * functions `routes/imports.ts` still calls, until E3-T11.
+ * `UnsupportedMediaType`). The sniffing and the MIME lists stay pure exports.
  */
 import { mkdir, unlink } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
@@ -17,9 +16,7 @@ import { ACCEPTED_IMAGE_MIME_TYPES, ACCEPTED_PDF_MIME_TYPES, MAX_UPLOAD_BYTES } 
 import { Context, Effect, Layer, Predicate } from "effect";
 import { AppConfig } from "../../../../config.ts";
 import { THUMBNAIL_SUFFIX } from "../../../../core/services/media/thumbnails.ts";
-import { env } from "../../../../env.ts";
 import { BadRequest, PayloadTooLarge, UnsupportedMediaType } from "../../../../lib/errors.ts";
-import { runtime } from "../../../../runtime.ts";
 
 export type SniffedMime =
   | "image/jpeg"
@@ -282,31 +279,4 @@ export class ImportFiles extends Context.Service<
 /** Extension for a sniffed type, used by the hero-image downloader. */
 export function extensionFor(mimeType: SniffedMime): string {
   return EXTENSION_BY_MIME[mimeType] ?? "bin";
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/**
- * Reads the `file` field of a multipart request. A refusal rejects with the tagged error itself. Callers:
- * `apps/api/src/modules/recipe/routes/imports.ts` (E3-T11).
- */
-export function readUploadedFile(
-  request: Request,
-  options: { accept?: readonly ImportFileKind[]; fieldName?: string } = {},
-): Promise<UploadedFile> {
-  return runtime.runPromise(ImportFiles.use((files) => files.readUploadedFile(request, options)));
-}
-
-/** Deletes a stored upload; never rejects. Callers: `apps/api/src/modules/recipe/routes/imports.ts` (E3-T11). */
-export function deleteUpload(filename: string | null | undefined): Promise<void> {
-  return runtime.runPromise(ImportFiles.use((files) => files.deleteUpload(filename)));
-}
-
-/**
- * Absolute path of a stored upload. SYNCHRONOUS (plan e3 P1): a service-free effect over `env.uploadDir` run with
- * `Effect.runSync`, which throws the `400 bad_request` refusal itself. Callers:
- * `apps/api/src/modules/recipe/routes/imports.ts` (the source download, E3-T11).
- */
-export function resolveUploadPath(filename: string): string {
-  return Effect.runSync(resolveIn(env.uploadDir, filename));
 }

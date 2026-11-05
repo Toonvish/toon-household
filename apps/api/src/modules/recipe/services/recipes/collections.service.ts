@@ -10,7 +10,7 @@
  * reads the current executor of `Database` on every call, takes its timestamps from the `Clock`, reaches recipes
  * through `Recipes` (`loadRecipeRow`, `buildRecipeListItems`), localizes a remote cover through `RemoteImages` BEFORE
  * the transaction opens and checks ownership with `checkCanModifyOwned`. Every collection and recipe lookup filters
- * by `householdId` (D8). The Promise bridges at the end of the file keep the routes working until E3-T10.
+ * by `householdId` (D8).
  */
 import type {
   Collection,
@@ -27,8 +27,7 @@ import { NotFound } from "../../../../lib/errors.ts";
 import type { DatabaseError, Forbidden } from "../../../../lib/errors.ts";
 import type { Membership } from "../../../../lib/types.ts";
 import { checkCanModifyOwned } from "../../../../core/services/households/membership.ts";
-import { type DbLike, unique } from "../../../../core/services/households/support.ts";
-import { runtime } from "../../../../runtime.ts";
+import { unique } from "../../../../core/services/households/support.ts";
 import { toCollection } from "./mappers.ts";
 import { Recipes } from "./recipes.service.ts";
 import { RemoteImages } from "./remoteImage.ts";
@@ -306,89 +305,5 @@ export class RecipeCollections extends Context.Service<
         removeRecipeFromCollection,
       });
     }),
-  );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-// Every bridge honours its `db` argument with `Database.withExecutor(db)` (plan e3 P1). A failure rejects with the
-// tagged error itself.
-
-/** Callers: `routes/recipes.ts` (E3-T10). Promise. */
-export function listCollections(db: DbLike, householdId: string): Promise<Collection[]> {
-  return runtime.runPromise(
-    RecipeCollections.use((s) => s.listCollections(householdId)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `routes/recipes.ts` (E3-T10). Promise. */
-export function createCollection(
-  db: DbLike,
-  householdId: string,
-  userId: string,
-  input: CreateCollectionRequest,
-): Promise<Collection> {
-  return runtime.runPromise(
-    RecipeCollections.use((s) => s.createCollection(householdId, userId, input)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `routes/recipes.ts` (E3-T10). Promise. */
-export function getCollectionDetail(
-  db: DbLike,
-  householdId: string,
-  collectionId: string,
-): Promise<CollectionDetailResponse> {
-  return runtime.runPromise(
-    RecipeCollections.use((s) => s.getCollectionDetail(householdId, collectionId)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `routes/recipes.ts` (E3-T10). Promise. */
-export function updateCollection(
-  db: DbLike,
-  householdId: string,
-  collectionId: string,
-  input: UpdateCollectionRequest,
-): Promise<Collection> {
-  return runtime.runPromise(
-    RecipeCollections.use((s) => s.updateCollection(householdId, collectionId, input)).pipe(
-      Database.withExecutor(db),
-    ),
-  );
-}
-
-/** Callers: `routes/recipes.ts` (E3-T10). Promise. */
-export function deleteCollection(db: DbLike, membership: Membership, collectionId: string): Promise<void> {
-  return runtime.runPromise(
-    RecipeCollections.use((s) => s.deleteCollection(membership, collectionId)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `routes/recipes.ts` (E3-T10). Promise. */
-export function addRecipeToCollection(
-  db: DbLike,
-  householdId: string,
-  collectionId: string,
-  recipeId: string,
-): Promise<void> {
-  return runtime.runPromise(
-    RecipeCollections.use((s) => s.addRecipeToCollection(householdId, collectionId, recipeId)).pipe(
-      Database.withExecutor(db),
-    ),
-  );
-}
-
-/** Callers: `routes/recipes.ts` (E3-T10). Promise. */
-export function removeRecipeFromCollection(
-  db: DbLike,
-  householdId: string,
-  collectionId: string,
-  recipeId: string,
-): Promise<void> {
-  return runtime.runPromise(
-    RecipeCollections.use((s) => s.removeRecipeFromCollection(householdId, collectionId, recipeId)).pipe(
-      Database.withExecutor(db),
-    ),
   );
 }

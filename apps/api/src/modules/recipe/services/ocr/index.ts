@@ -14,14 +14,11 @@
  * `Scope`. The engine override and the gate are module-level state with their seams (`setOcrEngine`,
  * `setOcrConcurrencyForTests`, `ocrInFlight`, `ocrQueued`): `bun test` runs every file in one process and the gate is the
  * app's memory ceiling, so there is exactly one of it however many layers are built.
- *
- * The bridge section at the end keeps the Promise `withOcrSlot` for `routes/imports.ts` until E3-T11.
  */
 import { Context, Effect, Layer } from "effect";
 import { AppConfig } from "../../../../config.ts";
 import { env } from "../../../../env.ts";
 import { ApiFailure, type ErrorText } from "../../../../lib/errors.ts";
-import { runtime } from "../../../../runtime.ts";
 import { preprocessImage } from "./preprocess.ts";
 import { type OcrFailure, fromSeamPromise } from "./seam.ts";
 import { TesseractEngine, normalizeLangs, tesseractRecognize } from "./tesseract.ts";
@@ -278,18 +275,5 @@ export class Ocr extends Context.Service<
 
       return Ocr.of({ recognize, withOcrSlot, withOcrTimeout, shutdown });
     }),
-  );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/**
- * Runs `operation` while holding one of the slots, waiting up to `waitMs` for one to free up. A failure of
- * `operation` rejects with the error itself. Callers: `apps/api/src/modules/recipe/routes/imports.ts` (the three
- * upload routes; E3-T11 moves them onto `Ocr.withOcrSlot`).
- */
-export function withOcrSlot<T>(operation: () => Promise<T>, waitMs: number = OCR_SLOT_WAIT_MS): Promise<T> {
-  return runtime.runPromise(
-    Ocr.use((ocr) => ocr.withOcrSlot(Effect.tryPromise({ try: operation, catch: (cause): unknown => cause }), waitMs)),
   );
 }

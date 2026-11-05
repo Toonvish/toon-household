@@ -11,7 +11,6 @@
 import type { ImportSourceMeta, ParsedRecipe } from "@toon/shared";
 import { Clock, Context, Effect, Layer } from "effect";
 import { ApiFailure, BadRequest } from "../../../../../lib/errors.ts";
-import { runtime } from "../../../../../runtime.ts";
 import { Ocr } from "../../ocr/index.ts";
 import { PDF_NO_TEXT_LAYER_MESSAGE, PdfText } from "../../ocr/pdf.ts";
 import type { OcrFailure } from "../../ocr/seam.ts";
@@ -84,7 +83,7 @@ export interface TextPasteOptions {
 
 /**
  * Pasted text -> draft payload, as a service-free effect: no OCR, no I/O, no service. NOT pure (the duration reads the
- * `Clock`), and it stays reachable synchronously through the bridge `importFromText` at the end of the file. The steps
+ * `Clock`), and it stays reachable synchronously through the pinned-test bridge `importFromText` at the end of the file. The steps
  * run in today's order: clamp the trimmed text, refuse an empty one, parse, and only then read the clock twice.
  */
 export const importFromTextEffect = Effect.fnUntraced(function* (
@@ -236,26 +235,12 @@ export class OcrImporter extends Context.Service<
   );
 }
 
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/**
- * Photo -> draft payload. A refusal rejects with the tagged error itself, any other failure with the original error.
- * Callers: `apps/api/src/modules/recipe/routes/imports.ts` (E3-T11).
- */
-export function importFromImage(bytes: Uint8Array, options: ImageImportOptions): Promise<TextImportResult> {
-  return runtime.runPromise(OcrImporter.use((importer) => importer.importFromImage(bytes, options)));
-}
-
-/** PDF -> draft payload. Callers: `apps/api/src/modules/recipe/routes/imports.ts` (E3-T11). */
-export function importFromPdf(bytes: Uint8Array, options: PdfImportOptions = {}): Promise<TextImportResult> {
-  return runtime.runPromise(OcrImporter.use((importer) => importer.importFromPdf(bytes, options)));
-}
+/* legacy bridge: the one survivor of this file after E3 (plan e3 P1) */
 
 /**
  * Pasted text -> draft payload. SYNCHRONOUS and throwing the `400` refusal itself (an `ApiError` instance) for an empty
  * text (plan e3 P11): `Effect.runSync` over the service-free {@link importFromTextEffect}, whose clock is the default
- * one. Callers: `apps/api/src/modules/recipe/routes/imports.ts` (E3-T11), `apps/api/test/import/ocr-disabled.test.ts`
- * (pinned, E8) and `apps/api/test/import/ocr-segment.test.ts`.
+ * one. Callers: `apps/api/test/import/ocr-disabled.test.ts` (pinned, E8) and `apps/api/test/import/ocr-segment.test.ts`.
  */
 export function importFromText(rawText: string, options: TextPasteOptions = {}): TextImportResult {
   return Effect.runSync(importFromTextEffect(rawText, options));

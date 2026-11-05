@@ -7,8 +7,7 @@
  *
  * AS A SERVICE (docs/EFFECT.md E7, E12; plan `docs/plans/e3-recipe-services.md` P2, P8, P9). `CookLog` runs on the
  * current executor of `Database` (inside `Database.transaction` that is the open transaction), reads the `Clock` for
- * the cook time and the undo window, and refuses with the tagged family. The Promise bridges at the end keep the routes
- * working until E3-T10.
+ * the cook time and the undo window, and refuses with the tagged family.
  */
 import type { MarkCookedRequest, RecipeCookedResponse } from "@toon/shared";
 import { and, desc, eq, max } from "drizzle-orm";
@@ -19,8 +18,6 @@ import type { MealPlanEntryRow } from "../../../../db/schema.ts";
 import { NotFound } from "../../../../lib/errors.ts";
 import type { DatabaseError } from "../../../../lib/errors.ts";
 import { toIso } from "../../../../lib/http.ts";
-import { runtime } from "../../../../runtime.ts";
-import type { DbLike } from "../../../../core/services/households/support.ts";
 import { toMealPlanEntry } from "../plan/mappers.ts";
 import { MealPlan } from "../plan/plan.service.ts";
 import { Recipes } from "./recipes.service.ts";
@@ -192,30 +189,5 @@ export class CookLog extends Context.Service<
 
       return CookLog.of({ recordCooked, undoCooked });
     }),
-  );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-// Every bridge honours its `db` argument with `Database.withExecutor(db)` (plan e3 P1). A failure rejects with the
-// tagged error itself.
-
-/** Callers: `routes/recipes.ts` (E3-T10). Promise. */
-export function recordCooked(
-  db: DbLike,
-  householdId: string,
-  userId: string,
-  recipeId: string,
-  input: MarkCookedRequest,
-): Promise<RecipeCookedResponse> {
-  return runtime.runPromise(
-    CookLog.use((s) => s.recordCooked(householdId, userId, recipeId, input)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `routes/recipes.ts` (E3-T10). Promise. */
-export function undoCooked(db: DbLike, householdId: string, userId: string, recipeId: string): Promise<void> {
-  return runtime.runPromise(
-    CookLog.use((s) => s.undoCooked(householdId, userId, recipeId)).pipe(Database.withExecutor(db)),
   );
 }

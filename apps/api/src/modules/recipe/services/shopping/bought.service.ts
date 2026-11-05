@@ -14,7 +14,7 @@
  * `mutationId` INSIDE the same `database.transaction` as the write it guards (a replay applies once); the ledger
  * prune runs after it, where it ran before. `appendBoughtItem` and `pruneBoughtLog` are exported `Effect.fnUntraced`
  * helpers over `Database` that `items.service.ts` provides inside `checkShoppingItem`: no service depends on a
- * service of its own cycle (P2). The Promise bridges at the end keep `routes/shopping.ts` working until E3-T10.
+ * service of its own cycle (P2).
  */
 import {
   nameKey,
@@ -27,8 +27,6 @@ import { Database } from "../../../../db/database.ts";
 import { shoppingBoughtItems, shoppingListCatalog, shoppingLists, users } from "../../../../db/schema.ts";
 import type { ShoppingListItemRow } from "../../../../db/schema.ts";
 import type { Conflict, DatabaseError, NotFound } from "../../../../lib/errors.ts";
-import type { DbLike } from "../../../../core/services/households/support.ts";
-import { runtime } from "../../../../runtime.ts";
 import { applyAdditions } from "./items.service.ts";
 import { ShoppingMutations } from "./idempotency.ts";
 import { ShoppingLists } from "./lists.service.ts";
@@ -243,40 +241,5 @@ export class ShoppingBought extends Context.Service<
 
       return ShoppingBought.of({ clearBoughtSection, undoBoughtItem, listBoughtItems });
     }),
-  );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-// Every bridge honours its `db` argument with `Database.withExecutor(db)` (plan e3 P1). A failure rejects with the
-// tagged error itself. All callers are `routes/shopping.ts` (E3-T10 deletes them). Promise.
-
-export function clearBoughtSection(db: DbLike, householdId: string, listId: string): Promise<ShoppingListDetailResponse> {
-  return runtime.runPromise(
-    ShoppingBought.use((s) => s.clearBoughtSection(householdId, listId)).pipe(Database.withExecutor(db)),
-  );
-}
-
-export function undoBoughtItem(
-  db: DbLike,
-  householdId: string,
-  listId: string,
-  boughtId: string,
-  mutationId?: string,
-): Promise<ShoppingListDetailResponse> {
-  return runtime.runPromise(
-    ShoppingBought.use((s) => s.undoBoughtItem(householdId, listId, boughtId, mutationId)).pipe(
-      Database.withExecutor(db),
-    ),
-  );
-}
-
-export function listBoughtItems(
-  db: DbLike,
-  householdId: string,
-  options: { listId?: string; limit: number; offset: number },
-): Promise<ShoppingBoughtListResponse> {
-  return runtime.runPromise(
-    ShoppingBought.use((s) => s.listBoughtItems(householdId, options)).pipe(Database.withExecutor(db)),
   );
 }

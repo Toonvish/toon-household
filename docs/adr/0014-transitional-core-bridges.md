@@ -74,3 +74,28 @@ bridges named above, `toUserDto`, `requireAccountEmail` and `requireProviderConf
 `assertRole` survives with no reader (an unused import in recipe). The idioms test pins the two rules that make the
 transition honest: `throw ApiError` only under `apps/api/src/modules/recipe/` and `finance/` (rule (10)), and no `Date.now(` /
 `new Date(` in a `services/` directory and no `nowMs(` call under `apps/api/src/core/` outside the pinned entries (rule (11)).
+
+## Status after E3's integration (2026-11-05)
+
+E3 (recipe-services, `docs/plans/e3-recipe-services.md`) moved the recipe module onto `Context.Service` classes and its
+routes onto `runtime.runPromise`. **The recipe manifest is no longer behind `fromPromiseModule`**: `recipeModule` implements the
+Effect contract `ApiModule<RecipeServices>` directly, its hooks are Effects and its `layer` is part of the one `AppLayer`; finance is
+the one manifest still wrapped (E4 deletes `PromiseApiModule`, `fromPromiseModule` and `runModuleHook`).
+
+E3-T12 deleted six core bridges whose last caller was recipe: `enforceRateLimit`, `storeUploadedImage`, `warmThumbnail`,
+`isVerifiedEmailRequired`, `assertCanModifyOwned` and `assertRole`, with their remaining test callers rewritten onto the services.
+E3-T13 deleted every recipe bridge whose callers were only recipe routes, recipe services or rewritten tests. The bridges that
+survive E3 (callers and removal milestones in `docs/plans/e3-recipe-services.md` section 9.2):
+
+- recipe: `backfillFoldedColumns(database?)` (`apps/api/src/modules/recipe/migrate.ts`; `apps/api/scripts/legacy/recipe.ts`,
+  `apps/api/test/legacy-recipe.test.ts`; E5), `localizeImageUrl` (`apps/api/src/modules/recipe/services/recipes/remoteImage.ts`;
+  `apps/api/scripts/localize-images.ts`; E5), `createDraft(db, input)` (`services/import/drafts.ts`), the synchronous `importFromText`
+  (`services/import/ocr/index.ts`), `fetchHtml` (`services/import/url/fetch.ts`) and `assertPublicUrl` (`services/import/url/ssrf.ts`),
+  the last four for the pinned tests `apps/api/test/import/ocr-disabled.test.ts` and `apps/api/test/import/ssrf.test.ts` (E8).
+- core: `requireUser`, `requireMembership` (finance routes; E4), `initializeHousehold`, `enableModule` (finance seed; E4, E5),
+  `checkRateLimit`, `resetRateLimits`, `setMailer`, `getMailer`, `isMailerOverridden`, `claimPlaceholderUser` and `createSession`
+  (tests, some pinned; E8 at the latest, with E9's layer-based test support), `collectUploadReferences`, `trySendMail`,
+  `isMailConfigured`, `findUserByEmail`, `createPasswordResetToken` (scripts; E5).
+
+The idioms test pins the progress: rule (10) allows `throw ApiError` only under `apps/api/src/modules/finance/` and rule (11)'s
+`nowMs(` scan covers `apps/api/src/core/` and `apps/api/src/modules/recipe/`.

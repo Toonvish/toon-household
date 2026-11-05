@@ -12,9 +12,7 @@
  * current executor of `Database` on every call (inside `Database.transaction` that is the open transaction), takes its
  * timestamps from the `Clock`, tags through `RecipeTags`, localizes a remote image through `RemoteImages` BEFORE the
  * transaction opens, and refuses with the tagged family. Every by-id read keeps its `householdId` filter (D8). The pre-folded
- * search columns (`titleFold`, `descriptionFold`, `nameFold`, R45) are written on every write. The Promise bridges at
- * the end of the file keep the routes (until E3-T10) and the not-yet-converted plan, cook-log and shopping services
- * (until E3-T08 and E3-T09) working.
+ * search columns (`titleFold`, `descriptionFold`, `nameFold`, R45) are written on every write.
  */
 import type {
   CreateRecipeRequest,
@@ -50,11 +48,9 @@ import { NotFound, ValidationFailed } from "../../../../lib/errors.ts";
 import type { DatabaseError, Forbidden } from "../../../../lib/errors.ts";
 import type { Membership } from "../../../../lib/types.ts";
 import { normalizeStoredUploadUrl } from "../../../../lib/uploadUrls.ts";
-import { runtime } from "../../../../runtime.ts";
 import { toPublicUser } from "../../../../core/services/households/mappers.ts";
 import { checkCanModifyOwned } from "../../../../core/services/households/membership.ts";
 import {
-  type DbLike,
   foldText,
   likeStoredFold,
   toCountMap,
@@ -741,82 +737,5 @@ export class Recipes extends Context.Service<
         scaleRecipe,
       });
     }),
-  );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-// Every bridge honours its `db` argument with `Database.withExecutor(db)` (plan e3 P1): called inside an open
-// `withTransaction(db, async (tx) => …)` it runs on that `tx`. A failure rejects with the tagged error itself.
-
-/** Callers: `plan/plan.service.ts` (E3-T08), `recipes/cookLog.ts` (E3-T08), `shopping/items.service.ts` (E3-T09). Promise. */
-export function loadRecipeRow(db: DbLike, householdId: string, recipeId: string): Promise<RecipeRow> {
-  return runtime.runPromise(Recipes.use((s) => s.loadRecipeRow(householdId, recipeId)).pipe(Database.withExecutor(db)));
-}
-
-/** Callers: `routes/recipes.ts` (E3-T10). Promise. */
-export function listRecipes(
-  db: DbLike,
-  householdId: string,
-  query: RecipeListQuery,
-  tagIds: readonly string[] = [],
-): Promise<RecipeListResponse> {
-  return runtime.runPromise(
-    Recipes.use((s) => s.listRecipes(householdId, query, tagIds)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `routes/recipes.ts` (E3-T10). Promise. */
-export function getRecipeDetail(db: DbLike, householdId: string, recipeId: string): Promise<RecipeDetail> {
-  return runtime.runPromise(
-    Recipes.use((s) => s.getRecipeDetail(householdId, recipeId)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `routes/recipes.ts` (E3-T10). Promise. */
-export function createRecipe(
-  db: DbLike,
-  householdId: string,
-  userId: string,
-  input: CreateRecipeRequest,
-): Promise<RecipeDetail> {
-  return runtime.runPromise(
-    Recipes.use((s) => s.createRecipe(householdId, userId, input)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `routes/recipes.ts` (E3-T10). Promise. */
-export function updateRecipe(
-  db: DbLike,
-  membership: Membership,
-  recipeId: string,
-  input: UpdateRecipeRequest,
-): Promise<RecipeDetail> {
-  return runtime.runPromise(
-    Recipes.use((s) => s.updateRecipe(membership, recipeId, input)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `routes/recipes.ts` (E3-T10). Promise. */
-export function deleteRecipe(db: DbLike, membership: Membership, recipeId: string): Promise<void> {
-  return runtime.runPromise(Recipes.use((s) => s.deleteRecipe(membership, recipeId)).pipe(Database.withExecutor(db)));
-}
-
-/** Callers: `routes/recipes.ts` (E3-T10). Promise. */
-export function setRecipeImage(db: DbLike, householdId: string, recipeId: string, imageUrl: string): Promise<Recipe> {
-  return runtime.runPromise(
-    Recipes.use((s) => s.setRecipeImage(householdId, recipeId, imageUrl)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `routes/recipes.ts` (E3-T10). Promise. */
-export function scaleRecipe(
-  db: DbLike,
-  householdId: string,
-  recipeId: string,
-  servings: number,
-): Promise<ScaledRecipeResponse> {
-  return runtime.runPromise(
-    Recipes.use((s) => s.scaleRecipe(householdId, recipeId, servings)).pipe(Database.withExecutor(db)),
   );
 }

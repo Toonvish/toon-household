@@ -64,15 +64,42 @@ one to one under `apps/api/src/modules/recipe/services/{recipes,import,ocr,plan,
 (`import/` has `url/`, `html/`, `ocr/`). The routes and their request and response shapes are documented
 row by row in `docs/API.md`, checked by `apps/api/test/api-doc.test.ts`.
 
+**Services (E3, `docs/plans/e3-recipe-services.md`).** Every file that does I/O is a `Context.Service` with a static
+`layer`; the pure helpers (`ssrf.ts` guard checks, `preprocess.ts`, the parsers, mappers and adapters) stay plain
+modules. Method names are the old exported function names without the leading `db` argument; every handler of
+`routes/*.ts` is `(c) => runtime.runPromise(Effect.gen(...))` over them. The manifest is an `ApiModule<RecipeServices>`
+(no longer behind `fromPromiseModule`); its `layer` is `Layer.suspend(recipeLayer)` (`apps/api/src/modules/recipe/layer.ts`),
+the areas nested by dependency (`plan` over `shopping` over `recipes` over `import` + `cards` over `url` import over `ocr`),
+merged by the runtime into the one `AppLayer`.
+
+| Area (`services/…`) | Services (file) |
+| --- | --- |
+| `ocr/` | `Ocr` (`index.ts`: the slot gate, the hard timeout, the engine seam), `PdfText` (`pdf.ts`) |
+| `import/` | `ImportCapabilities` (`capabilities.ts`, flags from `AppConfig` under the seams), `ImportFiles` (`files.ts`), `OcrImporter` (`ocr/index.ts`), `ImportDrafts` (`drafts.ts`), `ImportCommit` (`commit.ts`) |
+| `import/url/` | `ImportHttp` (`fetch.ts`: the SSRF-guarded `HttpClient`), `HeroImages` (`image.ts`), `UrlImporter` (`index.ts`), plus `RemoteImages` (`recipes/remoteImage.ts`) |
+| `recipes/` | `RecipeTags` (`tags.service.ts`), `Recipes` (`recipes.service.ts`), `RecipeCollections` (`collections.service.ts`); `RemoteImages` (`remoteImage.ts`) is in the `import/url` layer, `CookLog` (`cookLog.ts`) in the `plan` layer |
+| `plan/` | `MealPlan` (`plan.service.ts`), `ShoppingFromPlan` and `CookLog` (their files are under `shopping/` and `recipes/`) |
+| `shopping/` | `ShoppingLists` (`lists.service.ts`), `ShoppingItems` (`items.service.ts`), `ShoppingBought` (`bought.service.ts`), `ShoppingMutations` (`idempotency.ts`) |
+| `cards/` | `Cards` (`cards.service.ts`) |
+
+Time comes from the `Clock`, the database through `Database.use` / `Database.transaction`, refusals are the tagged family
+of `apps/api/src/lib/errors.ts`; no recipe file names `ApiError`, calls `nowMs(` or `withTransaction(` (rule (11) and the
+acceptance grep). The Promise bridges that survive E3 are exactly `backfillFoldedColumns(database?)`
+(`migrate.ts`; `apps/api/scripts/legacy/recipe.ts`, `apps/api/test/legacy-recipe.test.ts`; E5), `localizeImageUrl`
+(`recipes/remoteImage.ts`; `apps/api/scripts/localize-images.ts`; E5), `createDraft(db, input)` (`import/drafts.ts`) and the
+synchronous `importFromText` (`import/ocr/index.ts`), `fetchHtml` (`import/url/fetch.ts`) and `assertPublicUrl`
+(`import/url/ssrf.ts`), the last four for the pinned tests of `apps/api/test/import/` (E8); ADR 0014 lists them with
+the core's.
+
 Manifest hooks implemented (the `ApiModule` contract, `apps/api/src/modules/types.ts`):
 
 | Hook | What the recipe module does |
 | --- | --- |
-| `healthFeatures` | `{ ocrImport, pdfImport }` from `isOcrImportEnabled()` / `isPdfImportEnabled()` (`services/import/capabilities.ts`), merged into `/api/health` `features` |
-| `afterMigrate` | `backfillFoldedColumns` (`apps/api/src/modules/recipe/migrate.ts`): idempotent, no transaction (gotcha "Fold columns and the backfill") |
-| `shutdown` | `shutdownOcr` (`services/ocr/index.ts`), called from the SIGTERM/SIGINT handler of `apps/api/src/index.ts` |
-| `seedDemo` | `seedRecipeDemo` (`apps/api/src/modules/recipe/seed.ts`): tags, three German recipes, a plan week, a cook log, the shopping list "Rewe" with bought history; content language is German on purpose |
-| `uploadReferences` | every stored upload a recipe row holds: `recipe_recipes.image_url`, `recipe_collections.cover_image_url`, `recipe_import_drafts.source_meta` (`storedPath`) and `recipe_import_drafts.parsed` (`imageUrl`); a missing column makes `uploads:gc` delete a live image |
+| `healthFeatures` | an Effect over `AppConfig`: `{ ocrImport, pdfImport }` from `capabilityFlags` (`services/import/capabilities.ts`), merged into `/api/health` `features` |
+| `afterMigrate` | an Effect: `foldBackfill` (`apps/api/src/modules/recipe/migrate.ts`), idempotent, no transaction (gotcha "Fold columns and the backfill") |
+| `shutdown` | an Effect over `shutdownOcr` (`services/ocr/index.ts`), run from the SIGTERM/SIGINT handler of `apps/api/src/index.ts` before the runtime is disposed |
+| `seedDemo` | an Effect over `seedRecipeDemo` (`apps/api/src/modules/recipe/seed.ts`): tags, three German recipes, a plan week, a cook log, the shopping list "Rewe" with bought history; content language is German on purpose |
+| `uploadReferences` | an Effect over `Database`: every stored upload a recipe row holds: `recipe_recipes.image_url`, `recipe_collections.cover_image_url`, `recipe_import_drafts.source_meta` (`storedPath`) and `recipe_import_drafts.parsed` (`imageUrl`); a missing column makes `uploads:gc` delete a live image |
 
 The module has no `onHouseholdCreated`, `onEnable`, `onMemberRemoving` or `start`: a recipe row names
 the household, never a person (cards belong to the user and cascade with the user).
@@ -271,15 +298,22 @@ a one-line pointer. Paths are repo-relative.
 
 - **Fold columns and the backfill.** `title_fold`, `description_fold`, `name_fold` are `NOT NULL`
   with no default (the fresh `apps/api/drizzle/0001_recipe.sql` has no `DEFAULT ''`; services write them
-  through `foldText`). `backfillFoldedColumns` lives in `apps/api/src/modules/recipe/migrate.ts` and runs
+  through `foldText`). `foldBackfill` (an Effect over `Database`) and its Promise bridge
+  `backfillFoldedColumns(database?)` live in `apps/api/src/modules/recipe/migrate.ts`; `foldBackfill` runs
   as the module's `afterMigrate` after every `runMigrations` (db:migrate, seed, tests): idempotent, no
-  transaction. `migrate:legacy` (`apps/api/scripts/legacy/recipe.ts`) relies on it for imported rows.
+  transaction. `migrate:legacy` (`apps/api/scripts/legacy/recipe.ts`) calls the bridge for imported rows; the
+  file imports neither `runtime.ts` nor `env.ts` (the bridge goes through `runModuleHook`).
 
 - **Import route tests use real sessions.** toon-recipe's `services/import/middleware-bridge.ts` is not
   ported: it only stubbed the session and group middleware, and the mount chain now runs the real
   ones. `apps/api/test/import/routes.test.ts` and `apps/api/test/import/ocr-disabled.test.ts` log in
   through the shared DB plus the file-backed import DB (`setImportDbForTests`, in
-  `apps/api/src/modules/recipe/services/import/db.ts`). OCR and PDF flags, `setMailer`,
+  `apps/api/src/modules/recipe/services/import/db.ts`; each import handler is wrapped in `withImportDb(effect)`
+  of the same file, which provides that database as the current executor). The URL import against a real
+  socket is `apps/api/test/import/url-import-local.test.ts`: a `Bun.serve` fixture server, the guard opened for
+  `127.0.0.1` only through `setImportGuardForTests({ allowHosts: ["127.0.0.1"] })` (an exact-host allow list;
+  never the `IMPORT_ALLOW_PRIVATE_HOSTS` escape hatch, which skips every host check, the metadata address
+  included) and the redirect into `169.254.169.254` refused with `private_ip` before any request. OCR and PDF flags, `setMailer`,
   `setVerifiedEmailRequired`, `setOcrEngine`, `setPdfRasterizer` are handed back in `afterAll`; never
   `mock.module`. `apps/api/test/import/pdf-rasterize.test.ts` needs poppler's `pdftoppm` and fails, not
   skips, without it.
@@ -311,9 +345,10 @@ a one-line pointer. Paths are repo-relative.
   from `apps/web/src/lib/session.tsx`) stay binding.
 
 - **Remote images become local copies on write.** Recipe create and PATCH, the import commit and the
-  collection create/update run `imageUrl` / `coverImageUrl` through `localizeImageUrl`
-  (`apps/api/src/modules/recipe/services/recipes/remoteImage.ts`): an `http(s):` or `data:image/` value is
-  downloaded with the URL importer's `downloadHeroImage` (SSRF guard, 4 MB / 8 s, magic-byte sniff) BEFORE
+  collection create/update run `imageUrl` / `coverImageUrl` through `RemoteImages.localizeImageUrl`
+  (`apps/api/src/modules/recipe/services/recipes/remoteImage.ts`; `localizeImageUrl` stays a Promise bridge for
+  `apps/api/scripts/localize-images.ts`): an `http(s):` or `data:image/` value is
+  downloaded with the `HeroImages` service's `downloadHeroImage` (SSRF guard, 4 MB / 8 s, magic-byte sniff) BEFORE
   the transaction opens, and the column stores `/uploads/<file>`. Best-effort: a failed download keeps the
   remote URL and the save succeeds; a PATCH that sends back the unchanged remote URL is not retried (no
   8 s wait on every edit of a recipe whose source is gone; `recipe:localize-images` retries those). Under
@@ -365,14 +400,14 @@ touching the area; the row says where its subject lives and whether it still hol
 | R13 | The service worker is generated by `vite-plugin-pwa` | adapted | `vite-plugin-pwa` `generateSW` in `apps/web/vite.config.ts`, registered by `apps/web/src/lib/pwa.ts`; the recipe rules are under `/api/households/<id>/recipe/…` and `/api/recipe/cards`, the NetworkOnly list is the union of both sources (SPEC D9), every NetworkOnly rule before the NetworkFirst one (section 1.5) |
 | R14 | `skipWaiting` is OFF, and turning it back on breaks code splitting. | core | `apps/web/vite.config.ts` (`skipWaiting: false`), `apps/web/src/lib/pwa.ts`, `apps/web/src/components/layout/UpdateBanner.tsx` |
 | R15 | `lib/unsavedWork.ts` is the one place that answers "would a reload … | core | `apps/web/src/lib/unsavedWork.ts`, test `apps/web/src/lib/unsavedWork.test.ts` |
-| R16 | The URL importer's SSRF guard blocks localhost/private IPs. | module | `apps/api/src/modules/recipe/services/import/url/ssrf.ts`, `IMPORT_ALLOW_PRIVATE_HOSTS` in `apps/api/src/env.ts`, test `apps/api/test/import/ssrf.test.ts` |
+| R16 | The URL importer's SSRF guard blocks localhost/private IPs. | module | `apps/api/src/modules/recipe/services/import/url/ssrf.ts` (the guard, `checkPublicUrl`, a service-free Effect), `ImportHttp` in `apps/api/src/modules/recipe/services/import/url/fetch.ts` (one guarded `HttpClient` request per hop, `redirect: "manual"`), `IMPORT_ALLOW_PRIVATE_HOSTS` in `apps/api/src/env.ts`, tests `apps/api/test/import/ssrf.test.ts`, `apps/api/test/import/import-http.test.ts`, `apps/api/test/import/url-import-local.test.ts` |
 | R17 | A JSON-LD property can be a `@graph` REFERENCE, and an `@id` looks … | module | `apps/api/src/modules/recipe/services/import/url/jsonld.ts`; keep the fixture `apps/api/test/fixtures/import/chefkoch-graph.html` |
-| R18 | The hero image is a CANDIDATE LIST, not one URL | module | `imageCandidates` and `MAX_IMAGE_ATTEMPTS` in `apps/api/src/modules/recipe/services/import/url/index.ts`; collect in `consider()` before the merge |
+| R18 | The hero image is a CANDIDATE LIST, not one URL | module | `imageCandidates` and `MAX_IMAGE_ATTEMPTS` in `apps/api/src/modules/recipe/services/import/url/index.ts` (`UrlImporter.importFromUrl` tries them through `HeroImages.downloadHeroImage`); collect in `consider()` before the merge |
 | R19 | `parseDuration` / `parseServings` return the UPPER bound | module | `packages/shared/src/modules/recipe/duration.ts` (`parseDuration`, `parseServings`), `packages/shared/src/modules/recipe/ingredients.ts` (`scaleIngredients`); tests `packages/shared/test/duration.test.ts`, `packages/shared/test/ingredients.test.ts` |
-| R20 | PHOTO AND PDF IMPORT ARE TWO FEATURE FLAGS, BOTH OFF BY DEFAULT, AND … | module | `apps/api/src/modules/recipe/services/import/capabilities.ts`, guard in `apps/api/src/modules/recipe/routes/imports.ts`, `/api/health` `features.{ocrImport,pdfImport}` from the manifest's `healthFeatures`; tests `apps/api/test/import/ocr-disabled.test.ts`, `apps/api/test/import/routes.test.ts` |
+| R20 | PHOTO AND PDF IMPORT ARE TWO FEATURE FLAGS, BOTH OFF BY DEFAULT, AND … | module | `ImportCapabilities` in `apps/api/src/modules/recipe/services/import/capabilities.ts`, guard in `apps/api/src/modules/recipe/routes/imports.ts`, `/api/health` `features.{ocrImport,pdfImport}` from the manifest's `healthFeatures`; tests `apps/api/test/import/ocr-disabled.test.ts`, `apps/api/test/import/routes.test.ts` |
 | R21 | The Dockerfile installs the OCR binaries only for `--build-arg WITH_OCR=1` … | adapted | SPEC D11: `Dockerfile` build args `WITH_OCR` / `WITH_PDF`, runtime flags default to them; `.github/workflows/release.yml` publishes `WITH_OCR=1 WITH_PDF=0`, `docker-compose.yml` passes `IMPORT_PDF_ENABLED` explicitly; guard `apps/api/test/deploy-dockerfile.test.ts` |
-| R22 | OCR AND PDF RASTERIZATION ARE NATIVE SUBPROCESSES, not libraries. | module | `apps/api/src/modules/recipe/services/ocr/tesseract.ts`, `apps/api/src/modules/recipe/services/ocr/pdf.ts`, `apps/api/src/modules/recipe/services/ocr/index.ts` (`withOcrSlot`, `withOcrTimeout`, `OCR_SLOT_WAIT_MS`); a missing binary stays the documented 422 |
-| R23 | `test/import/pdf-rasterize.test.ts` is the only test that uses the … | module | `apps/api/test/import/pdf-rasterize.test.ts`; CI installs poppler in `.github/workflows/ci.yml`; stub through `setPdfRasterizer()` elsewhere |
+| R22 | OCR AND PDF RASTERIZATION ARE NATIVE SUBPROCESSES, not libraries. | module | `apps/api/src/modules/recipe/services/ocr/tesseract.ts`, `apps/api/src/modules/recipe/services/ocr/pdf.ts`, `apps/api/src/modules/recipe/services/ocr/index.ts` (the `Ocr` service: `withOcrSlot`, `withOcrTimeout`, `OCR_SLOT_WAIT_MS`; `PdfText` in `pdf.ts`; each `Bun.spawn` only inside `Effect.acquireRelease`, each run in its own `Effect.scoped`, so an interrupted run kills the child); a missing binary stays the documented 422 |
+| R23 | `test/import/pdf-rasterize.test.ts` is the only test that uses the … | module | `apps/api/test/import/pdf-rasterize.test.ts`; CI installs poppler in `.github/workflows/ci.yml`; stub through `setPdfRasterizer()` elsewhere (the seam stays a Promise interface) |
 | R24 | AN UNCONFIRMED E-MAIL ADDRESS MAKES AN ACCOUNT READ-ONLY, AND THE GATE … | core | `apps/api/src/core/services/auth/verifiedEmail.ts`, `apps/api/src/middleware/verifiedEmail.ts`; the recipe routers apply it with `use("*")` in each `apps/api/src/modules/recipe/routes/*.ts`; test `apps/api/test/verified-email-gate.test.ts`; UI `useEmailVerificationBlock` in `apps/web/src/lib/session.tsx` |
 | R25 | OAuth never auto-links on an e-mail match, even a CONFIRMED one. | core | `apps/api/src/core/services/auth/oauthAccounts.ts`, `apps/api/src/lib/oauth.ts`; SPEC D4 |
 | R26 | `safeNextPath` must reject backslashes, control characters and spaces | core | `apps/api/src/lib/oauth.ts` and `apps/web/src/lib/navigation.ts`, kept in sync; test `apps/api/test/auth.test.ts` |
@@ -383,7 +418,7 @@ touching the area; the row says where its subject lives and whether it still hol
 | R31 | The card form's `format` and `value` are one field, contractually. | module | `UpdateCardRequestSchema` in `packages/shared/src/modules/recipe/schemas/card.ts`, `server.card.formatAndValue` in the core server catalogs |
 | R32 | `routes/cards.ts` throws the raw `ZodError` instead of using `zValidator`. | module | Kept in substance since E1: `apps/api/src/modules/recipe/routes/cards.ts` decodes with `decodeOrThrow` (`apps/api/src/lib/validate.ts`), the `Schema.SchemaError` ends in `toApiError` and `toValidationIssues`, so the issue keeps its `i18n` (ADR 0013); test `apps/api/test/cards.test.ts` pins key and message |
 | R33 | `clientIp()` ignores `X-Forwarded-For` unless `TRUST_PROXY=1` | core | `apps/api/src/core/services/auth/rateLimit.ts`, `TRUST_PROXY` in `apps/api/src/env.ts`; the Caddy `fwd` snippet in `docker/Caddyfile` overwrites a client `X-Forwarded-For` |
-| R34 | Import endpoints must stay bounded | module | `apps/api/src/modules/recipe/routes/imports.ts` (`enforceRateLimit` with `IMPORT_RULE` in every handler, `withOcrSlot`), `apps/api/src/modules/recipe/services/ocr/index.ts` (`withOcrTimeout` stays a `Promise.race`) |
+| R34 | Import endpoints must stay bounded | module | `apps/api/src/modules/recipe/routes/imports.ts` (`RateLimiter.enforce("import", user.id, IMPORT_RULE)` in every handler, `Ocr.withOcrSlot`), `apps/api/src/modules/recipe/services/ocr/index.ts` (`withOcrTimeout` is `Effect.timeoutOrElse`, the page budget of `ImportHttp.fetchHtml` the same) |
 | R35 | Recipe list/search filters live in the URL | adapted | SPEC D6: params at `/recipe`, `/recipe/search` still declares the same ones; `useUrlRecipeFilters("/recipe")` in `apps/web/src/modules/recipe/features/recipes/lib/url-filters.ts`, `RECIPE_FILTER_PARAMS` in `apps/web/src/modules/recipe/routes.tsx` |
 | R36 | `/uploads/:filename` needs a signature | core | Signed uploads: `apps/api/src/lib/uploadUrls.ts`, `apps/api/src/core/services/media/uploads.ts`; test `apps/api/test/uploads.test.ts`; `CLAUDE.md` "Uploads are signed, not cookie-checked" |
 | R37 | A failed mail send must never fail its action. | core | `apps/api/src/core/services/mail/index.ts` (`trySendMail`); `/password/forgot` answers 204 in `apps/api/src/core/routes/auth.ts` |
@@ -394,7 +429,7 @@ touching the area; the row says where its subject lives and whether it still hol
 | R42 | `/api/groups/:groupId/shopping-lists` is `NetworkOnly` in the service worker | adapted | `apps/web/vite.config.ts`: `/api/households/<id>/recipe/shopping-lists` is `NetworkOnly` (path under the module, same reason) |
 | R43 | `foldText`/`FOLD_PAIRS` live in `@toon/shared` (src/text.ts), not in the API. | adapted | Moved to the core shared package: `packages/shared/src/core/text.ts` (`foldText`, `FOLD_PAIRS`), `foldSql()` in `apps/api/src/core/services/households/support.ts`; four things must still agree |
 | R44 | `FOLD_PAIRS` CANNOT BE COMPLETED, and it is deliberately half-finished. | adapted | Same files as R43: `FOLD_PAIRS` in `packages/shared/src/core/text.ts` stays half-finished; the "Häufig gekauft" selection is SQL, the order is JS (`selectMostBoughtEntries`, `sortEntriesByFoldedName` in `packages/shared/src/modules/recipe/shopping.ts`) |
-| R45 | Recipe search reads PRE-FOLDED columns; the fold is never computed per row. | module | Pre-folded columns: `apps/api/src/modules/recipe/schema.ts`, `apps/api/src/modules/recipe/services/recipes/recipes.service.ts`, `likeStoredFold()` in `apps/api/src/core/services/households/support.ts`, backfill `apps/api/src/modules/recipe/migrate.ts`, `last_cooked_at` written only by `apps/api/src/modules/recipe/services/recipes/cookLog.ts`; tests `apps/api/test/recipes-search.test.ts`, `apps/api/test/recipes-cooked.test.ts`; see section 4a |
+| R45 | Recipe search reads PRE-FOLDED columns; the fold is never computed per row. | module | Pre-folded columns: `apps/api/src/modules/recipe/schema.ts`, the `Recipes` service in `apps/api/src/modules/recipe/services/recipes/recipes.service.ts`, `likeStoredFold()` in `apps/api/src/core/services/households/support.ts`, backfill `foldBackfill` in `apps/api/src/modules/recipe/migrate.ts`, `last_cooked_at` written only by the `CookLog` service in `apps/api/src/modules/recipe/services/recipes/cookLog.ts`; tests `apps/api/test/recipes-search.test.ts`, `apps/api/test/recipes-cooked.test.ts`; see section 4a |
 | R46 | `bun:sqlite` IS A NEWER SQLite THAN THE ONE THE APP USES | core | Verify DDL through `@libsql/client`, never `bun:sqlite` (`CLAUDE.md` "Migrations are generated"); applies to `apps/api/drizzle/0001_recipe.sql` |
 | R47 | `shoppingItemKey`'s separator is U+001F, not a space | module | `shoppingItemKey` in `packages/shared/src/modules/recipe/shopping.ts` (separator U+001F), test `packages/shared/test/shopping.test.ts` |
 | R48 | The persisted offline cache is namespaced per user id and purged on … | adapted | SPEC D9: `apps/web/src/lib/persist.ts` assembles the allow-list from the manifests; per-user namespacing and purge unchanged; `PERSIST_BUSTER` is `household-v1`, not `v2`; tests `apps/web/src/lib/persist.test.ts`, `apps/web/src/modules/recipe/persist.test.ts` |
@@ -409,7 +444,7 @@ touching the area; the row says where its subject lives and whether it still hol
 | R57 | `autoFocus` only acts on MOUNT, so it cannot move focus into a field … | module | `apps/web/src/modules/recipe/features/cards/components/CardFormDialog.tsx` focuses from a one-shot effect |
 | R58 | A `<fieldset>` carries the browser's own `min-inline-size: min-content` | core | Rule for every `<fieldset>` (Table D rule D-4 in `docs/plans/m4-design-pass.md`); `AddRecipeToListDialog` in the recipe module already carries `min-w-0` |
 | R59 | `block` beats `line-clamp-N`. | module | `apps/web/src/modules/recipe/features/recipes/components/RecipeEditorialRow.tsx` and the detail `<h1>`s carry no clamp; Table D rule D-11 |
-| R60 | A LIST never renders `imageUrl`; it renders the generated `thumbnailUrl`. | adapted | Thumbnails are a core service: `apps/api/src/core/services/media/thumbnails.ts` built on demand by `/uploads/:filename`; `thumbnailUrl()` in `apps/web/src/lib/api.ts`, `listImageUrlFor()` in `apps/web/src/modules/recipe/lib/api.ts`; test `apps/api/test/thumbnails.test.ts` |
+| R60 | A LIST never renders `imageUrl`; it renders the generated `thumbnailUrl`. | adapted | Thumbnails are a core service (`Thumbnails`): `apps/api/src/core/services/media/thumbnails.ts` built on demand by `/uploads/:filename` and warmed by `HeroImages` as a detached fiber after a hero download; `thumbnailUrl()` in `apps/web/src/lib/api.ts`, `listImageUrlFor()` in `apps/web/src/modules/recipe/lib/api.ts`; test `apps/api/test/thumbnails.test.ts` |
 | R61 | The recipe list switches MARKUP at `sm`, in JS, and `sm:hidden` on … | module | `useIsWideViewport` / `useMediaQuery` in `apps/web/src/lib/viewport.ts`, branch in `apps/web/src/modules/recipe/features/recipes/RecipeListPage.tsx` |
 | R62 | A header gets ONE overflow trigger, not a row of icon buttons. | core | `apps/web/src/components/ui/ActionMenu.tsx`, now with `renderTrigger` and `item.current` (`CLAUDE.md`); used by `LibraryCreateMenu` and the recipe detail |
 | R63 | Text next to an icon in a `flex` `<p>` must be ONE child. | core | Rule for every icon-and-text row (Table D rule D-9 in `docs/plans/m4-design-pass.md`) |

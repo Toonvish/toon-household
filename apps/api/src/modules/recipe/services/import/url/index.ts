@@ -31,7 +31,6 @@ import { buildIdIndex, findRecipeNodes, extractJsonLd, resolveNodeReferences } f
 import { extractMetaFields, siteNameFromHost } from "./meta.ts";
 import { findMicrodataRecipe } from "./microdata.ts";
 import { type DownloadHeroImageOptions, HeroImages } from "./image.ts";
-import { runtime } from "../../../../../runtime.ts";
 import { mapSchemaRecipe, scoreStructuredFields } from "./schema-map.ts";
 
 /** How many hero-image candidates may be tried before giving up. */
@@ -311,14 +310,4 @@ export class UrlImporter extends Context.Service<
       return UrlImporter.of({ importFromUrl });
     }),
   );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/**
- * `UrlImporter.importFromUrl` for Promise code. Callers: `apps/api/src/modules/recipe/routes/imports.ts` (until
- * E3-T11). A failure rejects with the tagged `ApiFailure` itself.
- */
-export function importFromUrl(rawUrl: string, options: ImportFromUrlOptions = {}): Promise<UrlImportResult> {
-  return runtime.runPromise(UrlImporter.use((importer) => importer.importFromUrl(rawUrl, options)));
 }

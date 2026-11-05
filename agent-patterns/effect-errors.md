@@ -251,3 +251,21 @@ const loadHouseholdRow = Effect.fn("Households.loadHouseholdRow")(function* (hou
 // elsewhere: return yield* new Conflict({ code: "group_name_taken", text: "server.group.nameTaken" });
 ```
 A test reads the failure with `Effect.flip` (`apps/api/test/modules.test.ts`: `expect(await runTest(Effect.flip(enable(undefined)))).toBe(refusal)`).
+
+**As built (E3):** the recipe module raises only the family (`NotFound`, `Conflict`, `ValidationFailed`, `ApiFailure`; no `ApiError` is named under
+`apps/api/src/modules/recipe/`). Two shapes are new. A Promise from a test seam (`setOcrEngine`, `setPdfRasterizer`) keeps its Promise contract and
+enters Effect through `apps/api/src/modules/recipe/services/ocr/seam.ts`: a rejection that is a family member stays a typed failure, ANY other
+rejection is a defect carrying the original object (the route answers `500` and `runPromise` rejects with the very error the old code propagated):
+
+```ts
+export const fromSeamPromise = <A>(evaluate: (signal: AbortSignal) => PromiseLike<A>): Effect.Effect<A, OcrFailure> =>
+  Effect.tryPromise({ try: evaluate, catch: (cause) => cause }).pipe(
+    Effect.catch((cause) => (isApiError(cause) ? Effect.fail(cause) : Effect.orDie(Effect.fail(cause)))),
+  );
+```
+
+The SSRF guard's `SsrfError` is a `Schema.TaggedError` OUTSIDE the family (`services/import/url/ssrf.ts`): the URL importer maps it once to
+`ApiFailure({ status: 400, code: "fetch_failed", text, details: { reason } })`, so the wire stays `400 fetch_failed` with `details.reason`
+(`private_ip` for a redirect into `169.254.169.254`, asserted by `apps/api/test/import/url-import-local.test.ts`). The one tolerated `throw` left
+in recipe code is the `NODE_ENV=test` guard of a test seam (`setImportGuardForTests`, `setImportDbForTests`, `setRemoteImageDownloaderForTests`): a
+seam is a plain synchronous function called outside any effect.

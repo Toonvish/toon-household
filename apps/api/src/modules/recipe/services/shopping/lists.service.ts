@@ -8,9 +8,7 @@
  *
  * AS A SERVICE (docs/EFFECT.md E7, E12; plan `docs/plans/e3-recipe-services.md` P2, P8, P9, P13). `ShoppingLists` reads
  * the current executor of `Database` on every call, takes its timestamps from the `Clock`, refuses with the tagged
- * family and checks ownership with `checkCanModifyOwned`. Every by-id read keeps its `householdId` filter (D8). The
- * Promise bridges at the end of the file keep the routes and the not-yet-converted shopping services working until
- * E3-T09 and E3-T10.
+ * family and checks ownership with `checkCanModifyOwned`. Every by-id read keeps its `householdId` filter (D8).
  */
 import {
   SHOPPING_LIMITS,
@@ -39,8 +37,7 @@ import { Conflict, NotFound } from "../../../../lib/errors.ts";
 import type { DatabaseError, Forbidden } from "../../../../lib/errors.ts";
 import type { Membership } from "../../../../lib/types.ts";
 import { checkCanModifyOwned } from "../../../../core/services/households/membership.ts";
-import { type DbLike, eqFolded, foldText, toCountMap } from "../../../../core/services/households/support.ts";
-import { runtime } from "../../../../runtime.ts";
+import { eqFolded, foldText, toCountMap } from "../../../../core/services/households/support.ts";
 import {
   toShoppingBoughtItem,
   toShoppingCatalogEntry,
@@ -418,66 +415,5 @@ export class ShoppingLists extends Context.Service<
         getShoppingListDetail,
       });
     }),
-  );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-// Every bridge honours its `db` argument with `Database.withExecutor(db)` (plan e3 P1): called inside an open
-// `withTransaction(db, async (tx) => …)` it runs on that `tx`. A failure rejects with the tagged error itself.
-
-/** Callers: `routes/shopping.ts` (E3-T10). Promise. */
-export function listShoppingLists(db: DbLike, householdId: string, sinceMs?: number): Promise<ShoppingList[]> {
-  return runtime.runPromise(
-    ShoppingLists.use((s) => s.listShoppingLists(householdId, sinceMs)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `shopping/{items,bought,fromPlan}.service.ts` (E3-T08, E3-T09). Promise. */
-export function loadShoppingListRow(db: DbLike, householdId: string, listId: string): Promise<ShoppingListRow> {
-  return runtime.runPromise(
-    ShoppingLists.use((s) => s.loadShoppingListRow(householdId, listId)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `routes/shopping.ts` (E3-T10). Promise. */
-export function createShoppingList(
-  db: DbLike,
-  householdId: string,
-  userId: string,
-  input: CreateShoppingListRequest,
-): Promise<ShoppingList> {
-  return runtime.runPromise(
-    ShoppingLists.use((s) => s.createShoppingList(householdId, userId, input)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `routes/shopping.ts` (E3-T10). Promise. */
-export function updateShoppingList(
-  db: DbLike,
-  householdId: string,
-  listId: string,
-  input: UpdateShoppingListRequest,
-): Promise<ShoppingList> {
-  return runtime.runPromise(
-    ShoppingLists.use((s) => s.updateShoppingList(householdId, listId, input)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `routes/shopping.ts` (E3-T10). Promise. */
-export function deleteShoppingList(db: DbLike, membership: Membership, listId: string): Promise<void> {
-  return runtime.runPromise(
-    ShoppingLists.use((s) => s.deleteShoppingList(membership, listId)).pipe(Database.withExecutor(db)),
-  );
-}
-
-/** Callers: `routes/shopping.ts`, `shopping/{items,bought}.service.ts` (E3-T09, E3-T10). Promise. */
-export function getShoppingListDetail(
-  db: DbLike,
-  householdId: string,
-  listId: string,
-): Promise<ShoppingListDetailResponse> {
-  return runtime.runPromise(
-    ShoppingLists.use((s) => s.getShoppingListDetail(householdId, listId)).pipe(Database.withExecutor(db)),
   );
 }

@@ -252,8 +252,9 @@ export class Sessions extends Context.Service<
 /* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
 
 /**
- * Callers: `apps/api/test/middleware.test.ts` (pinned), `apps/api/test/import/routes.test.ts`,
- * `apps/api/test/import/ocr-disabled.test.ts` (E3). Promise.
+ * Callers: `apps/api/test/middleware.test.ts`, `apps/api/test/import/routes.test.ts`,
+ * `apps/api/test/import/ocr-disabled.test.ts` (the three pinned; E8) and `apps/api/test/import/url-import-local.test.ts`
+ * (set up the way the pinned import route tests are). Promise.
  */
 export function createSession(
   database: DrizzleDatabase,
