@@ -32,17 +32,15 @@ import {
 } from "@toon/shared";
 import { and, asc, desc, eq, gte, inArray, lte, ne, notInArray, sql, type SQL } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
-import type { Database as DrizzleDatabase } from "../../../../db/client.ts";
 import { Database } from "../../../../db/database.ts";
 import { ApiFailure, Conflict, Internal, NotFound } from "../../../../lib/errors.ts";
 import type { DatabaseError, ValidationFailed } from "../../../../lib/errors.ts";
 import { toIso } from "../../../../lib/http.ts";
-import { runFinanceBridge } from "../../bridge.ts";
 import { financeTimeMillis } from "../../lib/clock.ts";
 import { financeCategories as categories, financeTransactionTags as transactionTags, financeTransactions as transactions, type FinanceTransactionRow as TransactionRow } from "../../schema.ts";
 import { FinanceCategories } from "../categories/categories.service.ts";
 import { FinanceParticipants } from "../participants/participants.service.ts";
-import { type DbLike, escapeLikePattern } from "../support.ts";
+import { escapeLikePattern } from "../support.ts";
 import { FinanceTags } from "../tags/tags.service.ts";
 import { sammelbuchungTransactionIds } from "./aggregateExclusion.ts";
 import { computeBalanceDelta } from "./balance.service.ts";
@@ -502,45 +500,4 @@ export class FinanceTransactions extends Context.Service<
       });
     }),
   );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/** Callers: `seed.ts` (E4-T07), `routes/transactions.ts` (E4-T08 deletes it). */
-export function createTransaction(db: DrizzleDatabase, input: CreateTransactionServiceInput): Promise<MutationOutcome> {
-  return runFinanceBridge(FinanceTransactions.use((service) => service.createTransaction(input)), db);
-}
-
-/** Callers: `routes/transactions.ts` (E4-T08 deletes it). */
-export function updateTransaction(
-  db: DrizzleDatabase,
-  transactionId: string,
-  input: UpdateTransactionServiceInput,
-): Promise<MutationOutcome> {
-  return runFinanceBridge(FinanceTransactions.use((service) => service.updateTransaction(transactionId, input)), db);
-}
-
-/** Callers: `routes/transactions.ts` (E4-T08 deletes it). */
-export function deleteTransaction(db: DrizzleDatabase, householdId: string, transactionId: string, mutationId?: string): Promise<void> {
-  return runFinanceBridge(FinanceTransactions.use((service) => service.deleteTransaction(householdId, transactionId, mutationId)), db);
-}
-
-/** Callers: `routes/transactions.ts` (E4-T08 deletes it). */
-export function getTransaction(db: DrizzleDatabase, householdId: string, transactionId: string): Promise<TransactionResponse> {
-  return runFinanceBridge(FinanceTransactions.use((service) => service.getTransaction(householdId, transactionId)), db);
-}
-
-/** Callers: `routes/transactions.ts`, `routes/settlements.ts` (E4-T08 deletes it). */
-export function listTransactions(
-  db: DrizzleDatabase,
-  householdId: string,
-  viewerId: string,
-  filters: TransactionListFilters,
-): Promise<TransactionListResponse> {
-  return runFinanceBridge(FinanceTransactions.use((service) => service.listTransactions(householdId, viewerId, filters)), db);
-}
-
-/** Callers: `services/plan/accrual.service.ts` (E4-T06; its `tx` is an open transaction, which the bridge honours). */
-export function toTransactionResponse(db: DbLike, row: TransactionRow, person1Id: string): Promise<TransactionResponse> {
-  return runFinanceBridge(FinanceTransactions.use((service) => service.toTransactionResponse(row, person1Id)), db);
 }

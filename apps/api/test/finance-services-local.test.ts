@@ -24,7 +24,7 @@ import { ApiError, ApiFailure, Conflict } from "../src/lib/errors.ts";
 import { withFinanceServices } from "../src/modules/finance/layer.ts";
 import { setClockForTest } from "../src/modules/finance/lib/clock.ts";
 import { financeParticipants, financeSettings, financeTransactions } from "../src/modules/finance/schema.ts";
-import { FinanceParticipants, assertParticipantMayLeave } from "../src/modules/finance/services/participants/participants.service.ts";
+import { FinanceParticipants } from "../src/modules/finance/services/participants/participants.service.ts";
 import { FinanceSettings } from "../src/modules/finance/services/settings/settings.service.ts";
 import { runTest } from "./support/effect.ts";
 
@@ -153,8 +153,12 @@ describe("FinanceParticipants on a private temp DB", () => {
     expect(blocked).toBeInstanceOf(Conflict);
     expect(blocked).toMatchObject({ status: 409, code: "finance_participant_in_use" });
 
-    // The old Promise bridge on the same private executor refuses with the same family member.
-    await expect(assertParticipantMayLeave(created.db, householdId, user3)).rejects.toMatchObject({
+    // The veto of `onMemberRemoving` on the same private executor refuses with the same family member.
+    await expect(
+      onPrivate(
+        Effect.flip(FinanceParticipants.use((service) => service.assertParticipantMayLeave(householdId, user3))),
+      ),
+    ).resolves.toMatchObject({
       status: 409,
       code: "member_has_ledger",
     });

@@ -23,13 +23,10 @@
  */
 import { and, eq } from "drizzle-orm";
 import { Cause, Effect, Fiber, Schedule } from "effect";
-import { db as sharedDb } from "../../../../db/client.ts";
 import { Database } from "../../../../db/database.ts";
 import type { Database as DatabaseService } from "../../../../db/database.ts";
 import { householdModules, households } from "../../../../db/schema.ts";
 import { type DatabaseError, isDatabaseError } from "../../../../lib/errors.ts";
-import { runModuleHook } from "../../../adapter.ts";
-import { runFinanceBridge } from "../../bridge.ts";
 import { withFinanceServices } from "../../layer.ts";
 import { FinanceAccrual } from "./accrual.service.ts";
 
@@ -130,23 +127,4 @@ export function stopAccrualSchedule(): Effect.Effect<void> {
     tickFiber = undefined;
     return fiber === undefined ? Effect.void : Fiber.interrupt(fiber);
   });
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/** Callers: `index.ts`, the Promise manifest's `start` (E4-T07 deletes it). Over the shared `db`, as before. */
-export function runBootCatchUp(): Promise<void> {
-  return runFinanceBridge(runForEveryHousehold("boot"), sharedDb);
-}
-
-/** Callers: `index.ts`, the Promise manifest's `start` (E4-T07 deletes it). Starts the tick; never rejects. */
-export function startAccrualScheduler(): void {
-  void runModuleHook(startAccrualTick(), sharedDb).catch((error: unknown) => {
-    console.error("[plan] could not start the interval tick:", error);
-  });
-}
-
-/** Callers: `index.ts`, the Promise manifest's `shutdown` (E4-T07 deletes it). Needs no database; never rejects. */
-export function stopAccrualScheduler(): void {
-  void Effect.runPromise(stopAccrualSchedule());
 }

@@ -9,8 +9,8 @@
  *
  * AS A SERVICE (docs/EFFECT.md E5, E6, E7, E12; plan `docs/plans/e4-finance-services.md` P2, P6, P7, P10). `FinanceTags` runs on
  * the CURRENT executor of `Database` (inside a transaction a caller opened, every write here is part of it) and stamps new
- * tags with the module clock `financeTimeMillis`. The legacy bridges at the end keep the Promise functions the routes, the
- * transactions service, the accrual and the xlsx script still call; the xlsx script calls `syncTransactionTags` INSIDE its own
+ * tags with the module clock `financeTimeMillis`. The one legacy bridge at the end keeps the Promise function the xlsx
+ * script still calls; the xlsx script calls `syncTransactionTags` INSIDE its own
  * transaction, which the bridge honours (it runs on the executor it is handed).
  */
 import type { FinanceTagResponse as TagResponse } from "@toon/shared";
@@ -285,11 +285,10 @@ export class FinanceTags extends Context.Service<
   );
 }
 
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
+/* legacy bridges: only the survivors of plan e4 P1 (callers listed; E5 scripts and E8 pinned tests remove them) */
 
 /**
- * Callers: `transactions.service.ts` (E4-T04), `accrual.service.ts` (E4-T06), `apps/api/scripts/finance-import-xlsx.ts` (E5,
- * survivor: it calls this INSIDE its own `withTransaction`, so the handed executor is the open transaction).
+ * Callers: `apps/api/scripts/finance-import-xlsx.ts` (E5; it calls this INSIDE its own `withTransaction`, so the handed executor is the open transaction).
  */
 export function syncTransactionTags(
   db: DbLike,
@@ -298,37 +297,4 @@ export function syncTransactionTags(
   tagNames: readonly string[],
 ): Promise<void> {
   return runFinanceBridge(FinanceTags.use((service) => service.syncTransactionTags(householdId, transactionId, tagNames)), db);
-}
-
-/** Callers: `transactions.service.ts` (E4-T04). */
-export function clearTransactionTags(db: DbLike, transactionId: string): Promise<void> {
-  return runFinanceBridge(FinanceTags.use((service) => service.clearTransactionTags(transactionId)), db);
-}
-
-/** Callers: `transactions.service.ts` (E4-T04). */
-export function tagRefsOf(db: DbLike, transactionId: string): Promise<{ id: string; name: string }[]> {
-  return runFinanceBridge(FinanceTags.use((service) => service.tagRefsOf(transactionId)), db);
-}
-
-/** Callers: `transactions.service.ts` (E4-T04). */
-export function tagRefsByTransactionIds(
-  db: DbLike,
-  transactionIds: readonly string[],
-): Promise<Map<string, { id: string; name: string }[]>> {
-  return runFinanceBridge(FinanceTags.use((service) => service.tagRefsByTransactionIds(transactionIds)), db);
-}
-
-/** Callers: `routes/tags.ts` (E4-T08 deletes it). */
-export function listTags(db: DbLike, householdId: string, q: string | undefined, limit: number): Promise<TagResponse[]> {
-  return runFinanceBridge(FinanceTags.use((service) => service.listTags(householdId, q, limit)), db);
-}
-
-/** Callers: `routes/tags.ts` (E4-T08 deletes it). */
-export function updateTag(db: DbLike, householdId: string, tagId: string, name: string): Promise<TagResponse> {
-  return runFinanceBridge(FinanceTags.use((service) => service.updateTag(householdId, tagId, name)), db);
-}
-
-/** Callers: `routes/tags.ts` (E4-T08 deletes it). */
-export function deleteTag(db: DbLike, householdId: string, tagId: string): Promise<void> {
-  return runFinanceBridge(FinanceTags.use((service) => service.deleteTag(householdId, tagId)), db);
 }

@@ -13,10 +13,8 @@ import type { TransactionSummaryResponse } from "@toon/shared";
 import { isExpense, periodOf } from "@toon/shared";
 import { and, eq, gte, lte, notInArray } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
-import type { Database as DrizzleDatabase } from "../../../../db/client.ts";
 import { Database } from "../../../../db/database.ts";
 import type { DatabaseError, Internal, ValidationFailed } from "../../../../lib/errors.ts";
-import { runFinanceBridge } from "../../bridge.ts";
 import { financeCategories as categories, financeTransactions as transactions } from "../../schema.ts";
 import { FinanceParticipants } from "../participants/participants.service.ts";
 import { sammelbuchungTransactionIds } from "./aggregateExclusion.ts";
@@ -134,15 +132,4 @@ export class FinanceSummary extends Context.Service<
       return FinanceSummary.of({ getTransactionSummary });
     }),
   );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/** Callers: `routes/transactions.ts` (E4-T08 deletes it). */
-export function getTransactionSummary(
-  db: DrizzleDatabase,
-  householdId: string,
-  filters: TransactionSummaryFilters,
-): Promise<TransactionSummaryResponse> {
-  return runFinanceBridge(FinanceSummary.use((service) => service.getTransactionSummary(householdId, filters)), db);
 }

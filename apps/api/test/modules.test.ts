@@ -9,9 +9,9 @@
  * in middleware.test.ts. `bun test` runs every file in one process, so the verified-e-mail
  * override is handed back in `afterAll`.
  *
- * The fake modules of "module hooks" are Promise-based manifests (`PromiseApiModule`), wrapped by
- * `fromPromiseModule` as `src/modules/index.ts` wraps the real ones (plan e2 P11). The hook tests call the
- * `HouseholdModules` service on the app runtime (`runTest`, plan e2 P14); a refusal is read with `Effect.flip`.
+ * The fake modules of "module hooks" are `ApiModule` literals whose hooks are Effects (plan e4 P11), as the
+ * real manifests are. The hook tests call the `HouseholdModules` service on the app runtime (`runTest`, plan e2
+ * P14); a refusal is read with `Effect.flip`.
  *
  * Since M3 `finance` is a real build module whose `onEnable` needs two participants (SPEC D3,
  * plan M3 decision 4): every enable of finance that must succeed sends a participants body
@@ -34,8 +34,7 @@ import { localeMiddleware } from "../src/lib/locale.ts";
 import type { AppEnv } from "../src/lib/types.ts";
 import { requireMembership } from "../src/lib/types.ts";
 import { mountModules } from "../src/modules/mount.ts";
-import { fromPromiseModule } from "../src/modules/adapter.ts";
-import type { ApiModule, DbExecutor, PromiseApiModule } from "../src/modules/types.ts";
+import type { ApiModule } from "../src/modules/types.ts";
 import { runTest } from "./support/effect.ts";
 
 /* -------------------------------- helpers -------------------------------- */
@@ -393,18 +392,19 @@ describe("module hooks", () => {
     const owner = await register("Owner");
     const refusal = new ApiError(409, "participants_missing", "server.error.conflict");
     const calls: { householdId: string; settings: unknown }[] = [];
-    const refusing: PromiseApiModule = {
+    const refusing: ApiModule = {
       id: "finance",
       schema: {},
-      async onEnable(householdId: string, settings: unknown, _tx: DbExecutor) {
-        calls.push({ householdId, settings });
-        throw refusal;
-      },
+      onEnable: (householdId: string, settings: unknown) =>
+        Effect.suspend(() => {
+          calls.push({ householdId, settings });
+          return Effect.fail(refusal);
+        }),
     };
 
     const enable = (settings: Record<string, unknown> | undefined) =>
       HouseholdModules.use((modules) =>
-        modules.enableModule(owner.householdId, "finance", settings, [fromPromiseModule(refusing)]),
+        modules.enableModule(owner.householdId, "finance", settings, [refusing]),
       );
     expect(await runTest(Effect.flip(enable(undefined)))).toBe(refusal);
     expect(calls).toEqual([{ householdId: owner.householdId, settings: null }]);
@@ -419,16 +419,17 @@ describe("module hooks", () => {
   test("(h') an accepting onEnable runs once and the row is written", async () => {
     const owner = await register("Owner");
     let runs = 0;
-    const accepting: PromiseApiModule = {
+    const accepting: ApiModule = {
       id: "finance",
       schema: {},
-      async onEnable() {
-        runs += 1;
-      },
+      onEnable: () =>
+        Effect.sync(() => {
+          runs += 1;
+        }),
     };
     await runTest(
       HouseholdModules.use((modules) =>
-        modules.enableModule(owner.householdId, "finance", undefined, [fromPromiseModule(accepting)]),
+        modules.enableModule(owner.householdId, "finance", undefined, [accepting]),
       ),
     );
     expect(runs).toBe(1);
@@ -439,15 +440,16 @@ describe("module hooks", () => {
     const owner = await register("Owner");
     await db.delete(householdModules).where(eq(householdModules.householdId, owner.householdId));
     const seen: string[] = [];
-    const recording: PromiseApiModule = {
+    const recording: ApiModule = {
       id: "finance",
       schema: {},
-      async onHouseholdCreated(householdId: string) {
-        seen.push(householdId);
-      },
+      onHouseholdCreated: (householdId: string) =>
+        Effect.sync(() => {
+          seen.push(householdId);
+        }),
     };
     await runTest(
-      HouseholdModules.use((modules) => modules.initializeHousehold(owner.householdId, [fromPromiseModule(recording)])),
+      HouseholdModules.use((modules) => modules.initializeHousehold(owner.householdId, [recording])),
     );
     expect(seen).toEqual([owner.householdId]);
     expect(await moduleRow(owner.householdId, "recipe")).toBeDefined();

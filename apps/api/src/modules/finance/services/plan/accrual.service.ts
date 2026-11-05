@@ -11,8 +11,8 @@
  * the booking and `lastBookedPeriod` share ONE `database.transaction`, the time is the module clock
  * (`financeTimeMillis`, so a `TestClock` drives the stamps), and a refusal is a member of the API error family. The
  * catch-all of the booking transaction stays a catch-all: `Effect.catchCause` sees a typed failure, a defect and a
- * rejection alike (CLAUDE.md "Catch-all stays catch-all"). The legacy bridges at the end keep the Promise functions
- * the routes, the seed and `apps/api/scripts/plan-run.ts` still call.
+ * rejection alike (CLAUDE.md "Catch-all stays catch-all"). The one legacy bridge at the end keeps the Promise function
+ * `apps/api/scripts/plan-run.ts` and `finance-security.test.ts` still call.
  */
 import type { RecalculatePlanResponse, RunPlanResponse, TransactionResponse } from "@toon/shared";
 import { comparePeriods, computePlanForPeriod, currentPeriod, periodStartMs, periodsInclusive, serverText } from "@toon/shared";
@@ -523,27 +523,12 @@ export class FinanceAccrual extends Context.Service<
   );
 }
 
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
+/* legacy bridges: only the survivors of plan e4 P1 (callers listed; E5 scripts and E8 pinned tests remove them) */
 
 /**
- * Callers: `seed.ts` (E4-T07), `apps/api/scripts/plan-run.ts` (E5), `apps/api/test/finance-security.test.ts` (pinned, E5). A
+ * Callers: `apps/api/scripts/plan-run.ts` (E5), `apps/api/test/finance-security.test.ts` (pinned, E5). A
  * survivor of E4 (plan P1): it rejects with the `DatabaseError`'s `cause`, the raw driver error the old function threw.
  */
 export function runCatchUp(db: DrizzleDatabase, householdId: string, options: RunCatchUpOptions): Promise<RunCatchUpResult> {
   return runFinanceBridge(FinanceAccrual.use((service) => service.runCatchUp(householdId, options)), db);
-}
-
-/** Callers: `routes/plan.ts` (E4-T08 deletes it). */
-export function runPlanNow(db: DrizzleDatabase, householdId: string, through?: string): Promise<RunPlanResponse> {
-  return runFinanceBridge(FinanceAccrual.use((service) => service.runPlanNow(householdId, through)), db);
-}
-
-/** Callers: `routes/plan.ts` (E4-T08 deletes it). */
-export function recalculatePlan(
-  db: DrizzleDatabase,
-  householdId: string,
-  viewerId: string,
-  dryRun: boolean,
-): Promise<RecalculatePlanResponse> {
-  return runFinanceBridge(FinanceAccrual.use((service) => service.recalculatePlan(householdId, viewerId, dryRun)), db);
 }

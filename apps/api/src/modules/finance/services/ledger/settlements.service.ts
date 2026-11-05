@@ -14,11 +14,9 @@ import type { CreateSettlementRequest, SettlementResponse } from "@toon/shared";
 import { computeBreakdown, formatCents, serverText } from "@toon/shared";
 import { and, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
-import type { Database as DrizzleDatabase } from "../../../../db/client.ts";
 import { Database } from "../../../../db/database.ts";
 import { ApiFailure, Conflict, Internal, NotFound } from "../../../../lib/errors.ts";
 import type { DatabaseError } from "../../../../lib/errors.ts";
-import { runFinanceBridge } from "../../bridge.ts";
 import { financeTimeMillis } from "../../lib/clock.ts";
 import { financeTransactions as transactions } from "../../schema.ts";
 import { FinanceCategories } from "../categories/categories.service.ts";
@@ -171,21 +169,5 @@ export class FinanceSettlements extends Context.Service<
 
       return FinanceSettlements.of({ createSettlement });
     }),
-  );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/** Callers: `seed.ts` (E4-T07), `routes/settlements.ts` (E4-T08 deletes it). */
-export function createSettlement(
-  db: DrizzleDatabase,
-  householdId: string,
-  viewerId: string,
-  viewerSlot: 1 | 2,
-  input: CreateSettlementRequest,
-): Promise<MutationOutcome> {
-  return runFinanceBridge(
-    FinanceSettlements.use((service) => service.createSettlement(householdId, viewerId, viewerSlot, input)),
-    db,
   );
 }

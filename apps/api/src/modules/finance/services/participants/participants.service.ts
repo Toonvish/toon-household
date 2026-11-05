@@ -19,7 +19,6 @@ import type { FinanceParticipantResponse } from "@toon/shared";
 import { DEFAULT_LOCALE, serverText } from "@toon/shared";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
-import type { Database as DrizzleDatabase } from "../../../../db/client.ts";
 import { Database } from "../../../../db/database.ts";
 import { householdMembers, users } from "../../../../db/schema.ts";
 import { isPlaceholderUser, isUniqueViolation } from "../../../../core/services/auth/users.ts";
@@ -511,24 +510,9 @@ export class FinanceParticipants extends Context.Service<
   );
 }
 
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
+/* legacy bridges: only the survivors of plan e4 P1 (callers listed; E5 scripts and E8 pinned tests remove them) */
 
-/** Callers: `routes/participants.ts` (E4-T08). */
-export function listParticipants(db: DbLike, householdId: string): Promise<FinanceParticipantResponse[]> {
-  return runFinanceBridge(FinanceParticipants.use((service) => service.listParticipants(householdId)), db);
-}
-
-/** Callers: `services/plan/plan.service.ts` (E4-T05). */
-export function participantSlotOf(db: DbLike, householdId: string, userId: string): Promise<1 | 2 | null> {
-  return runFinanceBridge(FinanceParticipants.use((service) => service.participantSlotOf(householdId, userId)), db);
-}
-
-/** Callers: `services/ledger/{transactions,settlements}.service.ts` (E4-T04), `services/plan/{plan,accrual}.service.ts` (E4-T05, T06). */
-export function otherMemberId(db: DbLike, householdId: string, viewerId: string): Promise<string | null> {
-  return runFinanceBridge(FinanceParticipants.use((service) => service.otherMemberId(householdId, viewerId)), db);
-}
-
-/** Callers: `services/ledger/transactions.service.ts` (E4-T04), `apps/api/scripts/finance-import-xlsx.ts` (E5). */
+/** Callers: `apps/api/scripts/finance-import-xlsx.ts` (E5). */
 export function requireOtherMemberId(db: DbLike, householdId: string, viewerId: string): Promise<string> {
   return runFinanceBridge(
     FinanceParticipants.use((service) => service.requireOtherMemberId(householdId, viewerId)),
@@ -536,12 +520,12 @@ export function requireOtherMemberId(db: DbLike, householdId: string, viewerId: 
   );
 }
 
-/** Callers: `services/ledger/*.service.ts` (E4-T04), `services/plan/accrual.service.ts` (E4-T06), `setup.ts` (E4-T07), `apps/api/scripts/finance-import-xlsx.ts` (E5). */
+/** Callers: `apps/api/scripts/finance-import-xlsx.ts` (E5). */
 export function slot1UserId(db: DbLike, householdId: string): Promise<string> {
   return runFinanceBridge(FinanceParticipants.use((service) => service.slot1UserId(householdId)), db);
 }
 
-/** Callers: `setup.ts` (E4-T07), `apps/api/test/support/finance-harness.ts`, `apps/api/test/finance-module.test.ts` (pinned, E8). */
+/** Callers: `apps/api/test/finance-module.test.ts` (pinned, E8). */
 export function assignParticipants(
   db: DbLike,
   householdId: string,
@@ -550,21 +534,7 @@ export function assignParticipants(
   return runFinanceBridge(FinanceParticipants.use((service) => service.assignParticipants(householdId, assignment)), db);
 }
 
-/** Callers: `index.ts` (`onMemberRemoving`, E4-T07). */
-export function assertParticipantMayLeave(db: DbLike, householdId: string, userId: string): Promise<void> {
-  return runFinanceBridge(FinanceParticipants.use((service) => service.assertParticipantMayLeave(householdId, userId)), db);
-}
-
-/** Callers: `routes/participants.ts` (E4-T08). */
-export function saveParticipants(
-  db: DrizzleDatabase,
-  householdId: string,
-  assignment: readonly ParticipantAssignmentEntry[],
-): Promise<void> {
-  return runFinanceBridge(FinanceParticipants.use((service) => service.saveParticipants(householdId, assignment)), db);
-}
-
-/** Callers: `routes/participants.ts` (E4-T08), `apps/api/test/finance-module.test.ts` (pinned, E8). */
+/** Callers: `apps/api/test/finance-module.test.ts` (pinned, E8). */
 export function updateParticipantDisplayName(
   db: DbLike,
   householdId: string,
@@ -573,19 +543,6 @@ export function updateParticipantDisplayName(
 ): Promise<FinanceParticipantResponse> {
   return runFinanceBridge(
     FinanceParticipants.use((service) => service.updateParticipantDisplayName(householdId, userId, displayName)),
-    db,
-  );
-}
-
-/** Callers: `routes/participants.ts` (E4-T08). */
-export function renamePlaceholderParticipant(
-  db: DbLike,
-  householdId: string,
-  userId: string,
-  displayName: string,
-): Promise<FinanceParticipantResponse> {
-  return runFinanceBridge(
-    FinanceParticipants.use((service) => service.renamePlaceholderParticipant(householdId, userId, displayName)),
     db,
   );
 }

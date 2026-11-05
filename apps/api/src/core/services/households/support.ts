@@ -47,11 +47,6 @@ export async function withTransaction<T>(
   return db.transaction(async (tx) => work(tx));
 }
 
-/** Current unix ms — one place so tests can reason about ordering. */
-export function nowMs(): number {
-  return Date.now();
-}
-
 /* -------------------------------------------------------------------------- */
 /* German-friendly, case-insensitive text matching                            */
 /* -------------------------------------------------------------------------- */

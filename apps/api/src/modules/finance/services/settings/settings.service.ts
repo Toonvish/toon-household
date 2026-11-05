@@ -17,10 +17,8 @@ import { Context, Effect, Layer } from "effect";
 import { AppConfig } from "../../../../config.ts";
 import { Database } from "../../../../db/database.ts";
 import type { DatabaseError } from "../../../../lib/errors.ts";
-import { runFinanceBridge } from "../../bridge.ts";
 import { financeTimeMillis } from "../../lib/clock.ts";
 import { financeSettings } from "../../schema.ts";
-import type { DbLike } from "../support.ts";
 
 export interface FinanceHouseholdRow {
   householdId: string;
@@ -74,16 +72,4 @@ export class FinanceSettings extends Context.Service<
       return FinanceSettings.of({ loadHouseholdRow, ensureFinanceSettings });
     }),
   );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/** Callers: `services/ledger/settlements.service.ts` (E4-T04), `services/plan/accrual.service.ts` (E4-T06). */
-export function loadHouseholdRow(db: DbLike, householdId: string): Promise<FinanceHouseholdRow> {
-  return runFinanceBridge(FinanceSettings.use((service) => service.loadHouseholdRow(householdId)), db);
-}
-
-/** Callers: `setup.ts` (E4-T07). */
-export function ensureFinanceSettings(db: DbLike, householdId: string, locale: Locale): Promise<void> {
-  return runFinanceBridge(FinanceSettings.use((service) => service.ensureFinanceSettings(householdId, locale)), db);
 }

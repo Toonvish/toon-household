@@ -7,15 +7,13 @@
  * AS A SERVICE (docs/EFFECT.md E5, E6, E7, E12; plan `docs/plans/e4-finance-services.md` P2, P6, P7, P10). `FinanceCategories`
  * reaches the database through `Database.use` / `Database.transaction` (the CURRENT executor, read on every call), stamps
  * rows with the module clock `financeTimeMillis` and refuses with the tagged family. Every by-id read keeps its
- * `householdId` filter (D8). The legacy bridges at the end keep the Promise functions the routes, the transactions service,
- * the settlements, the accrual, the seed and the xlsx script still call.
+ * `householdId` filter (D8). The one legacy bridge at the end keeps the Promise function the xlsx script still calls.
  */
 import type { CategoryResponse, Locale, ServerKey } from "@toon/shared";
 import { serverText } from "@toon/shared";
 import { and, asc, count, eq, inArray } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 import { isUniqueViolation } from "../../../../core/services/auth/users.ts";
-import type { DrizzleDatabase } from "../../../../db/client.ts";
 import { Database } from "../../../../db/database.ts";
 import { BadRequest, Conflict, NotFound } from "../../../../lib/errors.ts";
 import type { DatabaseError } from "../../../../lib/errors.ts";
@@ -327,58 +325,9 @@ export class FinanceCategories extends Context.Service<
   );
 }
 
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
+/* legacy bridges: only the survivors of plan e4 P1 (callers listed; E5 scripts and E8 pinned tests remove them) */
 
-/** Callers: `routes/categories.ts` (E4-T08 deletes it). */
-export function listCategories(
-  db: DrizzleDatabase,
-  householdId: string,
-  locale: Locale,
-  includeHidden: boolean,
-): Promise<CategoryResponse[]> {
-  return runFinanceBridge(FinanceCategories.use((service) => service.listCategories(householdId, locale, includeHidden)), db);
-}
-
-/** Callers: `routes/categories.ts` (E4-T08 deletes it). */
-export function createCategory(
-  db: DrizzleDatabase,
-  householdId: string,
-  locale: Locale,
-  input: CreateCategoryInput,
-): Promise<CategoryResponse> {
-  return runFinanceBridge(FinanceCategories.use((service) => service.createCategory(householdId, locale, input)), db);
-}
-
-/** Callers: `routes/categories.ts` (E4-T08 deletes it). */
-export function updateCategory(
-  db: DrizzleDatabase,
-  householdId: string,
-  locale: Locale,
-  categoryId: string,
-  input: UpdateCategoryInput,
-): Promise<CategoryResponse> {
-  return runFinanceBridge(
-    FinanceCategories.use((service) => service.updateCategory(householdId, locale, categoryId, input)),
-    db,
-  );
-}
-
-/** Callers: `routes/categories.ts` (E4-T08 deletes it). */
-export function deleteCategory(db: DrizzleDatabase, householdId: string, categoryId: string, reassignTo?: string): Promise<void> {
-  return runFinanceBridge(FinanceCategories.use((service) => service.deleteCategory(householdId, categoryId, reassignTo)), db);
-}
-
-/** Callers: `settlements.service.ts` (E4-T04), `accrual.service.ts` (E4-T06), `seed.ts` (E4-T07), `apps/api/scripts/finance-import-xlsx.ts` (E5, survivor). */
+/** Callers: `apps/api/scripts/finance-import-xlsx.ts` (E5). */
 export function categoryIdBySlug(db: DbLike, householdId: string, slug: string): Promise<string | null> {
   return runFinanceBridge(FinanceCategories.use((service) => service.categoryIdBySlug(householdId, slug)), db);
-}
-
-/** Callers: `transactions.service.ts` (E4-T04). */
-export function categorySlugOf(db: DbLike, categoryId: string | null): Promise<string | null> {
-  return runFinanceBridge(FinanceCategories.use((service) => service.categorySlugOf(categoryId)), db);
-}
-
-/** Callers: `transactions.service.ts` (E4-T04). */
-export function categorySlugsByIds(db: DbLike, categoryIds: readonly string[]): Promise<Map<string, string>> {
-  return runFinanceBridge(FinanceCategories.use((service) => service.categorySlugsByIds(categoryIds)), db);
 }

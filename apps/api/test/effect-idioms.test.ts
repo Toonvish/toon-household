@@ -398,26 +398,28 @@ describe("(10) no throw of ApiError (E6, E12)", () => {
 });
 
 // Pinned allow list (path or prefix -> reason) for `Date.now(` / `new Date(` under a `services/` directory.
-const ALLOW_SERVICE_DATE: PathAllow = {
-  "apps/api/src/core/services/households/support.ts": "nowMs(), the module helper that only finance still calls until E4 (recipe reads the Clock since E3)",
-};
-// (Finance's services hold no `Date.now(` / `new Date(` today, so no E4 entry: the stale-entry test below would fail it.)
+// Empty since E4-T09: the core `nowMs()` is deleted (recipe reads the Clock since E3, finance since E4), so no service reads the
+// wall clock; the stale-entry test below fails an entry that no longer matches.
+const ALLOW_SERVICE_DATE: PathAllow = {};
 const SERVICE_DATE = /\bDate\.now\s*\(|\bnew\s+Date\s*\(/;
 const SERVICE_FILES = API_SRC_FILES.filter((f) => rel(f).includes("/services/"));
 
-// `nowMs()` reads `Date.now()` inside the allow-listed support.ts, so a call from the core or from the recipe module
-// bypasses the Clock as surely as a literal one does (plan e2 P7, plan e3 P16): nothing under apps/api/src/core/ or
-// apps/api/src/modules/recipe/ calls it but its own definition. Only finance's entries remain for E4 (finance keeps its
-// own `nowMs` in `modules/finance/lib/clock.ts`, outside the scan).
+// The core `nowMs()` is gone (E4-T09). A `nowMs(` call reads the wall clock and bypasses the Clock as surely as a literal
+// `Date.now(` does (plan e2 P7, plan e3 P16, plan e4 P12): nothing under apps/api/src/core/, apps/api/src/modules/recipe/ or
+// apps/api/src/modules/finance/ calls it. The one allowed line is the definition of the finance module clock's synchronous
+// read, kept for the test harness (`apps/api/test/support/finance-harness.ts`).
 const NOW_MS_CALL = /\bnowMs\s*\(/;
 const CORE_FILES = API_SRC_FILES.filter(
-  (f) => rel(f).startsWith("apps/api/src/core/") || rel(f).startsWith("apps/api/src/modules/recipe/"),
+  (f) =>
+    rel(f).startsWith("apps/api/src/core/") ||
+    rel(f).startsWith("apps/api/src/modules/recipe/") ||
+    rel(f).startsWith("apps/api/src/modules/finance/"),
 );
 const ALLOW_NOW_MS: PathAllow = {
-  "apps/api/src/core/services/households/support.ts": "the definition of nowMs() itself (the module helper finance still imports until E4)",
+  "apps/api/src/modules/finance/lib/clock.ts": "the definition of the finance module clock's synchronous nowMs(), kept for the test harness",
 };
 
-describe("(11) no Date.now() / new Date( in services, no nowMs( in the core or the recipe module (E7, E12)", () => {
+describe("(11) no Date.now() / new Date( in services, no nowMs( in the core or the modules (E7, E12)", () => {
   test("no `Date.now(` / `new Date(` in a services/ directory outside the pinned allow list", () => {
     expectNone(
       "services read time from Clock / DateTime inside the method body (docs/EFFECT.md E7, E12; plan e2 P7)",
@@ -429,9 +431,9 @@ describe("(11) no Date.now() / new Date( in services, no nowMs( in the core or t
     expectNoStaleEntries("(11)", ALLOW_SERVICE_DATE, scan(SERVICE_FILES, (l) => SERVICE_DATE.test(l.text)));
   });
 
-  test("no `nowMs(` call under apps/api/src/core/ or apps/api/src/modules/recipe/ (the module helper reads Date.now(), bypassing the Clock)", () => {
+  test("no `nowMs(` call under apps/api/src/core/, apps/api/src/modules/recipe/ or apps/api/src/modules/finance/ (it reads Date.now(), bypassing the Clock)", () => {
     expectNone(
-      "the core and the recipe module read `yield* Clock.currentTimeMillis`, never support.ts nowMs() (plan e2 P7, plan e3 P16)",
+      "the core and the modules read `yield* Clock.currentTimeMillis` (finance: `financeTimeMillis`), never nowMs() (plan e2 P7, plan e3 P16, plan e4 P12)",
       scan(CORE_FILES, (l) => NOW_MS_CALL.test(l.text) && !allowedPath(ALLOW_NOW_MS)(l)),
     );
   });

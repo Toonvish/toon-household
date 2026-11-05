@@ -12,7 +12,10 @@
  * E3-T01 the recipe module's composition (`./src/modules/recipe/layer.ts`) and `./src/modules/recipe/migrate.ts`,
  * E3-T13 three recipe service files (`recipes.service.ts`, `import/url/fetch.ts`, `ocr/index.ts`; never the route files),
  * E4-T01 the finance module's composition (`./src/modules/finance/layer.ts`), its bridge runner (`bridge.ts`) and its
- * clock (`lib/clock.ts`).
+ * clock (`lib/clock.ts`),
+ * E4-T09 the finance middleware, `setup.ts`, `seed.ts` and the converted service files (probed one by one in a fresh
+ * process; the eight finance route files die when imported first, the E3 shape, and are NOT entries: they join
+ * `docs/open-work.md` O-6, plan e4 P13).
  */
 import { describe, expect, test } from "bun:test";
 import { resolve } from "node:path";
@@ -74,6 +77,24 @@ describe("import order does not matter for the Effect composition", () => {
     "./src/modules/finance/layer.ts",
     "./src/modules/finance/bridge.ts",
     "./src/modules/finance/lib/clock.ts",
+    // E4-T09: the finance middleware, the setup and seed files and every converted service file load first and
+    // build the `AppLayer` (plan e4 P13). The route files are NOT entries (see the header).
+    "./src/modules/finance/middleware.ts",
+    "./src/modules/finance/setup.ts",
+    "./src/modules/finance/seed.ts",
+    "./src/modules/finance/services/categories/categories.service.ts",
+    "./src/modules/finance/services/ledger/balance.service.ts",
+    "./src/modules/finance/services/ledger/dateRange.ts",
+    "./src/modules/finance/services/ledger/idempotency.ts",
+    "./src/modules/finance/services/ledger/settlements.service.ts",
+    "./src/modules/finance/services/ledger/summary.service.ts",
+    "./src/modules/finance/services/ledger/transactions.service.ts",
+    "./src/modules/finance/services/participants/participants.service.ts",
+    "./src/modules/finance/services/plan/accrual.service.ts",
+    "./src/modules/finance/services/plan/plan.service.ts",
+    "./src/modules/finance/services/plan/scheduler.ts",
+    "./src/modules/finance/services/settings/settings.service.ts",
+    "./src/modules/finance/services/tags/tags.service.ts",
   ]) {
     test(`${entry} loads first in a fresh process and the AppLayer builds after it`, async () => {
       const { code, stderr } = await importThenBuildInFreshProcess(entry);

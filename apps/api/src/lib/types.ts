@@ -9,7 +9,7 @@
  * getters below fail with `Unauthorized` (401) / `Forbidden` (403) if the
  * middleware was forgotten: `currentUser(c)` / `currentMembership(c)` as Effects
  * (plan e2 P19), `requireUser(c)` / `requireMembership(c)` as their synchronous
- * bridges for the recipe and finance modules (plan e2 P1).
+ * bridges: no module route calls them any more (plan e4 P16), the tests keep them until E8.
  *
  * Import cycle (plan e2 P12): this file imports neither `runtime.ts` nor a service.
  */
@@ -60,14 +60,14 @@ export const currentMembership = Effect.fnUntraced(function* (
   return membership;
 });
 
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
+/* legacy bridges: callers listed; E8 removes them */
 
-/** Returns the authenticated user or throws `Unauthorized` (401). Callers: the finance routes (E4). Synchronous. */
+/** Returns the authenticated user or throws `Unauthorized` (401). Callers: `apps/api/test/errors.test.ts` (E8). Synchronous. */
 export function requireUser(c: AppContext): User {
   return Effect.runSync(currentUser(c));
 }
 
-/** Returns the verified household membership or throws `Forbidden` (403). Callers: the finance routes and `finance/middleware.ts` (E4), `apps/api/test/{modules,middleware}.test.ts`.
+/** Returns the verified household membership or throws `Forbidden` (403). Callers: `apps/api/test/{errors,modules,middleware}.test.ts` (E8).
  * Synchronous. */
 export function requireMembership(c: AppContext): Membership {
   return Effect.runSync(currentMembership(c));

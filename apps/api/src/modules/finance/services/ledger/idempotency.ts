@@ -21,10 +21,8 @@ import { Context, Effect, Layer } from "effect";
 import { Database } from "../../../../db/database.ts";
 import { Conflict } from "../../../../lib/errors.ts";
 import type { DatabaseError } from "../../../../lib/errors.ts";
-import { runFinanceBridge } from "../../bridge.ts";
 import { financeTimeMillis } from "../../lib/clock.ts";
 import { financeMutationClaims as mutationClaims } from "../../schema.ts";
-import type { DbLike } from "../support.ts";
 
 /** How long a claim is remembered — matches the persisted offline cache's own TTL. */
 export const MUTATION_CLAIM_TTL_MS = 14 * 24 * 60 * 60 * 1000;
@@ -166,37 +164,4 @@ export class FinanceMutationClaims extends Context.Service<
       return FinanceMutationClaims.of({ claimMutation, linkMutationClaim, peekMutationClaim, pruneMutationClaims });
     }),
   );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/** Callers: `transactions.service.ts` (E4-T04), `settlements.service.ts` (E4-T04). */
-export function claimMutation(
-  db: DbLike,
-  mutationId: string,
-  householdId: string,
-  transactionId: string | null = null,
-): Promise<ClaimResult> {
-  return runFinanceBridge(
-    FinanceMutationClaims.use((service) => service.claimMutation(mutationId, householdId, transactionId)),
-    db,
-  );
-}
-
-/** Callers: `transactions.service.ts` (E4-T04), `settlements.service.ts` (E4-T04). */
-export function linkMutationClaim(db: DbLike, mutationId: string, transactionId: string): Promise<void> {
-  return runFinanceBridge(FinanceMutationClaims.use((service) => service.linkMutationClaim(mutationId, transactionId)), db);
-}
-
-/** Callers: `transactions.service.ts` (E4-T04). */
-export function peekMutationClaim(db: DbLike, mutationId: string, householdId: string): Promise<boolean> {
-  return runFinanceBridge(FinanceMutationClaims.use((service) => service.peekMutationClaim(mutationId, householdId)), db);
-}
-
-/**
- * Callers: `transactions.service.ts` (E4-T04). SYNCHRONOUS, as the old function was: `Effect.runSync` over the
- * service-free {@link checkOwnClaim}; a foreign claim throws the `Conflict` (409 `conflict`) itself.
- */
-export function assertOwnClaim(claim: ClaimResult): void {
-  Effect.runSync(checkOwnClaim(claim));
 }

@@ -157,11 +157,11 @@ export class FinanceBalance extends Context.Service<
   );
 }
 
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
+/* legacy bridges: only the survivors of plan e4 P1 (callers listed; E5 scripts and E8 pinned tests remove them) */
 
 /**
  * SURVIVOR (plan e4 P1). Callers: `apps/api/scripts/legacy/balance.ts` (E5), `apps/api/test/legacy-finance.test.ts`
- * (pinned), `seed.ts` (E4-T07). A `DatabaseError` rejects with its `cause`, a refusal with the family member itself.
+ * (pinned), `apps/api/test/finance-scheduler.test.ts`. A `DatabaseError` rejects with its `cause`, a refusal with the family member itself.
  */
 export function getBalance(
   db: DbLike,
@@ -172,20 +172,6 @@ export function getBalance(
 ): Promise<BalanceResponse> {
   return runFinanceBridge(
     FinanceBalance.use((service) => service.getBalance(householdId, viewerUserId, viewerSlot, includeAggregates)),
-    db,
-  );
-}
-
-/** Callers: `routes/balance.ts` (E4-T08 deletes it). */
-export function getBalanceHistory(
-  db: DbLike,
-  householdId: string,
-  from: string | undefined,
-  to: string | undefined,
-  includeAggregates: boolean,
-): Promise<BalanceHistoryPoint[]> {
-  return runFinanceBridge(
-    FinanceBalance.use((service) => service.getBalanceHistory(householdId, from, to, includeAggregates)),
     db,
   );
 }

@@ -17,7 +17,8 @@
  * ON THE RUNTIME (docs/EFFECT.md E7; plan `docs/plans/e4-finance-services.md` P9): the middleware does its service
  * and database work as ONE `await runtime.runPromise(...)` before `await next()` (`next()` is never called inside an
  * effect); the refusal is the family's `ApiFailure`. `requireFinanceParticipantContext` is the synchronous bridge
- * (`Effect.runSync` over a service-free effect) the routes and the pinned `finance-participants.test.ts` still call.
+ * (`Effect.runSync` over a service-free effect) the pinned `finance-participants.test.ts` still calls (E8); the
+ * routes read the context through the service-free effect directly.
  *
  * The context variable is typed by the module-local augmentation below; the core `AppVariables`
  * gains nothing. Ported route handlers import `requireFinanceParticipantContext as
@@ -83,7 +84,7 @@ export const currentFinanceParticipant = Effect.fnUntraced(function* (
   return participant;
 });
 
-/** The participant context set by {@link requireFinanceParticipant}, or the same 403. Callers: the finance routes (E4-T08), `apps/api/test/finance-participants.test.ts` (pinned, E8). Synchronous. */
+/** The participant context set by {@link requireFinanceParticipant}, or the same 403. Callers: `apps/api/test/finance-participants.test.ts` (pinned, E8). Synchronous. */
 export function requireFinanceParticipantContext(c: AppContext): FinanceParticipantContext {
   return Effect.runSync(currentFinanceParticipant(c));
 }

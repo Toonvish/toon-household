@@ -9,7 +9,7 @@
  * keeps every old function name with the leading `db` parameter dropped; it reads the current executor of `Database`
  * on every call, takes the time from the module clock (`financeTimeMillis`), asks `FinanceParticipants` for seats and
  * refuses with the API error family (same status, code, text and details as before). `toAccrualRunResponse` stays a
- * pure export. The legacy bridges at the end keep the Promise functions the routes, the accrual and the seed still call.
+ * pure export. No legacy bridge is left here (E4-T09).
  */
 import type {
   AccrualRunResponse,
@@ -26,7 +26,6 @@ import type {
 import { comparePeriods, computePlanForPeriod, currentPeriod, DEFAULT_LOCALE, periodsInclusive, serverText } from "@toon/shared";
 import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
-import type { Database as DrizzleDatabase } from "../../../../db/client.ts";
 import { Database } from "../../../../db/database.ts";
 import {
   type FinanceAccrualRunRow as AccrualRunRow,
@@ -43,10 +42,8 @@ import { ApiFailure, Conflict, Internal, NotFound, ValidationFailed } from "../.
 import type { DatabaseError } from "../../../../lib/errors.ts";
 import { toIso } from "../../../../lib/http.ts";
 import { isUniqueViolation } from "../../../../core/services/auth/users.ts";
-import { runFinanceBridge } from "../../bridge.ts";
 import { financeTimeMillis } from "../../lib/clock.ts";
 import { FinanceParticipants } from "../participants/participants.service.ts";
-import type { DbLike } from "../support.ts";
 import { catchUpRange, isPlanComputable } from "./period-scan.ts";
 
 function toItemResponse(row: FixedCostItemRow): FixedCostItemResponse {
@@ -510,93 +507,4 @@ export class FinancePlan extends Context.Service<
       });
     }),
   );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/** Callers: `services/plan/accrual.service.ts` (E4-T06). */
-export function loadPlanRow(db: DrizzleDatabase, householdId: string): Promise<FixedCostPlanRow> {
-  return runFinanceBridge(FinancePlan.use((service) => service.loadPlanRow(householdId)), db);
-}
-
-/** Callers: `services/plan/accrual.service.ts` (E4-T06). */
-export function listPlanInputRows(
-  db: DbLike,
-  householdId: string,
-): Promise<{ items: FixedCostItemRow[]; incomeRows: IncomeRow[] }> {
-  return runFinanceBridge(FinancePlan.use((service) => service.listPlanInputRows(householdId)), db);
-}
-
-/** Callers: `services/plan/accrual.service.ts` (E4-T06). */
-export function isPeriodBooked(db: DbLike, householdId: string, period: string): Promise<boolean> {
-  return runFinanceBridge(FinancePlan.use((service) => service.isPeriodBooked(householdId, period)), db);
-}
-
-/** Callers: `routes/plan.ts` (E4-T08). */
-export function getPlanResponse(db: DrizzleDatabase, householdId: string): Promise<PlanResponse> {
-  return runFinanceBridge(FinancePlan.use((service) => service.getPlanResponse(householdId)), db);
-}
-
-/** Callers: `routes/plan.ts` (E4-T08), `seed.ts` (E4-T07). */
-export function updatePlan(db: DrizzleDatabase, householdId: string, input: UpdatePlanRequest): Promise<PlanResponse> {
-  return runFinanceBridge(FinancePlan.use((service) => service.updatePlan(householdId, input)), db);
-}
-
-/** Callers: `routes/plan.ts` (E4-T08). */
-export function previewPlan(db: DrizzleDatabase, householdId: string, period: string): Promise<PlanComputationResponse> {
-  return runFinanceBridge(FinancePlan.use((service) => service.previewPlan(householdId, period)), db);
-}
-
-/** Callers: `routes/plan.ts` (E4-T08), `seed.ts` (E4-T07). */
-export function createFixedCostItem(
-  db: DrizzleDatabase,
-  householdId: string,
-  input: CreateFixedCostItemRequest,
-): Promise<FixedCostItemResponse> {
-  return runFinanceBridge(FinancePlan.use((service) => service.createFixedCostItem(householdId, input)), db);
-}
-
-/** Callers: `routes/plan.ts` (E4-T08). */
-export function updateFixedCostItem(
-  db: DrizzleDatabase,
-  householdId: string,
-  itemId: string,
-  input: UpdateFixedCostItemRequest,
-): Promise<FixedCostItemResponse> {
-  return runFinanceBridge(FinancePlan.use((service) => service.updateFixedCostItem(householdId, itemId, input)), db);
-}
-
-/** Callers: `routes/plan.ts` (E4-T08). */
-export function deleteFixedCostItem(db: DrizzleDatabase, householdId: string, itemId: string): Promise<void> {
-  return runFinanceBridge(FinancePlan.use((service) => service.deleteFixedCostItem(householdId, itemId)), db);
-}
-
-/** Callers: `routes/plan.ts` (E4-T08), `seed.ts` (E4-T07). */
-export function createIncome(db: DrizzleDatabase, householdId: string, input: CreateIncomeRequest): Promise<IncomeResponse> {
-  return runFinanceBridge(FinancePlan.use((service) => service.createIncome(householdId, input)), db);
-}
-
-/** Callers: `routes/plan.ts` (E4-T08). */
-export function updateIncome(
-  db: DrizzleDatabase,
-  householdId: string,
-  incomeId: string,
-  input: UpdateIncomeRequest,
-): Promise<IncomeResponse> {
-  return runFinanceBridge(FinancePlan.use((service) => service.updateIncome(householdId, incomeId, input)), db);
-}
-
-/** Callers: `routes/plan.ts` (E4-T08). */
-export function deleteIncome(db: DrizzleDatabase, householdId: string, incomeId: string): Promise<void> {
-  return runFinanceBridge(FinancePlan.use((service) => service.deleteIncome(householdId, incomeId)), db);
-}
-
-/** Callers: `routes/plan.ts` (E4-T08). */
-export function listAccrualRuns(
-  db: DrizzleDatabase,
-  householdId: string,
-  limit: number,
-  offset: number,
-): Promise<{ items: AccrualRunResponse[]; total: number }> {
-  return runFinanceBridge(FinancePlan.use((service) => service.listAccrualRuns(householdId, limit, offset)), db);
 }

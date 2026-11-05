@@ -2,12 +2,14 @@
  * The module contract on Effects (`src/modules/adapter.ts`; docs/EFFECT.md E7; plan `docs/plans/e2-api-core-services.md`
  * P11; SPEC §2).
  *
- * Covered: a Promise hook behind `fromPromiseModule` receives the open transaction inside `Database.transaction` and
- * the root outside; `runModuleHook(hook, tx)` inside a drizzle transaction hands the hook that very `tx`; a rejected
- * (or synchronously thrown) API error arrives as the SAME object in the error channel and from `runModuleHook`'s
- * rejection; a rejected plain `Error` is a defect; `start` keeps its rejection value; `afterMigrate` through
- * `runMigrations(createDatabase(...).db)` runs on that database (identity, and recipe's real fold backfill there);
- * `API_MODULES` lists recipe unwrapped (E3, with its `layer`) and wraps finance, with their ids and `healthFeatures`.
+ * Covered: an Effect hook of an `ApiModule` literal reads the open transaction from `Database` inside
+ * `Database.transaction` and the root outside; `runModuleHook(hook, tx)` inside a drizzle transaction hands the hook
+ * that very `tx`; an API error the hook fails with (or raises with `return yield*`) arrives as the SAME object in
+ * the error channel and from `runModuleHook`'s rejection; a defect (`Effect.die(error)`) stays a defect; `start`
+ * keeps its failure value; `afterMigrate` through `runMigrations(createDatabase(...).db)` runs on that database
+ * (identity, and recipe's real fold backfill there); `API_MODULES` lists recipe and finance unwrapped (E3, E4: each
+ * with its `layer`), with their ids and `healthFeatures`.
+ * The fake modules are `ApiModule` literals with Effect hooks since E4-T09 (plan `docs/plans/e4-finance-services.md` P11).
  *
  * Most cases run on a temp `file:` database of their own with one probe table, never on the shared test DB.
  */
@@ -21,12 +23,12 @@ import { type CreatedDatabase, createDatabase } from "../src/db/client.ts";
 import { Database, type DbExecutor } from "../src/db/database.ts";
 import { runMigrations } from "../src/db/migrate.ts";
 import { households, recipes, users } from "../src/db/schema.ts";
-import { ApiError, NotFound } from "../src/lib/errors.ts";
-import { fromPromiseModule, runModuleHook } from "../src/modules/adapter.ts";
+import { ApiError, type ApiErrorFamily, isApiError, NotFound } from "../src/lib/errors.ts";
+import { runModuleHook } from "../src/modules/adapter.ts";
 import { financeModule } from "../src/modules/finance/index.ts";
 import { API_MODULES } from "../src/modules/index.ts";
 import { recipeModule } from "../src/modules/recipe/index.ts";
-import type { ApiModule, PromiseApiModule } from "../src/modules/types.ts";
+import type { ApiModule } from "../src/modules/types.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "toon-household-module-adapter-"));
 let primary: CreatedDatabase;
@@ -57,28 +59,41 @@ function onPrimaryExit<A, E>(effect: Effect.Effect<A, E, Database>): Promise<Exi
   return Effect.runPromiseExit(effect.pipe(Effect.provide(Database.layerFrom(primary))));
 }
 
-/** A Promise manifest whose `onEnable` records the executor it was handed. */
+/** The current executor of `Database`, the one a hook reads (the open transaction inside `Database.transaction`). */
+const currentExecutor = Effect.gen(function* () {
+  const database = yield* Database;
+  return yield* database.executor;
+});
+
+/** A manifest whose `onEnable` records the executor it reads from `Database`. */
 function recordingModule(): { module: ApiModule; seen: DbExecutor[] } {
   const seen: DbExecutor[] = [];
-  const promiseModule: PromiseApiModule = {
+  const module: ApiModule = {
     id: "finance",
     schema: {},
-    async onEnable(_householdId, _settings, tx) {
-      seen.push(tx);
-    },
+    onEnable: () =>
+      Effect.gen(function* () {
+        seen.push(yield* currentExecutor);
+      }),
   };
-  return { module: fromPromiseModule(promiseModule), seen };
+  return { module, seen };
 }
 
-function refusingModule(reason: unknown, mode: "reject" | "throw" = "reject"): ApiModule {
-  return fromPromiseModule({
+/** `fail`: the hook's error channel; `yield`: raised inside a generator with `return yield*`; `die`: a defect. */
+function refusingModule(reason: ApiErrorFamily | Error, mode: "fail" | "yield" | "die" = "fail"): ApiModule {
+  return {
     id: "finance",
     schema: {},
-    onEnable(): Promise<void> {
-      if (mode === "throw") throw reason;
-      return Promise.reject(reason);
+    onEnable: () => {
+      if (mode === "die") return Effect.die(reason);
+      if (mode === "yield" && isApiError(reason)) {
+        return Effect.gen(function* () {
+          return yield* reason;
+        });
+      }
+      return Effect.fail(reason as ApiErrorFamily);
     },
-  });
+  };
 }
 
 function enableHook(module: ApiModule): Effect.Effect<void, unknown, Database> {
@@ -87,7 +102,7 @@ function enableHook(module: ApiModule): Effect.Effect<void, unknown, Database> {
   return hook("household-1", null);
 }
 
-describe("fromPromiseModule: the executor a Promise hook receives", () => {
+describe("the executor an Effect hook reads from Database", () => {
   test("the root outside a transaction, the open transaction inside Database.transaction", async () => {
     const { module, seen } = recordingModule();
 
@@ -112,13 +127,15 @@ describe("fromPromiseModule: the executor a Promise hook receives", () => {
   });
 
   test("a write of the hook on the open transaction rolls back with it", async () => {
-    const writing = fromPromiseModule({
+    const writing: ApiModule = {
       id: "finance",
       schema: {},
-      async onHouseholdCreated(householdId, tx) {
-        await tx.run(sql`INSERT INTO probe (id) VALUES (${householdId})`);
-      },
-    });
+      onHouseholdCreated: (householdId) =>
+        Effect.gen(function* () {
+          const executor = yield* currentExecutor;
+          yield* Effect.promise(() => executor.run(sql`INSERT INTO probe (id) VALUES (${householdId})`));
+        }),
+    };
     const hook = writing.onHouseholdCreated;
     if (hook === undefined) throw new Error("the fake module has no onHouseholdCreated");
 
@@ -159,13 +176,11 @@ describe("runModuleHook", () => {
   });
 
   test("resolves with the hook's value", async () => {
-    const listing = fromPromiseModule({
+    const listing: ApiModule = {
       id: "recipe",
       schema: {},
-      async uploadReferences() {
-        return ["/uploads/a.jpg"];
-      },
-    });
+      uploadReferences: () => Effect.succeed(["/uploads/a.jpg"]),
+    };
     const hook = listing.uploadReferences;
     if (hook === undefined) throw new Error("the fake module has no uploadReferences");
     expect(await runModuleHook(hook(), primary.db)).toEqual(["/uploads/a.jpg"]);
@@ -180,28 +195,28 @@ describe("failures", () => {
     await expect(runModuleHook(enableHook(refusingModule(refusal)), primary.db)).rejects.toBe(refusal);
   });
 
-  test("a synchronously thrown family member is the typed failure too", async () => {
+  test("a family member raised with return yield* is the typed failure too", async () => {
     const refusal = new NotFound();
-    const failure = await onPrimary(Effect.flip(enableHook(refusingModule(refusal, "throw"))));
+    const failure = await onPrimary(Effect.flip(enableHook(refusingModule(refusal, "yield"))));
     expect(failure).toBe(refusal);
-    await expect(runModuleHook(enableHook(refusingModule(refusal, "throw")), primary.db)).rejects.toBe(refusal);
+    await expect(runModuleHook(enableHook(refusingModule(refusal, "yield")), primary.db)).rejects.toBe(refusal);
   });
 
-  test("a rejected plain Error is a defect", async () => {
+  test("a plain Error the hook dies with is a defect", async () => {
     const boom = new Error("boom");
-    const exit = await onPrimaryExit(enableHook(refusingModule(boom)));
+    const exit = await onPrimaryExit(enableHook(refusingModule(boom, "die")));
     expect(Exit.isFailure(exit)).toBe(true);
     if (Exit.isFailure(exit)) {
       expect(Cause.hasDies(exit.cause)).toBe(true);
       expect(Cause.hasFails(exit.cause)).toBe(false);
       expect(Cause.squash(exit.cause)).toBe(boom);
     }
-    await expect(runModuleHook(enableHook(refusingModule(boom)), primary.db)).rejects.toBe(boom);
+    await expect(runModuleHook(enableHook(refusingModule(boom, "die")), primary.db)).rejects.toBe(boom);
   });
 
-  test("start keeps its rejection value as the failure", async () => {
+  test("start keeps its failure value", async () => {
     const reason = new Error("start failed");
-    const starting = fromPromiseModule({ id: "finance", schema: {}, start: () => Promise.reject(reason) });
+    const starting: ApiModule = { id: "finance", schema: {}, start: () => Effect.fail(reason) };
     const start = starting.start;
     if (start === undefined) throw new Error("the fake module has no start");
     await expect(onPrimary(start())).rejects.toBe(reason);
@@ -214,13 +229,14 @@ describe("afterMigrate through runMigrations", () => {
     const recipe = API_MODULES[0] as ApiModule;
     const original = recipe.afterMigrate;
     const seen: DbExecutor[] = [];
-    const spy = fromPromiseModule({
+    const spy: ApiModule = {
       id: "recipe",
       schema: {},
-      async afterMigrate(database) {
-        seen.push(database);
-      },
-    });
+      afterMigrate: () =>
+        Effect.gen(function* () {
+          seen.push(yield* currentExecutor);
+        }),
+    };
     recipe.afterMigrate = spy.afterMigrate;
     try {
       await runMigrations(target.db);
@@ -256,13 +272,13 @@ describe("afterMigrate through runMigrations", () => {
 });
 
 describe("the registry", () => {
-  test("API_MODULES wraps the two manifests: ids and healthFeatures are theirs", () => {
+  test("API_MODULES lists the two manifests unwrapped: ids and healthFeatures are theirs", () => {
     expect(API_MODULES.map((module) => module.id)).toEqual(["recipe", "finance"]);
     const [recipe, finance] = API_MODULES;
     // Since E3 recipe implements the Effect contract itself and is listed unwrapped (plan e3 P3).
     expect(recipe).toBe(recipeModule);
     expect(recipe?.healthFeatures).toBe(recipeModule.healthFeatures);
-    // Finance has no healthFeatures; the adapter wraps a synchronous one with Effect.sync when present.
+    // Since E4 finance is listed unwrapped too (plan e4 P3); it has no healthFeatures.
     expect(financeModule.healthFeatures).toBeUndefined();
     expect(finance?.healthFeatures).toBeUndefined();
     expect(recipe?.householdRouter).toBe(recipeModule.householdRouter);
@@ -272,6 +288,7 @@ describe("the registry", () => {
     expect(finance?.schema).toBe(financeModule.schema);
     expect(recipe?.layer).toBeDefined();
     expect(recipe?.layer).toBe(recipeModule.layer);
+    expect(finance?.layer).toBe(financeModule.layer);
     expect(finance?.layer).toBeDefined();
     expect(finance?.onEnable).toBeDefined();
     expect(finance?.onMemberRemoving).toBeDefined();
