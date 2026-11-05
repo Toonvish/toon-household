@@ -10,7 +10,7 @@
 // PENDING_RULES (switched on by the milestone named; each is a new `describe` in the same commit as the
 // migration that makes it true):
 //   E7  (http-api)       No `hono` import or dependency (the HttpApi server replaces it; docs/EFFECT.md E7).
-// (E1 switched on rule (9), E2 rules (10) and (11), E5 rule (12) below.)
+// (E1 switched on rule (9), E2 rules (10) and (11), E5 rule (12), E6 rule (13) below.)
 //
 // Comment lines (trimmed line starting with `*`, `//`, `/*`, `{/*`) are never scanned. No test reads git history.
 import { describe, expect, test } from "bun:test";
@@ -519,5 +519,86 @@ describe("(12) the scripts are Effect programs (E10, E12)", () => {
     expect(AWAIT.test("  const rows = await client.execute(sql);")).toBe(true);
     expect(AWAIT.test("  const rows = yield* Effect.promise(() => client.execute(sql));")).toBe(false);
     expect(RUN_MODULE_HOOK.test("import { runModuleHook } from '../adapter.ts';")).toBe(true);
+  });
+});
+
+// --- (13) the E6 rules: Effect stays at the edge of the web app (plan docs/plans/e6-web-client.md P13; docs/EFFECT.md E11, E12) ----
+
+const WEB_SRC_FILES = ALL_FILES.filter((f) => rel(f).startsWith("apps/web/src/") && !/\.test\.tsx?$/.test(rel(f)));
+const WEB_EFFECT_SPECIFIER = /^effect(?:\/.*)?$/;
+const importsEffect = (l: Line) => hasSpecifier(l, (spec) => WEB_EFFECT_SPECIFIER.test(spec));
+
+// Pinned allow list (file -> reason): the only web files that import `effect` at all. Plan e6 P13 also names
+// apps/web/src/modules/recipe/lib/api.ts and apps/web/src/modules/finance/lib/api.ts; they build on the helpers of
+// apps/web/src/lib/api.ts and import no `effect` specifier, so listing them would be a stale entry (recorded as a deviation).
+const WEB_EFFECT_ALLOW_LIST: PathAllow = {
+  "apps/web/src/lib/runtime.ts": "the one ManagedRuntime, the transport layer and runPromise (E11)",
+  "apps/web/src/lib/api-client.ts": "the ApiClient service, the tagged ApiError and the envelope mapping (E11)",
+  "apps/web/src/lib/api.ts": "the request helpers and CoreApi, the effects behind the Promise facades (E11)",
+  "apps/web/src/lib/validation.ts": "the form adapter over the shared Effect schemas (E1)",
+  "apps/web/src/core/features/households/components/InvitePanel.tsx": "a form schema's decoding default (E1)",
+  "apps/web/src/modules/recipe/features/import/lib/importApi.ts": "the import client on the runtime's HttpClient (E11; plan e6 P12)",
+};
+
+// The network primitives, two patterns with separate allow lists (`\b` keeps `refetch(` and `fetchQuery(` out).
+const FETCH_CALL = /\bfetch\(/;
+const ALLOW_FETCH: PathAllow = {
+  "apps/web/src/lib/runtime.ts": "the late-bound Fetch of the transport layer, the one fetch( call of the web app (plan e6 P2)",
+};
+const XHR_CALL = /\bnew XMLHttpRequest\b/;
+const ALLOW_XHR: PathAllow = {
+  "apps/web/src/modules/recipe/features/import/lib/importApi.ts": "the upload progress events fetch cannot give (plan e6 P12)",
+};
+
+describe("(13) Effect stays at the edge of the web app (E11, E12)", () => {
+  test("(a) every effect specifier of a non-test web file is exactly \"effect\" or \"effect/http\"", () => {
+    expectNone(
+      "the web app imports from \"effect\" and \"effect/http\" only (plan e6 P13a, P15)",
+      scan(WEB_SRC_FILES, (l) => hasSpecifier(l, (spec) => WEB_EFFECT_SPECIFIER.test(spec) && spec !== "effect" && spec !== "effect/http")),
+    );
+  });
+
+  test("(b) only the pinned files import effect", () => {
+    expectNone(
+      "Effect lives in the runtime, the clients and the form adapter; screens and queries call `runPromise` from @/lib/runtime (plan e6 P13b)",
+      scan(WEB_SRC_FILES, (l) => importsEffect(l) && !allowedPath(WEB_EFFECT_ALLOW_LIST)(l)),
+    );
+  });
+
+  test("(b) every WEB_EFFECT_ALLOW_LIST entry still matches", () => {
+    expectNoStaleEntries("(13b)", WEB_EFFECT_ALLOW_LIST, scan(WEB_SRC_FILES, importsEffect));
+  });
+
+  test("(c) no `fetch(` call in a non-test web file outside the pinned allow list", () => {
+    expectNone(
+      "the transport is the runtime's HttpClient; the one fetch( call is the late-bound Fetch of runtime.ts (plan e6 P13c)",
+      scan(WEB_SRC_FILES, (l) => FETCH_CALL.test(l.text) && !allowedPath(ALLOW_FETCH)(l)),
+    );
+  });
+
+  test("(c) every fetch allow-list entry still matches", () => {
+    expectNoStaleEntries("(13c) fetch", ALLOW_FETCH, scan(WEB_SRC_FILES, (l) => FETCH_CALL.test(l.text)));
+  });
+
+  test("(c) no `new XMLHttpRequest` in a non-test web file outside the pinned allow list", () => {
+    expectNone(
+      "the one XHR is the import upload's progress events (plan e6 P12, P13c)",
+      scan(WEB_SRC_FILES, (l) => XHR_CALL.test(l.text) && !allowedPath(ALLOW_XHR)(l)),
+    );
+  });
+
+  test("(c) every XMLHttpRequest allow-list entry still matches", () => {
+    expectNoStaleEntries("(13c) XMLHttpRequest", ALLOW_XHR, scan(WEB_SRC_FILES, (l) => XHR_CALL.test(l.text)));
+  });
+
+  test("the scan covers the web sources and the rules bite", () => {
+    expect(WEB_SRC_FILES.length).toBeGreaterThan(100);
+    expect(WEB_SRC_FILES.some((f) => rel(f).endsWith(".test.ts"))).toBe(false);
+    expect(FETCH_CALL.test("  globalThis.fetch(url);")).toBe(true);
+    expect(FETCH_CALL.test("  await fetch('/x');")).toBe(true);
+    expect(FETCH_CALL.test("  void refetch();")).toBe(false);
+    expect(FETCH_CALL.test("  queryClient.fetchQuery(opts);")).toBe(false);
+    expect(XHR_CALL.test("  const xhr = new XMLHttpRequest();")).toBe(true);
+    expect(importsEffect({ file: "", n: 1, text: 'import { Option } from "effect/Option";' })).toBe(true);
   });
 });

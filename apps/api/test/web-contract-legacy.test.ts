@@ -30,7 +30,7 @@
  *     bun test apps/api/test/web-contract-legacy.test.ts
  *
  * A finding (a decode failure or a non-identity) is fixed in the shared schema files, with
- * `packages/shared/test` green, or becomes a one-line `lenient: { schema: "X", reason }` row of
+ * `packages/shared/test` green, or becomes a one-line `lenient: { schema: "<XResponseSchema>", reason }` row of
  * `LENIENT` below (P7c: E6-T09 applies it to the three clients).
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -94,7 +94,7 @@ const ORIGIN = "https://toon.example";
 
 /**
  * P7c: schemas the oracle cannot satisfy over legacy data without breaking `packages/shared/test`,
- * ON ONE LINE each (a grep reads them): `lenient: { schema: "X", reason: "..." }`. The sweep still
+ * ON ONE LINE each (a grep reads them): `lenient: { schema: "<XResponseSchema>", reason: "..." }`. The sweep still
  * asserts that the body is a JSON object for them. Empty: every schema below met the oracle.
  */
 const LENIENT: ReadonlyArray<{ schema: string; reason: string }> = [];

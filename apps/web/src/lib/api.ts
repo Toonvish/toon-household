@@ -181,28 +181,6 @@ export interface RequestOptions {
   allowUnauthorized?: boolean;
 }
 
-interface RequestInput extends RequestOptions {
-  method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
-  /** JSON body — serialised automatically. Use `form` for multipart. */
-  body?: unknown;
-  form?: FormData;
-}
-
-/**
- * LEGACY BRIDGE (plan e6 P3): today's request without a decode, through the runtime. The resolved value is
- * the parsed body UNVALIDATED as `T` (`undefined` for a 204/205), a failure the tagged `ApiError`.
- * Callers: apps/web/src/modules/recipe/lib/api.ts, apps/web/src/modules/finance/lib/api.ts. E6-T09 deletes it.
- */
-export function request<T>(path: string, input: RequestInput = {}): Promise<T> {
-  const { method = "GET", body, form, signal, allowUnauthorized } = input;
-  return runPromise(
-    ApiClient.use((client) => client.execute({ method, url: apiUrl(path), body, form, allowUnauthorized })).pipe(
-      Effect.map((response) => response.parsed as T),
-    ),
-    { signal },
-  );
-}
-
 /* -------------------------------------------------------------------------- */
 /* decode helpers                                                             */
 /* -------------------------------------------------------------------------- */
@@ -253,7 +231,7 @@ function warnMismatch(path: string, error: Schema.SchemaError): Effect.Effect<vo
 }
 
 /**
- * The shared decode step of every helper. A 204/205 is `undefined` WITHOUT decoding (as `request<T>` did);
+ * The shared decode step of every helper. A 204/205 is `undefined` WITHOUT decoding (the pre-E6 `request<T>` rule);
  * otherwise the parsed body is decoded with `DECODE_OPTIONS`. On a mismatch a READ fails with
  * `invalid_response` (the 2xx status, the generic unknown-error text, the issue as `details`); a WRITE and a
  * lenient row log in DEV and succeed with the raw payload.
