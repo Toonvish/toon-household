@@ -8,6 +8,12 @@
  *
  * The draft is marked `reviewed` and gets `recipe_id` in the same transaction, so
  * "draft committed" and "recipe exists" can never disagree.
+ *
+ * AS A SERVICE (docs/EFFECT.md E7, E12; plan `docs/plans/e3-recipe-services.md` P2, P8, P9, P12). `ImportCommit` reads the
+ * current executor of `Database` on every call (the import routes hand in the pinned tests' file DB with `withImportDb`,
+ * P6), takes its timestamp from the `Clock`, localizes the hero image through `RemoteImages` BEFORE the transaction opens
+ * and refuses with the tagged family. The Promise bridges at the end of the file keep `routes/imports.ts` working until
+ * E3-T11.
  */
 import {
   DEFAULT_LOCALE,
@@ -23,7 +29,9 @@ import {
   serverText,
 } from "@toon/shared";
 import { and, eq, inArray, sql } from "drizzle-orm";
-import type { Database } from "../../../../db/client.ts";
+import { Clock, Context, Effect, Layer, Predicate } from "effect";
+import type { Database as DrizzleDatabase } from "../../../../db/client.ts";
+import { Database, type DatabaseShape } from "../../../../db/database.ts";
 import {
   collectionRecipes,
   collections,
@@ -35,12 +43,13 @@ import {
   tags,
   users,
 } from "../../../../db/schema.ts";
-import { ApiError } from "../../../../lib/errors.ts";
+import { type DatabaseError, NotFound, ValidationFailed } from "../../../../lib/errors.ts";
+import { runtime } from "../../../../runtime.ts";
 import { toIso } from "../../../../lib/http.ts";
 import { normalizeStoredUploadUrl, signUploadUrl } from "../../../../lib/uploadUrls.ts";
 import { toPublicUser } from "../../../../core/services/households/mappers.ts";
 import { thumbnailUrlFor } from "../../../../core/services/media/thumbnails.ts";
-import { localizeImageUrl } from "../recipes/remoteImage.ts";
+import { RemoteImages } from "../recipes/remoteImage.ts";
 import { dedupeTags } from "./parsed.ts";
 
 /**
@@ -90,148 +99,204 @@ export interface CommitDraftResult {
   recipeId: string;
 }
 
-/**
- * Writes the recipe and links everything up.
- *
- * @throws ApiError 422 `validation_failed` when the reviewed draft has no title
- *   or no content, 404 when a collection does not belong to the household.
- */
-export async function commitDraft(db: Database, input: CommitDraftInput): Promise<CommitDraftResult> {
-  let parsed = input.parsed;
-
-  const title = (parsed.title ?? "").trim();
-  if (title.length === 0) {
-    throw ApiError.validationFailed(
-      [
-        {
-          path: "parsed.title",
-          code: "custom",
-          message: serverText(DEFAULT_LOCALE, "server.import.titleMissing"),
-          i18n: { key: "server.import.titleMissing" },
-        },
-      ],
-      "server.import.titleRequired",
-    );
+/** Draft -> recipe commit, and the recipe count the rollback tests assert on. */
+export class ImportCommit extends Context.Service<
+  ImportCommit,
+  {
+    /**
+     * Writes the recipe and links everything up.
+     *
+     * Fails with `ValidationFailed` (422 `validation_failed`) when the reviewed draft has no title or no content and
+     * with `NotFound` (404) when a collection does not belong to the household.
+     */
+    readonly commitDraft: (
+      input: CommitDraftInput,
+    ) => Effect.Effect<CommitDraftResult, ValidationFailed | NotFound | DatabaseError>;
+    /** Count of recipes in a household, used by tests to assert rollback. */
+    readonly countRecipes: (householdId: string) => Effect.Effect<number, DatabaseError>;
   }
-  if (parsed.ingredients.length === 0 && parsed.steps.length === 0) {
-    throw ApiError.validationFailed(
-      [
-        {
-          path: "parsed",
-          code: "custom",
-          message: serverText(DEFAULT_LOCALE, "server.import.noIngredientsOrSteps"),
-          i18n: { key: "server.import.noIngredientsOrSteps" },
-        },
-      ],
-      "server.import.recipeNeedsIngredientOrStep",
-    );
-  }
+>()("toon/api/modules/recipe/services/import/commit/ImportCommit") {
+  static readonly layer = Layer.effect(
+    this,
+    Effect.gen(function* () {
+      const database = yield* Database;
+      const remoteImages = yield* RemoteImages;
 
-  const recipeId = crypto.randomUUID();
-  const now = Date.now();
-  // A remote hero image (the importer's download failed, or the review screen
-  // changed it) becomes a local copy, downloaded before the transaction opens; the
-  // draft row below keeps the localized value too.
-  const imageUrl = await localizeImageUrl(parsed.imageUrl);
-  if (typeof imageUrl === "string" && imageUrl !== parsed.imageUrl) parsed = { ...parsed, imageUrl };
+      const commitDraft = Effect.fn("ImportCommit.commitDraft")(function* (input: CommitDraftInput) {
+        let parsed = input.parsed;
 
-  const tagNames = dedupeTags([...parsed.tags, ...(input.tagNames ?? [])]);
-  const collectionIds = [...new Set(input.collectionIds ?? [])];
+        const title = (parsed.title ?? "").trim();
+        if (title.length === 0) {
+          return yield* new ValidationFailed({
+            details: [
+              {
+                path: "parsed.title",
+                code: "custom",
+                message: serverText(DEFAULT_LOCALE, "server.import.titleMissing"),
+                i18n: { key: "server.import.titleMissing" },
+              },
+            ],
+            text: "server.import.titleRequired",
+          });
+        }
+        if (parsed.ingredients.length === 0 && parsed.steps.length === 0) {
+          return yield* new ValidationFailed({
+            details: [
+              {
+                path: "parsed",
+                code: "custom",
+                message: serverText(DEFAULT_LOCALE, "server.import.noIngredientsOrSteps"),
+                i18n: { key: "server.import.noIngredientsOrSteps" },
+              },
+            ],
+            text: "server.import.recipeNeedsIngredientOrStep",
+          });
+        }
 
-  const ingredientRows = parsed.ingredients.map((ingredient, index) => ({
-    id: crypto.randomUUID(),
-    recipeId,
-    position: index,
-    section: ingredient.section ?? null,
-    quantity: ingredient.quantity ?? null,
-    quantityMax: ingredient.quantityMax ?? null,
-    unit: ingredient.unit ?? null,
-    name: ingredient.name,
-    // Pre-folded for search; see src/db/schema.ts. A committed import that skipped
-    // this would be a recipe nobody can find by its ingredients.
-    nameFold: foldText(ingredient.name),
-    note: ingredient.note ?? null,
-    raw: ingredient.raw,
-  }));
+        const recipeId = crypto.randomUUID();
+        const now = yield* Clock.currentTimeMillis;
+        // A remote hero image (the importer's download failed, or the review screen
+        // changed it) becomes a local copy, downloaded before the transaction opens; the
+        // draft row below keeps the localized value too.
+        const imageUrl = yield* remoteImages.localizeImageUrl(parsed.imageUrl);
+        if (Predicate.isString(imageUrl) && imageUrl !== parsed.imageUrl) parsed = { ...parsed, imageUrl };
+        const stored = parsed;
 
-  const stepRows = parsed.steps.map((step, index) => ({
-    id: crypto.randomUUID(),
-    recipeId,
-    position: index,
-    section: step.section ?? null,
-    text: step.text,
-  }));
+        const tagNames = dedupeTags([...stored.tags, ...(input.tagNames ?? [])]);
+        const collectionIds = [...new Set(input.collectionIds ?? [])];
 
-  const linkedTags = await db.transaction(async (tx) => {
-    await tx.insert(recipes).values({
-      id: recipeId,
-      householdId: input.householdId,
-      title,
-      titleFold: foldText(title),
-      descriptionFold: foldText(parsed.description ?? ""),
-      // The review screen PATCHes back the signed hero-image URL it was served,
-      // so reduce it to the bare `/uploads/<file>` before it becomes a column.
-      imageUrl: normalizeStoredUploadUrl(parsed.imageUrl) ?? null,
-      ...parsedScalars(parsed),
-      createdBy: input.userId,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    if (ingredientRows.length > 0) await tx.insert(recipeIngredients).values(ingredientRows);
-    if (stepRows.length > 0) await tx.insert(recipeSteps).values(stepRows);
-
-    const resolved = await resolveTags(tx, input.householdId, tagNames, now);
-    if (resolved.length > 0) {
-      await tx.insert(recipeTags).values(resolved.map((tag) => ({ recipeId, tagId: tag.id })));
-    }
-
-    // LAST, and inside the transaction: a foreign collection id must roll the
-    // whole recipe back rather than leave an orphan.
-    if (collectionIds.length > 0) {
-      const owned = await tx
-        .select({ id: collections.id })
-        .from(collections)
-        .where(and(eq(collections.householdId, input.householdId), inArray(collections.id, collectionIds)));
-      const ownedIds = new Set(owned.map((row) => row.id));
-      const unknown = collectionIds.filter((id) => !ownedIds.has(id));
-      if (unknown.length > 0) {
-        throw ApiError.notFound(
-          unknown.length === 1 ? "server.import.collectionNotInGroup" : "server.import.collectionsNotInGroup",
-        );
-      }
-      await tx.insert(collectionRecipes).values(
-        collectionIds.map((collectionId, index) => ({
-          collectionId,
+        const ingredientRows = stored.ingredients.map((ingredient, index) => ({
+          id: crypto.randomUUID(),
           recipeId,
           position: index,
-          addedAt: now,
-        })),
-      );
-    }
+          section: ingredient.section ?? null,
+          quantity: ingredient.quantity ?? null,
+          quantityMax: ingredient.quantityMax ?? null,
+          unit: ingredient.unit ?? null,
+          name: ingredient.name,
+          // Pre-folded for search; see src/db/schema.ts. A committed import that skipped
+          // this would be a recipe nobody can find by its ingredients.
+          nameFold: foldText(ingredient.name),
+          note: ingredient.note ?? null,
+          raw: ingredient.raw,
+        }));
 
-    await tx
-      .update(importDrafts)
-      .set({ status: "reviewed", recipeId, parsed, confidence: parsed.confidence.overall, updatedAt: now })
-      .where(and(eq(importDrafts.id, input.draftId), eq(importDrafts.householdId, input.householdId)));
+        const stepRows = stored.steps.map((step, index) => ({
+          id: crypto.randomUUID(),
+          recipeId,
+          position: index,
+          section: step.section ?? null,
+          text: step.text,
+        }));
 
-    return resolved;
-  });
+        const linkedTags = yield* database.transaction(
+          Effect.gen(function* () {
+            yield* database.use((db) =>
+              db.insert(recipes).values({
+                id: recipeId,
+                householdId: input.householdId,
+                title,
+                titleFold: foldText(title),
+                descriptionFold: foldText(stored.description ?? ""),
+                // The review screen PATCHes back the signed hero-image URL it was served,
+                // so reduce it to the bare `/uploads/<file>` before it becomes a column.
+                imageUrl: normalizeStoredUploadUrl(stored.imageUrl) ?? null,
+                ...parsedScalars(stored),
+                createdBy: input.userId,
+                createdAt: now,
+                updatedAt: now,
+              }),
+            );
 
-  const recipe = await loadRecipeDetail(db, {
-    recipeId,
-    householdId: input.householdId,
-    userId: input.userId,
-    createdAt: now,
-    title,
-    parsed,
-    ingredientRows,
-    stepRows,
-    tagList: linkedTags,
-    collectionIds,
-  });
+            if (ingredientRows.length > 0) {
+              yield* database.use((db) => db.insert(recipeIngredients).values(ingredientRows));
+            }
+            if (stepRows.length > 0) yield* database.use((db) => db.insert(recipeSteps).values(stepRows));
 
-  return { recipe, recipeId };
+            const resolved = yield* resolveTags(database, input.householdId, tagNames, now);
+            if (resolved.length > 0) {
+              yield* database.use((db) =>
+                db.insert(recipeTags).values(resolved.map((tag) => ({ recipeId, tagId: tag.id }))),
+              );
+            }
+
+            // LAST, and inside the transaction: a foreign collection id must roll the
+            // whole recipe back rather than leave an orphan.
+            if (collectionIds.length > 0) {
+              const owned = yield* database.use((db) =>
+                db
+                  .select({ id: collections.id })
+                  .from(collections)
+                  .where(and(eq(collections.householdId, input.householdId), inArray(collections.id, collectionIds))),
+              );
+              const ownedIds = new Set(owned.map((row) => row.id));
+              const unknown = collectionIds.filter((id) => !ownedIds.has(id));
+              if (unknown.length > 0) {
+                return yield* new NotFound({
+                  text:
+                    unknown.length === 1
+                      ? "server.import.collectionNotInGroup"
+                      : "server.import.collectionsNotInGroup",
+                });
+              }
+              yield* database.use((db) =>
+                db.insert(collectionRecipes).values(
+                  collectionIds.map((collectionId, index) => ({
+                    collectionId,
+                    recipeId,
+                    position: index,
+                    addedAt: now,
+                  })),
+                ),
+              );
+            }
+
+            yield* database.use((db) =>
+              db
+                .update(importDrafts)
+                .set({
+                  status: "reviewed",
+                  recipeId,
+                  parsed: stored,
+                  confidence: stored.confidence.overall,
+                  updatedAt: now,
+                })
+                .where(and(eq(importDrafts.id, input.draftId), eq(importDrafts.householdId, input.householdId))),
+            );
+
+            return resolved;
+          }),
+        );
+
+        const recipe = yield* loadRecipeDetail(database, {
+          recipeId,
+          householdId: input.householdId,
+          userId: input.userId,
+          createdAt: now,
+          title,
+          parsed: stored,
+          ingredientRows,
+          stepRows,
+          tagList: linkedTags,
+          collectionIds,
+        });
+
+        return { recipe, recipeId } satisfies CommitDraftResult;
+      });
+
+      const countRecipes = Effect.fn("ImportCommit.countRecipes")(function* (householdId: string) {
+        const rows = yield* database.use((db) =>
+          db
+            .select({ value: sql<number>`count(*)` })
+            .from(recipes)
+            .where(eq(recipes.householdId, householdId)),
+        );
+        return Number(rows[0]?.value ?? 0);
+      });
+
+      return ImportCommit.of({ commitDraft, countRecipes });
+    }),
+  );
 }
 
 /**
@@ -239,15 +304,15 @@ export async function commitDraft(db: Database, input: CommitDraftInput): Promis
  * ones. Matching is case-insensitive on purpose: "Vegan" and "vegan" must not
  * become two tags in the same household.
  */
-async function resolveTags(
-  tx: Parameters<Parameters<Database["transaction"]>[0]>[0],
+const resolveTags = Effect.fnUntraced(function* (
+  database: DatabaseShape,
   householdId: string,
   names: readonly string[],
   now: number,
-): Promise<Tag[]> {
-  if (names.length === 0) return [];
+) {
+  if (names.length === 0) return [] as Tag[];
 
-  const existing = await tx.select().from(tags).where(eq(tags.householdId, householdId));
+  const existing = yield* database.use((db) => db.select().from(tags).where(eq(tags.householdId, householdId)));
   const byLower = new Map(existing.map((tag) => [tag.name.toLocaleLowerCase("de-DE"), tag]));
 
   const out: Tag[] = [];
@@ -292,9 +357,9 @@ async function resolveTags(
     out.push({ id: row.id, householdId, name, color: null, kind: "free", createdAt: toIso(now) });
   }
 
-  if (toInsert.length > 0) await tx.insert(tags).values(toInsert);
+  if (toInsert.length > 0) yield* database.use((db) => db.insert(tags).values(toInsert));
   return out;
-}
+});
 
 interface LoadRecipeDetailInput {
   recipeId: string;
@@ -316,12 +381,14 @@ interface LoadRecipeDetailInput {
  * instead of re-reading five tables: this module must not depend on the recipes
  * router (owned by another agent) to stay merge-conflict free.
  */
-async function loadRecipeDetail(db: Database, input: LoadRecipeDetailInput): Promise<RecipeDetail> {
-  const authorRows = await db
-    .select({ id: users.id, name: users.name, email: users.email, avatarUrl: users.avatarUrl })
-    .from(users)
-    .where(eq(users.id, input.userId))
-    .limit(1);
+const loadRecipeDetail = Effect.fnUntraced(function* (database: DatabaseShape, input: LoadRecipeDetailInput) {
+  const authorRows = yield* database.use((db) =>
+    db
+      .select({ id: users.id, name: users.name, email: users.email, avatarUrl: users.avatarUrl })
+      .from(users)
+      .where(eq(users.id, input.userId))
+      .limit(1),
+  );
   // Same mapper the recipes router uses, so the wire shape (and the avatar
   // signature) cannot drift between "created by import" and "read back later".
   // The row is the session's own user, so the fallback is unreachable in practice;
@@ -334,7 +401,7 @@ async function loadRecipeDetail(db: Database, input: LoadRecipeDetailInput): Pro
   const iso = toIso(input.createdAt);
   const parsed = input.parsed;
 
-  return {
+  const detail: RecipeDetail = {
     id: input.recipeId,
     householdId: input.householdId,
     title: input.title,
@@ -368,13 +435,15 @@ async function loadRecipeDetail(db: Database, input: LoadRecipeDetailInput): Pro
     collectionIds: input.collectionIds,
     author,
   };
-}
+  return detail;
+});
 
-/** Count of recipes in a household — used by tests to assert rollback. */
-export async function countRecipes(db: Database, householdId: string): Promise<number> {
-  const rows = await db
-    .select({ value: sql<number>`count(*)` })
-    .from(recipes)
-    .where(eq(recipes.householdId, householdId));
-  return Number(rows[0]?.value ?? 0);
+/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
+
+// Every bridge honours its `db` argument with `Database.withExecutor(db)` (plan e3 P1). A failure rejects with the
+// tagged error itself (an `ApiError`). Promise.
+
+/** Caller: `routes/imports.ts` (E3-T11). */
+export function commitDraft(db: DrizzleDatabase, input: CommitDraftInput): Promise<CommitDraftResult> {
+  return runtime.runPromise(ImportCommit.use((s) => s.commitDraft(input)).pipe(Database.withExecutor(db)));
 }

@@ -402,7 +402,6 @@ describe("(10) no throw of ApiError (E6, E12)", () => {
 // Pinned allow list (path or prefix -> reason) for `Date.now(` / `new Date(` under a `services/` directory.
 const ALLOW_SERVICE_DATE: PathAllow = {
   "apps/api/src/core/services/households/support.ts": "nowMs(), the module helper recipe and finance call until E3/E4",
-  "apps/api/src/modules/recipe/services/": "E3 moves recipe onto Clock / DateTime",
 };
 // (Finance's services hold no `Date.now(` / `new Date(` today, so no E4 entry: the stale-entry test below would fail it.)
 const SERVICE_DATE = /\bDate\.now\s*\(|\bnew\s+Date\s*\(/;

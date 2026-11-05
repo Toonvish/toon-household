@@ -4,12 +4,17 @@
  * The important assertion is TRANSACTIONALITY: when the collection check (which
  * deliberately runs last, inside the transaction) fails, the recipe and all of
  * its children must be gone again.
+ *
+ * Runs on `ImportCommit` and `ImportDrafts` through the app runtime, with this file's own database handed in as the
+ * current executor (`Database.withExecutor(db)`, plan e3 P15).
  */
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
+import { Effect } from "effect";
+import { Database } from "../../src/db/database.ts";
 import { createDatabase } from "../../src/db/client.ts";
 import { runMigrations } from "../../src/db/migrate.ts";
 import {
@@ -26,10 +31,17 @@ import {
   users,
 } from "../../src/db/schema.ts";
 import { ApiError } from "../../src/lib/errors.ts";
-import { commitDraft, countRecipes } from "../../src/modules/recipe/services/import/commit.ts";
-import { createDraft, getDraftOr404, listDrafts, toDraftWire, updateDraft } from "../../src/modules/recipe/services/import/drafts.ts";
+import { type CommitDraftInput, ImportCommit } from "../../src/modules/recipe/services/import/commit.ts";
+import {
+  type CreateDraftInput,
+  ImportDrafts,
+  type ListDraftsQuery,
+  type UpdateDraftInput,
+  toDraftWire,
+} from "../../src/modules/recipe/services/import/drafts.ts";
 import { parseRecipeText } from "../../src/modules/recipe/services/import/ocr/index.ts";
 import { extractRecipeFromHtml } from "../../src/modules/recipe/services/import/url/index.ts";
+import { type AppServices, runTest } from "../support/effect.ts";
 import { expectApiError, fixture } from "./helpers.ts";
 
 /**
@@ -46,6 +58,21 @@ afterAll(() => {
   client.close();
   rmSync(tempDir, { recursive: true, force: true });
 });
+
+/** Runs `effect` on the app runtime against THIS file's database; a refusal rejects with the tagged error itself. */
+function onDb<A, E>(effect: Effect.Effect<A, E, AppServices>): Promise<A> {
+  return runTest(effect.pipe(Database.withExecutor(db)));
+}
+
+const commitDraft = (input: CommitDraftInput) => onDb(ImportCommit.use((s) => s.commitDraft(input)));
+const countRecipes = (householdId: string) => onDb(ImportCommit.use((s) => s.countRecipes(householdId)));
+const createDraft = (input: CreateDraftInput) => onDb(ImportDrafts.use((s) => s.createDraft(input)));
+const getDraftOr404 = (householdId: string, draftId: string) =>
+  onDb(ImportDrafts.use((s) => s.getDraftOr404(householdId, draftId)));
+const listDrafts = (householdId: string, query: ListDraftsQuery) =>
+  onDb(ImportDrafts.use((s) => s.listDrafts(householdId, query)));
+const updateDraft = (draftId: string, input: UpdateDraftInput) =>
+  onDb(ImportDrafts.use((s) => s.updateDraft(draftId, input)));
 
 const userId = crypto.randomUUID();
 let householdId = "";
@@ -73,7 +100,7 @@ function chefkochParsed() {
 }
 
 async function seedDraft(parsed = chefkochParsed()) {
-  return await createDraft(db, {
+  return await createDraft({
     householdId,
     createdBy: userId,
     sourceType: "url",
@@ -97,20 +124,20 @@ describe("draft repository", () => {
 
   test("getDraftOr404 refuses a draft from another household", async () => {
     const draft = await seedDraft();
-    await expect(getDraftOr404(db, otherHouseholdId, draft.id)).rejects.toThrow(ApiError);
-    await expect(getDraftOr404(db, householdId, crypto.randomUUID())).rejects.toThrow(ApiError);
+    await expect(getDraftOr404(otherHouseholdId, draft.id)).rejects.toThrow(ApiError);
+    await expect(getDraftOr404(householdId, crypto.randomUUID())).rejects.toThrow(ApiError);
   });
 
   test("listDrafts filters by status and paginates", async () => {
     const first = await seedDraft();
     await seedDraft();
-    await updateDraft(db, first.id, { status: "reviewed" });
+    await updateDraft(first.id, { status: "reviewed" });
 
-    const pending = await listDrafts(db, householdId, { status: "pending", limit: 10, offset: 0 });
+    const pending = await listDrafts(householdId, { status: "pending", limit: 10, offset: 0 });
     expect(pending.total).toBe(1);
     expect(pending.items).toHaveLength(1);
 
-    const all = await listDrafts(db, householdId, { limit: 1, offset: 0 });
+    const all = await listDrafts(householdId, { limit: 1, offset: 0 });
     expect(all.total).toBe(2);
     expect(all.items).toHaveLength(1);
     expect(all.limit).toBe(1);
@@ -122,7 +149,7 @@ describe("draft repository", () => {
       .update(importDrafts)
       .set({ parsed: { nonsense: true } as never })
       .where(eq(importDrafts.id, draft.id));
-    const row = await getDraftOr404(db, householdId, draft.id);
+    const row = await getDraftOr404(householdId, draft.id);
     const wire = toDraftWire(row);
     expect(wire.parsed.ingredients).toEqual([]);
     expect(wire.parsed.confidence.overall).toBe(0);
@@ -131,8 +158,8 @@ describe("draft repository", () => {
   test("updateDraft keeps confidence in sync with the edited payload", async () => {
     const draft = await seedDraft();
     const edited = { ...draft.parsed, title: "Neuer Titel", confidence: { overall: 0.42 } };
-    await updateDraft(db, draft.id, { parsed: edited });
-    const row = await getDraftOr404(db, householdId, draft.id);
+    await updateDraft(draft.id, { parsed: edited });
+    const row = await getDraftOr404(householdId, draft.id);
     expect(row.confidence).toBe(0.42);
     expect(toDraftWire(row).parsed.title).toBe("Neuer Titel");
   });
@@ -141,7 +168,7 @@ describe("draft repository", () => {
 describe("commitDraft — happy path", () => {
   test("writes the recipe with all children and marks the draft reviewed", async () => {
     const draft = await seedDraft();
-    const result = await commitDraft(db, {
+    const result = await commitDraft({
       householdId,
       draftId: draft.id,
       userId,
@@ -182,14 +209,14 @@ describe("commitDraft — happy path", () => {
     const tagLinks = await db.select().from(recipeTags).where(eq(recipeTags.recipeId, result.recipeId));
     expect(tagLinks.length).toBeGreaterThan(0);
 
-    const draftRow = await getDraftOr404(db, householdId, draft.id);
+    const draftRow = await getDraftOr404(householdId, draft.id);
     expect(draftRow.status).toBe("reviewed");
     expect(draftRow.recipeId).toBe(result.recipeId);
   });
 
   test("the returned RecipeDetail matches the contract shape", async () => {
     const draft = await seedDraft();
-    const { recipe } = await commitDraft(db, { householdId, draftId: draft.id, userId, parsed: draft.parsed });
+    const { recipe } = await commitDraft({ householdId, draftId: draft.id, userId, parsed: draft.parsed });
 
     expect(recipe.id).toMatch(/^[0-9a-f-]{36}$/);
     expect(recipe.ingredients).toHaveLength(8);
@@ -208,7 +235,7 @@ describe("commitDraft — happy path", () => {
     await db.insert(tags).values({ id: existingTagId, householdId, name: "Vegetarisch", color: "#22c55e" });
 
     const draft = await seedDraft();
-    const result = await commitDraft(db, {
+    const result = await commitDraft({
       householdId,
       draftId: draft.id,
       userId,
@@ -231,7 +258,7 @@ describe("commitDraft — happy path", () => {
     await db.insert(collections).values({ id: collectionId, householdId, name: "Lieblingsrezepte", createdBy: userId });
 
     const draft = await seedDraft();
-    const result = await commitDraft(db, {
+    const result = await commitDraft({
       householdId,
       draftId: draft.id,
       userId,
@@ -247,8 +274,8 @@ describe("commitDraft — happy path", () => {
 
   test("commits an OCR draft too (no title from the URL layer)", async () => {
     const parsed = parseRecipeText(fixture("ocr-zwiebelkuchen.txt"), { source: "ocr", ocrConfidence: 0.8 });
-    const draft = await createDraft(db, { householdId, createdBy: userId, sourceType: "ocr", parsed });
-    const result = await commitDraft(db, { householdId, draftId: draft.id, userId, parsed });
+    const draft = await createDraft({ householdId, createdBy: userId, sourceType: "ocr", parsed });
+    const result = await commitDraft({ householdId, draftId: draft.id, userId, parsed });
 
     const rows = await db.select().from(recipes).where(eq(recipes.id, result.recipeId));
     expect(rows[0]?.title).toBe("Schwäbischer Zwiebelkuchen");
@@ -264,23 +291,23 @@ describe("commitDraft — validation", () => {
   test("refuses a draft without a title", async () => {
     const draft = await seedDraft();
     const error = await expectApiError(
-      commitDraft(db, { householdId, draftId: draft.id, userId, parsed: { ...draft.parsed, title: undefined } }),
+      commitDraft({ householdId, draftId: draft.id, userId, parsed: { ...draft.parsed, title: undefined } }),
     );
     expect(error.status).toBe(422);
     expect(error.code).toBe("validation_failed");
-    expect(await countRecipes(db, householdId)).toBe(0);
+    expect(await countRecipes(householdId)).toBe(0);
   });
 
   test("refuses a draft with neither ingredients nor steps", async () => {
     const draft = await seedDraft();
-    const promise = commitDraft(db, {
+    const promise = commitDraft({
       householdId,
       draftId: draft.id,
       userId,
       parsed: { ...draft.parsed, ingredients: [], steps: [] },
     });
     await expect(promise).rejects.toThrow(ApiError);
-    expect(await countRecipes(db, householdId)).toBe(0);
+    expect(await countRecipes(householdId)).toBe(0);
   });
 });
 
@@ -292,11 +319,11 @@ describe("commitDraft — TRANSACTIONALITY", () => {
       .values({ id: foreignCollectionId, householdId: otherHouseholdId, name: "Fremd", createdBy: userId });
 
     const draft = await seedDraft();
-    const before = await countRecipes(db, householdId);
+    const before = await countRecipes(householdId);
     expect(before).toBe(0);
 
     const error = await expectApiError(
-      commitDraft(db, {
+      commitDraft({
         householdId,
         draftId: draft.id,
         userId,
@@ -307,14 +334,14 @@ describe("commitDraft — TRANSACTIONALITY", () => {
     expect(error.status).toBe(404);
 
     // Nothing may survive: not the recipe, not its children, not the tag links.
-    expect(await countRecipes(db, householdId)).toBe(0);
+    expect(await countRecipes(householdId)).toBe(0);
     expect(await db.select().from(recipeIngredients)).toHaveLength(0);
     expect(await db.select().from(recipeSteps)).toHaveLength(0);
     expect(await db.select().from(recipeTags)).toHaveLength(0);
     expect(await db.select().from(collectionRecipes)).toHaveLength(0);
 
     // The draft must still be committable after the failure.
-    const draftRow = await getDraftOr404(db, householdId, draft.id);
+    const draftRow = await getDraftOr404(householdId, draft.id);
     expect(draftRow.status).toBe("pending");
     expect(draftRow.recipeId).toBeNull();
   });
@@ -326,7 +353,7 @@ describe("commitDraft — TRANSACTIONALITY", () => {
       .values({ id: foreignCollectionId, householdId: otherHouseholdId, name: "Fremd", createdBy: userId });
 
     const draft = await seedDraft();
-    await commitDraft(db, {
+    await commitDraft({
       householdId,
       draftId: draft.id,
       userId,
@@ -346,7 +373,7 @@ describe("commitDraft — TRANSACTIONALITY", () => {
       .values({ id: foreignCollectionId, householdId: otherHouseholdId, name: "Fremd", createdBy: userId });
 
     const draft = await seedDraft();
-    await commitDraft(db, {
+    await commitDraft({
       householdId,
       draftId: draft.id,
       userId,
@@ -354,19 +381,19 @@ describe("commitDraft — TRANSACTIONALITY", () => {
       collectionIds: [foreignCollectionId],
     }).catch(() => undefined);
 
-    const result = await commitDraft(db, { householdId, draftId: draft.id, userId, parsed: draft.parsed });
-    expect(await countRecipes(db, householdId)).toBe(1);
-    const draftRow = await getDraftOr404(db, householdId, draft.id);
+    const result = await commitDraft({ householdId, draftId: draft.id, userId, parsed: draft.parsed });
+    expect(await countRecipes(householdId)).toBe(1);
+    const draftRow = await getDraftOr404(householdId, draft.id);
     expect(draftRow.recipeId).toBe(result.recipeId);
   });
 
   test("deleting the household cascades the committed recipe away", async () => {
     const draft = await seedDraft();
-    await commitDraft(db, { householdId, draftId: draft.id, userId, parsed: draft.parsed });
-    expect(await countRecipes(db, householdId)).toBe(1);
+    await commitDraft({ householdId, draftId: draft.id, userId, parsed: draft.parsed });
+    expect(await countRecipes(householdId)).toBe(1);
 
     await client.execute({ sql: "delete from households where id = ?", args: [householdId] });
-    expect(await countRecipes(db, householdId)).toBe(0);
+    expect(await countRecipes(householdId)).toBe(0);
     expect(await db.select().from(importDrafts).where(eq(importDrafts.householdId, householdId))).toHaveLength(0);
   });
 });
