@@ -10,17 +10,17 @@
  */
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { and, eq } from "drizzle-orm";
-import { Hono } from "hono";
+import { Effect, Layer, Schema } from "effect";
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/http-api";
 import { setVerifiedEmailRequired } from "../src/core/services/auth/verifiedEmail.ts";
 import { db } from "../src/db/client.ts";
 import { runMigrations } from "../src/db/migrate.ts";
 import { householdMembers, users } from "../src/db/schema.ts";
-import { notFoundHandler, onErrorHandler } from "../src/lib/errors.ts";
-import { localeMiddleware } from "../src/lib/locale.ts";
-import type { AppEnv } from "../src/lib/types.ts";
-import { requireFinanceParticipant, requireFinanceParticipantContext } from "../src/modules/finance/middleware.ts";
-import { mountModules } from "../src/modules/mount.ts";
-import type { ApiModule } from "../src/modules/types.ts";
+import { httpMiddlewareLayer } from "../src/http/middleware-layer.ts";
+import { chain, householdModuleApi, UNINTERRUPTIBLE } from "../src/http/middleware.ts";
+import { json } from "../src/http/response.ts";
+import { CurrentFinanceParticipant, RequireFinanceParticipant } from "../src/modules/finance/http.ts";
+import { RequireFinanceParticipantLayer } from "../src/modules/finance/middleware.ts";
 import { financeFixedCostPlans, financeParticipants, financeTransactions } from "../src/modules/finance/schema.ts";
 import {
   addMember,
@@ -32,6 +32,7 @@ import {
   enableFinance,
   type TestUser,
 } from "./support/finance-harness.ts";
+import { testHttpApp } from "./support/http.ts";
 
 interface ErrorBody {
   error: { code: string; message: string };
@@ -109,16 +110,27 @@ describe("GET and the participant gate", () => {
     expect((await list(b, householdId)).viewerSlot).toBe(2);
     expect((await list(owner, householdId)).viewerSlot).toBe(1);
 
-    // The gate itself, mounted on a probe module behind the REAL chain of modules/mount.ts.
-    const probe = new Hono<AppEnv>();
-    probe.use("*", requireFinanceParticipant());
-    probe.get("/probe", (c2) => c2.json(requireFinanceParticipantContext(c2)));
-    const probeModule: ApiModule = { id: "finance", schema: {}, householdRouter: probe };
-    const probeApp = new Hono<AppEnv>();
-    probeApp.onError(onErrorHandler);
-    probeApp.notFound(notFoundHandler);
-    probeApp.use("*", localeMiddleware);
-    mountModules(probeApp, [probeModule]);
+    // The gate itself, mounted on a probe API behind the REAL chain of householdModuleApi (the core middlewares).
+    const probeGroup = HttpApiGroup.make("finance.probe").add(
+      HttpApiEndpoint.get("getProbe", "/probe", { params: { householdId: Schema.String } }).pipe(
+        chain(RequireFinanceParticipant),
+      ),
+    );
+    const probeApi = householdModuleApi("finance", HttpApi.make("finance.probe").add(probeGroup));
+    const probeHandlers = HttpApiBuilder.group(probeApi, "finance.probe", (handlers) =>
+      handlers.handle(
+        "getProbe",
+        Effect.fn("finance.probe.getProbe")(function* () {
+          return json(yield* CurrentFinanceParticipant);
+        }),
+        UNINTERRUPTIBLE,
+      ),
+    );
+    const probeApp = testHttpApp(
+      [probeApi],
+      Layer.provideMerge(probeHandlers, RequireFinanceParticipantLayer),
+      httpMiddlewareLayer(),
+    );
     const url = `/api/households/${householdId}/finance/probe`;
     const asCProbe = await probeApp.request(url, { headers: { Cookie: c.cookie } });
     expect(asCProbe.status).toBe(403);

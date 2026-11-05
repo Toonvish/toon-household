@@ -8,8 +8,6 @@
  * this is exactly what keeps an offline-replayed create correct regardless
  * of who is logged in when it is finally sent (docs/spec.md §3.6).
  */
-import { Effect } from "effect";
-import { runtime } from "../../../runtime.ts";
 import {
   CreateTransactionRequestSchema,
   type TransactionListResponse,
@@ -18,95 +16,95 @@ import {
   TransactionSummaryQuerySchema,
   UpdateTransactionRequestSchema,
 } from "@toon/shared";
-import { Hono } from "hono";
-import { created, json, noContent } from "../../../lib/http.ts";
-import type { AppEnv } from "../../../lib/types.ts";
-import { requireFinanceParticipant, currentFinanceParticipant } from "../middleware.ts";
-import { validate } from "../../../lib/validate.ts";
-import { requireVerifiedEmail } from "../../../middleware/verifiedEmail.ts";
+import { Effect, Layer } from "effect";
+import { HttpApiBuilder } from "effect/http-api";
+import { effectBridge } from "../../../http/bridge.ts";
+import { UNINTERRUPTIBLE } from "../../../http/middleware.ts";
+import { jsonBody, queryParam, queryParams } from "../../../http/request.ts";
+import { created, json, noContent } from "../../../http/response.ts";
+import { CurrentFinanceParticipant } from "../http.ts";
+import { RequireFinanceParticipantLayer } from "../middleware.ts";
 import { FinanceTransactions } from "../services/ledger/transactions.service.ts";
 import { FinanceSummary } from "../services/ledger/summary.service.ts";
+import { FinanceTransactionsApi } from "./transactions.api.ts";
 
-export const transactionRoutes = new Hono<AppEnv>();
-
-transactionRoutes.use("*", requireVerifiedEmail());
-transactionRoutes.use("*", requireFinanceParticipant());
-
-/** GET / — filtered, paginated list. `kind` is a viewer-relative projection resolved server-side. */
-transactionRoutes.get("/", validate("query", TransactionListQuerySchema), (c) =>
-runtime.runPromise(
-Effect.gen(function* () {
-  const transactionsService = yield* FinanceTransactions;
-  const household = yield* currentFinanceParticipant(c);
-  const query = c.req.valid("query");
-  const payload: TransactionListResponse = yield* transactionsService.listTransactions(household.householdId, household.userId, query);
-  return json(c, payload);
-}),
-),
+export const transactionsHandlers = HttpApiBuilder.group(FinanceTransactionsApi, "finance.transactions", (handlers) =>
+  handlers
+    /** GET / — filtered, paginated list. `kind` is a viewer-relative projection resolved server-side. */
+    .handle(
+      "get",
+      Effect.fn("finance.transactions.get")(function* () {
+        const query = yield* queryParams(TransactionListQuerySchema);
+        const transactionsService = yield* FinanceTransactions;
+        const household = yield* CurrentFinanceParticipant;
+        const payload: TransactionListResponse = yield* transactionsService.listTransactions(household.householdId, household.userId, query);
+        return json(payload);
+      }),
+      UNINTERRUPTIBLE,
+    )
+    /** POST / — 201 on a fresh create, 200 on a replayed `mutationId`. */
+    .handle(
+      "post",
+      Effect.fn("finance.transactions.post")(function* () {
+        const body = yield* jsonBody(CreateTransactionRequestSchema);
+        const transactionsService = yield* FinanceTransactions;
+        const household = yield* CurrentFinanceParticipant;
+        const outcome = yield* transactionsService.createTransaction({ ...body, householdId: household.householdId, viewerId: household.userId, createdBy: household.userId });
+        return outcome.applied ? created(outcome.response, `/api/households/${household.householdId}/finance/transactions/${outcome.response.id}`) : json(outcome.response);
+      }),
+      UNINTERRUPTIBLE,
+    )
+    /** GET /summary — MUST stay above /:transactionId. */
+    .handle(
+      "getSummary",
+      Effect.fn("finance.transactions.getSummary")(function* () {
+        const query = yield* queryParams(TransactionSummaryQuerySchema);
+        const summaryService = yield* FinanceSummary;
+        const household = yield* CurrentFinanceParticipant;
+        const payload = yield* summaryService.getTransactionSummary(household.householdId, query);
+        return json(payload);
+      }),
+      UNINTERRUPTIBLE,
+    )
+    /** GET /:transactionId */
+    .handle(
+      "getByTransactionId",
+      Effect.fn("finance.transactions.getByTransactionId")(function* ({ params }) {
+        const transactionsService = yield* FinanceTransactions;
+        const household = yield* CurrentFinanceParticipant;
+        const payload: TransactionResponse = yield* transactionsService.getTransaction(household.householdId, params.transactionId);
+        return json(payload);
+      }),
+      UNINTERRUPTIBLE,
+    )
+    /** PATCH /:transactionId — `409 transaction_generated` unless `origin === "manual"`. */
+    .handle(
+      "patchByTransactionId",
+      Effect.fn("finance.transactions.patchByTransactionId")(function* ({ params }) {
+        const body = yield* jsonBody(UpdateTransactionRequestSchema);
+        const transactionsService = yield* FinanceTransactions;
+        const household = yield* CurrentFinanceParticipant;
+        const outcome = yield* transactionsService.updateTransaction(params.transactionId, { ...body, householdId: household.householdId, viewerId: household.userId });
+        return json(outcome.response);
+      }),
+      UNINTERRUPTIBLE,
+    )
+    /** DELETE /:transactionId?mutationId= — `409 transaction_generated` unless `origin === "manual"`. */
+    .handle(
+      "deleteByTransactionId",
+      Effect.fn("finance.transactions.deleteByTransactionId")(function* ({ params }) {
+        const transactionsService = yield* FinanceTransactions;
+        const household = yield* CurrentFinanceParticipant;
+        const mutationId = yield* queryParam("mutationId");
+        yield* transactionsService.deleteTransaction(household.householdId, params.transactionId, mutationId);
+        return noContent();
+      }),
+      UNINTERRUPTIBLE,
+    ),
 );
 
-/** POST / — 201 on a fresh create, 200 on a replayed `mutationId`. */
-transactionRoutes.post("/", validate("json", CreateTransactionRequestSchema), (c) =>
-runtime.runPromise(
-Effect.gen(function* () {
-  const transactionsService = yield* FinanceTransactions;
-  const household = yield* currentFinanceParticipant(c);
-  const body = c.req.valid("json");
-  const outcome = yield* transactionsService.createTransaction({ ...body, householdId: household.householdId, viewerId: household.userId, createdBy: household.userId });
-  return outcome.applied ? created(c, outcome.response, `/api/households/${household.householdId}/finance/transactions/${outcome.response.id}`) : json(c, outcome.response);
-}),
-),
+export const transactionRoutes = effectBridge(
+  FinanceTransactionsApi,
+  Layer.suspend(() => Layer.provideMerge(transactionsHandlers, RequireFinanceParticipantLayer)),
+  "/api/households/:householdId/finance/transactions",
 );
-
-/** GET /summary — MUST stay above /:transactionId. */
-transactionRoutes.get("/summary", validate("query", TransactionSummaryQuerySchema), (c) =>
-runtime.runPromise(
-Effect.gen(function* () {
-  const summaryService = yield* FinanceSummary;
-  const household = yield* currentFinanceParticipant(c);
-  const query = c.req.valid("query");
-  const payload = yield* summaryService.getTransactionSummary(household.householdId, query);
-  return json(c, payload);
-}),
-),
-);
-
-/** GET /:transactionId */
-transactionRoutes.get("/:transactionId", (c) =>
-runtime.runPromise(
-Effect.gen(function* () {
-  const transactionsService = yield* FinanceTransactions;
-  const household = yield* currentFinanceParticipant(c);
-  const payload: TransactionResponse = yield* transactionsService.getTransaction(household.householdId, c.req.param("transactionId"));
-  return json(c, payload);
-}),
-),
-);
-
-/** PATCH /:transactionId — `409 transaction_generated` unless `origin === "manual"`. */
-transactionRoutes.patch("/:transactionId", validate("json", UpdateTransactionRequestSchema), (c) =>
-runtime.runPromise(
-Effect.gen(function* () {
-  const transactionsService = yield* FinanceTransactions;
-  const household = yield* currentFinanceParticipant(c);
-  const body = c.req.valid("json");
-  const outcome = yield* transactionsService.updateTransaction(c.req.param("transactionId"), { ...body, householdId: household.householdId, viewerId: household.userId });
-  return json(c, outcome.response);
-}),
-),
-);
-
-/** DELETE /:transactionId?mutationId= — `409 transaction_generated` unless `origin === "manual"`. */
-transactionRoutes.delete("/:transactionId", (c) =>
-runtime.runPromise(
-Effect.gen(function* () {
-  const transactionsService = yield* FinanceTransactions;
-  const household = yield* currentFinanceParticipant(c);
-  const mutationId = c.req.query("mutationId");
-  yield* transactionsService.deleteTransaction(household.householdId, c.req.param("transactionId"), mutationId);
-  return noContent(c);
-}),
-),
-);
-
-export default transactionRoutes;
