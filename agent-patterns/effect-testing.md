@@ -277,3 +277,11 @@ explicit `URL_IMPORT_TEST_TIMEOUT_MS = 30_000` as the third argument of every `t
 `performance.now()` bound and the fixture's own request log (the redirect route hit once, nothing sent to `169.254.169.254`). Never the
 `IMPORT_ALLOW_PRIVATE_HOSTS` escape hatch: it skips every host check. `apps/api/test/import-order-effect.test.ts` gained three recipe service files and
 deliberately not the two route files (`docs/open-work.md` O-6).
+
+**As built (E4-T06):** `apps/api/test/finance-scheduler.test.ts` drives the real 6-hour tick with the `TestClock` over a
+migrated legacy fixture database handed in with `Database.withExecutor(run.target.db)`. `TestClock.adjust` makes the
+tick FIRE, but the catch-up's database I/O is real and settles after `adjust` returns, so the test polls in real time
+(`Effect.promise(() => Bun.sleep(10))`, a bounded number of rounds) instead of asserting right after `adjust`; a
+"nothing ran yet" assertion also waits a few real rounds first, so a wrongly early tick has time to show. The whole
+fork-adjust-poll sequence is ONE effect inside one `runTest(..., { clock: "test" })` (a new `TestClock` per run), with
+`stopAccrualSchedule()` in `Effect.ensuring`, and carries an explicit 60 s test timeout (load, as the sharp tests).

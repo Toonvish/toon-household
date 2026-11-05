@@ -87,6 +87,7 @@ export const retryBackoff = Schedule.min([
 ]).pipe(Schedule.jittered)
 
 const tick = task.pipe(Effect.repeat(Schedule.spaced("6 hours")))  // runs once now, then 6 h after each end
+const later = task.pipe(Effect.schedule(Schedule.spaced("6 hours"))) // waits 6 h FIRST (the schedule is stepped before the run), then every 6 h
 const retried = task.pipe(Effect.retry(Schedule.recurs(3)))        // 1 initial attempt + up to 3 retries
 const limited = task.pipe(Effect.repeat({ times: 2 }))             // Effect.repeat also takes {times, while, until, schedule}
 ```
@@ -200,8 +201,9 @@ Source: `migration/v3-to-v4.md` sections `effect/Clock`, `effect/DateTime`, `eff
   pinned allow list for rows that stamp a DB default.
 - E3 / E4: `apps/api/src/modules/recipe/services/plan/plan.service.ts`, `import/*`, and finance
   `apps/api/src/modules/finance/lib/clock.ts` (the `nowMs` / `setClockForTest` seam becomes `Clock`),
-  `finance/services/**` (the plan catch-up, `plan:run` with `Schedule.spaced("6 hours")` through `Effect.repeat`,
-  tested with `TestClock`: finance gotcha "The `start` hook and the clock").
+  `finance/services/**` (the plan catch-up; the 6-hour tick is `Effect.schedule(tick, Schedule.spaced("6 hours"))` on a
+  `Effect.forkDetach` fiber, NOT `Effect.repeat` (that would run once at once, before the first interval), tested with
+  `TestClock`: `apps/api/test/finance-scheduler.test.ts`, finance gotcha "The `start` hook and the clock").
 - E5: `apps/api/scripts/{uploads-gc,seed,reset-password,migrate-legacy}.ts`, `scripts/legacy/{ledger,claims}.ts`.
 - Pure code stays pure: `packages/shared/src/core/calendar.ts`, `modules/finance/period.ts` and
   `apps/api/scripts/finance-import/dates.ts` keep their `Date`-free or injected-clock arithmetic (money and period
@@ -260,3 +262,13 @@ const sourceMeta: ImportSourceMeta = { method: extraction.method, host: extracti
 Idioms rule (11) now covers the recipe module twice: no `Date.now(` / `new Date(` under any `services/` directory (the recipe prefix left the allow list in E3-T07)
 and no `nowMs(` call under `apps/api/src/core/` or `apps/api/src/modules/recipe/` (widened in E3-T13). `Date.now()` stays where rule (11) does not look:
 `apps/api/src/modules/recipe/seed.ts`, the column defaults of `schema.ts` and `parseSinceQuery` in `routes/shopping.ts`.
+
+**As built (E4-T06):** `apps/api/src/modules/finance/services/plan/scheduler.ts` runs the boot catch-up awaited, then
+`tickFiber = yield* Effect.forkDetach(Effect.schedule(tick, Schedule.spaced("6 hours")))` (`Effect.schedule` steps the
+schedule before the first run, so the first interval run is six hours after the start, as `setInterval` was; a tick
+that failed is recovered inside `tick` so the schedule goes on) and `stopAccrualSchedule` is `Fiber.interrupt(tickFiber)`.
+The catch-all of the booking transaction in `accrual.service.ts` is `Effect.catchCause` + `Cause.hasInterruptsOnly`
+(an interruption is passed on without a log line or an audit row) + `Cause.squash` (the original error, a
+`DatabaseError` unwrapped to its `cause`) + `Effect.failCause(cause)`. The test `apps/api/test/finance-scheduler.test.ts`
+sets the instant with `TestClock.setTime(Date.UTC(2026, 9, 31, 20, 0))`, moves it with `TestClock.adjust("5 hours")` and
+`TestClock.adjust("1 hour")`, and starts and stops the scheduler inside one `runTest(..., { clock: "test" })`.

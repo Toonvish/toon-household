@@ -373,10 +373,9 @@ function expectNoStaleEntries(rule: string, allow: PathAllow, hits: Line[]) {
 
 const API_SRC_FILES = ALL_FILES.filter((f) => rel(f).startsWith("apps/api/src/"));
 
-// Pinned allow list (path prefix -> reason): the module code that E3 and E4 move onto the tagged family.
-const ALLOW_THROW_API_ERROR: PathAllow = {
-  "apps/api/src/modules/finance/": "E4 moves finance onto the tagged family",
-};
+// Pinned allow list (path prefix -> reason): empty since E4-T06 (E3 moved the recipe module and E4 the finance module
+// onto the tagged family); a new entry would need an ADR.
+const ALLOW_THROW_API_ERROR: PathAllow = {};
 const THROW_API_ERROR = /\bthrow\s+(?:new\s+)?ApiError\b/;
 
 describe("(10) no throw of ApiError (E6, E12)", () => {
