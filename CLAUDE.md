@@ -997,6 +997,10 @@ gotchas 62, 63, 65)."; "F gotcha numbers are F's numbering at `1715207`."
   `toValidationIssues`, and `zod` and `@hono/zod-validator` are not dependencies (idioms rule (9)). What remains of the
   old gotcha: a form-facing 422 carries `i18n` and the catalog text on every route, and `readJson` in
   `apps/api/src/core/routes/auth.ts` still wants `Content-Type: application/json`.
+- **A missed shared-type alias compiles silently through the web's `request<T>` (finance gotcha "Finance TS identifiers carry a
+  `finance` prefix", the web half).** Retired by E6: `request<T>` and its unvalidated cast are deleted; each endpoint names its
+  response schema once (`getJson(url, Schema)` in `CoreApi` / `RecipeApi` / `FinanceApi`), the response is decoded with it, and the
+  three `apps/api/test/web-contract-*.test.ts` fail on a wrong schema. What remains: the aliases themselves in finance's ported files.
 
 ## Open work
 

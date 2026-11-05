@@ -412,7 +412,7 @@ F's "Konventionen":
 | FC5 | Lists `{ items, total, limit, offset }`, limit default 50 and max 200 | adapted | Finance keeps its own 50/200 (`FinancePaginationQuery`); the core's is 24/100. |
 | FC6 | PATCH: child arrays (`tags`) are replace-all when present and untouched when absent | module | `UpdateTransactionRequest` and the tag sync in the ledger service. |
 | FC7 | Generated rows (`origin` other than `manual`) are never edited or deleted: `409 transaction_generated`; corrections are extra rows | module | Section 1.9. |
-| FC8 | Web: no `fetch` outside `lib/api.ts`; every request with `credentials: "include"` and `Accept-Language` | core | `apps/web/src/lib/api.ts`; the module's `lib/api.ts` adds fetchers over the same `request`. |
+| FC8 | Web: no `fetch` outside `lib/api.ts`; every request with `credentials: "include"` and `Accept-Language` | core | Since E6 the one `fetch(` call is `apps/web/src/lib/runtime.ts` (idioms rule (13)); `credentials: "include"` is set there, `Accept-Language` in `ApiClient.execute` (`apps/web/src/lib/api-client.ts`); the module's `lib/api.ts` describes each endpoint once as a member of `FinanceApi` over the same `getJson` / `sendJson` helpers of `apps/web/src/lib/api.ts` (the old `request<T>` is deleted). |
 | FC9 | UI primitives only from `@/components/ui`, never a second implementation | core | The primitives are H's (toon-recipe's); finance adds only `AmountText`, `KindBadge`, `PeriodLabel`, `PageHeader`, `PendingSyncNote`. |
 | FC10 | The two web feature groups of F (transactions, overview) share no file; what both need lives in the shared core of the web app | adapted | The feature directories under `apps/web/src/modules/finance/features/` do not import each other (one exception: `FinanceGate` mounts the sheet host from `transactions`); shared pieces live in the module's `lib/` and `components/`. |
 | FC11 | Pure logic (cent arithmetic, balance, periods, plan, import parsers) belongs in `packages/shared` with unit tests, never in a route handler or a component | module | `packages/shared/src/modules/finance/`; the importer's parsers are the exception that F also made (`apps/api/scripts/finance-import/`, F spec §8.2 #16). |
@@ -486,7 +486,7 @@ pointer to this section for the leaving rule and the greps.
   { financeTransactions as transactions } from "../../schema.ts"`. The same trap on the shared side: finance's tag schemas and
   its 50/200 pagination are exported as `FinanceTag...` / `FinancePaginationQuery...` from
   `packages/shared/src/modules/finance/schemas/`, and consumers alias them back (`FinanceTagResponse as TagResponse`); the bare
-  names are recipe's and the core's types, `request<T>` compiles with the wrong shape, so a missed alias is silent. `origin`
+  names are recipe's and the core's types, so a missed alias picks the wrong shape (before E6 `request<T>` compiled with it silently; the client now names the response schema per call and decodes with it, so the contract test fails on a wrong one). `origin`
   keeps no drizzle default (toon-finance gotcha 38). `isUniqueViolation` (core `apps/api/src/core/services/auth/users.ts`)
   walks the error's cause chain, because drizzle wraps every query error (toon-finance gotcha 51).
 - **Participants and the gate (D3, plan m3 decisions 3-5).** Exactly two `finance_participants` rows per household, by user id,

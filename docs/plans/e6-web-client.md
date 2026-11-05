@@ -925,8 +925,8 @@ are described once" with `disableChecks`, the write pass-through, the non-retrie
 and the D5 two-step deploy rule, "Testing and tooling": rule (13) and the contract tests with the `WEB_CONTRACT_SNAPSHOT=1` switch, "Open work": the sweep);
 `docs/EFFECT.md` (the "As built (E6)" sentence under E11; the §4 E6 row untouched); `agent-patterns/effect-http-client.md` §6 (the status-mapper exception) and
 §7 (the web as built and the facts found); `agent-patterns/effect-services.md` §7 (the web runtime line); `docs/open-work.md` (A11, the owner's sweep over a
-production snapshot, and O-8, two unused recipe client exports). `docs/API.md`, `docs/SPEC.md`, `docs/migration.md`, `docs/deployment.md` and the module docs
-are not edited: no route, no service shape and no operator command changed.
+production snapshot, and O-8, two unused recipe client exports). `docs/modules/finance.md` (row FC8 and the alias gotcha named the deleted `request<T>` and `lib/api.ts` as the one `fetch` site: corrected to `runtime.ts` and the per-call response schema, in the post-review docs sync); CLAUDE.md "Retired gotchas" (the web half of the silent alias trap). `docs/API.md`, `docs/SPEC.md`, `docs/migration.md`, `docs/deployment.md` and `docs/modules/recipe.md`
+are not edited: no route, no service shape and no operator command changed. No ADR: no deviation from SPEC §1 or EFFECT.md §1 survived review (D1 to D5 are plan-level, the bundle growth is under the 60 kB line).
 
 ### 9.6 Findings
 
