@@ -7,13 +7,12 @@
  * The `Users` service (docs/EFFECT.md E7; plan `docs/plans/e2-api-core-services.md` P2, P7) reads the current
  * executor of `Database` on every call, so a bridge's `db` and an open transaction reach it; timestamps come from
  * the `Clock`. `userDto` and `accountEmail` are service-free Effects (they read no database); a placeholder row
- * fails them with `Unauthorized`. Only two Promise bridges survive (`findUserByEmail`, `claimPlaceholderUser`). The pure helpers (`isPlaceholderUser`,
+ * fails them with `Unauthorized`. Only one Promise bridge survives (`claimPlaceholderUser`; `scripts/reset-password.ts` yields the service since E5). The pure helpers (`isPlaceholderUser`,
  * `isUniqueViolation`, `displayNameFromEmail`, `DEFAULT_HOUSEHOLD_NAME`) stay plain.
  */
 import type { User } from "@toon/shared";
 import { and, eq, isNull } from "drizzle-orm";
 import { Clock, Context, Effect, Layer } from "effect";
-import type { Database as DrizzleDatabase } from "../../../db/client.ts";
 import { Database } from "../../../db/database.ts";
 import { type UserRow, householdMembers, households, users } from "../../../db/schema.ts";
 import { Conflict, type DatabaseError, NotFound, Unauthorized } from "../../../lib/errors.ts";
@@ -371,11 +370,6 @@ export function displayNameFromEmail(email: string): string {
 }
 
 /* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/** Callers: `scripts/reset-password.ts` (E5). Promise. */
-export function findUserByEmail(database: DrizzleDatabase, email: string): Promise<UserRow | undefined> {
-  return runtime.runPromise(Users.use((service) => service.findUserByEmail(email)).pipe(Database.withExecutor(database)));
-}
 
 /** Callers: `apps/api/test/placeholders.test.ts` (pinned: the two-claim race). Promise. */
 export function claimPlaceholderUser(database: DbLike, userId: string, input: ClaimPlaceholderInput): Promise<void> {

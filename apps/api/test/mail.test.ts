@@ -104,7 +104,7 @@ describe("trySendMail", () => {
       expect(result).toEqual({ delivered: false, transport: "throwing", error: "sofort kaputt" });
       expect(logged).toHaveBeenCalledWith("[mail] Sending to m***@b.de failed (throwing): sofort kaputt");
 
-      // The bridge the routes still call has the same contract.
+      // The Promise bridge (its one caller is this test, E8 removes it) has the same contract.
       setMailer(new ThrowingMailer());
       expect(await trySendMail({ to: "a@b.de", subject: "Hallo", text: "Text" })).toEqual({
         delivered: false,

@@ -225,8 +225,9 @@ export function isMailConfigured(): boolean {
  * to probe for accounts. So the failure is logged with its reason and reported
  * back as data, not raised.
  *
- * The bridge over `MailerService`'s logic for the callers that hold no runtime (the `auth:reset-password` script, E5, and
- * `apps/api/test/mail.test.ts`): it sends through `getMailer()`, which honours `setMailer`. Promise.
+ * The bridge over `MailerService`'s logic for a caller that holds no runtime: it sends through `getMailer()`, which
+ * honours `setMailer`. Callers: `apps/api/test/mail.test.ts` only (the `auth:reset-password` script yields
+ * `MailerService` since E5); E8 removes it with its test case. Promise.
  */
 export function trySendMail(message: MailMessage): Promise<MailSendResult> {
   const service = makeMailer(plain(getMailer()));

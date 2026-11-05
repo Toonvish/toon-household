@@ -10,110 +10,148 @@
  *   - production: refused unless `ALLOW_SEED=1` AND an own `SEED_PASSWORD` (>= 10 chars) are
  *     set — accounts whose password is printed in the README must never appear on a public
  *     origin by accident. The refusal happens BEFORE the database is opened, so it writes
- *     nothing (the db modules are imported dynamically below for exactly that reason);
+ *     nothing (`runtime.ts` and every database module are imported dynamically below, after the
+ *     refusal, for exactly that reason: plan `docs/plans/e5-scripts.md` P2 row 2);
  *   - otherwise: `SEED_PASSWORD` when set, else `demo1234`.
  *
  * Login: demo@toon.local / demo1234 (development default)
+ *
+ * An Effect program on the one `AppLayer` (docs/EFFECT.md E10): `runScript` runs it, the layer's
+ * scope closes the client (`[db] database closed`, P3) before the process exits. Only `effect`,
+ * the script runner and `src/config.ts` (no database) are static imports (P2).
  */
-import { env } from "../src/env.ts";
+import { Clock, Console, Effect } from "effect";
+import { AppConfig } from "../src/config.ts";
+import { ScriptExit, runScript } from "./support/main.ts";
 
 const DEMO_EMAIL = "demo@toon.local";
 const DEFAULT_DEMO_PASSWORD = "demo1234";
 const MIN_PRODUCTION_PASSWORD_LENGTH = 10;
 
-function resolveDemoPassword(): string {
+/** The one demo password, or the refusal (exit 1, nothing written: no database module is loaded yet). */
+const resolveDemoPassword = Effect.gen(function* () {
+  const config = yield* AppConfig;
   const seedPassword = process.env.SEED_PASSWORD;
-  if (env.isProduction) {
+  if (config.isProduction) {
     if (process.env.ALLOW_SEED !== "1") {
-      console.error("[seed] refusing to run with NODE_ENV=production. Set ALLOW_SEED=1 if you really mean it.");
-      process.exit(1);
+      yield* Console.error("[seed] refusing to run with NODE_ENV=production. Set ALLOW_SEED=1 if you really mean it.");
+      return yield* new ScriptExit({ code: 1 });
     }
     if (!seedPassword || seedPassword.length < MIN_PRODUCTION_PASSWORD_LENGTH) {
-      console.error(
+      yield* Console.error(
         `[seed] SEED_PASSWORD (>= ${MIN_PRODUCTION_PASSWORD_LENGTH} chars) is required in production — the default is public.`,
       );
-      process.exit(1);
+      return yield* new ScriptExit({ code: 1 });
     }
     return seedPassword;
   }
   return seedPassword && seedPassword.length > 0 ? seedPassword : DEFAULT_DEMO_PASSWORD;
+});
+
+const seed = Effect.gen(function* () {
+  const config = yield* AppConfig;
+  const demoPassword = yield* resolveDemoPassword;
+
+  // Only now the database: `db/client.ts` opens (and creates) the file when `runtime.ts` loads.
+  const { eq } = yield* Effect.promise(() => import("drizzle-orm"));
+  const { AppLayer } = yield* Effect.promise(() => import("../src/runtime.ts"));
+  const { Database } = yield* Effect.promise(() => import("../src/db/database.ts"));
+  const { migrateDatabase } = yield* Effect.promise(() => import("../src/db/migrate.ts"));
+  const { householdMembers, households, users } = yield* Effect.promise(() => import("../src/db/schema.ts"));
+  const { HouseholdModules } = yield* Effect.promise(() => import("../src/core/services/households/modules.ts"));
+  const { API_MODULES } = yield* Effect.promise(() => import("../src/modules/index.ts"));
+
+  yield* Effect.gen(function* () {
+    const database = yield* Database;
+    const modules = yield* HouseholdModules;
+
+    yield* migrateDatabase();
+
+    const now = yield* Clock.currentTimeMillis;
+
+    const existingUser = yield* database.use((db) =>
+      db.select().from(users).where(eq(users.email, DEMO_EMAIL)).limit(1),
+    );
+    let userId = existingUser[0]?.id;
+
+    if (!userId) {
+      const newUserId = crypto.randomUUID();
+      userId = newUserId;
+      const passwordHash = yield* Effect.tryPromise(() => Bun.password.hash(demoPassword, { algorithm: "argon2id" }));
+      yield* database.use((db) =>
+        db.insert(users).values({
+          id: newUserId,
+          email: DEMO_EMAIL,
+          name: "Demo Koch",
+          // The flag and its evidence ALWAYS move together — see the column comment in
+          // db/schema/core.ts and markEmailVerified() in core/services/auth/emailVerification.ts.
+          // `true` is fine here because the demo account's address is fictional and the
+          // seed is the thing vouching for it; leaving `emailVerifiedAt` null would have
+          // shipped a row that contradicts the invariant.
+          emailVerified: true,
+          emailVerifiedAt: now,
+          passwordHash,
+          createdAt: now,
+          updatedAt: now,
+        }),
+      );
+      yield* Console.log(config.isProduction ? `[seed] user ${DEMO_EMAIL}` : `[seed] user ${DEMO_EMAIL} / ${demoPassword}`);
+    }
+    const seedUserId = userId;
+
+    const existingHousehold = yield* database.use((db) =>
+      db.select().from(households).where(eq(households.createdBy, seedUserId)).limit(1),
+    );
+    let householdId = existingHousehold[0]?.id;
+
+    if (!householdId) {
+      const newHouseholdId = crypto.randomUUID();
+      householdId = newHouseholdId;
+      yield* database.use((db) =>
+        db.insert(households).values({
+          id: newHouseholdId,
+          name: "Familie",
+          description: "Unsere gemeinsamen Rezepte",
+          createdBy: seedUserId,
+          createdAt: now,
+          updatedAt: now,
+        }),
+      );
+      yield* database.use((db) =>
+        db.insert(householdMembers).values({
+          id: crypto.randomUUID(),
+          householdId: newHouseholdId,
+          userId: seedUserId,
+          role: "owner",
+          createdAt: now,
+        }),
+      );
+      yield* modules.initializeHousehold(newHouseholdId);
+      yield* database.use((db) =>
+        db.update(users).set({ activeHouseholdId: newHouseholdId, updatedAt: now }).where(eq(users.id, seedUserId)),
+      );
+      yield* Console.log(`[seed] household "Familie" (${newHouseholdId})`);
+    }
+    const seedHouseholdId = householdId;
+
+    // Module demo content (SPEC §2, plan M2 decision 4): recipe's tags, courses, demo recipes,
+    // plan entries, cook log and shopping list (toon-recipe scripts/seed.ts) arrive through its
+    // `seedDemo`; the core names no module here. The hooks are Effects over `Database`, so they
+    // run on the AppLayer directly (plan e5 E5-T02).
+    for (const module of API_MODULES) {
+      if (module.seedDemo) {
+        yield* module.seedDemo({ householdId: seedHouseholdId, userId: seedUserId, demoPassword });
+      }
+    }
+
+    yield* Console.log("[seed] done");
+    yield* Console.log("");
+    yield* Console.log("  Login:    " + DEMO_EMAIL);
+    yield* Console.log("  Passwort: " + (config.isProduction ? "(SEED_PASSWORD)" : demoPassword));
+    yield* Console.log("");
+  }).pipe(Effect.provide(AppLayer));
+});
+
+if (import.meta.main) {
+  runScript(seed.pipe(Effect.provide(AppConfig.layer)));
 }
-
-const DEMO_PASSWORD = resolveDemoPassword();
-
-// Only now the database: `db/client.ts` opens (and creates) the file on import.
-const { eq } = await import("drizzle-orm");
-const { initializeHousehold } = await import("../src/core/services/households/modules.ts");
-const { client, db } = await import("../src/db/client.ts");
-const { runMigrations } = await import("../src/db/migrate.ts");
-const { householdMembers, households, users } = await import("../src/db/schema.ts");
-const { runModuleHook } = await import("../src/modules/adapter.ts");
-const { API_MODULES } = await import("../src/modules/index.ts");
-
-await runMigrations();
-
-const now = Date.now();
-
-const existingUser = await db.select().from(users).where(eq(users.email, DEMO_EMAIL)).limit(1);
-let userId = existingUser[0]?.id;
-
-if (!userId) {
-  userId = crypto.randomUUID();
-  await db.insert(users).values({
-    id: userId,
-    email: DEMO_EMAIL,
-    name: "Demo Koch",
-    // The flag and its evidence ALWAYS move together — see the column comment in
-    // db/schema/core.ts and markEmailVerified() in core/services/auth/emailVerification.ts.
-    // `true` is fine here because the demo account's address is fictional and the
-    // seed is the thing vouching for it; leaving `emailVerifiedAt` null would have
-    // shipped a row that contradicts the invariant.
-    emailVerified: true,
-    emailVerifiedAt: now,
-    passwordHash: await Bun.password.hash(DEMO_PASSWORD, { algorithm: "argon2id" }),
-    createdAt: now,
-    updatedAt: now,
-  });
-  console.log(env.isProduction ? `[seed] user ${DEMO_EMAIL}` : `[seed] user ${DEMO_EMAIL} / ${DEMO_PASSWORD}`);
-}
-
-const existingHousehold = await db.select().from(households).where(eq(households.createdBy, userId)).limit(1);
-let householdId = existingHousehold[0]?.id;
-
-if (!householdId) {
-  householdId = crypto.randomUUID();
-  await db.insert(households).values({
-    id: householdId,
-    name: "Familie",
-    description: "Unsere gemeinsamen Rezepte",
-    createdBy: userId,
-    createdAt: now,
-    updatedAt: now,
-  });
-  await db.insert(householdMembers).values({
-    id: crypto.randomUUID(),
-    householdId,
-    userId,
-    role: "owner",
-    createdAt: now,
-  });
-  await initializeHousehold(db, householdId);
-  await db.update(users).set({ activeHouseholdId: householdId, updatedAt: now }).where(eq(users.id, userId));
-  console.log(`[seed] household "Familie" (${householdId})`);
-}
-
-// Module demo content (SPEC §2, plan M2 decision 4): recipe's tags, courses, demo recipes,
-// plan entries, cook log and shopping list (toon-recipe scripts/seed.ts) arrive through its
-// `seedDemo`; the core names no module here.
-// The hooks are Effects (plan e2 P11): each runs on `db` through `runModuleHook`, and a
-// Promise-based manifest receives `db` as its `database` argument as before.
-for (const module of API_MODULES) {
-  if (module.seedDemo) await runModuleHook(module.seedDemo({ householdId, userId, demoPassword: DEMO_PASSWORD }), db);
-}
-
-console.log("[seed] done");
-console.log("");
-console.log("  Login:    " + DEMO_EMAIL);
-console.log("  Passwort: " + (env.isProduction ? "(SEED_PASSWORD)" : DEMO_PASSWORD));
-console.log("");
-client.close();
