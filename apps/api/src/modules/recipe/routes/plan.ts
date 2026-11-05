@@ -15,111 +15,108 @@
  * Endpoint contract: docs/API.md (section "Meal plan").
  */
 import { Effect } from "effect";
+import { HttpApiBuilder } from "effect/http-api";
 import {
   CreateMealPlanEntryRequestSchema,
   LastPlannedQuerySchema,
   MealPlanRangeQuerySchema,
   UpdateMealPlanEntryRequestSchema,
 } from "@toon/shared";
-import { Hono } from "hono";
-import { created, json, noContent } from "../../../lib/http.ts";
-import type { AppEnv } from "../../../lib/types.ts";
-import { currentMembership, currentUser } from "../../../lib/types.ts";
-import { requireVerifiedEmail } from "../../../middleware/verifiedEmail.ts";
-import { validate } from "../../../lib/validate.ts";
-import { runtime } from "../../../runtime.ts";
+import { created, json, noContent } from "../../../http/response.ts";
+import { jsonBody, queryParams } from "../../../http/request.ts";
+import { CurrentMembership, CurrentUser } from "../../../http/context.ts";
+import { UNINTERRUPTIBLE } from "../../../http/middleware.ts";
+import { effectBridge } from "../../../http/bridge.ts";
+import { RecipePlanApi } from "./plan.api.ts";
 import { MealPlan } from "../services/plan/plan.service.ts";
-
-export const planRoutes = new Hono<AppEnv>();
 
 // A confirmed address for every WRITE below (GETs pass through) — see
 // middleware/verifiedEmail.ts. Mounted once so a route added later is gated by
 // default, same as recipeRoutes.
-planRoutes.use("*", requireVerifiedEmail());
-
-/**
- * GET /?from&to — flat, `(plannedOn, position)`-ordered range read. A day with
- * nothing planned is simply absent; the seven-slot week (incl. the "+ Plan"
- * empty cards) is built client-side.
- */
-planRoutes.get("/", validate("query", MealPlanRangeQuerySchema), (c) =>
-  runtime.runPromise(
-    Effect.gen(function* () {
-      const planService = yield* MealPlan;
-      const membership = yield* currentMembership(c);
-      const { from, to } = c.req.valid("query");
-      const items = yield* planService.listPlanEntries(membership.householdId, from, to);
-      return json(c, { from, to, items });
-    }),
-  ),
+export const recipePlanHandlers = HttpApiBuilder.group(RecipePlanApi, "recipe.plan", (handlers) =>
+  handlers
+    /**
+     * GET /?from&to — flat, `(plannedOn, position)`-ordered range read. A day with
+     * nothing planned is simply absent; the seven-slot week (incl. the "+ Plan"
+     * empty cards) is built client-side.
+     */
+    .handle(
+      "get",
+      Effect.fn("recipe.plan.get")(function* () {
+        const query = yield* queryParams(MealPlanRangeQuerySchema);
+        const planService = yield* MealPlan;
+        const membership = yield* CurrentMembership;
+        const { from, to } = query;
+        const items = yield* planService.listPlanEntries(membership.householdId, from, to);
+        return json({ from, to, items });
+      }),
+      UNINTERRUPTIBLE,
+    )
+    /**
+     * GET /last-planned?before — the latest day each recipe was planned before
+     * `before`, for the recipe picker's "Zuletzt geplant". A never-planned recipe is
+     * absent. No clash with `/:entryId`, which has no GET.
+     */
+    .handle(
+      "getLastPlanned",
+      Effect.fn("recipe.plan.getLastPlanned")(function* () {
+        const query = yield* queryParams(LastPlannedQuerySchema);
+        const planService = yield* MealPlan;
+        const membership = yield* CurrentMembership;
+        const { before } = query;
+        const items = yield* planService.listLastPlanned(membership.householdId, before);
+        return json({ before, items });
+      }),
+      UNINTERRUPTIBLE,
+    )
+    /**
+     * POST / — plans a recipe on a day. Idempotent: 201 for a new entry, 200 when the
+     * recipe was already planned that day (the second call's `servings` still applies).
+     */
+    .handle(
+      "post",
+      Effect.fn("recipe.plan.post")(function* () {
+        const body = yield* jsonBody(CreateMealPlanEntryRequestSchema);
+        const planService = yield* MealPlan;
+        const membership = yield* CurrentMembership;
+        const user = yield* CurrentUser;
+        const { entry, created: isNew } = yield* planService.createPlanEntry(
+          membership.householdId,
+          user.id,
+          body,
+        );
+        return isNew
+          ? created({ entry }, `/api/households/${membership.householdId}/recipe/plan/${entry.id}`)
+          : json({ entry });
+      }),
+      UNINTERRUPTIBLE,
+    )
+    /**
+     * PATCH /:entryId — move to another day (re-tailing `position` on the target
+     * day), change servings, or re-order within a day. Any member may edit any entry.
+     */
+    .handle(
+      "patchByEntryId",
+      Effect.fn("recipe.plan.patchByEntryId")(function* ({ params }) {
+        const body = yield* jsonBody(UpdateMealPlanEntryRequestSchema);
+        const planService = yield* MealPlan;
+        const membership = yield* CurrentMembership;
+        const entry = yield* planService.updatePlanEntry(membership.householdId, params.entryId, body);
+        return json({ entry });
+      }),
+      UNINTERRUPTIBLE,
+    )
+    /** DELETE /:entryId — unplans. Any member may remove any entry. */
+    .handle(
+      "deleteByEntryId",
+      Effect.fn("recipe.plan.deleteByEntryId")(function* ({ params }) {
+        const planService = yield* MealPlan;
+        const membership = yield* CurrentMembership;
+        yield* planService.deletePlanEntry(membership.householdId, params.entryId);
+        return noContent();
+      }),
+      UNINTERRUPTIBLE,
+    ),
 );
 
-/**
- * GET /last-planned?before — the latest day each recipe was planned before
- * `before`, for the recipe picker's "Zuletzt geplant". A never-planned recipe is
- * absent. No clash with `/:entryId`, which has no GET.
- */
-planRoutes.get("/last-planned", validate("query", LastPlannedQuerySchema), (c) =>
-  runtime.runPromise(
-    Effect.gen(function* () {
-      const planService = yield* MealPlan;
-      const membership = yield* currentMembership(c);
-      const { before } = c.req.valid("query");
-      const items = yield* planService.listLastPlanned(membership.householdId, before);
-      return json(c, { before, items });
-    }),
-  ),
-);
-
-/**
- * POST / — plans a recipe on a day. Idempotent: 201 for a new entry, 200 when the
- * recipe was already planned that day (the second call's `servings` still applies).
- */
-planRoutes.post("/", validate("json", CreateMealPlanEntryRequestSchema), (c) =>
-  runtime.runPromise(
-    Effect.gen(function* () {
-      const planService = yield* MealPlan;
-      const membership = yield* currentMembership(c);
-      const user = yield* currentUser(c);
-      const { entry, created: isNew } = yield* planService.createPlanEntry(
-        membership.householdId,
-        user.id,
-        c.req.valid("json"),
-      );
-      return isNew
-        ? created(c, { entry }, `/api/households/${membership.householdId}/recipe/plan/${entry.id}`)
-        : json(c, { entry });
-    }),
-  ),
-);
-
-/**
- * PATCH /:entryId — move to another day (re-tailing `position` on the target
- * day), change servings, or re-order within a day. Any member may edit any entry.
- */
-planRoutes.patch("/:entryId", validate("json", UpdateMealPlanEntryRequestSchema), (c) =>
-  runtime.runPromise(
-    Effect.gen(function* () {
-      const planService = yield* MealPlan;
-      const membership = yield* currentMembership(c);
-      const entry = yield* planService.updatePlanEntry(
-        membership.householdId,
-        c.req.param("entryId"),
-        c.req.valid("json"),
-      );
-      return json(c, { entry });
-    }),
-  ),
-);
-
-/** DELETE /:entryId — unplans. Any member may remove any entry. */
-planRoutes.delete("/:entryId", (c) =>
-  runtime.runPromise(
-    Effect.gen(function* () {
-      const planService = yield* MealPlan;
-      const membership = yield* currentMembership(c);
-      yield* planService.deletePlanEntry(membership.householdId, c.req.param("entryId"));
-      return noContent(c);
-    }),
-  ),
-);
+export const planRoutes = effectBridge(RecipePlanApi, recipePlanHandlers, "/api/households/:householdId/recipe/plan");
