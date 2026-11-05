@@ -84,12 +84,12 @@ merged by the runtime into the one `AppLayer`.
 
 Time comes from the `Clock`, the database through `Database.use` / `Database.transaction`, refusals are the tagged family
 of `apps/api/src/lib/errors.ts`; no recipe file names `ApiError`, calls `nowMs(` or `withTransaction(` (rule (11) and the
-acceptance grep). The Promise bridges that survive E3 are exactly `backfillFoldedColumns(database?)`
-(`migrate.ts`; `apps/api/scripts/legacy/recipe.ts`, `apps/api/test/legacy-recipe.test.ts`; E5), `localizeImageUrl`
-(`recipes/remoteImage.ts`; `apps/api/scripts/localize-images.ts`; E5), `createDraft(db, input)` (`import/drafts.ts`) and the
+acceptance grep). The Promise bridges that survive E5 are exactly `createDraft(db, input)` (`import/drafts.ts`) and the
 synchronous `importFromText` (`import/ocr/index.ts`), `fetchHtml` (`import/url/fetch.ts`) and `assertPublicUrl`
 (`import/url/ssrf.ts`), the last four for the pinned tests of `apps/api/test/import/` (E8); ADR 0014 lists them with
-the core's.
+the core's. E5 deleted `backfillFoldedColumns` and `localizeImageUrl` with their last callers, the two scripts
+`apps/api/scripts/legacy/recipe.ts` and `apps/api/scripts/localize-images.ts`, which now run `foldBackfill` over
+`Database.layerFromExecutor(ctx.target.db)` and yield the `RemoteImages` service on the `AppLayer`.
 
 Manifest hooks implemented (the `ApiModule` contract, `apps/api/src/modules/types.ts`):
 
@@ -298,11 +298,11 @@ a one-line pointer. Paths are repo-relative.
 
 - **Fold columns and the backfill.** `title_fold`, `description_fold`, `name_fold` are `NOT NULL`
   with no default (the fresh `apps/api/drizzle/0001_recipe.sql` has no `DEFAULT ''`; services write them
-  through `foldText`). `foldBackfill` (an Effect over `Database`) and its Promise bridge
-  `backfillFoldedColumns(database?)` live in `apps/api/src/modules/recipe/migrate.ts`; `foldBackfill` runs
+  through `foldText`). `foldBackfill` (an Effect over `Database`; its Promise bridge
+  `backfillFoldedColumns` was deleted at E5) lives in `apps/api/src/modules/recipe/migrate.ts`; `foldBackfill` runs
   as the module's `afterMigrate` after every `runMigrations` (db:migrate, seed, tests): idempotent, no
-  transaction. `migrate:legacy` (`apps/api/scripts/legacy/recipe.ts`) calls the bridge for imported rows; the
-  file imports neither `runtime.ts` nor `env.ts` (the bridge provides `Database.layerFromExecutor` itself).
+  transaction. `migrate:legacy` (`apps/api/scripts/legacy/recipe.ts`) runs `foldBackfill` for imported rows on
+  `Database.layerFromExecutor(ctx.target.db)`; the file imports neither `runtime.ts` nor `env.ts`.
 
 - **Import route tests use real sessions.** toon-recipe's `services/import/middleware-bridge.ts` is not
   ported: it only stubbed the session and group middleware, and the mount chain now runs the real
@@ -346,8 +346,8 @@ a one-line pointer. Paths are repo-relative.
 
 - **Remote images become local copies on write.** Recipe create and PATCH, the import commit and the
   collection create/update run `imageUrl` / `coverImageUrl` through `RemoteImages.localizeImageUrl`
-  (`apps/api/src/modules/recipe/services/recipes/remoteImage.ts`; `localizeImageUrl` stays a Promise bridge for
-  `apps/api/scripts/localize-images.ts`): an `http(s):` or `data:image/` value is
+  (`apps/api/src/modules/recipe/services/recipes/remoteImage.ts`; `apps/api/scripts/localize-images.ts` yields the
+  `RemoteImages` service): an `http(s):` or `data:image/` value is
   downloaded with the `HeroImages` service's `downloadHeroImage` (SSRF guard, 4 MB / 8 s, magic-byte sniff) BEFORE
   the transaction opens, and the column stores `/uploads/<file>`. Best-effort: a failed download keeps the
   remote URL and the save succeeds; a PATCH that sends back the unchanged remote URL is not retried (no

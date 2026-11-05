@@ -55,10 +55,11 @@ in `docs/adr/`, the ADR edits this text in the same commit.
   that sends the D7 pragmas (the `db-pragmas` test keeps passing, pooled connection included), exposes
   `use(fn)` and `transaction(effect)` (replacing `withTransaction`, same degradation rule under an explicit
   `TEST_DATABASE_URL=file::memory:`), and is closed by the runtime's scope on shutdown. Raw SQL through
-  `@effect/sql-libsql` is a later ADR, not this migration. Until E5 moves the last script, the process-wide instance is still
-  created at import of `apps/api/src/db/client.ts` (recipe, finance and the scripts import `db`) and
-  `Database.layer` owns its lifetime (acquire awaits the pragmas, release closes it, never under `NODE_ENV=test`):
-  ADR 0014.
+  `@effect/sql-libsql` is a later ADR, not this migration. The process-wide instance is still
+  created at import of `apps/api/src/db/client.ts` after E5 (the tests' shared `db` of ADR 0009 and
+  `migrate-legacy.ts`'s load-bearing import order read it) and stays until E8 decides; `Database.layer` owns its
+  lifetime (acquire awaits the pragmas, release closes it, never under `NODE_ENV=test`): ADR 0014 "Status after E5's
+  integration".
 - **E6 — Errors are tagged, typed and mapped once.** `ApiError` and its static helpers become a family of
   `Schema.TaggedError` classes in `apps/api/src/lib/errors.ts` carrying `status`, `code` and `text` (the
   server-catalog key with values) exactly as today; `toBody(locale)` moves to one `toApiError` /

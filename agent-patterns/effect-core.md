@@ -313,8 +313,9 @@ export function runFinanceBridge<A, E>(
   effect: Effect.Effect<A, E, FinanceServices | DatabaseService>,
   executor: DbExecutor,
 ): Promise<A> {
-  return runModuleHook(withFinanceServices(effect), executor).then(undefined, (error: unknown) =>
-    Promise.reject(isDatabaseError(error) ? error.cause : error),
+  return Effect.runPromise(withFinanceServices(effect).pipe(Effect.provide(Database.layerFromExecutor(executor)))).then(
+    undefined,
+    (error: unknown) => Promise.reject(isDatabaseError(error) ? error.cause : error),
   );
 }
 ```

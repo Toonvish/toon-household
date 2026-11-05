@@ -255,9 +255,9 @@ Rules:
 - The hooks became Effects in E2 (docs/EFFECT.md E7; plan `docs/plans/e2-api-core-services.md` P11). A hook reads
   the transaction it runs in from the `Database` service's current executor, not from a parameter.
   Both manifests implement `ApiModule` directly (recipe since E3, finance since E4); the Promise-based contract
-  and its adapter are gone. `runModuleHook(effect, executor)` (`apps/api/src/modules/adapter.ts`) runs a hook on
-  the bare drizzle executor a Promise-based core caller holds (`runMigrations`, `collectUploadReferences`, `seed`,
-  the finance bridges) and rejects with the hook's own error; it never imports `apps/api/src/runtime.ts`. `start` and `shutdown` run on the app runtime in `apps/api/src/index.ts`; since
+  and its adapter are gone, and so is `runModuleHook` (E5): the scripts run a hook on the `AppLayer`, and the two Promise doors that
+  remain (`runMigrations`, the finance bridges' `runFinanceBridge`) provide `Database.layerFromExecutor(executor)` themselves, reject with
+  the hook's own error and never import `apps/api/src/runtime.ts`. `start` and `shutdown` run on the app runtime in `apps/api/src/index.ts`; since
   E4 `start` requires `Database` (finance's boot catch-up; plan `docs/plans/e4-finance-services.md` P3), which that
   runtime provides, and `shutdown` requires nothing.
 - A module carries its own services since E3 (docs/EFFECT.md E7; plan `docs/plans/e3-recipe-services.md` P3, P4).

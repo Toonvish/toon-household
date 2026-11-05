@@ -309,8 +309,8 @@ export class Passwords extends Context.Service<Passwords, {
   `Layer.empty` typed `never`). `Layer.suspend(recipeLayer)` at the manifest's module scope is TDZ-safe because
   `recipeLayer` is a hoisted function binding and `suspend` calls it only when the runtime builds.
 - A hook that used to be a Promise is an `Effect.fn` over `Database` (`foldBackfill`, `seedRecipeDemo`, the upload
-  references); the Promise bridge outside the runtime is `runModuleHook(effect, executor)` (`backfillFoldedColumns`), and
-  a capability read by `/api/health` is a service-free effect over `AppConfig` (`capabilityFlags`) next to the service
+  references); outside the runtime a hook runs over `Database.layerFromExecutor(executor)` (`runMigrations`;
+  `backfillFoldedColumns` and `runModuleHook` were deleted at E5), and a capability read by `/api/health` is a service-free effect over `AppConfig` (`capabilityFlags`) next to the service
   (`ImportCapabilities`) whose test seams are read on every call.
 
 **As built (E4):** the finance module's composition (plan `docs/plans/e4-finance-services.md` P2, P4). Twelve `Context.Service` classes
@@ -346,3 +346,34 @@ export function withFinanceServices<A, E>(
 (`financeStandaloneLayer()` is `financeLayer()` with `AppConfig.layer` provided.) This is only sound because no finance service holds state;
 the one piece of process state, the tick fiber, lives in `scheduler.ts`, which is not a service. `apps/api/test/finance-services-local.test.ts`
 proves a private database is reached through `withFinanceServices(effect).pipe(Effect.provide(Database.layerFrom(created)))`.
+
+**As built (E5):** the scripts' composition (plan `docs/plans/e5-scripts.md` P1, P2, P9, P10, P18).
+
+- **One runner.** `apps/api/scripts/support/main.ts` imports only `effect` and `@effect/platform-bun`. `runScript(program)` is
+  `BunRuntime.runMain(program, { teardown: makeScriptTeardown((code) => process.exit(code)) })`; the teardown is
+  `Runtime.defaultTeardown(exit, (code) => { const final = Exit.isSuccess(exit) && Predicate.isNumber(exit.value) ? exit.value : code;
+  onExit(final); exitProcess(final); })`, so a numeric success is the exit code, a failure is the error's `[Runtime.errorExitCode]` (1
+  without one), an interruption 130, and the process always ends after the program's scope closed. The program provides its layer
+  INSIDE itself (`program.pipe(Effect.provide(AppLayer))`), never after `runScript`, or `Database.layer`'s release would run after the
+  teardown. A script ends its own refusal with `return yield* new ScriptExit({ code })` (its `[Runtime.errorReported]` is `false`).
+- **A layer reached by a dynamic import.** Where a script may not load the database before a pre-step, the layer comes from inside the
+  generator: `const { AppLayer } = yield* Effect.promise(() => import("../src/runtime.ts")); yield* inner.pipe(Effect.provide(AppLayer))`;
+  a service class used only as a type is `import type`, its value is imported the same way.
+- **v4 service calls (P18).** A `Context.Service` class has no static accessors in `effect@4.0.5`. Yield the service once and call its
+  method, or use `use` for one call; no task adds a static method to get the v3 shape back (`bash docs/plans/e5-verify.sh statics`):
+
+  ```ts
+  const accrual = yield* FinanceAccrual;
+  const result = yield* accrual.runCatchUp(householdId, options);
+  // one call: yield* FinanceAccrual.use((accrual) => accrual.runCatchUp(householdId, options))
+  ```
+
+- **A service built from explicit values.** `LegacyMigration` (`apps/api/scripts/legacy/service.ts`) is a service whose static `layer` is
+  `Layer.sync(this, () => LegacyMigration.of({ open, knownLegacyIds, run }))`: the thunk reads the step functions only when the layer is built,
+  so class evaluation reads no imported binding (the import cycle rule of the `AppLayer`). `open` is `Effect.acquireRelease(openLegacyEffect(…),
+  (legacy) => Effect.sync(() => legacy.client.close()))`, scoped to the caller. The steps stay `Effect.fn` functions over an explicit
+  `MigrationContext`; they never yield `Database` from the ambient context, a step that needs a service builds it over the target it was
+  handed (`withFinanceServices(effect).pipe(Effect.provide(Database.layerFromExecutor(ctx.target.db)))`).
+- **Promise doors.** `runLegacy` (`apps/api/scripts/legacy/io.ts`) is `Effect.runPromise` that rejects with a `DatabaseError`'s raw `cause` and with
+  anything else as the squashed value; the five legacy Promise bridges and `runMigrations(database?)` over `migrateDatabase` return it
+  unawaited and live in an end-of-file `legacy bridges` section until E8.

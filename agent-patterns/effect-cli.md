@@ -186,8 +186,10 @@ taking the name from the command) is the v4 source; do not port a v3 call shape 
 ## 7. In this repo
 
 Where it is applied (milestone E5, EFFECT.md E10): `apps/api/scripts/{migrate,seed,reset-password,uploads-gc,plan-run,
-localize-images,finance-import-xlsx,migrate-legacy}.ts`; each becomes a `Command` (or a hand parse feeding an Effect body) run through
-`BunRuntime.runMain` on `AppLayer`, or on an explicit layer for `migrate-legacy.ts`. The root scripts `scripts/{dev,typecheck,i18n-check,icons}.ts`
+localize-images,finance-import-xlsx,migrate-legacy}.ts`; each is a hand parse feeding an Effect body run through
+`BunRuntime.runMain` on `AppLayer` (`runScript`), or on explicit values for `migrate-legacy.ts`. **`effect/cli` was not adopted** (plan
+`docs/plans/e5-scripts.md` P4, deviation 2): E10 says "may", the flags and usage texts are pinned byte for byte, and `Command.run` owns
+`--help`, `--version`, `--completions` and a parse-error exit of 1 that the scripts' exit 2 contract cannot take. The root scripts `scripts/{dev,typecheck,i18n-check,icons}.ts`
 stay plain Bun. A script's exit-code error lives next to its script or in `apps/api/src/lib/errors.ts` style (a `Schema.TaggedError`).
 Tests drive `Command.runWith` with `Stdio.layerTest` (`apps/api/test/support/effect.ts` for the layers); the subprocess tests of
 `apps/api/test/legacy-cli.test.ts` stay unchanged and are the proof that the output lines and exit codes did not move.
@@ -195,3 +197,22 @@ Tests drive `Command.runWith` with `Stdio.layerTest` (`apps/api/test/support/eff
 Rule served: **E10** (scripts are Effect programs with the same CLI surface: every flag, exit code 0/1/2 and output line that
 `docs/migration.md`, `docs/deployment.md` or a test pins is unchanged), together with **E12** (`Effect.fn`, `return yield*` when raising,
 `Schema.TaggedError`, `Effect.catchTag(s)`).
+
+**As built (E5)** (plan `docs/plans/e5-scripts.md` P1, P10, P18; the code is the source):
+
+- `apps/api/scripts/support/main.ts` exports `ScriptExit` (`Schema.TaggedError` with `code`, `override readonly [Runtime.errorExitCode] = this.code`,
+  `override readonly [Runtime.errorReported] = false`: the shape of `ShowHelp` in section 4), `makeScriptTeardown(exitProcess)` and `runScript(program)`.
+  A script prints its own line, then `return yield* new ScriptExit({ code })`; a program that succeeds with a number exits with it; the
+  teardown calls `exitProcess` after the scope closed, in every case (a lingering handle never keeps a finished script alive).
+- `migrate-legacy.ts` does NOT use `runScript`: it calls `BunRuntime.runMain(main(), { teardown })` where the teardown only sets
+  `process.exitCode` (never `process.exit`, so a long report reaches a pipe in full) from the program's numeric success value, else the
+  default code. `main` is an `Effect.fn` whose success value is the exit code 0, 1 or 2; its scratch directory, scratch client, legacy
+  snapshots and real target are scoped resources released in reverse order.
+- **A synchronous throw is a defect, so every exit-2 thrower is lifted by name** (plan P10, risk 12). A pure parser that `throw`s
+  `CliUsageError`, `MappingError` or `LegacyInputError` inside a generator bypasses `Effect.catchTags`, and the CLI would exit 1 where
+  it must exit 2 while every in-process `rejects.toMatchObject({ exitCode: 2 })` stays green (`Cause.squash` returns the same object). The lift,
+  `liftExitTwo` in the CLI file and `liftTagged` in `apps/api/scripts/legacy/io.ts`: `Effect.suspend(() => { try { return Effect.succeed(f()); } catch (error) { if (isLifted(error)) return
+  Effect.fail(error); throw error; } })` with `isLifted` a `Predicate.isTagged` test on the tag names (a foreign throw is rethrown and stays a
+  defect, as it was a crash before); then `Effect.catchTags(program, { CliUsageError, MappingError, LegacyInputError })` maps each tag to its stderr lines and exit 2, accepted by
+  `tsc` without a cast (a bogus key fails it). A subprocess case per exit-2 path (`apps/api/test/legacy-cli-usage.test.ts`) is the proof.
+- Call a service as a value (`const accrual = yield* FinanceAccrual; accrual.runCatchUp(…)`), never as a static (P18).

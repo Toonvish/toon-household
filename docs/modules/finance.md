@@ -89,8 +89,9 @@ API import cycle, see `CLAUDE.md`) and sets a module-local `ContextVariableMap` 
 through the service-free effect `currentFinanceParticipant` and the services through the runtime; the synchronous
 `requireFinanceParticipantContext` survives as a bridge for `apps/api/test/finance-participants.test.ts`, see below). The
 services mirror F's `services/` one to one under `apps/api/src/modules/finance/services/{ledger,categories,tags,plan}/`, plus
-`participants/`, `settings/` and `setup/` (replacing F's `households/` services) and `support.ts` (`withTransaction`, the
-Promise helper `apps/api/scripts/finance-import-xlsx.ts` keeps until E5, `escapeLikePattern`, the `DbLike` / `Tx` types).
+`participants/`, `settings/` and `setup/` (replacing F's `households/` services) and `support.ts` (`escapeLikePattern`, the `DbLike` /
+`Tx` types; the Promise helper `withTransaction` went with `apps/api/scripts/finance-import-xlsx.ts` at E5, whose write path now runs inside
+`Database.transaction`).
 
 **Services (E4, `docs/plans/e4-finance-services.md`).** Every file that does I/O is a `Context.Service` with a static `layer`;
 the pure helpers (`services/categories/defaults.ts`, `services/plan/period-scan.ts`, `services/ledger/dateRange.ts`,
@@ -112,18 +113,18 @@ code is an `ApiFailure`, F gotcha 48). The manifest is an `ApiModule<FinanceServ
 `apps/api/src/modules/finance/services/plan/scheduler.ts` is not a service: it holds the process's one tick fiber
 (`startAccrualSchedule`, `stopAccrualSchedule`). The area composition functions are `services/*/layer.ts`.
 
-**Legacy bridges (until E5 and E8).** Nine Promise or synchronous bridges survive with the OLD name and signature for callers
-outside the converted set (the scripts of E5, the pinned tests of E8), every one through `runFinanceBridge`
-(`apps/api/src/modules/finance/bridge.ts`), which builds the services over the executor it is handed and never imports
-`apps/api/src/runtime.ts` (`apps/api/scripts/legacy/balance.ts` runs inside `migrate:legacy`):
-`runCatchUp` (`accrual.service.ts`; `apps/api/scripts/plan-run.ts`, `apps/api/test/finance-security.test.ts`), `getBalance`
-(`balance.service.ts`; `apps/api/scripts/legacy/balance.ts`, `apps/api/test/legacy-finance.test.ts`), `slot1UserId`,
-`requireOtherMemberId` (`participants.service.ts`), `categoryIdBySlug` (`categories.service.ts`) and `syncTransactionTags`
-(`tags.service.ts`) (the last four for `apps/api/scripts/finance-import-xlsx.ts`), `assignParticipants` and
+**Legacy bridges (until E8).** Three Promise or synchronous bridges survive E5 with the OLD name and signature for the pinned tests, every
+Promise one through `runFinanceBridge` (`apps/api/src/modules/finance/bridge.ts`), which provides `Database.layerFromExecutor(executor)`
+itself, builds the services over that executor and never imports `apps/api/src/runtime.ts`: `assignParticipants` and
 `updateParticipantDisplayName` (`participants.service.ts`; `apps/api/test/finance-module.test.ts`), and the synchronous
 `requireFinanceParticipantContext` (`middleware.ts`; `apps/api/test/finance-participants.test.ts`). A bridge rejects with a
-`DatabaseError`'s `cause` (the raw driver error the old function threw: `plan-run.ts` prints its message) and with a family
-refusal unchanged. ADR 0014 ("Status after E4's integration") lists them with their removal milestones.
+`DatabaseError`'s `cause` (the raw driver error the old function threw) and with a family refusal unchanged. E5 deleted the six that
+scripts called: `runCatchUp`, `getBalance`, `slot1UserId`, `requireOtherMemberId`, `categoryIdBySlug`, `syncTransactionTags`, and the
+`withTransaction` helper. The scripts reach the services as v4 service values: `apps/api/scripts/plan-run.ts` yields `FinanceAccrual` and calls
+`runCatchUp` per household on the `AppLayer`; `apps/api/scripts/finance-import-xlsx.ts` loads `FinanceParticipants`, `FinanceCategories`
+and `FinanceTags` dynamically on its write path only (a `--dry-run` never opens the database) and runs inside `Database.transaction`;
+`apps/api/scripts/legacy/balance.ts` runs `FinanceBalance` over the migration's explicit target with `withFinanceServices`. ADR 0014
+("Status after E5's integration") lists the survivors with their removal milestone.
 
 Finance error codes (all in the core `ERROR_CODES` of `packages/shared/src/core/schemas/common.ts`, wire contract, never
 renamed): from F `transaction_amount_zero`, `transaction_generated`, `balance_stale`, `settlement_amount_invalid`,

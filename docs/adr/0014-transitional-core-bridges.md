@@ -143,3 +143,44 @@ The idioms test pins the progress: rule (10)'s allow list is empty (no `throw Ap
 itself and its ten static helpers remain until E8 for the tests that call them), and rule (11) covers `Date.now(` / `new Date(` in every
 `services/` directory with no entry and `nowMs(` under `apps/api/src/core/`, `apps/api/src/modules/recipe/` and `apps/api/src/modules/finance/`
 with the one definition line of the finance module clock.
+
+## Status after E5's integration (2026-11-05)
+
+E5 (scripts, `docs/plans/e5-scripts.md`) moved the eight operator scripts onto Effect programs: seven (`migrate`, `seed`, `reset-password`,
+`uploads-gc`, `plan-run`, `localize-images`, `finance-import-xlsx`) run on the one `AppLayer` through `runScript`
+(`apps/api/scripts/support/main.ts`, `BunRuntime.runMain` with a teardown that ends the process after the layer's scope closed), and
+`migrate-legacy.ts` runs under `BunRuntime.runMain` on explicit values it resolved itself (the `LegacyMigration` service,
+`apps/api/scripts/legacy/service.ts`), because its import order is load-bearing. The `migrate:legacy` library is Effect functions; `finance-import/*`
+stays pure.
+
+**Bridges deleted** (each in the commit that moved its last non-test caller): core `initializeHousehold`, `findUserByEmail`,
+`createPasswordResetToken`, `collectUploadReferences`; recipe `backfillFoldedColumns`, `localizeImageUrl`; finance `runCatchUp`, `getBalance`,
+`slot1UserId`, `requireOtherMemberId`, `categoryIdBySlug`, `syncTransactionTags` and the finance `withTransaction` helper. **`runModuleHook` and
+`apps/api/src/modules/adapter.ts` are deleted** (E5-T09): `runFinanceBridge` runs the effect over `Database.layerFromExecutor(executor)` itself and
+`runMigrations` is a Promise door over `migrateDatabase` (`apps/api/src/db/migrate.ts`). Idioms rule (12) pins the result: every file directly under
+`apps/api/scripts/` runs through `runScript(` or `BunRuntime.runMain(`, no `process.exit(` under `apps/api/scripts/` but the runner's one line, no `await`
+in `apps/api/scripts/legacy/` or `apps/api/scripts/finance-import/`, no `runModuleHook` anywhere.
+
+**Survivors after E5** (all removed by E8 with the pinned tests or E9's layer-based test support):
+
+| Bridge | File | Callers | Convention |
+| --- | --- | --- | --- |
+| `requireUser`, `requireMembership` | `apps/api/src/lib/types.ts` | `apps/api/test/errors.test.ts`, `apps/api/test/middleware.test.ts`, `apps/api/test/modules.test.ts` | synchronous |
+| `checkRateLimit`, `resetRateLimits` | `apps/api/src/core/services/auth/rateLimit.ts` | `apps/api/test/auth.test.ts` (pinned), `apps/api/test/rate-limiter.test.ts` and others | synchronous |
+| `setMailer`, `getMailer`, `isMailerOverridden`, `trySendMail` | `apps/api/src/core/services/mail/index.ts` | tests; `trySendMail` only `apps/api/test/mail.test.ts` (the `auth:reset-password` script yields the `Mailer` service) | synchronous (`trySendMail`: Promise) |
+| `claimPlaceholderUser` | `apps/api/src/core/services/auth/users.ts` | `apps/api/test/placeholders.test.ts` (pinned) | Promise |
+| `createSession` | `apps/api/src/core/services/auth/sessions.ts` | `apps/api/test/middleware.test.ts`, `apps/api/test/import/routes.test.ts` | Promise |
+| `assignParticipants`, `updateParticipantDisplayName` | `apps/api/src/modules/finance/services/participants/participants.service.ts` | `apps/api/test/finance-module.test.ts` (pinned) | Promise over `runFinanceBridge` |
+| `requireFinanceParticipantContext` | `apps/api/src/modules/finance/middleware.ts` | `apps/api/test/finance-participants.test.ts` (pinned) | synchronous |
+| recipe `createDraft`, `importFromText`, `fetchHtml`, `assertPublicUrl` | `apps/api/src/modules/recipe/services/import/` | `apps/api/test/import/ocr-disabled.test.ts`, `apps/api/test/import/ssrf.test.ts` (pinned) | as before |
+| `runLegacyMigration`, `migrateUsers`, `migrateHouseholds`, `migrateRecipe`, `openLegacy` | `apps/api/scripts/legacy/{run,users,households,recipe,sources}.ts` | the pinned `apps/api/test/legacy-cli.test.ts`, `apps/api/test/legacy-placeholders.test.ts` and `apps/api/test/support/legacy-harness.ts` | Promise over `runLegacy`, next to an `…Effect` form |
+| `runMigrations(database?)` | `apps/api/src/db/migrate.ts` | about 20 test files | Promise over `migrateDatabase` |
+| `runFinanceBridge` | `apps/api/src/modules/finance/bridge.ts` | the runner of the finance survivors | Promise |
+
+**The process-wide client stays created at import of `apps/api/src/db/client.ts`** (plan deviation 6), against the first Decision bullet's
+"after E5 the instance is created by the layer alone": the tests' shared `db` (ADR 0009, `app.request` sees only that database) and
+`apps/api/scripts/migrate-legacy.ts` (its dynamic import of `src/db/client.ts` after the `DATABASE_URL` redirect is the pinned order of
+`apps/api/test/import-order.test.ts` and `apps/api/test/legacy-cli.test.ts`) read it. `db`, `client` and `dbReady` therefore stay exported from
+`client.ts` until E8 decides whether to create the client inside `Database.layer`; `docs/EFFECT.md` E5's sentence says so in this commit.
+Consequence for operators: every script on the `AppLayer` ends with one added English line, `[db] database closed` (`Database.layer`'s release),
+and a SIGINT or SIGTERM interrupts the program, runs its finalizers and exits 130 where the old scripts died at once.

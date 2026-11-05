@@ -119,9 +119,9 @@ module (`docs/plans/m2-recipe-module.md`), M3 finance module (`docs/plans/m3-fin
 and M7 harden (`docs/plans/m7-harden.md`), 2026-10-13 to 2026-10-15; each plan's last sections are its
 integration record and "what changed vs plan". Two modules are built (`API_MODULES` and `WEB_MODULES` are
 `[recipe, finance]`, `/api/health` reports `modules: ["recipe","finance"]`). The tree typechecks, builds and tests
-green (`bun test`: 14725 pass in 163 files on the temp file DB at E4 (37.07 s under a host load average of about 3.7); 14686 pass in 160 files after the E3 review (14684 at E3-T13, 32.88 s on a quiet host); 14658 pass in 158 files after E2 (69.96 s under a host load average of 14 to 50; 39.79 s at E2's quiet baseline), where 11357 of them are
+green (`bun test`: 14785 pass in 170 files on the temp file DB at E5 (45.40 s under a host load average of about 3 to 10); 14725 pass in 163 files at E4 (37.07 s under a host load average of about 3.7); 14686 pass in 160 files after the E3 review (14684 at E3-T13, 32.88 s on a quiet host); 14658 pass in 158 files after E2 (69.96 s under a host load average of 14 to 50; 39.79 s at E2's quiet baseline), where 11357 of them are
 the golden parity cases of `packages/shared/test/parity/`; 14508 pass in 150 files after the E1 review; 2463 pass in 141 files at the end of E0; `i18n:check` exits 1 with
-the 145 classified false positives at E4 (the 146 of before E2, 147 with the `Effect.die` stopword hit of the old module adapter file, since deleted; E4 deleted that line and reworded one comment line of `apps/api/src/modules/finance/lib/clock.ts`, no new hit); M7's integration record, `docs/plans/m7-harden.md` section 9, has the gate logs,
+the 145 classified false positives at E4 and again at E5 (the same 145 lines at the E5 base and at its end, compared line-number-free; the 146 of before E2, 147 with the `Effect.die` stopword hit of the old module adapter file, since deleted; E4 deleted that line and reworded one comment line of `apps/api/src/modules/finance/lib/clock.ts`, no new hit); M7's integration record, `docs/plans/m7-harden.md` section 9, has the gate logs,
 the walkthrough, the `migrate:legacy` fixture run and the print-to-PDF proof). Milestone E0 of the Effect migration
 (foundation: the vendored source fenced off, the pinned Effect packages, the one `ManagedRuntime` serving
 `/api/health`, the idioms test, ADR 0012) is done; its integration record is `docs/plans/e0-foundation.md` sections
@@ -144,7 +144,11 @@ with a static `layer`, the module's `layer` is part of the one `AppLayer`, `fina
 hooks as Effects, `PromiseApiModule` and `fromPromiseModule` are deleted (`runModuleHook` stayed for the scripts and was deleted at E5-T09), the finance routes
 and the participant gate run through `runtime.runPromise`, the boot catch-up and the 6-hour tick run on `Schedule` driven by the `Clock`
 with a `TestClock` test, idioms rule (10) is empty and rule (11) covers finance; ADR 0014 updated) is done; its integration record is
-`docs/plans/e4-finance-services.md` sections 9 and 10 (the nine surviving finance bridges with their callers). What is left is the
+`docs/plans/e4-finance-services.md` sections 9 and 10 (the nine surviving finance bridges with their callers). Milestone E5 (scripts: the
+eight operator scripts are Effect programs, seven on the one `AppLayer` through `runScript` and `migrate-legacy.ts` under `BunRuntime.runMain`
+on explicit values, the `migrate:legacy` library is Effect functions behind the `LegacyMigration` service, the script-only bridges and
+`runModuleHook` with its adapter file are deleted, idioms rule (12) is on; ADR 0014 updated) is done; its integration record is
+`docs/plans/e5-scripts.md` sections 9 and 10 (the survivors with their callers are in ADR 0014 "Status after E5's integration"). What is left is the
 owner's (see "Open work").
 
 ## Layout (as built)
@@ -182,8 +186,14 @@ Package names are `@toon/shared`, `@toon/api`, `@toon/web`; the root is `toon-ho
   drizzle-kit (`0003` has three generator defects corrected by hand, ADR 0006).
 - Scripts:
   `apps/api/scripts/{migrate,seed,reset-password,uploads-gc,plan-run,localize-images,finance-import-xlsx,migrate-legacy}.ts`;
-  `apps/api/scripts/legacy/` is the `migrate:legacy` library (`claims.ts` is the placeholders' claim-invite step),
-  `apps/api/scripts/finance-import/` the workbook parsers. Root `scripts/{dev,typecheck,i18n-check,icons}.ts`.
+  `apps/api/scripts/legacy/` is the `migrate:legacy` library (`claims.ts` is the placeholders' claim-invite step; `io.ts` the
+  Effect primitives `legacyTry`, `runLegacy`, `liftTagged`; `service.ts` the `LegacyMigration` service),
+  `apps/api/scripts/finance-import/` the workbook parsers (pure). Root `scripts/{dev,typecheck,i18n-check,icons}.ts` stay plain Bun.
+- Scripts (E5): `apps/api/scripts/support/main.ts` (`runScript`, `makeScriptTeardown`, `ScriptExit`; imports only `effect` and
+  `@effect/platform-bun`), `docs/plans/e5-verify.sh` (the milestone's verification script, with the recorded fixture output
+  `docs/plans/e5-fixture/{dry,apply,again}.norm`) and the subprocess tests `apps/api/test/scripts-main.test.ts`,
+  `apps/api/test/scripts-seed.test.ts`, `apps/api/test/scripts-plan-run.test.ts`, `apps/api/test/scripts-uploads.test.ts`,
+  `apps/api/test/legacy-io.test.ts`, `apps/api/test/legacy-service.test.ts`, `apps/api/test/legacy-cli-usage.test.ts`.
 - API tests in `apps/api/test/` (`apps/api/test/support/` for harnesses, `apps/api/test/import/`,
   `apps/api/test/fixtures/import/`, `apps/api/test/fixtures/legacy/`); the doc guards are
   `apps/api/test/api-doc.test.ts` (every served route has a `docs/API.md` row and every row is served; every
@@ -389,22 +399,24 @@ ones; the module gotchas are indexed below and live in the module docs.
   the current executor are read inside the method body on every call (never captured at build), so a `TestClock` or a
   transaction reaches them. `apps/api/test/import-order-effect.test.ts` builds the `AppLayer` after each entry point,
   first in a fresh process.
-- **Bridges until E5 to E8 (E2, E3, E4, plan P1, ADR 0014).** A converted file keeps, in a section `/* legacy bridges:
+- **Bridges until E8 (E2, E3, E4, E5, plan P1, ADR 0014).** A converted file keeps, in a section `/* legacy bridges:
   callers listed; … */` at its end, a bridge with the OLD name and signature for every export a caller outside the
-  converted set still uses. After E4 the survivors are, in recipe, `backfillFoldedColumns(database?)` and `localizeImageUrl`
-  (scripts, E5) and `createDraft(db, input)`, the synchronous `importFromText`, `fetchHtml` and `assertPublicUrl` (pinned tests,
-  E8); in finance exactly nine: `runCatchUp` (`plan-run.ts`, `finance-security.test.ts`), `getBalance` (`apps/api/scripts/legacy/balance.ts`,
-  `legacy-finance.test.ts`), `slot1UserId`, `requireOtherMemberId`, `categoryIdBySlug`, `syncTransactionTags` (all four
-  `finance-import-xlsx.ts`; E5), and `assignParticipants`, `updateParticipantDisplayName` (the pinned `finance-module.test.ts`) and
-  the synchronous `requireFinanceParticipantContext` (the pinned `finance-participants.test.ts`; E8); in the core `requireUser`,
-  `requireMembership` (tests; E8), `initializeHousehold` (`apps/api/scripts/seed.ts`; E5), the test seams
-  (`checkRateLimit`, `resetRateLimits`, `setMailer` and friends, `createSession`, `claimPlaceholderUser`; E8) and the scripts' ones
-  (`collectUploadReferences`, `trySendMail`, `findUserByEmail`, `createPasswordResetToken`; E5), listed with callers in
-  `docs/plans/e3-recipe-services.md` section 9.2, `docs/plans/e4-finance-services.md` section 9.2 and ADR 0014. **A finance Promise
+  converted set still uses. E5 deleted every bridge a script was the last caller of (`initializeHousehold`, `findUserByEmail`,
+  `createPasswordResetToken`, `collectUploadReferences`, recipe `backfillFoldedColumns` and `localizeImageUrl`, finance `runCatchUp`,
+  `getBalance`, `slot1UserId`, `requireOtherMemberId`, `categoryIdBySlug`, `syncTransactionTags`, finance `withTransaction`). After E5
+  the survivors serve the pinned tests only and E8 removes them: in recipe `createDraft(db, input)`, the synchronous `importFromText`,
+  `fetchHtml` and `assertPublicUrl`; in finance exactly three, `assignParticipants`, `updateParticipantDisplayName` (the pinned
+  `finance-module.test.ts`) and the synchronous `requireFinanceParticipantContext` (the pinned `finance-participants.test.ts`), plus
+  `runFinanceBridge`; in the core `requireUser`, `requireMembership`, `claimPlaceholderUser`, `createSession`, `trySendMail` (only
+  `mail.test.ts`) and the test seams (`checkRateLimit`, `resetRateLimits`, `setMailer`, `getMailer`, `isMailerOverridden`); in the
+  scripts' library the five Promise bridges `runLegacyMigration`, `migrateUsers`, `migrateHouseholds`, `migrateRecipe`, `openLegacy`
+  (each next to an `…Effect` form, over `runLegacy` in `apps/api/scripts/legacy/io.ts`) and the Promise door `runMigrations(database?)` of
+  `migrateDatabase`; listed with callers in ADR 0014 "Status after E5's integration". **A finance Promise
   bridge never imports `runtime.ts`:** it runs `runFinanceBridge(effect, executor)` (`apps/api/src/modules/finance/bridge.ts`), which
-  builds the services over the executor it is handed, so `apps/api/scripts/legacy/balance.ts` (inside `migrate:legacy`, whose library must never
-  touch the shared database) and `finance-import-xlsx.ts` (a bridge inside its own open transaction) work; it rejects with a
-  `DatabaseError`'s `cause` (the raw driver error `plan-run.ts` prints), a family refusal unchanged. **A bridge keeps its calling convention and says so with an
+  builds the services over the executor it is handed and provides `Database.layerFromExecutor(executor)` itself (E5-T09; `runModuleHook` is gone);
+  the scripts no longer need it (`apps/api/scripts/legacy/balance.ts` builds `FinanceBalance` over the migration's explicit target with
+  `withFinanceServices`, `finance-import-xlsx.ts` calls the services inside `Database.transaction`); it rejects with a
+  `DatabaseError`'s `cause` (the raw driver error), a family refusal unchanged. **A bridge keeps its calling convention and says so with an
   explicit return type:** a Promise export runs `runtime.runPromise` (a failure rejects with the tagged error itself); a
   SYNCHRONOUS export (`checkRateLimit`, `resetRateLimits`, `requireUser`, `requireMembership`, `getMailer`, the recipe
   `importFromText`) stays synchronous over a service-free effect with `Effect.runSync` (a failure throws the tagged error
@@ -415,6 +427,22 @@ ones; the module gotchas are indexed below and live in the module docs.
   deleted in that commit. The one tolerated `throw` in recipe code is the `NODE_ENV=test` guard of a test seam
   (`setImportDbForTests`, `setRemoteImageDownloaderForTests`, `setImportGuardForTests`: a seam is a plain synchronous function
   called outside any effect, and a production caller must fail loudly).
+- **The scripts are Effect programs (E5, ADR 0014, plan `docs/plans/e5-scripts.md` P1, P2, P18).** Seven of the eight run on the one
+  `AppLayer` (`Effect.provide(AppLayer)` INSIDE the program, so the layer's scope has closed when the teardown runs) through
+  `runScript(program)` of `apps/api/scripts/support/main.ts` under `if (import.meta.main)`: a program that succeeds with a number exits
+  with it, with `void` exits 0, a failure with the error's `[Runtime.errorExitCode]` (`ScriptExit`, raised as `return yield* new
+  ScriptExit({ code })` after the script printed its own line; 1 without one), an interruption 130, and the process then ALWAYS ends with
+  `process.exit(code)` (the one in the scripts' Effect code). **Every `AppLayer` script prints one more line than before, `[db] database
+  closed`** (`Database.layer`'s release), unpinned; `finance:import-xlsx --dry-run` and the no-`--household` path print none because they
+  never open the database. **A value import can open the database:** `src/db/database.ts` imports `src/db/client.ts`, which creates the
+  database file AT IMPORT, so `seed.ts` (before its production refusal), `migrate.ts` (before the `SESSION_SECRET` placeholder) and
+  `finance-import-xlsx.ts` (its dry run) import `Database`, `src/runtime.ts`, the finance services and the finance schema only dynamically
+  inside the generator that needs them (`import type` for types); `bash docs/plans/e5-verify.sh xlsx-dry`, `apps/api/test/scripts-seed.test.ts`
+  and `apps/api/test/finance-import-xlsx.test.ts` spawn with `NODE_ENV=development` (the inherited `test` hides the mistake). **Service
+  calls are v4 calls**: `const accrual = yield* FinanceAccrual; yield* accrual.runCatchUp(…)` or `FinanceAccrual.use((accrual) => …)`; a
+  `Context.Service` class has no static accessors and none is added (`bash docs/plans/e5-verify.sh statics`). Time comes from the
+  `Clock`; the `migrate:legacy` library is Effect functions with no `await`, its services-free steps over an explicit `MigrationContext`
+  and the one service `LegacyMigration` (`apps/api/scripts/legacy/service.ts`).
 - **Catch-all stays catch-all (E2, plan P2).** `Effect.catch` and `Effect.catchTag(s)` see the typed error channel
   only; a synchronous throw inside a generator and an `Effect.promise` rejection are DEFECTS and pass them by. Where
   the old code caught everything (`verifyPassword`: a malformed hash is `false`, never a 500; `trySendMail`; the
@@ -445,7 +473,8 @@ ones; the module gotchas are indexed below and live in the module docs.
   internal_error` whose log line shows its `cause`, never an API error to module code. A 5xx family member logs
   `[api] <METHOD> <path> -> <status> <code>: <English message>` and its stack (the pre-E2 line; `apps/api/test/errors.test.ts`).
 - **The `Database` service and the shared client (E2, plan P6, ADR 0014).** `apps/api/src/db/client.ts` still creates
-  the process-wide instance at import (recipe, finance and the scripts import `db` until E3 to E5); the `Database`
+  the process-wide instance at import, after E5 too (the tests' shared `db` of ADR 0009 and `migrate-legacy.ts`'s pinned import order read it;
+  E8 decides whether the layer creates the client, ADR 0014 "Status after E5's integration"); the `Database`
   service (`apps/api/src/db/database.ts`) owns its lifetime: acquire awaits `dbReady` (the D7 pragmas), release closes
   the client and logs `[db] database closed`, **never under `NODE_ENV=test`** (one process, one client, ADR 0009;
   a test that disposes an `AppLayer` runtime must not close it, `apps/api/test/database.test.ts` proves it).
@@ -469,11 +498,11 @@ ones; the module gotchas are indexed below and live in the module docs.
   the CURRENT `Database` of the calling fiber (the core's open transaction for a hook) with `Effect.provide(layer, { local: true })`,
   a fresh memo map: a plain `Effect.provide` would reuse the services the runtime's `AppLayer` memoized, bound to the runtime's
   database, and a test's private `Database.layerFrom(…)` would silently never be reached (`apps/api/test/finance-services-local.test.ts`
-  proves it; the finance services hold no state, so the copies cannot disagree). Outside the runtime (`runMigrations`,
-  `collectUploadReferences(database)`, `apps/api/scripts/seed.ts`, every finance bridge) a hook runs with
-  `Database.layerFromExecutor(executor)` provided (`Effect.runPromise`; every finance bridge through `runFinanceBridge`,
-  `apps/api/src/modules/finance/bridge.ts`), never importing `runtime.ts`, so `db/migrate.ts` keeps `migrate-legacy.ts`'s
-  import-order rule; `runModuleHook` and its file are deleted (E5-T09). `API_MODULES` in
+  proves it; the finance services hold no state, so the copies cannot disagree). Outside the runtime (`runMigrations`, the
+  finance bridges) a hook runs with `Database.layerFromExecutor(executor)` provided (`Effect.runPromise`; every finance bridge through
+  `runFinanceBridge`, `apps/api/src/modules/finance/bridge.ts`; `runMigrations(database?)` over `migrateDatabase`), never importing
+  `runtime.ts`, so `db/migrate.ts` keeps `migrate-legacy.ts`'s import-order rule; the scripts run their hooks on the `AppLayer` (`seed`'s
+  `seedDemo`, the `UploadReferences` service for `uploads:gc`); `runModuleHook` and its file are deleted (E5-T09). `API_MODULES` in
   `apps/api/src/modules/index.ts` is a lazy array (a `Proxy` over the manifests, built on first access) so a manifest imported FIRST
   in a fresh process does not read the list in its TDZ; a read at module scope still fails loudly. The finance scheduler is not a
   service: `startAccrualSchedule` awaits the boot catch-up and forks ONE detached fiber on `Effect.schedule(tick,
@@ -710,7 +739,11 @@ ones; the module gotchas are indexed below and live in the module docs.
   list EMPTY: the core `nowMs()` of `households/support.ts` is deleted) plus "no `nowMs(` call under `apps/api/src/core/`,
   `apps/api/src/modules/recipe/` or `apps/api/src/modules/finance/`" (the one allowed line is the definition of the finance module
   clock's synchronous `nowMs()` in `apps/api/src/modules/finance/lib/clock.ts`, kept for `apps/api/test/support/finance-harness.ts`):
-  `nowMs()` reads `Date.now()`, so a call bypasses the `Clock`. Both rules fail a stale allow-list entry (a fixed file leaves the list in the same commit).
+  `nowMs()` reads `Date.now()`, so a call bypasses the `Clock`. Rule (12) (E5) is "the scripts are Effect programs (E10)": (a) every `.ts`
+  file directly under `apps/api/scripts/` contains `runScript(` or `BunRuntime.runMain(`, (b) no `process.exit(` under `apps/api/scripts/`
+  but the one line of `apps/api/scripts/support/main.ts` (the runner's teardown), (c) no `await ` under `apps/api/scripts/legacy/` or
+  `apps/api/scripts/finance-import/` (the Promise bridges return `runLegacy(...)` unawaited), (d) no `runModuleHook` under `apps/api/src` or
+  `apps/api/scripts`. Rules (10), (11) and (12) fail a stale allow-list entry (a fixed file leaves the list in the same commit).
   The one rule a later milestone switches on (no `hono` at E7) is a `PENDING_RULES` comment in the file, never a
   skipped test, and becomes a `describe` in the commit of the migration that makes it true. Never relax a rule to
   get green.
@@ -757,14 +790,20 @@ ones; the module gotchas are indexed below and live in the module docs.
 - **The CLI never imports `src/env.ts`, and its import order is load-bearing.** `apps/api/src/env.ts` freezes
   `env.databaseUrl` on first load and `apps/api/src/db/client.ts` opens that database on import, so importing
   either before the redirect would create and switch to WAL the REAL target during a dry run.
-  `apps/api/scripts/migrate-legacy.ts` imports only `node:` builtins and types statically, resolves
-  `DATABASE_URL` and `UPLOAD_DIR` itself (`resolveCliEnv`: process environment, then the root `.env` and
+  `apps/api/scripts/migrate-legacy.ts` is an Effect program under `BunRuntime.runMain` (E5, plan `docs/plans/e5-scripts.md` P10) and
+  imports only `node:` builtins, `effect`, `@effect/platform-bun` (neither reads the environment nor opens a database; plan deviation 3) and
+  types statically, resolves `DATABASE_URL` and `UPLOAD_DIR` itself (`resolveCliEnv`: process environment, then the root `.env` and
   `.env.local` with env.ts's rules, kept in step by hand), points `process.env.DATABASE_URL` at the scratch copy
   BEFORE its first dynamic import, then imports `src/db/client.ts`, then `src/db/migrate.ts`, and only then
   `./legacy/*`. A relative `file:` target resolves against the repo root computed in the CLI file. The library
   takes the target `db` and `client` as parameters and never uses the shared `db`.
   `apps/api/test/legacy-cli.test.ts` guards the order textually and by subprocess (no target file and no `-wal`
-  after a dry run).
+  after a dry run). **Every synchronous exit-2 throw of the CLI is lifted by name** (`liftExitTwo` in the CLI file, `liftTagged` in
+  `apps/api/scripts/legacy/io.ts`: `Effect.suspend` + `try` + `Predicate.isTagged`): `CliUsageError`, `MappingError` and `LegacyInputError`
+  thrown inside Effect code are DEFECTS, `Effect.catchTags` misses them and the CLI would exit 1 where it must exit 2 while every
+  in-process assertion stayed green (`Cause.squash` returns the same object); `apps/api/test/legacy-cli-usage.test.ts` spawns the five exit-2
+  paths. The CLI's teardown sets `process.exitCode` and never calls `process.exit`, so the report reaches a pipe in full; a signal
+  interrupts it after its finalizers (the scratch directory is removed) and exits 130.
 - **Subprocess tests of the CLI set `NODE_ENV=development`.** The child inherits `NODE_ENV=test`, under which
   `apps/api/src/env.ts` picks its own temp test DB and `resolveCliEnv` reads no `.env`; they also pass an
   absolute `DATABASE_URL`, an explicit `UPLOAD_DIR` and a placeholder `SESSION_SECRET`. Migration tests use their
