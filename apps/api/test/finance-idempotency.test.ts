@@ -14,7 +14,7 @@
  *     A `SELECT`-then-write implementation would let both callers read
  *     "not yet applied" and both apply — this test is what would catch that
  *     regression.
- *  3. `pruneMutationClaims`'s TTL boundary.
+ *  3. `pruneMutationClaims`'s TTL boundary, driven by a `TestClock` (E4, plan P11).
  *  4. The gap this task found and closed: `deleteTransaction` used to check
  *     `mutationId` AFTER loading the row, so a replay delivered after the
  *     row was already gone by the FIRST delivery 404'd instead of answering
@@ -28,13 +28,26 @@
  */
 import { describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
+import { Effect } from "effect";
+import { TestClock } from "effect/testing";
 import { db } from "../src/db/client.ts";
 import { runMigrations } from "../src/db/migrate.ts";
 import { financeMutationClaims as mutationClaims, financeTransactions as transactions } from "../src/modules/finance/schema.ts";
-import { claimMutation, linkMutationClaim, pruneMutationClaims } from "../src/modules/finance/services/ledger/idempotency.ts";
+import {
+  checkOwnClaim,
+  FinanceMutationClaims,
+  MUTATION_CLAIM_TTL_MS,
+} from "../src/modules/finance/services/ledger/idempotency.ts";
 import { body, call, createHousehold, createUser, type TestUser } from "./support/finance-harness.ts";
+import { runTest } from "./support/effect.ts";
 
 await runMigrations(db);
+
+// The service under test, one run on the app runtime per call (the same `Database` as `app.request`).
+const claimMutation = (mutationId: string, householdId: string, transactionId: string | null = null) =>
+  runTest(FinanceMutationClaims.use((claims) => claims.claimMutation(mutationId, householdId, transactionId)));
+const linkMutationClaim = (mutationId: string, transactionId: string) =>
+  runTest(FinanceMutationClaims.use((claims) => claims.linkMutationClaim(mutationId, transactionId)));
 
 interface TransactionResponse {
   id: string;
@@ -60,7 +73,7 @@ describe("claimMutation — the primitive", () => {
     const householdId = await createHousehold(owner, "Claim eins");
     const mutationId = crypto.randomUUID();
 
-    const claim = await claimMutation(db, mutationId, householdId);
+    const claim = await claimMutation(mutationId, householdId);
     expect(claim.claimed).toBe(true);
     expect(claim.transactionId).toBeNull();
   });
@@ -71,11 +84,11 @@ describe("claimMutation — the primitive", () => {
     const transactionId = await createManualTransaction(owner, householdId, "Ziel der Buchung");
     const mutationId = crypto.randomUUID();
 
-    const first = await claimMutation(db, mutationId, householdId, transactionId);
+    const first = await claimMutation(mutationId, householdId, transactionId);
     expect(first.claimed).toBe(true);
     expect(first.transactionId).toBe(transactionId);
 
-    const second = await claimMutation(db, mutationId, householdId);
+    const second = await claimMutation(mutationId, householdId);
     expect(second.claimed).toBe(false);
     expect(second.transactionId).toBe(transactionId);
 
@@ -89,12 +102,12 @@ describe("claimMutation — the primitive", () => {
     const transactionId = await createManualTransaction(owner, householdId, "Nachtraeglich verknuepft");
     const mutationId = crypto.randomUUID();
 
-    const claim = await claimMutation(db, mutationId, householdId, null);
+    const claim = await claimMutation(mutationId, householdId, null);
     expect(claim.transactionId).toBeNull();
 
-    await linkMutationClaim(db, mutationId, transactionId);
+    await linkMutationClaim(mutationId, transactionId);
 
-    const replay = await claimMutation(db, mutationId, householdId);
+    const replay = await claimMutation(mutationId, householdId);
     expect(replay.claimed).toBe(false);
     expect(replay.transactionId).toBe(transactionId);
   });
@@ -114,8 +127,8 @@ describe("claimMutation — the primitive", () => {
       const mutationId = crypto.randomUUID();
 
       const [a, b] = await Promise.all([
-        claimMutation(db, mutationId, householdId, candidateA!),
-        claimMutation(db, mutationId, householdId, candidateB!),
+        claimMutation(mutationId, householdId, candidateA!),
+        claimMutation(mutationId, householdId, candidateB!),
       ]);
 
       const winners = [a, b].filter((result) => result.claimed);
@@ -140,28 +153,87 @@ describe("pruneMutationClaims — TTL", () => {
     const owner = await createUser("Owner");
     const householdId = await createHousehold(owner, "TTL");
     const ttlMs = 14 * 24 * 60 * 60 * 1000;
+    expect(MUTATION_CLAIM_TTL_MS).toBe(ttlMs);
 
     const stale = crypto.randomUUID();
     const fresh = crypto.randomUUID();
-    await claimMutation(db, stale, householdId);
-    await claimMutation(db, fresh, householdId);
+    await claimMutation(stale, householdId);
+    await claimMutation(fresh, householdId);
 
     // `appliedAt` is stamped from the wall clock at insert time (schema.ts's
-    // own `$defaultFn`, not the `lib/clock.ts` seam — that seam is for the
-    // fixed-cost plan's period reasoning, not row timestamps). Backdating the
-    // stale row directly is what makes the TTL boundary testable without
-    // waiting fourteen real days.
+    // own `$defaultFn`). Backdating the stale row directly is what makes the TTL
+    // boundary testable without waiting fourteen real days; the prune itself reads
+    // the module clock, here the `TestClock` set to the real "now".
     await db
       .update(mutationClaims)
       .set({ appliedAt: Date.now() - ttlMs - 60_000 })
       .where(eq(mutationClaims.id, stale));
 
-    const deleted = await pruneMutationClaims(db, ttlMs);
+    const deleted = await runTest(
+      Effect.gen(function* () {
+        yield* TestClock.setTime(Date.now());
+        return yield* FinanceMutationClaims.use((claims) => claims.pruneMutationClaims(ttlMs));
+      }),
+      { clock: "test" },
+    );
     expect(deleted).toBeGreaterThanOrEqual(1);
 
     const remainingIds = (await db.select({ id: mutationClaims.id }).from(mutationClaims)).map((row) => row.id);
     expect(remainingIds).not.toContain(stale);
     expect(remainingIds).toContain(fresh);
+  });
+
+  test("the boundary is strict: a claim exactly one TTL old stays, one millisecond older goes (the TestClock decides 'now')", async () => {
+    const owner = await createUser("Owner");
+    const householdId = await createHousehold(owner, "TTL-Grenze");
+    const ttlMs = 1_000;
+    // Far in the past of every real `appliedAt` (wall clock, ~1.7e12): the prune below can only touch the two backdated rows.
+    const edgeAt = 10_000;
+    const now = edgeAt + ttlMs;
+
+    const onEdge = crypto.randomUUID();
+    const pastEdge = crypto.randomUUID();
+    await claimMutation(onEdge, householdId);
+    await claimMutation(pastEdge, householdId);
+    await db.update(mutationClaims).set({ appliedAt: edgeAt }).where(eq(mutationClaims.id, onEdge));
+    await db.update(mutationClaims).set({ appliedAt: edgeAt - 1 }).where(eq(mutationClaims.id, pastEdge));
+
+    const dropped = async (at: number) =>
+      runTest(
+        Effect.gen(function* () {
+          yield* TestClock.setTime(at);
+          return yield* FinanceMutationClaims.use((claims) => claims.pruneMutationClaims(ttlMs));
+        }),
+        { clock: "test" },
+      );
+    await dropped(now);
+
+    const remainingIds = (await db.select({ id: mutationClaims.id }).from(mutationClaims)).map((row) => row.id);
+    expect(remainingIds).toContain(onEdge);
+    expect(remainingIds).not.toContain(pastEdge);
+  });
+});
+
+describe("checkOwnClaim — a foreign claim is a refusal", () => {
+  test("a claim of ANOTHER household fails with 409 conflict; an own claim and a won claim pass", async () => {
+    const owner = await createUser("Owner");
+    const householdA = await createHousehold(owner, "Fremd A");
+    const householdB = await createHousehold(owner, "Fremd B");
+    const mutationId = crypto.randomUUID();
+
+    const won = await claimMutation(mutationId, householdA);
+    const foreign = await claimMutation(mutationId, householdB);
+    const own = await claimMutation(mutationId, householdA);
+    expect(foreign.foreign).toBe(true);
+    expect(own.foreign).toBe(false);
+
+    await runTest(checkOwnClaim(won));
+    await runTest(checkOwnClaim(own));
+    const refusal = await runTest(Effect.flip(checkOwnClaim(foreign)));
+    expect(refusal._tag).toBe("Conflict");
+    expect(refusal.status).toBe(409);
+    expect(refusal.code).toBe("conflict");
+    expect(refusal.text).toBe("server.error.conflict");
   });
 });
 
@@ -261,14 +333,14 @@ describe("cross-household isolation", () => {
     const rowA = await createManualTransaction(owner, householdA, "In Haushalt A");
     const mutationId = crypto.randomUUID();
 
-    const claimA = await claimMutation(db, mutationId, householdA, rowA);
+    const claimA = await claimMutation(mutationId, householdA, rowA);
     // `mutation_claims.id` IS the client-minted `mutationId` and is the
     // table's PRIMARY KEY, full stop — it is not scoped per household. A
     // second household reusing the exact same id (an astronomically
     // unlikely UUID collision in practice) still hits the same row, so it
     // must not silently "win" a second time just because the household
     // differs.
-    const claimB = await claimMutation(db, mutationId, householdB, null);
+    const claimB = await claimMutation(mutationId, householdB, null);
 
     expect(claimA.claimed).toBe(true);
     expect(claimB.claimed).toBe(false);
