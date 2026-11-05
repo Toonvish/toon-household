@@ -23,107 +23,82 @@ import {
   PaginationQuerySchema,
 } from "@toon/shared";
 import { Effect } from "effect";
-import type { Hono } from "hono";
-import { created, json, noContent } from "../../lib/http.ts";
-import type { AppEnv } from "../../lib/types.ts";
-import { currentMembership, currentUser } from "../../lib/types.ts";
-import { requireHouseholdRole } from "../../middleware/household.ts";
-import { requireSession } from "../../middleware/session.ts";
-import { requireVerifiedEmail } from "../../middleware/verifiedEmail.ts";
+import { HttpApiBuilder } from "effect/http-api";
+import { CurrentMembership, CurrentUser } from "../../http/context.ts";
+import { UNINTERRUPTIBLE } from "../../http/middleware.ts";
+import { jsonBody, queryParams } from "../../http/request.ts";
+import { created, json, noContent } from "../../http/response.ts";
 import { INVITE_RULE, RateLimiter } from "../services/auth/rateLimit.ts";
 import { HouseholdInvites } from "../services/households/invites.service.ts";
-import { validate } from "../../lib/validate.ts";
-import { runtime } from "../../runtime.ts";
+import { HouseholdsApi } from "./households.api.ts";
 
 /* -------------------------------------------------------------------------- */
 /* invite tokens (registered first — see the header)                          */
 /* -------------------------------------------------------------------------- */
 
-export function registerInviteTokenRoutes(router: Hono<AppEnv>): void {
-  /** GET /api/households/invites/:token — public preview for the landing page. */
-  router.get("/invites/:token", (c) =>
-    runtime.runPromise(
-      Effect.gen(function* () {
-        const invites = yield* HouseholdInvites;
-        return json(c, yield* invites.previewInvite(c.req.param("token")));
-      }),
-    ),
-  );
-
-  /** POST /api/households/invites/accept — join the household behind a token. */
-  router.post(
-    "/invites/accept",
-    requireSession(),
-    validate("json", AcceptInviteRequestSchema),
-    (c) =>
-      runtime.runPromise(
-        Effect.gen(function* () {
-          const invites = yield* HouseholdInvites;
-          const user = yield* currentUser(c);
-          return json(c, yield* invites.acceptInvite(user.id, c.req.valid("json").token));
-        }),
-      ),
-  );
-}
-
 /* -------------------------------------------------------------------------- */
 /* invites of a household (admin+)                                            */
 /* -------------------------------------------------------------------------- */
 
-export function registerHouseholdInviteRoutes(router: Hono<AppEnv>): void {
-  /** GET /api/households/:householdId/invites */
-  router.get(
-    "/:householdId/invites",
-    requireSession(),
-    requireHouseholdRole("admin"),
-    validate("query", PaginationQuerySchema),
-    (c) =>
-      runtime.runPromise(
-        Effect.gen(function* () {
-          const invites = yield* HouseholdInvites;
-          const membership = yield* currentMembership(c);
-          return json(c, yield* invites.listInvites(membership.householdId, c.req.valid("query")));
-        }),
-      ),
-  );
-
-  /** POST /api/households/:householdId/invites — returns the shareable inviteUrl. */
-  router.post(
-    "/:householdId/invites",
-    requireSession(),
-    requireHouseholdRole("admin"),
-    requireVerifiedEmail(),
-    validate("json", CreateInviteRequestSchema),
-    (c) =>
-      runtime.runPromise(
-        Effect.gen(function* () {
-          const invites = yield* HouseholdInvites;
-          const rateLimiter = yield* RateLimiter;
-          const membership = yield* currentMembership(c);
-          const user = yield* currentUser(c);
-          const body = c.req.valid("json");
-          // Only the MAILING variant is metered (toon-finance 1715207) — a link-only invite
-          // sends nothing.
-          if (body.email !== undefined) yield* rateLimiter.enforce("invite-mail", user.id, INVITE_RULE);
-          const result = yield* invites.createInvite(membership.householdId, user.id, body);
-          return created(c, result);
-        }),
-      ),
-  );
-
-  /** DELETE /api/households/:householdId/invites/:inviteId */
-  router.delete(
-    "/:householdId/invites/:inviteId",
-    requireSession(),
-    requireHouseholdRole("admin"),
-    (c) =>
-      runtime.runPromise(
-        Effect.gen(function* () {
-          const invites = yield* HouseholdInvites;
-          const membership = yield* currentMembership(c);
-          yield* invites.revokeInvite(membership.householdId, c.req.param("inviteId"));
-          return noContent(c);
-        }),
-      ),
-  );
-}
+export const invitesHandlers = HttpApiBuilder.group(HouseholdsApi, "invites", (handlers) =>
+  handlers
+    /** GET /api/households/invites/:token — public preview for the landing page. */
+    .handle(
+      "getInvitesByToken",
+      Effect.fn("invites.getInvitesByToken")(function* ({ params }) {
+        const invites = yield* HouseholdInvites;
+        return json(yield* invites.previewInvite(params.token));
+      }),
+      UNINTERRUPTIBLE,
+    )
+    /** POST /api/households/invites/accept — join the household behind a token. */
+    .handle(
+      "postInvitesAccept",
+      Effect.fn("invites.postInvitesAccept")(function* () {
+        const body = yield* jsonBody(AcceptInviteRequestSchema);
+        const invites = yield* HouseholdInvites;
+        const user = yield* CurrentUser;
+        return json(yield* invites.acceptInvite(user.id, body.token));
+      }),
+      UNINTERRUPTIBLE,
+    )
+    /** GET /api/households/:householdId/invites */
+    .handle(
+      "getByHouseholdIdInvites",
+      Effect.fn("invites.getByHouseholdIdInvites")(function* () {
+        const query = yield* queryParams(PaginationQuerySchema);
+        const invites = yield* HouseholdInvites;
+        const membership = yield* CurrentMembership;
+        return json(yield* invites.listInvites(membership.householdId, query));
+      }),
+      UNINTERRUPTIBLE,
+    )
+    /** POST /api/households/:householdId/invites — returns the shareable inviteUrl. */
+    .handle(
+      "postByHouseholdIdInvites",
+      Effect.fn("invites.postByHouseholdIdInvites")(function* () {
+        const body = yield* jsonBody(CreateInviteRequestSchema);
+        const invites = yield* HouseholdInvites;
+        const rateLimiter = yield* RateLimiter;
+        const membership = yield* CurrentMembership;
+        const user = yield* CurrentUser;
+        // Only the MAILING variant is metered (toon-finance 1715207) — a link-only invite
+        // sends nothing.
+        if (body.email !== undefined) yield* rateLimiter.enforce("invite-mail", user.id, INVITE_RULE);
+        const result = yield* invites.createInvite(membership.householdId, user.id, body);
+        return created(result);
+      }),
+      UNINTERRUPTIBLE,
+    )
+    /** DELETE /api/households/:householdId/invites/:inviteId */
+    .handle(
+      "deleteByHouseholdIdInvitesByInviteId",
+      Effect.fn("invites.deleteByHouseholdIdInvitesByInviteId")(function* ({ params }) {
+        const invites = yield* HouseholdInvites;
+        const membership = yield* CurrentMembership;
+        yield* invites.revokeInvite(membership.householdId, params.inviteId);
+        return noContent();
+      }),
+      UNINTERRUPTIBLE,
+    ),
+);

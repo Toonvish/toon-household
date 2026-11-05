@@ -16,119 +16,92 @@ import {
   UpdatePlaceholderMemberRequestSchema,
 } from "@toon/shared";
 import { Effect } from "effect";
-import type { Hono } from "hono";
-import { created, json, noContent } from "../../lib/http.ts";
-import type { AppEnv } from "../../lib/types.ts";
-import { currentMembership } from "../../lib/types.ts";
-import { requireHouseholdRole } from "../../middleware/household.ts";
-import { requireSession } from "../../middleware/session.ts";
-import { requireVerifiedEmail } from "../../middleware/verifiedEmail.ts";
+import { HttpApiBuilder } from "effect/http-api";
+import { CurrentMembership } from "../../http/context.ts";
+import { UNINTERRUPTIBLE } from "../../http/middleware.ts";
+import { jsonBody } from "../../http/request.ts";
+import { created, json, noContent } from "../../http/response.ts";
 import { Households } from "../services/households/households.service.ts";
-import { validate } from "../../lib/validate.ts";
-import { runtime } from "../../runtime.ts";
+import { HouseholdsApi } from "./households.api.ts";
 
-export function registerMemberRoutes(router: Hono<AppEnv>): void {
-  /** GET /api/households/:householdId/members */
-  router.get("/:householdId/members", requireSession(), requireHouseholdRole("member"), (c) =>
-    runtime.runPromise(
-      Effect.gen(function* () {
+export const membersHandlers = HttpApiBuilder.group(HouseholdsApi, "members", (handlers) =>
+  handlers
+    /** GET /api/households/:householdId/members */
+    .handle(
+      "getByHouseholdIdMembers",
+      Effect.fn("members.getByHouseholdIdMembers")(function* () {
         const households = yield* Households;
-        const membership = yield* currentMembership(c);
-        return json(c, { items: yield* households.listMembers(membership.householdId) });
+        const membership = yield* CurrentMembership;
+        return json({ items: yield* households.listMembers(membership.householdId) });
       }),
-    ),
-  );
-
-  /**
-   * POST /api/households/:householdId/members — adds a PLACEHOLDER member by display name
-   * (ADR 0006 decision 2; toon-finance's route): role `member`, no e-mail, no password, `201
-   * { member }` with `hasAccount: false`. The account comes later through a claim invite
-   * (`POST …/invites { claimsUserId }`). No "household full" rule (D1).
-   */
-  router.post(
-    "/:householdId/members",
-    requireSession(),
-    requireHouseholdRole("admin"),
-    requireVerifiedEmail(),
-    validate("json", CreatePlaceholderMemberRequestSchema),
-    (c) =>
-      runtime.runPromise(
-        Effect.gen(function* () {
-          const households = yield* Households;
-          const membership = yield* currentMembership(c);
-          const member = yield* households.addPlaceholderMember(
-            membership.householdId,
-            c.req.valid("json").displayName,
-          );
-          return created(c, { member }, `/api/households/${membership.householdId}/members/${member.userId}`);
-        }),
-      ),
-  );
-
-  /**
-   * PATCH /api/households/:householdId/members/:userId/placeholder — renames a placeholder
-   * (ADR 0006 decision 3): `404` for a non-member, `409 member_has_account` for a member with
-   * an account (they name themselves).
-   */
-  router.patch(
-    "/:householdId/members/:userId/placeholder",
-    requireSession(),
-    requireHouseholdRole("admin"),
-    requireVerifiedEmail(),
-    validate("json", UpdatePlaceholderMemberRequestSchema),
-    (c) =>
-      runtime.runPromise(
-        Effect.gen(function* () {
-          const households = yield* Households;
-          const membership = yield* currentMembership(c);
-          const member = yield* households.renamePlaceholderMember(
-            membership.householdId,
-            c.req.param("userId"),
-            c.req.valid("json").name,
-          );
-          return json(c, { member });
-        }),
-      ),
-  );
-
-  /**
-   * PATCH /api/households/:householdId/members/:userId — role change / ownership transfer.
-   * A placeholder keeps `member`: `409 conflict` (`server.household.placeholderRole`).
-   */
-  router.patch(
-    "/:householdId/members/:userId",
-    requireSession(),
-    requireHouseholdRole("admin"),
-    validate("json", UpdateMemberRoleRequestSchema),
-    (c) =>
-      runtime.runPromise(
-        Effect.gen(function* () {
-          const households = yield* Households;
-          const membership = yield* currentMembership(c);
-          const member = yield* households.updateMemberRole(
-            membership,
-            c.req.param("userId"),
-            c.req.valid("json").role,
-          );
-          return json(c, { member });
-        }),
-      ),
-  );
-
-  /**
-   * DELETE /api/households/:householdId/members/:userId
-   * Admins remove others, everybody may remove themselves ("Gruppe verlassen"),
-   * which is why this route only requires `member` and delegates the rank rules
-   * to removeMember(). Removing a placeholder also deletes its user row (ADR 0006).
-   */
-  router.delete("/:householdId/members/:userId", requireSession(), requireHouseholdRole("member"), (c) =>
-    runtime.runPromise(
-      Effect.gen(function* () {
+      UNINTERRUPTIBLE,
+    )
+    /**
+     * POST /api/households/:householdId/members — adds a PLACEHOLDER member by display name
+     * (ADR 0006 decision 2; toon-finance's route): role `member`, no e-mail, no password, `201
+     * { member }` with `hasAccount: false`. The account comes later through a claim invite
+     * (`POST …/invites { claimsUserId }`). No "household full" rule (D1).
+     */
+    .handle(
+      "postByHouseholdIdMembers",
+      Effect.fn("members.postByHouseholdIdMembers")(function* () {
+        const body = yield* jsonBody(CreatePlaceholderMemberRequestSchema);
         const households = yield* Households;
-        const membership = yield* currentMembership(c);
-        yield* households.removeMember(membership, c.req.param("userId"));
-        return noContent(c);
+        const membership = yield* CurrentMembership;
+        const member = yield* households.addPlaceholderMember(membership.householdId, body.displayName);
+        return created({ member }, `/api/households/${membership.householdId}/members/${member.userId}`);
       }),
+      UNINTERRUPTIBLE,
+    )
+    /**
+     * PATCH /api/households/:householdId/members/:userId/placeholder — renames a placeholder
+     * (ADR 0006 decision 3): `404` for a non-member, `409 member_has_account` for a member with
+     * an account (they name themselves).
+     */
+    .handle(
+      "patchByHouseholdIdMembersByUserIdPlaceholder",
+      Effect.fn("members.patchByHouseholdIdMembersByUserIdPlaceholder")(function* ({ params }) {
+        const body = yield* jsonBody(UpdatePlaceholderMemberRequestSchema);
+        const households = yield* Households;
+        const membership = yield* CurrentMembership;
+        const member = yield* households.renamePlaceholderMember(
+          membership.householdId,
+          params.userId,
+          body.name,
+        );
+        return json({ member });
+      }),
+      UNINTERRUPTIBLE,
+    )
+    /**
+     * PATCH /api/households/:householdId/members/:userId — role change / ownership transfer.
+     * A placeholder keeps `member`: `409 conflict` (`server.household.placeholderRole`).
+     */
+    .handle(
+      "patchByHouseholdIdMembersByUserId",
+      Effect.fn("members.patchByHouseholdIdMembersByUserId")(function* ({ params }) {
+        const body = yield* jsonBody(UpdateMemberRoleRequestSchema);
+        const households = yield* Households;
+        const membership = yield* CurrentMembership;
+        const member = yield* households.updateMemberRole(membership, params.userId, body.role);
+        return json({ member });
+      }),
+      UNINTERRUPTIBLE,
+    )
+    /**
+     * DELETE /api/households/:householdId/members/:userId
+     * Admins remove others, everybody may remove themselves ("Gruppe verlassen"),
+     * which is why this route only requires `member` and delegates the rank rules
+     * to removeMember(). Removing a placeholder also deletes its user row (ADR 0006).
+     */
+    .handle(
+      "deleteByHouseholdIdMembersByUserId",
+      Effect.fn("members.deleteByHouseholdIdMembersByUserId")(function* ({ params }) {
+        const households = yield* Households;
+        const membership = yield* CurrentMembership;
+        yield* households.removeMember(membership, params.userId);
+        return noContent();
+      }),
+      UNINTERRUPTIBLE,
     ),
-  );
-}
+);

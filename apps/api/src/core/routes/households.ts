@@ -35,115 +35,94 @@ import {
   CreateHouseholdRequestSchema,
   UpdateHouseholdRequestSchema,
 } from "@toon/shared";
-import { Effect } from "effect";
-import { Hono } from "hono";
-import { created, json, noContent } from "../../lib/http.ts";
-import type { AppEnv } from "../../lib/types.ts";
-import { currentMembership, currentUser } from "../../lib/types.ts";
-import { requireHouseholdRole } from "../../middleware/household.ts";
-import { requireSession } from "../../middleware/session.ts";
-import { requireVerifiedEmail } from "../../middleware/verifiedEmail.ts";
+import { Effect, Layer } from "effect";
+import { HttpApiBuilder } from "effect/http-api";
+import { effectBridge } from "../../http/bridge.ts";
+import { CurrentMembership, CurrentUser } from "../../http/context.ts";
+import { UNINTERRUPTIBLE } from "../../http/middleware.ts";
+import { jsonBody } from "../../http/request.ts";
+import { created, json, noContent } from "../../http/response.ts";
 import { HOUSEHOLD_CREATE_RULE, RateLimiter } from "../services/auth/rateLimit.ts";
 import { Households } from "../services/households/households.service.ts";
-import { validate } from "../../lib/validate.ts";
-import { runtime } from "../../runtime.ts";
-import { registerHouseholdInviteRoutes, registerInviteTokenRoutes } from "./invites.ts";
-import { registerMemberRoutes } from "./members.ts";
-import { registerModuleRoutes } from "./modules.ts";
-
-export const householdRoutes = new Hono<AppEnv>();
+import { HouseholdsApi } from "./households.api.ts";
+import { invitesHandlers } from "./invites.ts";
+import { membersHandlers } from "./members.ts";
+import { modulesHandlers } from "./modules.ts";
 
 // Invite-token routes FIRST (D8): `/invites/...` must not be captured by `/:householdId`.
-registerInviteTokenRoutes(householdRoutes);
 
 /* -------------------------------------------------------------------------- */
 /* my households                                                              */
 /* -------------------------------------------------------------------------- */
 
-/** GET /api/households — every household of the caller incl. role + counts + modules. */
-householdRoutes.get("/", requireSession(), (c) =>
-  runtime.runPromise(
-    Effect.gen(function* () {
-      const households = yield* Households;
-      const user = yield* currentUser(c);
-      return json(c, { items: yield* households.listHouseholdsForUser(user.id) });
-    }),
-  ),
-);
-
-/** POST /api/households — the caller becomes owner and the household becomes active. */
-householdRoutes.post(
-  "/",
-  requireSession(),
-  requireVerifiedEmail(),
-  validate("json", CreateHouseholdRequestSchema),
-  (c) =>
-    runtime.runPromise(
-      Effect.gen(function* () {
+export const householdGroupHandlers = HttpApiBuilder.group(HouseholdsApi, "households", (handlers) =>
+  handlers
+    /** GET /api/households — every household of the caller incl. role + counts + modules. */
+    .handle(
+      "get",
+      Effect.fn("households.get")(function* () {
+        const households = yield* Households;
+        const user = yield* CurrentUser;
+        return json({ items: yield* households.listHouseholdsForUser(user.id) });
+      }),
+      UNINTERRUPTIBLE,
+    )
+    /** POST /api/households — the caller becomes owner and the household becomes active. */
+    .handle(
+      "post",
+      Effect.fn("households.post")(function* () {
+        const body = yield* jsonBody(CreateHouseholdRequestSchema);
         const households = yield* Households;
         const rateLimiter = yield* RateLimiter;
-        const user = yield* currentUser(c);
+        const user = yield* CurrentUser;
         yield* rateLimiter.enforce("household-create", user.id, HOUSEHOLD_CREATE_RULE);
-        const household = yield* households.createHousehold(user.id, c.req.valid("json"));
-        return created(c, { household }, `/api/households/${household.id}`);
+        const household = yield* households.createHousehold(user.id, body);
+        return created({ household }, `/api/households/${household.id}`);
       }),
-    ),
-);
-
-/* -------------------------------------------------------------------------- */
-/* one household                                                              */
-/* -------------------------------------------------------------------------- */
-
-/** GET /api/households/:householdId — household + members. */
-householdRoutes.get("/:householdId", requireSession(), requireHouseholdRole("member"), (c) =>
-  runtime.runPromise(
-    Effect.gen(function* () {
-      const households = yield* Households;
-      const membership = yield* currentMembership(c);
-      const [household, members] = yield* Effect.all(
-        [
-          households.getHouseholdWithRole(membership.householdId, membership.role),
-          households.listMembers(membership.householdId),
-        ],
-        { concurrency: "unbounded" },
-      );
-      return json(c, { household, members });
-    }),
-  ),
-);
-
-/** PATCH /api/households/:householdId — rename/describe (admin+). */
-householdRoutes.patch(
-  "/:householdId",
-  requireSession(),
-  requireHouseholdRole("admin"),
-  requireVerifiedEmail(),
-  validate("json", UpdateHouseholdRequestSchema),
-  (c) =>
-    runtime.runPromise(
-      Effect.gen(function* () {
+      UNINTERRUPTIBLE,
+    )
+    /* -------------------------------------------------------------------------- */
+    /* one household                                                              */
+    /* -------------------------------------------------------------------------- */
+    /** GET /api/households/:householdId — household + members. */
+    .handle(
+      "getByHouseholdId",
+      Effect.fn("households.getByHouseholdId")(function* () {
         const households = yield* Households;
-        const membership = yield* currentMembership(c);
-        const household = yield* households.updateHousehold(membership.householdId, membership.role, c.req.valid("json"));
-        return json(c, { household });
+        const membership = yield* CurrentMembership;
+        const [household, members] = yield* Effect.all(
+          [
+            households.getHouseholdWithRole(membership.householdId, membership.role),
+            households.listMembers(membership.householdId),
+          ],
+          { concurrency: "unbounded" },
+        );
+        return json({ household, members });
       }),
-    ),
-);
-
-/** DELETE /api/households/:householdId — owner only; all content cascades. */
-householdRoutes.delete(
-  "/:householdId",
-  requireSession(),
-  requireHouseholdRole("owner"),
-  requireVerifiedEmail(),
-  (c) =>
-    runtime.runPromise(
-      Effect.gen(function* () {
+      UNINTERRUPTIBLE,
+    )
+    /** PATCH /api/households/:householdId — rename/describe (admin+). */
+    .handle(
+      "patchByHouseholdId",
+      Effect.fn("households.patchByHouseholdId")(function* () {
+        const body = yield* jsonBody(UpdateHouseholdRequestSchema);
         const households = yield* Households;
-        const membership = yield* currentMembership(c);
+        const membership = yield* CurrentMembership;
+        const household = yield* households.updateHousehold(membership.householdId, membership.role, body);
+        return json({ household });
+      }),
+      UNINTERRUPTIBLE,
+    )
+    /** DELETE /api/households/:householdId — owner only; all content cascades. */
+    .handle(
+      "deleteByHouseholdId",
+      Effect.fn("households.deleteByHouseholdId")(function* () {
+        const households = yield* Households;
+        const membership = yield* CurrentMembership;
         yield* households.deleteHousehold(membership.householdId);
-        return noContent(c);
+        return noContent();
       }),
+      UNINTERRUPTIBLE,
     ),
 );
 
@@ -151,9 +130,13 @@ householdRoutes.delete(
 /* members and household invites (see members.ts / invites.ts)                */
 /* -------------------------------------------------------------------------- */
 
-registerMemberRoutes(householdRoutes);
-registerHouseholdInviteRoutes(householdRoutes);
+export const householdsHandlers = Layer.mergeAll(
+  invitesHandlers,
+  householdGroupHandlers,
+  membersHandlers,
+  modulesHandlers,
+);
 
-registerModuleRoutes(householdRoutes);
+export const householdRoutes = effectBridge(HouseholdsApi, householdsHandlers, "/api/households");
 
 export default householdRoutes;

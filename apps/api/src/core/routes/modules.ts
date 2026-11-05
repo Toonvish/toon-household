@@ -20,22 +20,20 @@
  */
 import { EnableModuleRequestSchema, isModuleId, type ModuleId } from "@toon/shared";
 import { Effect, Schema } from "effect";
-import type { Hono } from "hono";
+import { HttpServerRequest } from "effect/http";
+import { HttpApiBuilder } from "effect/http-api";
 import { NotFound, ValidationFailed } from "../../lib/errors.ts";
-import { json, noContent } from "../../lib/http.ts";
-import type { AppContext, AppEnv } from "../../lib/types.ts";
-import { currentMembership } from "../../lib/types.ts";
-import { requireHouseholdRole } from "../../middleware/household.ts";
-import { requireSession } from "../../middleware/session.ts";
-import { requireVerifiedEmail } from "../../middleware/verifiedEmail.ts";
+import { CurrentMembership } from "../../http/context.ts";
+import { UNINTERRUPTIBLE } from "../../http/middleware.ts";
+import { rawText } from "../../http/request.ts";
+import { json, noContent } from "../../http/response.ts";
+import { decode } from "../../lib/validate.ts";
 import { Households } from "../services/households/households.service.ts";
 import { HouseholdModules } from "../services/households/modules.ts";
-import { decode } from "../../lib/validate.ts";
-import { runtime } from "../../runtime.ts";
+import { HouseholdsApi } from "./households.api.ts";
 
 /** The `:moduleId` param as a `ModuleId`, or 404 `not_found`. */
-const moduleIdParam = Effect.fnUntraced(function* (c: AppContext): Effect.fn.Return<ModuleId, NotFound> {
-  const moduleId = c.req.param("moduleId");
+const moduleIdParam = Effect.fnUntraced(function* (moduleId: string | undefined): Effect.fn.Return<ModuleId, NotFound> {
   if (!moduleId || !isModuleId(moduleId)) return yield* new NotFound();
   return moduleId;
 });
@@ -44,10 +42,12 @@ const moduleIdParam = Effect.fnUntraced(function* (c: AppContext): Effect.fn.Ret
  * The optional JSON body. An empty body means `{}`; anything else goes through
  * `EnableModuleRequestSchema` and answers 422 `validation_failed` like every validate() here.
  */
-const enableBody = Effect.fnUntraced(function* (
-  c: AppContext,
-): Effect.fn.Return<{ settings?: Record<string, unknown> }, ValidationFailed | Schema.SchemaError> {
-  const text = yield* Effect.promise(() => c.req.text());
+const enableBody = Effect.fnUntraced(function* (): Effect.fn.Return<
+  { settings?: Record<string, unknown> },
+  ValidationFailed | Schema.SchemaError,
+  HttpServerRequest.HttpServerRequest
+> {
+  const text = yield* rawText;
   if (text.trim() === "") return {};
   const raw = yield* Effect.try({
     try: (): unknown => JSON.parse(text),
@@ -56,44 +56,34 @@ const enableBody = Effect.fnUntraced(function* (
   return yield* decode(EnableModuleRequestSchema, raw);
 });
 
-export function registerModuleRoutes(router: Hono<AppEnv>): void {
-  /** POST /api/households/:householdId/modules/:moduleId — enable (admin+, verified e-mail). */
-  router.post(
-    "/:householdId/modules/:moduleId",
-    requireSession(),
-    requireHouseholdRole("admin"),
-    requireVerifiedEmail(),
-    (c) =>
-      runtime.runPromise(
-        Effect.gen(function* () {
-          const households = yield* Households;
-          const modules = yield* HouseholdModules;
-          const membership = yield* currentMembership(c);
-          const moduleId = yield* moduleIdParam(c);
-          const { settings } = yield* enableBody(c);
-          yield* modules.enableModule(membership.householdId, moduleId, settings);
-          return json(c, {
-            household: yield* households.getHouseholdWithRole(membership.householdId, membership.role),
-          });
-        }),
-      ),
-  );
-
-  /** DELETE /api/households/:householdId/modules/:moduleId — disable (admin+, verified e-mail). */
-  router.delete(
-    "/:householdId/modules/:moduleId",
-    requireSession(),
-    requireHouseholdRole("admin"),
-    requireVerifiedEmail(),
-    (c) =>
-      runtime.runPromise(
-        Effect.gen(function* () {
-          const modules = yield* HouseholdModules;
-          const membership = yield* currentMembership(c);
-          const moduleId = yield* moduleIdParam(c);
-          yield* modules.disableModule(membership.householdId, moduleId);
-          return noContent(c);
-        }),
-      ),
-  );
-}
+export const modulesHandlers = HttpApiBuilder.group(HouseholdsApi, "modules", (handlers) =>
+  handlers
+    /** POST /api/households/:householdId/modules/:moduleId — enable (admin+, verified e-mail). */
+    .handle(
+      "postByHouseholdIdModulesByModuleId",
+      Effect.fn("modules.postByHouseholdIdModulesByModuleId")(function* ({ params }) {
+        const households = yield* Households;
+        const modules = yield* HouseholdModules;
+        const membership = yield* CurrentMembership;
+        const moduleId = yield* moduleIdParam(params.moduleId);
+        const { settings } = yield* enableBody();
+        yield* modules.enableModule(membership.householdId, moduleId, settings);
+        return json({
+          household: yield* households.getHouseholdWithRole(membership.householdId, membership.role),
+        });
+      }),
+      UNINTERRUPTIBLE,
+    )
+    /** DELETE /api/households/:householdId/modules/:moduleId — disable (admin+, verified e-mail). */
+    .handle(
+      "deleteByHouseholdIdModulesByModuleId",
+      Effect.fn("modules.deleteByHouseholdIdModulesByModuleId")(function* ({ params }) {
+        const modules = yield* HouseholdModules;
+        const membership = yield* CurrentMembership;
+        const moduleId = yield* moduleIdParam(params.moduleId);
+        yield* modules.disableModule(membership.householdId, moduleId);
+        return noContent();
+      }),
+      UNINTERRUPTIBLE,
+    ),
+);
