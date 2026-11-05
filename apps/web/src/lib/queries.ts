@@ -15,18 +15,8 @@
  */
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import type { ModuleId, PaginationQuery } from "@toon/shared";
-import {
-  fetchHealth,
-  fetchHousehold,
-  fetchHouseholdInvites,
-  fetchHouseholdMembers,
-  fetchHouseholds,
-  fetchInvitePreview,
-  fetchMe,
-  fetchOAuthProviders,
-  fetchSessions,
-  isApiError,
-} from "./api";
+import { CoreApi, isApiError } from "./api";
+import { runPromise } from "./runtime";
 
 /* -------------------------------------------------------------------------- */
 /* cache policy                                                               */
@@ -45,10 +35,11 @@ export const STALE_TIME = {
 
 /**
  * Retry policy: never retry a 4xx (the user must change something), retry
- * network/5xx twice with backoff.
+ * network/5xx twice with backoff. A response that does not match its schema is deterministic too,
+ * so it is not retried either (plan e6 P7a).
  */
 export function shouldRetry(failureCount: number, error: unknown): boolean {
-  if (isApiError(error) && error.isClientError) return false;
+  if (isApiError(error) && (error.isClientError || error.code === "invalid_response")) return false;
   return failureCount < 2;
 }
 
@@ -98,7 +89,7 @@ export const queryKeys = {
 export const healthQuery = () =>
   queryOptions({
     queryKey: queryKeys.health(),
-    queryFn: ({ signal }) => fetchHealth({ signal }),
+    queryFn: ({ signal }) => runPromise(CoreApi.fetchHealth(), { signal }),
     staleTime: STALE_TIME.list,
   });
 
@@ -108,7 +99,7 @@ export const meQuery = () =>
     queryKey: queryKeys.me(),
     queryFn: async ({ signal }) => {
       try {
-        return await fetchMe({ signal });
+        return await runPromise(CoreApi.fetchMe(), { signal });
       } catch (error) {
         if (isApiError(error) && error.isUnauthorized) return null;
         throw error;
@@ -122,7 +113,7 @@ export const meQuery = () =>
 export const sessionsQuery = () =>
   queryOptions({
     queryKey: queryKeys.sessions(),
-    queryFn: ({ signal }) => fetchSessions({ signal }),
+    queryFn: ({ signal }) => runPromise(CoreApi.fetchSessions(), { signal }),
     staleTime: STALE_TIME.list,
   });
 
@@ -134,21 +125,21 @@ export const sessionsQuery = () =>
 export const oauthProvidersQuery = () =>
   queryOptions({
     queryKey: queryKeys.oauthProviders(),
-    queryFn: ({ signal }) => fetchOAuthProviders({ signal }),
+    queryFn: ({ signal }) => runPromise(CoreApi.fetchOAuthProviders(), { signal }),
     staleTime: STALE_TIME.list,
   });
 
 export const householdsQuery = () =>
   queryOptions({
     queryKey: queryKeys.households(),
-    queryFn: ({ signal }) => fetchHouseholds({ signal }),
+    queryFn: ({ signal }) => runPromise(CoreApi.fetchHouseholds(), { signal }),
     staleTime: STALE_TIME.list,
   });
 
 export const invitePreviewQuery = (token: string) =>
   queryOptions({
     queryKey: queryKeys.invitePreview(token),
-    queryFn: ({ signal }) => fetchInvitePreview(token, { signal }),
+    queryFn: ({ signal }) => runPromise(CoreApi.fetchInvitePreview(token), { signal }),
     staleTime: STALE_TIME.detail,
     retry: false,
   });
@@ -156,21 +147,21 @@ export const invitePreviewQuery = (token: string) =>
 export const householdQuery = (householdId: string) =>
   queryOptions({
     queryKey: queryKeys.householdDetail(householdId),
-    queryFn: ({ signal }) => fetchHousehold(householdId, { signal }),
+    queryFn: ({ signal }) => runPromise(CoreApi.fetchHousehold(householdId), { signal }),
     staleTime: STALE_TIME.detail,
   });
 
 export const householdMembersQuery = (householdId: string) =>
   queryOptions({
     queryKey: queryKeys.householdMembers(householdId),
-    queryFn: ({ signal }) => fetchHouseholdMembers(householdId, { signal }),
+    queryFn: ({ signal }) => runPromise(CoreApi.fetchHouseholdMembers(householdId), { signal }),
     staleTime: STALE_TIME.list,
   });
 
 export const householdInvitesQuery = (householdId: string, query: Partial<PaginationQuery> = {}) =>
   queryOptions({
     queryKey: queryKeys.householdInvites(householdId, query),
-    queryFn: ({ signal }) => fetchHouseholdInvites(householdId, query, { signal }),
+    queryFn: ({ signal }) => runPromise(CoreApi.fetchHouseholdInvites(householdId, query), { signal }),
     staleTime: STALE_TIME.list,
   });
 
