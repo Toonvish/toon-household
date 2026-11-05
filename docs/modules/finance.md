@@ -85,9 +85,45 @@ request and response shapes is the finance section of `docs/API.md`.
 
 `requireFinanceParticipant()` (`apps/api/src/modules/finance/middleware.ts`) is a hoisted function declaration (an
 API import cycle, see `CLAUDE.md`) and sets a module-local `ContextVariableMap` entry; ported route bodies import
-`requireFinanceParticipantContext as requireHouseholdContext`, so they stay F's. The services mirror F's `services/` one
-to one under `apps/api/src/modules/finance/services/{ledger,categories,tags,plan}/`, plus `participants/` and `settings/`
-(replacing F's `households/` services) and `support.ts` (`withTransaction`, `escapeLikePattern`).
+`requireFinanceParticipantContext as requireHouseholdContext`, so they stay F's (since E4 the route files read the context
+through the service-free effect `currentFinanceParticipant` and the services through the runtime; the synchronous
+`requireFinanceParticipantContext` survives as a bridge for `apps/api/test/finance-participants.test.ts`, see below). The
+services mirror F's `services/` one to one under `apps/api/src/modules/finance/services/{ledger,categories,tags,plan}/`, plus
+`participants/`, `settings/` and `setup/` (replacing F's `households/` services) and `support.ts` (`withTransaction`, the
+Promise helper `apps/api/scripts/finance-import-xlsx.ts` keeps until E5, `escapeLikePattern`, the `DbLike` / `Tx` types).
+
+**Services (E4, `docs/plans/e4-finance-services.md`).** Every file that does I/O is a `Context.Service` with a static `layer`;
+the pure helpers (`services/categories/defaults.ts`, `services/plan/period-scan.ts`, `services/ledger/dateRange.ts`,
+`services/ledger/aggregateExclusion.ts`, `services/support.ts`, `lib/clock.ts`) stay plain modules. Method names are the old
+exported function names without the leading `db` argument; every handler of `routes/*.ts` is a `(c) =>
+runtime.runPromise(Effect.gen(...))` over them and a refusal is `return yield*` a member of the API error family (a dedicated
+code is an `ApiFailure`, F gotcha 48). The manifest is an `ApiModule<FinanceServices>`; its `layer` is
+`Layer.suspend(financeLayer)` (`apps/api/src/modules/finance/layer.ts`), the areas nested by dependency (`setup` and `plan` over
+`ledger` over `participants` and `categories`), merged by the runtime into the one `AppLayer`.
+
+| Area (`services/…`) | Services (file) |
+| --- | --- |
+| `participants/` | `FinanceParticipants` (`participants.service.ts`: the seats, `assignParticipants`, `assertParticipantMayLeave`, the display names), `FinanceSettings` (`../settings/settings.service.ts`: `finance_settings`) |
+| `categories/` | `FinanceCategories` (`categories.service.ts`), `FinanceTags` (`../tags/tags.service.ts`), `FinanceMutationClaims` (`../ledger/idempotency.ts`: the `mutationId` claims) |
+| `ledger/` | `FinanceBalance` (`balance.service.ts`), `FinanceTransactions` (`transactions.service.ts`), `FinanceSummary` (`summary.service.ts`), `FinanceSettlements` (`settlements.service.ts`) |
+| `plan/` | `FinancePlan` (`plan.service.ts`: the plan row, items, incomes, `isPeriodBooked`), `FinanceAccrual` (`accrual.service.ts`: `runCatchUp`, `runPlanNow`, `recalculatePlan`) |
+| `setup/` | `FinanceSetup` (`apps/api/src/modules/finance/setup.ts`: the three household hooks' programs) |
+
+`apps/api/src/modules/finance/services/plan/scheduler.ts` is not a service: it holds the process's one tick fiber
+(`startAccrualSchedule`, `stopAccrualSchedule`). The area composition functions are `services/*/layer.ts`.
+
+**Legacy bridges (until E5 and E8).** Nine Promise or synchronous bridges survive with the OLD name and signature for callers
+outside the converted set (the scripts of E5, the pinned tests of E8), every one through `runFinanceBridge`
+(`apps/api/src/modules/finance/bridge.ts`), which builds the services over the executor it is handed and never imports
+`apps/api/src/runtime.ts` (`apps/api/scripts/legacy/balance.ts` runs inside `migrate:legacy`):
+`runCatchUp` (`accrual.service.ts`; `apps/api/scripts/plan-run.ts`, `apps/api/test/finance-security.test.ts`), `getBalance`
+(`balance.service.ts`; `apps/api/scripts/legacy/balance.ts`, `apps/api/test/legacy-finance.test.ts`), `slot1UserId`,
+`requireOtherMemberId` (`participants.service.ts`), `categoryIdBySlug` (`categories.service.ts`) and `syncTransactionTags`
+(`tags.service.ts`) (the last four for `apps/api/scripts/finance-import-xlsx.ts`), `assignParticipants` and
+`updateParticipantDisplayName` (`participants.service.ts`; `apps/api/test/finance-module.test.ts`), and the synchronous
+`requireFinanceParticipantContext` (`middleware.ts`; `apps/api/test/finance-participants.test.ts`). A bridge rejects with a
+`DatabaseError`'s `cause` (the raw driver error the old function threw: `plan-run.ts` prints its message) and with a family
+refusal unchanged. ADR 0014 ("Status after E4's integration") lists them with their removal milestones.
 
 Finance error codes (all in the core `ERROR_CODES` of `packages/shared/src/core/schemas/common.ts`, wire contract, never
 renamed): from F `transaction_amount_zero`, `transaction_generated`, `balance_stale`, `settlement_amount_invalid`,
@@ -99,14 +135,21 @@ renamed): from F `transaction_amount_zero`, `transaction_generated`, `balance_st
 
 | Hook | What finance does |
 | --- | --- |
-| `onHouseholdCreated(householdId, tx)` | `onFinanceHouseholdCreated` in `apps/api/src/modules/finance/setup.ts`: the 21 default categories and the `finance_settings` row (`default_locale` = the creator's `users.locale` if `de` or `en`, else `env.defaultLocale`), on EVERY new household, finance enabled or not. |
-| `onEnable(householdId, settings, tx)` | `onFinanceEnable`: seats the two users from the enable settings (`{ participants: [{ userId, memberSlot: 1 }, { userId, memberSlot: 2 }] }`) or, on a re-enable without a body, requires the two existing rows, else `422 finance_participants_required` and nothing is written; then `ensureFinanceHousehold` (categories if missing, the settings row, the plan row `enabled: false`, payer = slot 1, `start_period` = the current period from the module clock). Runs BEFORE the core writes the `household_modules` row. |
-| `onMemberRemoving(householdId, userId, tx)` | `assertParticipantMayLeave`: the veto and the seat release of ADR 0004 (section 4a). Called by the core's `removeMember` for every build module, enabled or not. |
-| `start()` | Awaits the boot catch-up of the fixed-cost plan (`runBootCatchUp`) and starts the 6-hour accrual tick. Runs once from `apps/api/src/index.ts` after the database is ready, never under `bun test`. |
-| `shutdown()` | Stops the accrual tick. |
-| `seedDemo(ctx)` | `apps/api/src/modules/finance/seed.ts`: `robin@toon.local` in slot 2 and `kim@toon.local` as a member without a seat (both with the demo password), about eight transactions covering the four kinds, one settlement, the fixed-cost items, both incomes, the plan enabled from two periods ago and one catch-up run. Idempotent; written through the services. |
+| `onHouseholdCreated(householdId)` | `FinanceSetup.onFinanceHouseholdCreated` in `apps/api/src/modules/finance/setup.ts`: the 21 default categories and the `finance_settings` row (`default_locale` = the creator's `users.locale` if `de` or `en`, else `env.defaultLocale`), on EVERY new household, finance enabled or not. |
+| `onEnable(householdId, settings)` | `FinanceSetup.onFinanceEnable`: seats the two users from the enable settings (`{ participants: [{ userId, memberSlot: 1 }, { userId, memberSlot: 2 }] }`) or, on a re-enable without a body, requires the two existing rows, else `422 finance_participants_required` and nothing is written; then `ensureFinanceHousehold` (categories if missing, the settings row, the plan row `enabled: false`, payer = slot 1, `start_period` = the current period from the module clock). Runs BEFORE the core writes the `household_modules` row. |
+| `onMemberRemoving(householdId, userId)` | `FinanceParticipants.assertParticipantMayLeave`: the veto and the seat release of ADR 0004 (section 4a). Called by the core's `removeMember` for every build module, enabled or not. |
+| `start()` | `startAccrualSchedule` (`apps/api/src/modules/finance/services/plan/scheduler.ts`): awaits the boot catch-up of the fixed-cost plan (`FinanceAccrual.runCatchUp` per finance household, trigger `boot`) and forks the 6-hour tick on `Schedule.spaced("6 hours")`. Requires `Database`. Runs once from `apps/api/src/index.ts` after the database is ready, never under `bun test`. |
+| `shutdown()` | `stopAccrualSchedule`: interrupts the tick fiber (before the runtime is disposed). |
+| `seedDemo(ctx)` | `apps/api/src/modules/finance/seed.ts` (the enable goes through the core `HouseholdModules` service): `robin@toon.local` in slot 2 and `kim@toon.local` as a member without a seat (both with the demo password), about eight transactions covering the four kinds, one settlement, the fixed-cost items, both incomes, the plan enabled from two periods ago and one catch-up run. Idempotent; written through the services. |
 
-The module clock is `apps/api/src/modules/finance/lib/clock.ts` (`nowMs()`, `setClockForTest`); see section 4a.
+Every hook is an Effect over `Database` only (the contract of `docs/SPEC.md` section 2), so each manifest entry wraps its program in
+`withFinanceServices` (`apps/api/src/modules/finance/layer.ts`): the finance services are built over the CURRENT `Database` of the
+calling fiber (the core's open transaction for a hook) with a local memo map, which keeps the hooks, the bridges and the scheduler
+off the runtime's memoized copies and lets `runModuleHook` run them outside the runtime (`apps/api/scripts/seed.ts`). The module
+has no `uploadReferences`, `afterMigrate` or `healthFeatures`.
+
+The module clock is `apps/api/src/modules/finance/lib/clock.ts` (`financeTimeMillis`, `setClockForTest`, the synchronous
+`nowMs()` for the test harness); see section 4a.
 
 ### 1.5 Shared package
 
@@ -410,8 +453,8 @@ pointer to this section for the leaving rule and the greps.
 - **A seated participant cannot leave while the ledger has rows.** `removeMember`
   (`apps/api/src/core/services/households/households.service.ts`) runs every build module's `onMemberRemoving(householdId,
   userId, tx)` before deleting the membership, whether or not the module is enabled for the household (rows outlive a
-  disable). Finance's hook (`assertParticipantMayLeave` in
-  `apps/api/src/modules/finance/services/participants/participants.service.ts`) answers `409 member_has_ledger`
+  disable). Finance's hook (`FinanceParticipants.assertParticipantMayLeave` in
+  `apps/api/src/modules/finance/services/participants/participants.service.ts`, an Effect run through `withFinanceServices`) answers `409 member_has_ledger`
   (`server.household.memberHasLedger`, toon-finance's text) when the leaver holds a slot and the household has ANY
   `finance_transactions` row or an income naming them (same predicate as the `finance_participant_in_use` replacement rule:
   every row involves both slots). Without a seat, leaving is allowed; a seated leaver with an empty ledger leaves too and the
@@ -423,7 +466,8 @@ pointer to this section for the leaving rule and the greps.
 - **Plan payer and income person must be participants (M4-T01, finding B).** `PATCH .../finance/plan { payerId }` and the
   income create/update routes answer `422 validation_failed` with a field detail on `payerId` / `personId` and
   `server.finance.personNotParticipant` unless the id is one of the household's `finance_participants`; the check lives in
-  the plan SERVICE (`apps/api/src/modules/finance/services/plan/plan.service.ts`, toon-finance gotcha 48), never in the route.
+  the plan SERVICE (`FinancePlan` in `apps/api/src/modules/finance/services/plan/plan.service.ts`, toon-finance gotcha 48, refused with
+`ValidationFailed`), never in the route.
   Switching the plan on (`enabled: true`) checks the stored payer too (F gotcha 68).
 - **Enabling finance needs two participants (D3).** `onEnable` seats the two users from the enable POST's `settings`
   (`{ participants: [{ userId, memberSlot: 1 }, { userId, memberSlot: 2 }] }`) or, on a re-enable without a body, requires
@@ -455,17 +499,25 @@ pointer to this section for the leaving rule and the greps.
   them, ADR 0004; the plan payer and income person are checked against the participants, see the gotcha "Plan payer and
   income person must be participants" above), `PATCH .../participants/me` edits the own display name.
   `requireFinanceParticipant` (`apps/api/src/modules/finance/middleware.ts`) is a hoisted function declaration (API import
-  cycle, see `CLAUDE.md`) and its context lives in a module-local `ContextVariableMap` augmentation. The web gate is the
+  cycle, see `CLAUDE.md`); it does its work as ONE `await runtime.runPromise(...)` before `await next()` (the effect asks
+  `FinanceParticipants.participantSlotOf` and refuses with the family's `ApiFailure`), and its context lives in a module-local
+  `ContextVariableMap` augmentation, read by the routes through `currentFinanceParticipant`. The web gate is the
   pathless `participant-gate` route under `/finance` (`FinanceGate` renders `NonParticipantState` instead of the outlet);
   Home's finance card shows the one-line state and never fires the ledger queries for a non-participant (the headless run saw
   zero 4xx for kim). `participants` is in the persist allow-list: a cold offline start must know the viewer's slot.
 - **The `start` hook and the clock.** `ApiModule.start` runs once in `apps/api/src/index.ts` after `await dbReady`, never
-  under `bun test`; finance awaits the boot catch-up of the fixed-cost plan and starts the 6-hour accrual tick, `shutdown`
-  stops it. Every finance timestamp and the plan's `start_period` come from the module clock
-  `apps/api/src/modules/finance/lib/clock.ts` (`nowMs()`, `setClockForTest`), never `Date.now()` and never the core
-  `apps/api/src/core/services/households/support.ts` `nowMs`: toon-finance's plan tests pin the clock before creating the
-  household and expect the plan to start in that period. A test that pins the clock hands it back with
-  `setClockForTest(null)` in `afterAll` (F gotcha 4: never `mock.module`).
+  under `bun test`; finance's `startAccrualSchedule` (`apps/api/src/modules/finance/services/plan/scheduler.ts`) awaits the boot
+  catch-up of the fixed-cost plan and forks the 6-hour tick (`Effect.schedule(tick, Schedule.spaced("6 hours"))`: `Effect.schedule`
+  steps the schedule BEFORE the first run, so the first interval run comes six hours after the start, as `setInterval` did;
+  `Effect.repeat` would run at once), `stopAccrualSchedule` interrupts it. A failed tick logs `[plan] interval catch-up failed:`
+  and the schedule goes on. Every finance timestamp and the plan's `start_period` come from the module clock
+  `apps/api/src/modules/finance/lib/clock.ts`: the Effect `financeTimeMillis` (the `setClockForTest` override, else the fiber's
+  `Clock`, read on every run), never `Date.now()` and never a core helper (the core `nowMs` is deleted; idioms rule (11)). The
+  synchronous `nowMs()` survives for the harness. toon-finance's plan tests pin the clock before creating the household and expect
+  the plan to start in that period: a test that does hands it back with `setClockForTest(null)` in `afterAll` (F gotcha 4: never
+  `mock.module`); a test of the scheduler advances a `TestClock` instead (`apps/api/test/finance-scheduler.test.ts`: no
+  `interval` run before +6 h, the next period booked at +6 h, the boot catch-up books the two fixture rows of 51400 ct at the M6
+  moment). On a real boot the fixtures book three rows from 2026-11 on (the rehearsal's date was earlier).
 - **`settingsSections` are rendered.** `SettingsPage` (`apps/web/src/core/features/settings/SettingsPage.tsx`) renders each
   enabled module's `settingsSections` after the core sections (finance: `ParticipantsSection`, owners and admins change the
   two slots, a participant edits their own display name). `EnableFinanceDialog` and `ParticipantsSection` are static manifest
@@ -543,13 +595,13 @@ the row only says where it lives in H.
 | F1 | The connection PRAGMAs in `db/client.ts` are load-bearing and `synchronous` is sent per connection: WAL + `synchronous = FULL` for a ledger | core | SPEC D7: `apps/api/src/db/client.ts`, pinned by `apps/api/test/db-pragmas.test.ts`; H sends FULL for the whole database (recipe's `NORMAL` lost). |
 | F2 | `bun test` runs on a fresh temp file database (`TEST_DATABASE_URL` or a per-process temp file), never `file::memory:`, so `withTransaction` sees real transactions | module | Holds again since M7-T02 (GO): ADR 0009 (`docs/adr/0009-test-suite-on-a-temp-file-db.md`) supersedes ADR 0003, the M3 deviation with the shared memory database. Under `NODE_ENV=test` `apps/api/src/env.ts` picks `TEST_DATABASE_URL` or a fresh temp file per process; `transactionsSupported` (`apps/api/src/modules/finance/services/support.ts`) degrades only for an explicit `file::memory:`; `apps/api/test/finance-file-db.test.ts` case (d) proves rollback on the shared client. |
 | F3 | `apps/api/tsconfig.json` includes `test/**`, never `tests/` | core | Tests live in `apps/api/test/`; a `tests/` directory beside `src/` would be invisible to `bun run typecheck`, so none is created. |
-| F4 | `mock.module` leaks across test files and Bun never restores it; use an explicit setter seam handed back in `afterAll` | core | `setClockForTest` (`apps/api/src/modules/finance/lib/clock.ts`), `setMailer`, `setVerifiedEmailRequired`; never `mock.module`. |
+| F4 | `mock.module` leaks across test files and Bun never restores it; use an explicit setter seam handed back in `afterAll` | core | `setClockForTest` (`apps/api/src/modules/finance/lib/clock.ts`; a `TestClock` for the scheduler), `setMailer`, `setVerifiedEmailRequired`; never `mock.module`. |
 | F5 | Vite needs `envDir: "../../"` and `envPrefix: ["VITE_","PUBLIC_"]` | core | `apps/web/vite.config.ts`. |
 | F6 | No `baseUrl` in tsconfig (removed in TypeScript 7); `paths` resolve per tsconfig and repeat per workspace | core | The tsconfig files of the three workspaces. |
 | F7 | `setMutationDefaults` instead of an inline `useMutation`: a restored mutation has its variables but no function, so the defaults must exist before the persister restores | module | `registerTransactionMutationDefaults` (`apps/web/src/modules/finance/features/transactions/lib/offline.ts`) is the manifest's `mutationDefaults`, called from `apps/web/src/app.tsx` before restore; the query client is module-scope in `apps/web/src/lib/query-client.ts`. |
 | F8 | `networkMode: "offlineFirst"` on the mutation and on the ledger reads, or a failed write fails instead of pausing and a cold offline start hangs in `pending` | module | The finance query options in `apps/web/src/modules/finance/lib/queries.ts` and the feature `lib/queries.ts` files. |
 | F9 | `shouldPersistMutation` persists ONLY paused mutations of a small allow-list; plan, category and auth mutations stay out | adapted | SPEC D9: `persistMutationNamespaces: [["finance","tx"]]` in the manifest, assembled by `apps/web/src/lib/persist.ts`; the namespace is `["toon","finance","tx"]`. |
-| F10 | The `mutationId` is minted AT THE CALL SITE; the server claim is an INSERT on the primary key with `onConflictDoNothing`; the second call answers 200 with the current state | module | `apps/api/src/modules/finance/services/ledger/idempotency.ts`, `transactions.service.ts`, `settlements.service.ts`; section 1.9. |
+| F10 | The `mutationId` is minted AT THE CALL SITE; the server claim is an INSERT on the primary key with `onConflictDoNothing`; the second call answers 200 with the current state | module | `FinanceMutationClaims` (`apps/api/src/modules/finance/services/ledger/idempotency.ts`), `FinanceTransactions` (`transactions.service.ts`), `FinanceSettlements` (`settlements.service.ts`); section 1.9. |
 | F11 | `/api` never goes into a caching `runtimeCaching` rule and `navigateFallbackDenylist: [/^\/api\//]` stays: the offline copy of the ledger is the persisted TanStack cache | adapted | The one finance service-worker rule is `NetworkOnly`, before the recipe `NetworkFirst` rule (`apps/web/vite.config.ts`); section 1.7. |
 | F12 | `skipWaiting` stays off; `lib/pwa.ts` owns the swap with one guarded reload and no fallback timer | core | `apps/web/src/lib/pwa.ts`, `apps/web/vite.config.ts`. |
 | F13 | The persisted cache is namespaced per user id, read at every call, purged on account switch; logout cleans in `onSettled` | core | `apps/web/src/lib/persist.ts`, `apps/web/src/lib/session.tsx`, `apps/web/src/lib/session-purge.test.ts`. |
@@ -574,26 +626,26 @@ the row only says where it lives in H.
 | F32 | `halfForOther(-101)` must be `-50`, not `-51`: the odd cent belongs to the payer in both sign directions | module | `packages/shared/src/modules/finance/money.ts`, `packages/shared/test/finance-money.test.ts`; section 1.9. |
 | F33 | Halve per transaction, not the sum (22 cents on the imported stock, reported by the importer) | module | `packages/shared/src/modules/finance/ledger.ts`; section 1.9. |
 | F34 | The plan rounds exactly once and only the other person's share; the payer's share is the complement; the quote travels as a fraction | module | `packages/shared/src/modules/finance/plan.ts`; section 1.9. |
-| F35 | The catch-up computes historically and never books the future; `bookableCents === 0` writes no row | module | `apps/api/src/modules/finance/services/plan/accrual.service.ts`, `period-scan.ts`; section 1.9. |
-| F36 | Booked periods are immutable; a retroactive change is an adjustment row with `external_key = fixedplan-adj:{hh}:{p}:{bookedCents}` | module | `accrual.service.ts` (`recalculatePlan`); section 1.9. |
-| F37 | `expectedBalanceCents` is required on `POST .../settlements`; a mismatch is `409 balance_stale` with the current value; over- and part-payment are allowed and named | module | `apps/api/src/modules/finance/services/ledger/settlements.service.ts`; section 1.9. |
+| F35 | The catch-up computes historically and never books the future; `bookableCents === 0` writes no row | module | `FinanceAccrual` (`apps/api/src/modules/finance/services/plan/accrual.service.ts`), `period-scan.ts`; section 1.9. |
+| F36 | Booked periods are immutable; a retroactive change is an adjustment row with `external_key = fixedplan-adj:{hh}:{p}:{bookedCents}` | module | `FinanceAccrual.recalculatePlan` (`accrual.service.ts`); section 1.9. |
+| F37 | `expectedBalanceCents` is required on `POST .../settlements`; a mismatch is `409 balance_stale` with the current value; over- and part-payment are allowed and named | module | `FinanceSettlements.createSettlement` (`apps/api/src/modules/finance/services/ledger/settlements.service.ts`; an `ApiFailure` with `details: { currentBalanceCents }`); section 1.9. |
 | F38 | `origin` is the line between the app and the human (plan operations never touch `manual` rows, `PATCH`/`DELETE` on generated rows are `409 transaction_generated`); no drizzle default | module | `apps/api/src/modules/finance/schema.ts`, `transactions.service.ts`; section 4a ("Finance TS identifiers..."). |
 | F39 | The balance has a sign convention and the UI never shows a raw sign: three catalog keys | module | `packages/shared/src/modules/finance/schemas/balance.ts` (`viewerBalanceCents`), `BalanceHero`, `HomeCard.tsx`; section 1.9. |
 | F40 | `SETTLEMENT` and `OTHER_ONLY` calculate identically; `isExpense` is the one predicate that excludes settlements from reports | module | `packages/shared/src/modules/finance/ledger.ts`, `apps/api/src/modules/finance/services/ledger/aggregateExclusion.ts`. |
 | F41 | Excel's `SUM` skips text cells: `H79` is the string "31,47", the importer recovers it, the balance is 31.47 EUR above `K21`, and the row is named in the report | module | `apps/api/scripts/finance-import-xlsx.ts` (`--excel-text-quirk`, 25 cent tolerance); ledger-spec §1.4 and §6.7. |
 | F42 | The server writes row text in the household's default locale, never the request's; a stored value is never re-translated on read | adapted | `finance_settings.default_locale` replaces `households.default_locale` (HD5); section 1.9. |
 | F43 | Ops output is always English and never goes through the catalog: `console.*`, env validation, every CLI script, `Error.message`, `accrual_runs.error` | core | The scripts under `apps/api/scripts/`; `finance:import-xlsx` prints English. |
-| F44 | "Diff against the booked amount" means against the EFFECTIVE amount (original plus earlier adjustments), or a second correction is swallowed | module | `accrual.service.ts` (`recalculatePlan`), `apps/api/test/finance-plan.test.ts` ("a SECOND retroactive correction"); section 1.9. |
-| F45 | `lastBookedPeriod` never advances over a period skipped for lack of data | module | `accrual.service.ts`; section 1.9. |
-| F46 | A different `external_key` namespace (`fixedplan:*` vs `xlsx:rent:*`) does NOT prevent a double booking: the loop and `PATCH .../plan { startPeriod }` check `(household_id, plan_period)` explicitly | module | `isPeriodBooked` in `apps/api/src/modules/finance/services/plan/plan.service.ts`; `409 plan_period_locked`; section 1.9. |
+| F44 | "Diff against the booked amount" means against the EFFECTIVE amount (original plus earlier adjustments), or a second correction is swallowed | module | `FinanceAccrual.recalculatePlan` (`accrual.service.ts`), `apps/api/test/finance-plan.test.ts` ("a SECOND retroactive correction"); section 1.9. |
+| F45 | `lastBookedPeriod` never advances over a period skipped for lack of data | module | `FinanceAccrual` (`accrual.service.ts`); section 1.9. |
+| F46 | A different `external_key` namespace (`fixedplan:*` vs `xlsx:rent:*`) does NOT prevent a double booking: the loop and `PATCH .../plan { startPeriod }` check `(household_id, plan_period)` explicitly | module | `FinancePlan.isPeriodBooked` in `apps/api/src/modules/finance/services/plan/plan.service.ts`; `409 plan_period_locked`; section 1.9. |
 | F47 | An idempotency check that mirrors a composite unique index filters on ALL its columns | module | The importer's pre-select in `apps/api/scripts/finance-import-xlsx.ts` filters on household and key; `apps/api/test/finance-import-xlsx.test.ts`. |
-| F48 | A Zod `.refine()` cannot carry its own error code (every `ZodError` is `422 validation_failed`): a dedicated code is an explicit `throw new ApiError` in the service | module | `participants.service.ts`, `plan.service.ts`, `settlements.service.ts`; section 4a. |
+| F48 | A Zod `.refine()` cannot carry its own error code (every `ZodError` is `422 validation_failed`): a dedicated code is an explicit refusal in the service (`return yield* new ApiFailure({ status, code, text })`; a `throw new ApiError` before E4) | module | `FinanceParticipants`, `FinancePlan`, `FinanceSettlements`; section 4a. |
 | F49 | `R8` is a SUM cell: its value is the total, its `formula` holds the six amounts; the parser splits the formula, not the cache | module | `parseFixedCostFormulaCents` in `apps/api/scripts/finance-import-xlsx.ts`. |
 | F50 | `PUBLIC_API_URL` MUST be empty, also in development: an absolute value makes cross-origin requests that the CSP blocks and fakes a server outage | core | `Dockerfile` ends its web build in a `grep` for `localhost:3001`; `apps/web/src/lib/api.ts` falls back to `""` in production; ADR 0007 consequence. |
 | F51 | Drizzle wraps every query error; `isUniqueViolation` walks the `cause` chain | core | `apps/api/src/core/services/auth/users.ts`; section 4a. |
 | F52 | Query keys that only LOOK hierarchical: TanStack matches per array element, so `invalidateAfterLedgerMutation` lists the neighbours (`transaction-summary`, `balance-history`) | module | `apps/web/src/modules/finance/lib/queries.ts`, `apps/web/src/modules/finance/lib/queries.test.ts` pins the fan-out. |
 | F53 | An optimistic delete needs `onError`; an optimistic create is limited to the unfiltered first page; a delete removes the detail cache | module | `apps/web/src/modules/finance/features/transactions/lib/offline.ts`. |
-| F54 | A zero-share period writes no row but still advances `lastBookedPeriod`, so the recalculation candidate set is "periods with a plan row union `[startPeriod, lastBookedPeriod]`" | module | `accrual.service.ts`; section 1.9. |
+| F54 | A zero-share period writes no row but still advances `lastBookedPeriod`, so the recalculation candidate set is "periods with a plan row union `[startPeriod, lastBookedPeriod]`" | module | `FinanceAccrual` (`accrual.service.ts`); section 1.9. |
 | F55 | An accepted invite token stops being a capability (redeemable only by the account that accepted it) | core | `apps/api/src/core/services/households/invites.service.ts`. |
 | F56 | The row order in the workbook is NOT chronological, not even by month: measure date fixes against the real corpus | module | `apps/api/scripts/finance-import/dates.ts`. |
 | F57 | `cn()` is plain `clsx`, no `tailwind-merge`: a colour surface is swapped through a primitive variant, never overridden by `className` | core | `apps/web/src/lib/cn.ts`; extend the primitive in `apps/web/src/components/ui/` instead. |
@@ -610,9 +662,9 @@ the row only says where it lives in H.
 | F68 | The plan names only members: `payerId` and `personId` are checked (and enabling checks the stored payer) | adapted | The check is against `finance_participants` (a non-participant member is refused too): section 4a ("Plan payer and income person..."), `server.finance.personNotParticipant`. |
 | F69 | Leaving: slot 1 stays while slot 2 sits (`anchorCannotLeave`); the payer of an active plan stays; the leaver's incomes are deleted | superseded | ADR 0004 and ADR 0007: any seated leaver is vetoed while the ledger has rows; an empty-ledger leaver's seat is deleted and a slot-2 survivor re-seated in slot 1 (section 4a, first gotcha). |
 | F70 | `PeriodSchema` is bounded `2000-01` to `2100-12` (a `0001-01` start would book ~24 000 periods at boot) | module | `packages/shared/src/modules/finance/schemas/common.ts` (`MIN_PERIOD`, `MAX_PERIOD`). |
-| F71 | LIKE metacharacters are escaped (`escapeLikePattern` with `ESCAPE '\'`); `tags` at most 20 per booking, `tagIds` at most 10, `q` at most 100 | module | `apps/api/src/modules/finance/services/support.ts`, the transactions and tags services, `packages/shared/src/modules/finance/schemas/transactions.ts`. |
+| F71 | LIKE metacharacters are escaped (`escapeLikePattern` with `ESCAPE '\'`); `tags` at most 20 per booking, `tagIds` at most 10, `q` at most 100 | module | `escapeLikePattern` in `apps/api/src/modules/finance/services/support.ts`, `FinanceTransactions` and `FinanceTags`, `packages/shared/src/modules/finance/schemas/transactions.ts`. |
 | F72 | `claimPlaceholderUser` is one conditional UPDATE (`WHERE password_hash IS NULL ... RETURNING`), never check-then-write | core | ADR 0006: `apps/api/src/core/services/auth/users.ts`, `apps/api/src/core/services/auth/invites.ts`. |
-| F73 | Idempotency read paths filter on `household_id` (`peekMutationClaim` takes the household); `accrual_runs.error` stores only the error name | module | `apps/api/src/modules/finance/services/ledger/idempotency.ts`, `accrual.service.ts`. |
+| F73 | Idempotency read paths filter on `household_id` (`peekMutationClaim` takes the household); `accrual_runs.error` stores only the error name | module | `FinanceMutationClaims` (`apps/api/src/modules/finance/services/ledger/idempotency.ts`), `FinanceAccrual` (`accrual.service.ts`; the run's `error` is the error name plus `see server log`, a `DatabaseError` reduced to the driver error it wraps). |
 | F74 | Ops hardening: last `X-Forwarded-For` entry, the `change-me` secret refused in production, the seed refuses production without `ALLOW_SEED=1` and its own `SEED_PASSWORD`, `foreign_keys = ON`, per-user rate limits on invites and household creation, a 401 purges the persisted cache | core | `CLAUDE.md` "Core hardening from `1715207`"; `apps/api/scripts/seed.ts`, `apps/api/src/db/client.ts`. |
 
 ## 5. Verification
@@ -651,7 +703,10 @@ directories that exist, so a missing one never turns grep's exit 2 into a pass.
 
 Every toon-finance test file has a counterpart; the map is in the m3 plan (section 8 and 9.3) and the m3b plan (section 2). The
 plan-rounding, `halfForOther(-101)` and `balance_stale` tests pass unchanged from toon-finance. A new by-id route gets its
-case in `finance-cross-household.test.ts` in the same commit.
+case in `finance-cross-household.test.ts` in the same commit. E4 added `finance-clock.test.ts` (the module clock and a
+private database), `finance-scheduler.test.ts` (the `TestClock` run of the boot catch-up and the 6-hour tick) and
+`finance-services-local.test.ts` (the local memo map reaches a private database); `finance-idempotency.test.ts`,
+`finance-seed.test.ts`, `finance-file-db.test.ts` and `module-adapter.test.ts` moved onto the services.
 
 ### 5.3 Manual and recorded checks
 

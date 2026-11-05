@@ -119,9 +119,9 @@ module (`docs/plans/m2-recipe-module.md`), M3 finance module (`docs/plans/m3-fin
 and M7 harden (`docs/plans/m7-harden.md`), 2026-10-13 to 2026-10-15; each plan's last sections are its
 integration record and "what changed vs plan". Two modules are built (`API_MODULES` and `WEB_MODULES` are
 `[recipe, finance]`, `/api/health` reports `modules: ["recipe","finance"]`). The tree typechecks, builds and tests
-green (`bun test`: 14686 pass in 160 files on the temp file DB after the E3 review (14684 at E3-T13, 32.88 s on a quiet host); 14658 pass in 158 files after E2 (69.96 s under a host load average of 14 to 50; 39.79 s at E2's quiet baseline), where 11357 of them are
+green (`bun test`: 14725 pass in 163 files on the temp file DB at E4 (37.07 s under a host load average of about 3.7); 14686 pass in 160 files after the E3 review (14684 at E3-T13, 32.88 s on a quiet host); 14658 pass in 158 files after E2 (69.96 s under a host load average of 14 to 50; 39.79 s at E2's quiet baseline), where 11357 of them are
 the golden parity cases of `packages/shared/test/parity/`; 14508 pass in 150 files after the E1 review; 2463 pass in 141 files at the end of E0; `i18n:check` exits 1 with
-the 147 classified false positives (the 146 and the `Effect.die` stopword hit in `apps/api/src/modules/adapter.ts`); M7's integration record, `docs/plans/m7-harden.md` section 9, has the gate logs,
+the 145 classified false positives at E4 (the 146 of before E2, 147 with the `Effect.die` stopword hit of the old `apps/api/src/modules/adapter.ts`; E4 deleted that line and reworded one comment line of `apps/api/src/modules/finance/lib/clock.ts`, no new hit); M7's integration record, `docs/plans/m7-harden.md` section 9, has the gate logs,
 the walkthrough, the `migrate:legacy` fixture run and the print-to-PDF proof). Milestone E0 of the Effect migration
 (foundation: the vendored source fenced off, the pinned Effect packages, the one `ManagedRuntime` serving
 `/api/health`, the idioms test, ADR 0012) is done; its integration record is `docs/plans/e0-foundation.md` sections
@@ -132,14 +132,19 @@ done and reviewed; its integration record is `docs/plans/e1-shared-schema.md` se
 tagged error family and its one boundary mapper, `Mailer`, `RateLimiter`, `VerifiedEmail`, `Thumbnails`, `Uploads`
 and every `apps/api/src/core/services/**` module as a `Context.Service` with a static `layer`, time from the
 `Clock`, the core routes and middlewares through `runtime.runPromise` with Hono on top, the module hooks as Effects
-behind an adapter that keeps the Promise-based recipe and finance manifests working until E3/E4; ADR 0014) is done;
+behind an adapter that kept the Promise-based recipe and finance manifests working until E3/E4; ADR 0014) is done;
 its integration record is `docs/plans/e2-api-core-services.md` sections 9 and 10 (the surviving legacy bridges are
 listed there with their callers and removal milestones). Milestone E3 (recipe-services: every recipe service that does I/O is a
 `Context.Service` with a static `layer`, the module's `layer` is part of the one `AppLayer`, `recipeModule` is an
 `ApiModule<RecipeServices>` with its hooks as Effects and no longer behind `fromPromiseModule`, the recipe routes run through
 `runtime.runPromise`, the URL importer fetches through an `HttpClient` wrapped by the SSRF guard, the OCR and PDF subprocesses are
 scoped resources, the capability flags come from `AppConfig`, time from the `Clock`; ADR 0014 updated) is done; its integration
-record is `docs/plans/e3-recipe-services.md` sections 9 and 10 (the surviving bridges with their callers); the review (HEAD `9f0c9cd91`) restored the pre-E3 rule that a hero-image download is judged by its magic bytes alone, never by its `Content-Type` label. What is left is the
+record is `docs/plans/e3-recipe-services.md` sections 9 and 10 (the surviving bridges with their callers); the review (HEAD `9f0c9cd91`) restored the pre-E3 rule that a hero-image download is judged by its magic bytes alone, never by its `Content-Type` label. Milestone E4 (finance-services: every finance service that does I/O is a `Context.Service`
+with a static `layer`, the module's `layer` is part of the one `AppLayer`, `financeModule` is an `ApiModule<FinanceServices>` with its
+hooks as Effects, `PromiseApiModule` and `fromPromiseModule` are deleted (`runModuleHook` stays for the scripts, E5), the finance routes
+and the participant gate run through `runtime.runPromise`, the boot catch-up and the 6-hour tick run on `Schedule` driven by the `Clock`
+with a `TestClock` test, idioms rule (10) is empty and rule (11) covers finance; ADR 0014 updated) is done; its integration record is
+`docs/plans/e4-finance-services.md` sections 9 and 10 (the nine surviving finance bridges with their callers). What is left is the
 owner's (see "Open work").
 
 ## Layout (as built)
@@ -214,6 +219,18 @@ Package names are `@toon/shared`, `@toon/api`, `@toon/web`; the root is `toon-ho
   `docs/modules/recipe.md` section 1.2); the pure helpers (`ssrf.ts` checks, `preprocess.ts`, parsers, mappers, adapters) stay
   plain modules. Beside them `apps/api/src/modules/recipe/services/import/db.ts` (`withImportDb`, `setImportDbForTests`) and
   `apps/api/src/modules/recipe/services/ocr/seam.ts` (the Promise engine seam as an effect).
+- Finance services (E4): `apps/api/src/modules/finance/layer.ts` (`financeLayer()`, the areas nested by dependency; `FinanceServices`;
+  `withFinanceServices`, the services over the CURRENT `Database` with a local memo map), the area files
+  `apps/api/src/modules/finance/services/{participants,categories,ledger,plan,setup}/layer.ts`, the `Context.Service` classes
+  `FinanceParticipants`, `FinanceSettings`, `FinanceCategories`, `FinanceTags`, `FinanceMutationClaims`, `FinanceBalance`,
+  `FinanceTransactions`, `FinanceSummary`, `FinanceSettlements`, `FinancePlan`, `FinanceAccrual`, `FinanceSetup` (the table with files
+  is `docs/modules/finance.md` section 1.3); `apps/api/src/modules/finance/bridge.ts` (`runFinanceBridge`, the runner of the finance
+  Promise bridges), `apps/api/src/modules/finance/lib/clock.ts` (`financeTimeMillis`, `setClockForTest`),
+  `apps/api/src/modules/finance/services/plan/scheduler.ts` (`startAccrualSchedule`, `stopAccrualSchedule`; not a service) and
+  `apps/api/src/modules/finance/middleware.ts` (the participant gate on the runtime); the pure helpers (`defaults.ts`,
+  `period-scan.ts`, `dateRange.ts`, `aggregateExclusion.ts`, `support.ts`) stay plain modules. Tests added by E4:
+  `apps/api/test/finance-clock.test.ts`, `apps/api/test/finance-scheduler.test.ts`, `apps/api/test/finance-services-local.test.ts`;
+  `docs/plans/e4-verify.sh` is the milestone's verification script.
 - Effect core (E2): `apps/api/src/config.ts` (`AppConfig`, the validated environment as a service; `apps/api/src/env.ts`
   re-exports its resolved `env`, `REPO_ROOT`, `parseEnv`), `apps/api/src/db/database.ts` (the `Database` service;
   `db/client.ts` keeps `createDatabase`, the shared `client` / `db` / `dbReady` and the drizzle TYPE `Database`),
@@ -221,8 +238,8 @@ Package names are `@toon/shared`, `@toon/api`, `@toon/web`; the root is `toon-ho
   `apps/api/src/core/services/layer.ts` (`coreServicesLayer()`, `baseServicesLayer()`) with
   `apps/api/src/core/services/auth/layer.ts` and `apps/api/src/core/services/households/layer.ts` (one hoisted
   composition function each), `apps/api/src/lib/errors.ts` (the tagged error family, `ApiError` kept for the modules,
-  `toApiError`, `errorBody`, `onErrorHandler`), `apps/api/src/modules/adapter.ts` (`fromPromiseModule`,
-  `runModuleHook`), `apps/api/test/support/effect.ts` (`runTest`, `runTestExit`, `itEffect`, `recordingMailer`,
+  `toApiError`, `errorBody`, `onErrorHandler`), `apps/api/src/modules/adapter.ts` (`runModuleHook`
+  only since E4), `apps/api/test/support/effect.ts` (`runTest`, `runTestExit`, `itEffect`, `recordingMailer`,
   `withMailer`) and `apps/api/test/import-order-effect.test.ts` (the fresh-process import guard for the files the
   runtime pulls into the cycle). Core services (`Context.Service` classes): `Mailer` (`mail/index.ts`, exported as
   `MailerService`), `RateLimiter`, `VerifiedEmail`, `Thumbnails`, `Uploads`, `UploadReferences`, `HouseholdModules`,
@@ -248,8 +265,8 @@ Run from the repo root. Bun 1.4.2 (`.bun-version`); `bun install --frozen-lockfi
   overrides it). `bunfig.toml` keeps the vendored `repos/` out of discovery.
 - `bun run build`: Vite build plus the generated PWA service worker into `apps/web/dist`.
 - `bun run i18n:check`: German catalog parity plus no German left in ported source. Exits 1 by design: parity
-  OK, and about 147 leftover-German hits, all false positives (German quoted in doc comments, 10 lines of recipe
-  content vocabulary, and `Effect.die(` in `apps/api/src/modules/adapter.ts`, which matches the stopword "die"). Classify each hit, never suppress the check. `apps/api/scripts` is not scanned.
+  OK, and about 145 leftover-German hits, all false positives (German quoted in doc comments and 10 lines of recipe
+  content vocabulary; a line that merely contains a German stopword such as "die" is one too). Classify each hit, never suppress the check. `apps/api/scripts` is not scanned.
 - `bun run db:generate`: drizzle-kit generates a migration from `apps/api/src/db/schema`.
 - `bun run db:migrate`: applies the migrations to `DATABASE_URL` (e.g. `file:./data/m2.db`) and every build
   module's `afterMigrate`. `bun run db:studio`: drizzle-kit studio on the configured DB.
@@ -373,14 +390,22 @@ ones; the module gotchas are indexed below and live in the module docs.
   the current executor are read inside the method body on every call (never captured at build), so a `TestClock` or a
   transaction reaches them. `apps/api/test/import-order-effect.test.ts` builds the `AppLayer` after each entry point,
   first in a fresh process.
-- **Bridges until E4 to E8 (E2, E3, plan P1, ADR 0014).** A converted file keeps, in a section `/* legacy bridges:
+- **Bridges until E5 to E8 (E2, E3, E4, plan P1, ADR 0014).** A converted file keeps, in a section `/* legacy bridges:
   callers listed; … */` at its end, a bridge with the OLD name and signature for every export a caller outside the
-  converted set still uses. After E3 the survivors are, in recipe, `backfillFoldedColumns(database?)` and `localizeImageUrl`
+  converted set still uses. After E4 the survivors are, in recipe, `backfillFoldedColumns(database?)` and `localizeImageUrl`
   (scripts, E5) and `createDraft(db, input)`, the synchronous `importFromText`, `fetchHtml` and `assertPublicUrl` (pinned tests,
-  E8); in the core `requireUser`, `requireMembership`, `initializeHousehold`, `enableModule` (finance, E4), the test seams
+  E8); in finance exactly nine: `runCatchUp` (`plan-run.ts`, `finance-security.test.ts`), `getBalance` (`apps/api/scripts/legacy/balance.ts`,
+  `legacy-finance.test.ts`), `slot1UserId`, `requireOtherMemberId`, `categoryIdBySlug`, `syncTransactionTags` (all four
+  `finance-import-xlsx.ts`; E5), and `assignParticipants`, `updateParticipantDisplayName` (the pinned `finance-module.test.ts`) and
+  the synchronous `requireFinanceParticipantContext` (the pinned `finance-participants.test.ts`; E8); in the core `requireUser`,
+  `requireMembership` (tests; E8), `initializeHousehold` (`apps/api/scripts/seed.ts`; E5), the test seams
   (`checkRateLimit`, `resetRateLimits`, `setMailer` and friends, `createSession`, `claimPlaceholderUser`; E8) and the scripts' ones
   (`collectUploadReferences`, `trySendMail`, `findUserByEmail`, `createPasswordResetToken`; E5), listed with callers in
-  `docs/plans/e3-recipe-services.md` section 9.2 and ADR 0014. **A bridge keeps its calling convention and says so with an
+  `docs/plans/e3-recipe-services.md` section 9.2, `docs/plans/e4-finance-services.md` section 9.2 and ADR 0014. **A finance Promise
+  bridge never imports `runtime.ts`:** it runs `runFinanceBridge(effect, executor)` (`apps/api/src/modules/finance/bridge.ts`), which
+  builds the services over the executor it is handed, so `apps/api/scripts/legacy/balance.ts` (inside `migrate:legacy`, whose library must never
+  touch the shared database) and `finance-import-xlsx.ts` (a bridge inside its own open transaction) work; it rejects with a
+  `DatabaseError`'s `cause` (the raw driver error `plan-run.ts` prints), a family refusal unchanged. **A bridge keeps its calling convention and says so with an
   explicit return type:** a Promise export runs `runtime.runPromise` (a failure rejects with the tagged error itself); a
   SYNCHRONOUS export (`checkRateLimit`, `resetRateLimits`, `requireUser`, `requireMembership`, `getMailer`, the recipe
   `importFromText`) stays synchronous over a service-free effect with `Effect.runSync` (a failure throws the tagged error
@@ -416,9 +441,8 @@ ones; the module gotchas are indexed below and live in the module docs.
   `Retry-After`, the generic `ApiFailure`), permissive field schemas (a constructor never throws on a value today's
   code passes) and `isApiError` (a `Predicate`, no `instanceof`). Services and routes fail with them
   (`return yield* new NotFound()`), `toApiError` / `errorBody` / `onErrorHandler` render the envelope once. The old
-  `ApiError` class and its ten static helpers stay for the modules until E3/E4 (`x instanceof ApiError` is true for
-  every family member; idioms rule (10) allows `throw ApiError` only under `apps/api/src/modules/recipe/` and
-  `finance/`). `DatabaseError` and `MailError` are tagged errors OUTSIDE the family: a database failure is a `500
+  `ApiError` class and its ten static helpers stay for the tests (`errors.test.ts` and others) until E8 (`x instanceof ApiError` is true for
+  every family member; idioms rule (10) allows no `throw ApiError` anywhere under `apps/api/src` since E4). `DatabaseError` and `MailError` are tagged errors OUTSIDE the family: a database failure is a `500
   internal_error` whose log line shows its `cause`, never an API error to module code. A 5xx family member logs
   `[api] <METHOD> <path> -> <status> <code>: <English message>` and its stack (the pre-E2 line; `apps/api/test/errors.test.ts`).
 - **The `Database` service and the shared client (E2, plan P6, ADR 0014).** `apps/api/src/db/client.ts` still creates
@@ -438,17 +462,27 @@ ones; the module gotchas are indexed below and live in the module docs.
   fails and logs `[mail] Sending to <redacted> failed (<transport>): <reason>`; the SMTP `Date` header takes the
   Clock's time through the optional `now` of `SmtpMailer.send`. The other seams in the same spirit:
   `setVerifiedEmailRequired` and `resetRateLimits` (same live state the services read).
-- **Hooks are Effects; finance is still behind `fromPromiseModule` (E2, plan P11; E3).** `ApiModule` hooks are Effects that read the
-  current executor from `Database`; `recipeModule` implements `ApiModule<RecipeServices>` itself since E3 (hooks as Effects, its
-  `layer` merged into `AppLayer`); the finance manifest is a `PromiseApiModule` (the old interface, one
-  annotation changed) wrapped in `apps/api/src/modules/index.ts` by `fromPromiseModule`, which hands the Promise hook
-  the current executor and passes a family refusal through unchanged (`modules.test.ts` (h) asserts `toBe(refusal)`).
-  Outside the runtime (`runMigrations`, `collectUploadReferences(database)`, `apps/api/scripts/seed.ts`) a hook runs through
-  `runModuleHook(effect, executor)`, which provides `Database.layerFromExecutor` and never imports `runtime.ts`, so
-  `db/migrate.ts` keeps `migrate-legacy.ts`'s import-order rule. E4 deletes `PromiseApiModule`, the adapter and
-  `runModuleHook`. `API_MODULES` in `apps/api/src/modules/index.ts` is a lazy array (a `Proxy` over the wrapped
-  manifests, built on first access) so a manifest imported FIRST in a fresh process does not read the list in its
-  TDZ; a read at module scope still fails loudly.
+- **Hooks are Effects; both manifests are `ApiModule`s (E2 P11, E3, E4 P3-P5).** `ApiModule` hooks are Effects that read the
+  current executor from `Database`; `recipeModule` (E3) and `financeModule` (E4) implement the contract directly
+  (`ApiModule<RecipeServices>`, `ApiModule<FinanceServices>`: hooks as Effects, `layer` merged into `AppLayer`), and
+  `PromiseApiModule` and `fromPromiseModule` are deleted. A hook is typed over `Database` only (`start` too: SPEC §2), so finance
+  wraps each hook program in `withFinanceServices` (`apps/api/src/modules/finance/layer.ts`), which builds the finance services over
+  the CURRENT `Database` of the calling fiber (the core's open transaction for a hook) with `Effect.provide(layer, { local: true })`,
+  a fresh memo map: a plain `Effect.provide` would reuse the services the runtime's `AppLayer` memoized, bound to the runtime's
+  database, and a test's private `Database.layerFrom(…)` would silently never be reached (`apps/api/test/finance-services-local.test.ts`
+  proves it; the finance services hold no state, so the copies cannot disagree). Outside the runtime (`runMigrations`,
+  `collectUploadReferences(database)`, `apps/api/scripts/seed.ts`, every finance bridge) a hook runs through
+  `runModuleHook(effect, executor)`, which provides `Database.layerFromExecutor` and never imports `runtime.ts`, so `db/migrate.ts`
+  keeps `migrate-legacy.ts`'s import-order rule; E5 deletes `runModuleHook` with the last script that needs it. `API_MODULES` in
+  `apps/api/src/modules/index.ts` is a lazy array (a `Proxy` over the manifests, built on first access) so a manifest imported FIRST
+  in a fresh process does not read the list in its TDZ; a read at module scope still fails loudly. The finance scheduler is not a
+  service: `startAccrualSchedule` awaits the boot catch-up and forks ONE detached fiber on `Effect.schedule(tick,
+  Schedule.spaced("6 hours"))` (`Effect.schedule` steps the schedule before its first run, so the first interval run is six hours
+  after the start, as `setInterval`; `Effect.repeat` would run at once), `stopAccrualSchedule` interrupts it before the runtime is
+  disposed, and `apps/api/test/finance-scheduler.test.ts` drives it with a `TestClock` (a bounded real-time poll for the catch-up's
+  real database I/O). A failed tick logs `[plan] interval catch-up failed:` and the schedule goes on. The module clock is
+  `financeTimeMillis` (the `setClockForTest` override, else the `Clock`); the finance route files import the runtime and, like recipe's,
+  die when imported first (`docs/open-work.md` O-6).
 - **Middleware factories are TDZ-safe (E2, plan P12, P21).** The runtime imports `modules/index.ts`, which imports
   the routers, which call `requireHouseholdRole("admin")`, `requireVerifiedEmail()`, `requireModule(id)` at module
   scope, possibly while the middleware file is still evaluating. So every exported middleware factory
@@ -671,12 +705,12 @@ ones; the module gotchas are indexed below and live in the module docs.
   `repos/`, no `effect/unstable/` path, no Effect 3 package or service constructor, `ManagedRuntime.make(` only in
   `apps/api/src/runtime.ts`, every `effect` / `@effect/*` dependency and lockfile entry one exact version, and the
   vendored tree and the four fences matching it. Rule (9) is "no zod" (E1: no `zod` import, dependency or lockfile entry).
-  Rule (10) (E2) is "no `throw ApiError` / `throw new ApiError` under `apps/api/src`", allow list the prefix
-  `apps/api/src/modules/finance/` (E3 removed recipe's, E4 empties it). Rule (11) (E2) is "no
-  `Date.now(` / `new Date(` in a `services/` directory under `apps/api/src`" (allow list: `households/support.ts`
-  `nowMs()`, the module helper only finance still calls; E3 removed recipe's prefix) plus "no `nowMs(` call under
-  `apps/api/src/core/` or `apps/api/src/modules/recipe/`" (its definition is the one allowed line): `nowMs()` reads
-  `Date.now()`, so a core or recipe call bypasses the `Clock`. Both rules fail a stale allow-list entry (a fixed file leaves the list in the same commit).
+  Rule (10) (E2) is "no `throw ApiError` / `throw new ApiError` under `apps/api/src`", allow list EMPTY (E3 removed recipe's
+  prefix, E4 finance's). Rule (11) (E2) is "no `Date.now(` / `new Date(` in a `services/` directory under `apps/api/src`" (allow
+  list EMPTY: the core `nowMs()` of `households/support.ts` is deleted) plus "no `nowMs(` call under `apps/api/src/core/`,
+  `apps/api/src/modules/recipe/` or `apps/api/src/modules/finance/`" (the one allowed line is the definition of the finance module
+  clock's synchronous `nowMs()` in `apps/api/src/modules/finance/lib/clock.ts`, kept for `apps/api/test/support/finance-harness.ts`):
+  `nowMs()` reads `Date.now()`, so a call bypasses the `Clock`. Both rules fail a stale allow-list entry (a fixed file leaves the list in the same commit).
   The one rule a later milestone switches on (no `hono` at E7) is a `PENDING_RULES` comment in the file, never a
   skipped test, and becomes a `describe` in the commit of the migration that makes it true. Never relax a rule to
   get green.

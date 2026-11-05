@@ -99,3 +99,47 @@ survive E3 (callers and removal milestones in `docs/plans/e3-recipe-services.md`
 
 The idioms test pins the progress: rule (10) allows `throw ApiError` only under `apps/api/src/modules/finance/` and rule (11)'s
 `nowMs(` scan covers `apps/api/src/core/` and `apps/api/src/modules/recipe/`.
+
+## Status after E4's integration (2026-11-05)
+
+E4 (finance-services, `docs/plans/e4-finance-services.md`) moved the finance module onto `Context.Service` classes (`FinanceParticipants`,
+`FinanceSettings`, `FinanceCategories`, `FinanceTags`, `FinanceMutationClaims`, `FinanceBalance`, `FinanceTransactions`, `FinanceSummary`,
+`FinanceSettlements`, `FinancePlan`, `FinanceAccrual`, `FinanceSetup`) and its routes onto `runtime.runPromise`. **Both manifests implement
+`ApiModule` directly now**: `PromiseApiModule` and `fromPromiseModule` are deleted, `financeModule` is an `ApiModule<FinanceServices>` whose
+`layer` is part of the one `AppLayer`, and its hooks are Effects. `runModuleHook` (`apps/api/src/modules/adapter.ts`) stays, unchanged in
+purpose: it runs a hook or a bridge on a bare drizzle executor outside the runtime (`runMigrations`, `collectUploadReferences(database)`,
+`apps/api/scripts/seed.ts`, and every finance bridge through `runFinanceBridge`); E5 removes it with the last script that needs it.
+The finance hooks, the bridges and the scheduler build the finance services themselves over the CURRENT `Database` with a local memo map
+(`withFinanceServices`, `apps/api/src/modules/finance/layer.ts`), because the hook contract requires `Database` only and the same code runs
+inside and outside the runtime.
+
+Finance bridges differ from recipe's in one point: **they never import `apps/api/src/runtime.ts`** (`runFinanceBridge`,
+`apps/api/src/modules/finance/bridge.ts`), because `apps/api/scripts/legacy/balance.ts` runs inside `migrate:legacy`, whose library must never
+reach the shared database, and `apps/api/scripts/finance-import-xlsx.ts` calls a bridge inside an open drizzle transaction (the handed
+executor is honoured). A bridge rejects with a `DatabaseError`'s `cause` (the raw driver error the old function threw) and with a refusal of
+the API error family unchanged. The nine finance bridges that survive E4, each with its explicit return type and no literal `throw`:
+
+| Bridge (file under `apps/api/src/modules/finance/`) | Convention | Callers outside the converted set | Removed by |
+| --- | --- | --- | --- |
+| `runCatchUp(db, householdId, options)` (`services/plan/accrual.service.ts`) | Promise over `runFinanceBridge` | `apps/api/scripts/plan-run.ts`, `apps/api/test/finance-security.test.ts` (pinned) | E5 |
+| `getBalance(db, householdId, viewerUserId, viewerSlot, includeAggregates)` (`services/ledger/balance.service.ts`) | Promise over `runFinanceBridge` | `apps/api/scripts/legacy/balance.ts`, `apps/api/test/legacy-finance.test.ts` (pinned), `apps/api/test/finance-scheduler.test.ts` | E5 |
+| `slot1UserId(db, householdId)` (`services/participants/participants.service.ts`) | Promise over `runFinanceBridge` | `apps/api/scripts/finance-import-xlsx.ts` | E5 |
+| `requireOtherMemberId(db, householdId, viewerId)` (`services/participants/participants.service.ts`) | Promise over `runFinanceBridge` | `apps/api/scripts/finance-import-xlsx.ts` | E5 |
+| `categoryIdBySlug(db, householdId, slug)` (`services/categories/categories.service.ts`) | Promise over `runFinanceBridge` | `apps/api/scripts/finance-import-xlsx.ts` | E5 |
+| `syncTransactionTags(db, householdId, transactionId, tagNames)` (`services/tags/tags.service.ts`) | Promise over `runFinanceBridge`, inside the script's open transaction | `apps/api/scripts/finance-import-xlsx.ts` | E5 |
+| `assignParticipants(db, householdId, assignment)` (`services/participants/participants.service.ts`) | Promise over `runFinanceBridge`; a refusal is the family member itself | `apps/api/test/finance-module.test.ts` (pinned, `(i) assignParticipants`) | E8 |
+| `updateParticipantDisplayName(db, householdId, userId, displayName)` (`services/participants/participants.service.ts`) | Promise over `runFinanceBridge` | `apps/api/test/finance-module.test.ts` (pinned) | E8 |
+| `requireFinanceParticipantContext(c)` (`middleware.ts`) | SYNCHRONOUS, `Effect.runSync` over a service-free effect | `apps/api/test/finance-participants.test.ts` (pinned) | E8 |
+
+`services/support.ts` keeps `withTransaction` (a plain Promise helper, not a bridge: `apps/api/scripts/finance-import-xlsx.ts`,
+`apps/api/test/finance-file-db.test.ts`; E5). Two core files lost bridges: `enableModule` (its one caller, the finance seed, moved to the
+`HouseholdModules` service) and the core `nowMs()` of `households/support.ts` (no caller was left) are deleted. The core survivors after E4:
+`requireUser` and `requireMembership` (`apps/api/src/lib/types.ts`; the tests `apps/api/test/errors.test.ts`, `apps/api/test/middleware.test.ts`,
+`apps/api/test/modules.test.ts`; E8), `initializeHousehold` (`apps/api/scripts/seed.ts`; E5), the test seams (`checkRateLimit`,
+`resetRateLimits`, `setMailer`, `getMailer`, `isMailerOverridden`, `claimPlaceholderUser`, `createSession`; E8) and the scripts' ones
+(`collectUploadReferences`, `trySendMail`, `isMailConfigured`, `findUserByEmail`, `createPasswordResetToken`; E5).
+
+The idioms test pins the progress: rule (10)'s allow list is empty (no `throw ApiError` anywhere under `apps/api/src`; the `ApiError` class
+itself and its ten static helpers remain until E8 for the tests that call them), and rule (11) covers `Date.now(` / `new Date(` in every
+`services/` directory with no entry and `nowMs(` under `apps/api/src/core/`, `apps/api/src/modules/recipe/` and `apps/api/src/modules/finance/`
+with the one definition line of the finance module clock.

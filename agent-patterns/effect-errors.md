@@ -269,3 +269,38 @@ The SSRF guard's `SsrfError` is a `Schema.TaggedError` OUTSIDE the family (`serv
 (`private_ip` for a redirect into `169.254.169.254`, asserted by `apps/api/test/import/url-import-local.test.ts`). The one tolerated `throw` left
 in recipe code is the `NODE_ENV=test` guard of a test seam (`setImportGuardForTests`, `setImportDbForTests`, `setRemoteImageDownloaderForTests`): a
 seam is a plain synchronous function called outside any effect.
+
+**As built (E4):** the finance module raises only the family too (no `ApiError` is named in finance code outside comments; idioms rule (10)
+is empty). A dedicated error code that a Zod `.refine()` could not carry (F gotcha 48) is an `ApiFailure` with `details`, raised with
+`return yield*`. From `apps/api/src/modules/finance/services/ledger/settlements.service.ts` (`409 balance_stale` with the current balance):
+
+```ts
+return yield* new ApiFailure({
+  status: 409,
+  code: "balance_stale",
+  text: { key: "server.balance.stale", values: { amount: formatCents(currentBalanceCents) } },
+  details: { currentBalanceCents },
+});
+```
+
+A database failure inside a service is a `DatabaseError` (OUTSIDE the family), so the places that used to read the raw driver error unwrap
+its `cause`: the bridges reject with it (`isDatabaseError(error) ? error.cause : error`, `plan-run.ts` prints `error.message`), and the
+accrual's audit marker and its log line take the original, not the wrapper. The catch-all of the booking transaction
+(`services/plan/accrual.service.ts`) recovers the WHOLE cause, lets an interruption through untouched (no log line, no audit row) and
+re-fails with the same cause:
+
+```ts
+Effect.catchCause((cause) =>
+  Effect.gen(function* () {
+    if (Cause.hasInterruptsOnly(cause)) return yield* Effect.failCause(cause);
+    const squashed = Cause.squash(cause);
+    const original = isDatabaseError(squashed) ? squashed.cause : squashed;
+    yield* Effect.sync(() => console.error(`[plan] catch-up failed for household ${householdId}:`, original));
+    const marker = Predicate.isError(original) ? `${original.name}: see server log` : "unknown error: see server log";
+    yield* recordRun(householdId, options.trigger, from, to, 0, 0, 0, marker, startedAt);
+    return yield* Effect.failCause(cause);
+  }),
+)
+```
+
+`accrual_runs.error` stores the error NAME only (the driver's message carries the failed SQL with its bound parameters, F gotcha 73).

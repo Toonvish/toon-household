@@ -272,3 +272,18 @@ The catch-all of the booking transaction in `accrual.service.ts` is `Effect.catc
 `DatabaseError` unwrapped to its `cause`) + `Effect.failCause(cause)`. The test `apps/api/test/finance-scheduler.test.ts`
 sets the instant with `TestClock.setTime(Date.UTC(2026, 9, 31, 20, 0))`, moves it with `TestClock.adjust("5 hours")` and
 `TestClock.adjust("1 hour")`, and starts and stops the scheduler inside one `runTest(..., { clock: "test" })`.
+
+**As built (E4):** the finance module clock (`apps/api/src/modules/finance/lib/clock.ts`) is an Effect that the services read INSIDE the
+method body on every call, so a `TestClock` reaches every row stamp, the catch-up and the scheduler; the `setClockForTest` override, kept
+because the pinned plan tests pin "now" through it, wins over the `Clock`:
+
+```ts
+export const financeTimeMillis: Effect.Effect<number> = Effect.suspend(() =>
+  override === null ? Clock.currentTimeMillis : Effect.succeed(override),
+);
+```
+
+The synchronous `nowMs()` survives for `apps/api/test/support/finance-harness.ts` only; idioms rule (11) fails any other call under the core,
+recipe or finance, and the core `nowMs()` of `households/support.ts` is deleted. The fixed-cost period is still computed from the integer
+millis (`currentPeriod(timestamp)` of `@toon/shared`, pure). The plan's wrong line about the 6-hour tick is fixed in section 2.5 (E4-T06):
+`Effect.schedule` waits first, `Effect.repeat` runs at once.

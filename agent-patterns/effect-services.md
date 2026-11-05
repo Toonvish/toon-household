@@ -312,3 +312,37 @@ export class Passwords extends Context.Service<Passwords, {
   references); the Promise bridge outside the runtime is `runModuleHook(effect, executor)` (`backfillFoldedColumns`), and
   a capability read by `/api/health` is a service-free effect over `AppConfig` (`capabilityFlags`) next to the service
   (`ImportCapabilities`) whose test seams are read on every call.
+
+**As built (E4):** the finance module's composition (plan `docs/plans/e4-finance-services.md` P2, P4). Twelve `Context.Service` classes
+(`FinanceParticipants`, `FinanceSettings`, `FinanceCategories`, `FinanceTags`, `FinanceMutationClaims`, `FinanceBalance`,
+`FinanceTransactions`, `FinanceSummary`, `FinanceSettlements`, `FinancePlan`, `FinanceAccrual`, `FinanceSetup`), one per file, ids
+`"toon/api/modules/finance/<path without .ts>/<Name>"`, method names the old function names minus the leading `db`. The areas nest by
+dependency in `apps/api/src/modules/finance/layer.ts` (a sibling in `Layer.mergeAll` never feeds its neighbour, so an area that needs
+another sits in an outer `Layer.provideMerge` step):
+
+```ts
+export function financeLayer() {
+  return Layer.mergeAll(setupLayer(), planLayer()).pipe(
+    Layer.provideMerge(ledgerLayer()),
+    Layer.provideMerge(Layer.mergeAll(participantsLayer(), categoriesLayer())),
+  );
+}
+```
+
+What is left open is `Database | AppConfig` (both `ModuleRequirements`). The manifest is `ApiModule<FinanceServices>` with `layer:
+Layer.suspend(financeLayer)`. The hooks, the bridges and the scheduler run outside the runtime too and must reach the CURRENT `Database`
+(a test's private one), so they build the services themselves. The pitfall: a plain `Effect.provide(layer)` inside the runtime takes a CHILD
+of the runtime's memo map (`Layer.buildWithScope`, `CurrentMemoMap.forkOrCreate`) and reuses the leaf layers the `AppLayer` already
+memoized, bound to the runtime's `Database`. `{ local: true }` gives a fresh memo map:
+
+```ts
+export function withFinanceServices<A, E>(
+  effect: Effect.Effect<A, E, FinanceServices | DatabaseService>,
+): Effect.Effect<A, E, DatabaseService> {
+  return effect.pipe(Effect.provide(financeStandaloneLayer(), { local: true }));
+}
+```
+
+(`financeStandaloneLayer()` is `financeLayer()` with `AppConfig.layer` provided.) This is only sound because no finance service holds state;
+the one piece of process state, the tick fiber, lives in `scheduler.ts`, which is not a service. `apps/api/test/finance-services-local.test.ts`
+proves a private database is reached through `withFinanceServices(effect).pipe(Effect.provide(Database.layerFrom(created)))`.

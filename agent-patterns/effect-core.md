@@ -281,3 +281,44 @@ A write that must be idempotent claims inside the SAME transaction as the write 
 then the ledger prune runs after it. A cycle between two services (`ShoppingItems` and `ShoppingBought`) is broken by exported
 `Effect.fnUntraced` helpers over `Database`, never by two services needing each other. Each service reads the dependencies it needs inside its own
 generator; the areas nest in `apps/api/src/modules/recipe/layer.ts` with `Layer.provideMerge` (a sibling in `Layer.mergeAll` would not feed its neighbour).
+
+**As built (E4):** a finance route and the participant gate are one `runtime.runPromise` over the services, like recipe's. The gate
+(`apps/api/src/modules/finance/middleware.ts`) is a hoisted function declaration (the import cycle) that does its service and database work
+as ONE `await runtime.runPromise(...)` BEFORE `await next()`; `next()` is never called inside an effect, and the refusal is a family
+failure raised with `return yield*`:
+
+```ts
+const checkFinanceParticipant = Effect.fn("FinanceParticipant.check")(function* (c: AppContext) {
+  const membership = yield* currentMembership(c);
+  const participants = yield* FinanceParticipants;
+  const slot = yield* participants.participantSlotOf(membership.householdId, membership.userId);
+  if (slot === null) return yield* notParticipant();
+  return { householdId: membership.householdId, userId: membership.userId, memberSlot: slot };
+});
+
+export function requireFinanceParticipant(): MiddlewareHandler<AppEnv> {
+  return async (c, next) => {
+    const participant = await runtime.runPromise(checkFinanceParticipant(c));
+    c.set("financeParticipant", participant);
+    await next();
+  };
+}
+```
+
+A bridge outside the runtime never imports `runtime.ts`; it runs the effect on the executor it is handed and maps the rejection once
+(`apps/api/src/modules/finance/bridge.ts`):
+
+```ts
+export function runFinanceBridge<A, E>(
+  effect: Effect.Effect<A, E, FinanceServices | DatabaseService>,
+  executor: DbExecutor,
+): Promise<A> {
+  return runModuleHook(withFinanceServices(effect), executor).then(undefined, (error: unknown) =>
+    Promise.reject(isDatabaseError(error) ? error.cause : error),
+  );
+}
+```
+
+`startAccrualSchedule` (`services/plan/scheduler.ts`) is an `Effect.fn` that awaits the boot catch-up and then forks the tick with
+`Effect.forkDetach`; the module-level `tickFiber` holds the fiber because a lifecycle is not a dependency (see effect-datetime-clock.md
+"As built (E4-T06)"). The synchronous `requireFinanceParticipantContext` bridge is `Effect.runSync` over a service-free effect.

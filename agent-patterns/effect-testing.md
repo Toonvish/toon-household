@@ -285,3 +285,19 @@ tick FIRE, but the catch-up's database I/O is real and settles after `adjust` re
 "nothing ran yet" assertion also waits a few real rounds first, so a wrongly early tick has time to show. The whole
 fork-adjust-poll sequence is ONE effect inside one `runTest(..., { clock: "test" })` (a new `TestClock` per run), with
 `stopAccrualSchedule()` in `Effect.ensuring`, and carries an explicit 60 s test timeout (load, as the sharp tests).
+
+**As built (E4):** three new test files and the rewrite rule. `apps/api/test/finance-services-local.test.ts` and
+`apps/api/test/finance-clock.test.ts` prove the local memo map: a finance program built with `withFinanceServices` and provided a PRIVATE
+`Database.layerFrom(created)` reaches that database from inside the app runtime, never the shared test DB (which has no `probe` table):
+
+```ts
+function onPrivate<A, E>(effect: Effect.Effect<A, E, FinanceParticipants | FinanceSettings | Database>): Promise<A> {
+  return runTest(withFinanceServices(effect).pipe(Effect.provide(Database.layerFrom(created))));
+}
+```
+
+A test that pins "now" through the seam (`setClockForTest(ms)`) hands it back in `afterEach` (F gotcha 4: never `mock.module`); a test of the
+scheduler moves a `TestClock` instead (the E4-T06 section above). Pinned finance tests (`finance-security.test.ts`, `legacy-finance.test.ts`,
+`finance-module.test.ts`, `finance-participants.test.ts`) keep calling the nine bridges, which run through `runFinanceBridge` on the handed
+executor; E5 and E8 rewrite them onto the services. The idioms test after E4: rule (10)'s allow list is empty and rule (11)'s `nowMs(` scan
+covers `apps/api/src/modules/finance/` (the one allowed line is the definition in `lib/clock.ts`), both failing a stale entry.
