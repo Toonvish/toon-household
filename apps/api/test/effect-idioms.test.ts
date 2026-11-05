@@ -189,8 +189,9 @@ describe("(4) no Effect 3 service constructors (E12)", () => {
 
 // --- (5) one runtime ------------------------------------------------------------------------------
 
-// Where `ManagedRuntime.make(` may appear in non-test source (E6 adds apps/web/src/lib/runtime.ts).
-const RUNTIME_ALLOW_LIST = ["apps/api/src/runtime.ts"];
+// Where `ManagedRuntime.make(` may appear in non-test source: the API's one runtime (E7) and the web's one runtime
+// over `FetchHttpClient` (E11, added by E6-T01; plan docs/plans/e6-web-client.md P1).
+const RUNTIME_ALLOW_LIST = ["apps/api/src/runtime.ts", "apps/web/src/lib/runtime.ts"];
 const NON_TEST_ROOTS = ["apps/api/src/", "apps/api/scripts/", "packages/shared/src/", "apps/web/src/"];
 
 describe("(5) one ManagedRuntime per process (E7, E12)", () => {

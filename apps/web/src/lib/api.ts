@@ -6,8 +6,15 @@
  *  - every argument/return type comes from `@toon/shared` (the frozen contract),
  *  - errors are always an {@link ApiError} (code + message + HTTP status).
  *
- * Module API files (`apps/web/src/modules/<id>/api.ts`) build on {@link request};
+ * Module API files (`apps/web/src/modules/<id>/api.ts`) build on the helpers here
+ * ({@link getJson}, {@link sendJson}, {@link sendForm}, {@link sendVoid}; {@link request} until E6-T09);
  * they never call `fetch` (SPEC §2).
+ *
+ * Transport (docs/EFFECT.md E11; plan docs/plans/e6-web-client.md P3, P7, P8): every request is described ONCE as
+ * an Effect — a member of {@link CoreApi} — that goes through the `ApiClient` service
+ * (apps/web/src/lib/api-client.ts) on the web's one runtime (apps/web/src/lib/runtime.ts, `FetchHttpClient`)
+ * and decodes the response with the shared `…ResponseSchema`, structure and types only (`DECODE_OPTIONS`). The
+ * exported functions keep their names, signatures and `Promise` results as facades over `runPromise`.
  *
  * Session handling: the API sets an HttpOnly cookie, so every request goes out with
  * `credentials: "include"`. A 401 on a guarded endpoint triggers the global
@@ -15,7 +22,24 @@
  * `/login?next=<current path>`.
  */
 import {
+  AcceptInviteResponseSchema,
+  AuthSessionResponseSchema,
+  EmailVerificationRequestResponseSchema,
+  HealthResponseSchema,
+  HouseholdDetailResponseSchema,
+  HouseholdInviteListResponseSchema,
+  HouseholdInviteResponseSchema,
+  HouseholdListResponseSchema,
+  HouseholdMemberListResponseSchema,
+  HouseholdMemberResponseSchema,
+  HouseholdResponseSchema,
+  InvitePreviewResponseSchema,
   MAX_UPLOAD_BYTES,
+  MeResponseSchema,
+  OAuthProvidersResponseSchema,
+  OAuthStartResponseSchema,
+  SessionListResponseSchema,
+  UserResponseSchema,
   type AcceptInviteRequest,
   type AcceptInviteResponse,
   type AuthSessionResponse,
@@ -51,7 +75,10 @@ import {
   type UserResponse,
   type VerifyEmailRequest,
 } from "@toon/shared";
-import { getLocale, translate } from "@/lib/i18n/store.ts";
+import { Effect, Predicate, Schema, type SchemaAST, type Types } from "effect";
+import { translate } from "@/lib/i18n/store.ts";
+import { ApiClient, ApiError, isApiError, type ApiMethod, type ApiRequest, type ApiResponse } from "./api-client.ts";
+import { runPromise } from "./runtime.ts";
 
 /* -------------------------------------------------------------------------- */
 /* base url                                                                   */
@@ -106,90 +133,20 @@ export function thumbnailUrl(
 /* -------------------------------------------------------------------------- */
 
 /**
- * Every failed request throws this. `code` is one of `ERROR_CODES` from
- * `@toon/shared` (plus the client-only codes `network_error` / `client_error`).
+ * Every failed request fails with {@link ApiError} (apps/web/src/lib/api-client.ts: a `Schema.TaggedError`
+ * with `code`, `status`, `message`, `details` and the getters `isClientError`, `isUnauthorized`,
+ * `isForbidden`, `isNotFound`, `isOffline`).
  */
-export class ApiError extends Error {
-  readonly code: string;
-  readonly status: number;
-  readonly details: unknown;
-
-  constructor(options: { code: string; message: string; status: number; details?: unknown }) {
-    super(options.message);
-    this.name = "ApiError";
-    this.code = options.code;
-    this.status = options.status;
-    this.details = options.details;
-  }
-
-  /** 4xx = the user can fix it; retrying is pointless. */
-  get isClientError(): boolean {
-    return this.status >= 400 && this.status < 500;
-  }
-
-  get isUnauthorized(): boolean {
-    return this.status === 401;
-  }
-
-  get isForbidden(): boolean {
-    return this.status === 403;
-  }
-
-  get isNotFound(): boolean {
-    return this.status === 404;
-  }
-
-  get isOffline(): boolean {
-    return this.code === "network_error";
-  }
-}
+export { ApiError, isApiError, setUnauthorizedHandler } from "./api-client.ts";
 
 /** Alias for code that already imports a type called `ApiError` from @toon/shared. */
-export { ApiError as ApiClientError };
-
-export function isApiError(error: unknown): error is ApiError {
-  return error instanceof ApiError;
-}
+export { ApiError as ApiClientError } from "./api-client.ts";
 
 /** User-facing message for any thrown value, in the active locale. Safe to render directly. */
 export function errorMessage(error: unknown): string {
   if (isApiError(error)) return error.message;
   if (error instanceof Error && error.message) return error.message;
   return translate("common.error.unknown");
-}
-
-/* -------------------------------------------------------------------------- */
-/* 401 handling                                                               */
-/* -------------------------------------------------------------------------- */
-
-type UnauthorizedHandler = (next: string) => void;
-
-let unauthorizedHandler: UnauthorizedHandler | null = null;
-let lastRedirectAt = 0;
-
-/**
- * Registered once by the router/session provider so a 401 can be handled with a
- * client-side navigation instead of a full page load.
- */
-export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): void {
-  unauthorizedHandler = handler;
-}
-
-function handleUnauthorized(): void {
-  if (typeof window === "undefined") return;
-  const { pathname, search, hash } = window.location;
-  if (pathname === "/login" || pathname === "/register" || pathname.startsWith("/invite/")) return;
-  // Never loop: at most one redirect per second.
-  const now = Date.now();
-  if (now - lastRedirectAt < 1000) return;
-  lastRedirectAt = now;
-
-  const next = `${pathname}${search}${hash}`;
-  if (unauthorizedHandler) {
-    unauthorizedHandler(next);
-    return;
-  }
-  window.location.assign(`/login?next=${encodeURIComponent(next)}`);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -231,116 +188,175 @@ interface RequestInput extends RequestOptions {
   form?: FormData;
 }
 
-export async function request<T>(path: string, input: RequestInput = {}): Promise<T> {
+/**
+ * LEGACY BRIDGE (plan e6 P3): today's request without a decode, through the runtime. The resolved value is
+ * the parsed body UNVALIDATED as `T` (`undefined` for a 204/205), a failure the tagged `ApiError`.
+ * Callers: apps/web/src/modules/recipe/lib/api.ts, apps/web/src/modules/finance/lib/api.ts. E6-T09 deletes it.
+ */
+export function request<T>(path: string, input: RequestInput = {}): Promise<T> {
   const { method = "GET", body, form, signal, allowUnauthorized } = input;
+  return runPromise(
+    ApiClient.use((client) => client.execute({ method, url: apiUrl(path), body, form, allowUnauthorized })).pipe(
+      Effect.map((response) => response.parsed as T),
+    ),
+    { signal },
+  );
+}
 
-  // Accept-Language is CORS-safelisted, so this adds no preflight and no CORS
-  // change — the server negotiates `message`'s locale from it (docs/i18n.md §4).
-  const headers: Record<string, string> = { Accept: "application/json", "Accept-Language": getLocale() };
-  let payload: BodyInit | undefined;
-  if (form) {
-    payload = form; // fetch sets the multipart boundary itself
-  } else if (body !== undefined) {
-    headers["Content-Type"] = "application/json";
-    payload = JSON.stringify(body);
-  }
+/* -------------------------------------------------------------------------- */
+/* decode helpers                                                             */
+/* -------------------------------------------------------------------------- */
 
-  let response: Response;
-  try {
-    response = await fetch(apiUrl(path), {
-      method,
-      credentials: "include",
-      headers,
-      body: payload,
-      signal: signal ?? null,
-    });
-  } catch (cause) {
-    if (cause instanceof DOMException && cause.name === "AbortError") throw cause;
-    throw new ApiError({
-      code: "network_error",
-      status: 0,
-      message: translate("common.error.network"),
-      details: cause,
-    });
-  }
+/**
+ * The ONE set of decode options for responses (plan e6 P7): structure and types only. The server is the
+ * authority on the wire checks (UUID and ISO patterns, lengths, ranges) and applied them on the way in; rows
+ * written before a limit tightened, migrated legacy rows and placeholder rows must still render. A plain
+ * object literal (P16: no imported binding at module scope).
+ */
+export const DECODE_OPTIONS: SchemaAST.ParseOptions = { disableChecks: true };
 
-  if (response.status === 401 && !allowUnauthorized) handleUnauthorized();
+/** A schema the browser can decode a response with: no decoding services. */
+export type ResponseSchema = Schema.Decoder<unknown, never>;
 
-  if (response.status === 204 || response.status === 205) return undefined as T;
+/** The decoded value a helper hands out: the schema's `Type`, made mutable (the shared `…Response` types). */
+export type Decoded<S extends ResponseSchema> = Types.DeepMutable<S["Type"]>;
 
-  const raw = await response.text();
-  let parsed: unknown = undefined;
-  if (raw.length > 0) {
-    try {
-      parsed = JSON.parse(raw) as unknown;
-    } catch {
-      parsed = undefined;
+/**
+ * The `lenient(schema)` marker (plan e6 P7c): a route whose shared schema cannot match the wire without
+ * breaking `packages/shared/test` validates with `DECODE_OPTIONS`, logs a mismatch in DEV and hands out the
+ * raw payload, on reads too. Every use is listed with its reason in an `apps/api/test/web-contract-*.test.ts` row.
+ */
+export interface Lenient<S extends ResponseSchema> {
+  readonly _tag: "Lenient";
+  readonly schema: S;
+}
+
+export function lenient<S extends ResponseSchema>(schema: S): Lenient<S> {
+  return { _tag: "Lenient", schema };
+}
+
+type SchemaSpec<S extends ResponseSchema> = S | Lenient<S>;
+
+function isLenient<S extends ResponseSchema>(spec: SchemaSpec<S>): spec is Lenient<S> {
+  return Predicate.isTagged(spec, "Lenient");
+}
+
+/** What a 2xx whose body fails the decode does: a READ fails, a WRITE (P7a) or a lenient row passes it through. */
+type OnMismatch = "fail" | "passThrough";
+
+function warnMismatch(path: string, error: Schema.SchemaError): Effect.Effect<void> {
+  return Effect.sync(() => {
+    if (import.meta.env.DEV) {
+      console.warn(`[api] response from ${path} does not match the schema`, error);
     }
-  }
-
-  if (!response.ok) throw toApiError(response.status, parsed, raw);
-  return parsed as T;
+  });
 }
 
-function toApiError(status: number, parsed: unknown, raw: string): ApiError {
-  const envelope =
-    typeof parsed === "object" && parsed !== null && "error" in parsed
-      ? (parsed as { error?: { code?: unknown; message?: unknown; details?: unknown } }).error
-      : undefined;
-
-  const code = typeof envelope?.code === "string" ? envelope.code : fallbackCode(status);
-  const message =
-    typeof envelope?.message === "string" && envelope.message.length > 0
-      ? envelope.message
-      : fallbackMessage(status, raw);
-
-  return new ApiError({ code, message, status, details: envelope?.details });
+/**
+ * The shared decode step of every helper. A 204/205 is `undefined` WITHOUT decoding (as `request<T>` did);
+ * otherwise the parsed body is decoded with `DECODE_OPTIONS`. On a mismatch a READ fails with
+ * `invalid_response` (the 2xx status, the generic unknown-error text, the issue as `details`); a WRITE and a
+ * lenient row log in DEV and succeed with the raw payload.
+ */
+function decodeResponse<S extends ResponseSchema>(
+  spec: SchemaSpec<S>,
+  response: ApiResponse,
+  onMismatch: OnMismatch,
+  path: string,
+): Effect.Effect<Decoded<S>, ApiError> {
+  const passThrough = onMismatch === "passThrough" || isLenient(spec);
+  const schema: ResponseSchema = isLenient(spec) ? spec.schema : spec;
+  const value: Effect.Effect<unknown, ApiError> = response.noContent
+    ? Effect.succeed(undefined)
+    : Schema.decodeUnknownEffect(schema, DECODE_OPTIONS)(response.parsed).pipe(
+        Effect.catchTag("SchemaError", (error) =>
+          passThrough
+            ? Effect.as(warnMismatch(path, error), response.parsed)
+            : Effect.fail(
+                new ApiError({
+                  code: "invalid_response",
+                  status: response.status,
+                  message: translate("common.error.unknown"),
+                  details: error.message,
+                }),
+              ),
+        ),
+      );
+  // The ONE cast of a decoded value: decoding builds fresh objects and arrays, so handing them out
+  // mutable is sound, and the raw payload of the pass-through paths is freshly parsed JSON too.
+  return Effect.map(value, (decoded) => decoded as Types.DeepMutable<S["Type"]>);
 }
 
-function fallbackCode(status: number): string {
-  if (status === 401) return "unauthorized";
-  if (status === 403) return "forbidden";
-  if (status === 404) return "not_found";
-  if (status === 409) return "conflict";
-  if (status === 413) return "payload_too_large";
-  if (status === 415) return "unsupported_media_type";
-  if (status === 422) return "validation_failed";
-  if (status >= 500) return "internal_error";
-  return "bad_request";
+function execute(request: ApiRequest): Effect.Effect<ApiResponse, ApiError, ApiClient> {
+  return ApiClient.use((client) => client.execute(request));
 }
 
-function fallbackMessage(status: number, raw: string): string {
-  switch (status) {
-    case 401:
-      return translate("common.error.unauthorized");
-    case 403:
-      return translate("common.error.forbidden");
-    case 404:
-      return translate("common.error.notFound");
-    case 409:
-      return translate("common.error.conflict");
-    case 413:
-      return translate("common.error.payloadTooLarge");
-    case 415:
-      return translate("common.error.unsupportedMediaType");
-    case 422:
-      return translate("common.error.validationFailed");
-    default:
-      return status >= 500 ? translate("common.error.serverError") : raw.slice(0, 200) || translate("common.error.requestFailed");
-  }
+/** A READ: `GET path`, decoded strictly (a mismatch is `invalid_response`, plan e6 P7). */
+export function getJson<S extends ResponseSchema>(
+  schema: SchemaSpec<S>,
+  path: string,
+  options?: RequestOptions,
+): Effect.Effect<Decoded<S>, ApiError, ApiClient> {
+  return Effect.flatMap(
+    execute({ method: "GET", url: apiUrl(path), allowUnauthorized: options?.allowUnauthorized }),
+    (response) => decodeResponse(schema, response, "fail", path),
+  );
+}
+
+/** A WRITE with a JSON body and a JSON answer; a decode mismatch passes the payload through (plan e6 P7a). */
+export function sendJson<S extends ResponseSchema>(
+  method: Exclude<ApiMethod, "GET">,
+  schema: SchemaSpec<S>,
+  path: string,
+  body?: unknown,
+  options?: RequestOptions,
+): Effect.Effect<Decoded<S>, ApiError, ApiClient> {
+  return Effect.flatMap(
+    execute({ method, url: apiUrl(path), body, allowUnauthorized: options?.allowUnauthorized }),
+    (response) => decodeResponse(schema, response, "passThrough", path),
+  );
+}
+
+/** A multipart upload of ONE file (`POST`, field `file`, the 15 MB cap inside the effect, plan e6 P11). */
+export function sendForm<S extends ResponseSchema>(
+  schema: SchemaSpec<S>,
+  path: string,
+  file: File,
+  options?: RequestOptions,
+): Effect.Effect<Decoded<S>, ApiError, ApiClient> {
+  return uploadForm(file).pipe(
+    Effect.flatMap((form) =>
+      execute({ method: "POST", url: apiUrl(path), form, allowUnauthorized: options?.allowUnauthorized }),
+    ),
+    Effect.flatMap((response) => decodeResponse(schema, response, "passThrough", path)),
+  );
+}
+
+/** A request whose answer the caller ignores (204, or a body nobody reads). */
+export function sendVoid(
+  method: ApiMethod,
+  path: string,
+  body?: unknown,
+  options?: RequestOptions,
+): Effect.Effect<void, ApiError, ApiClient> {
+  return Effect.asVoid(execute({ method, url: apiUrl(path), body, allowUnauthorized: options?.allowUnauthorized }));
+}
+
+function uploadTooLarge(file: File): ApiError {
+  return new ApiError({
+    code: "payload_too_large",
+    status: 413,
+    message: translate("common.upload.tooLarge", {
+      filename: file.name,
+      size: (file.size / (1024 * 1024)).toFixed(1),
+    }),
+  });
 }
 
 /** Client-side guard so a 15 MB+ file never leaves the phone. */
 export function assertUploadSize(file: File): void {
   if (file.size > MAX_UPLOAD_BYTES) {
-    throw new ApiError({
-      code: "payload_too_large",
-      status: 413,
-      message: translate("common.upload.tooLarge", {
-        filename: file.name,
-        size: (file.size / (1024 * 1024)).toFixed(1),
-      }),
-    });
+    throw uploadTooLarge(file);
   }
 }
 
@@ -352,12 +368,161 @@ export function fileForm(file: File): FormData {
   return form;
 }
 
+/** {@link fileForm} as an effect: the same cap and message, failing instead of throwing (plan e6 P11). */
+export function uploadForm(file: File): Effect.Effect<FormData, ApiError> {
+  return Effect.suspend(() =>
+    file.size > MAX_UPLOAD_BYTES ? Effect.fail(uploadTooLarge(file)) : Effect.sync(() => fileForm(file)),
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* the core endpoints, described once                                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Every core request as an Effect (plan e6 P8): the member name is the facade's name, the parameters are the
+ * facade's without the signal, and only `allowUnauthorized` is read from `options` (a hard-coded `true` stays
+ * where the function set it). Members are arrow functions: nothing is read at definition (P16).
+ */
+export const CoreApi = {
+  fetchHealth: (_options?: RequestOptions) =>
+    getJson(HealthResponseSchema, "/api/health", { allowUnauthorized: true }),
+
+  registerAccount: (body: RegisterRequest, _options?: RequestOptions) =>
+    sendJson("POST", AuthSessionResponseSchema, "/api/auth/register", body, { allowUnauthorized: true }),
+
+  loginWithPassword: (body: LoginRequest, _options?: RequestOptions) =>
+    sendJson("POST", AuthSessionResponseSchema, "/api/auth/login", body, { allowUnauthorized: true }),
+
+  logout: (_options?: RequestOptions) =>
+    sendVoid("POST", "/api/auth/logout", undefined, { allowUnauthorized: true }),
+
+  fetchMe: (_options?: RequestOptions) =>
+    getJson(MeResponseSchema, "/api/auth/me", { allowUnauthorized: true }),
+
+  updateProfile: (body: UpdateProfileRequest, options?: RequestOptions) =>
+    sendJson("PATCH", UserResponseSchema, "/api/auth/me", body, options),
+
+  changePassword: (body: ChangePasswordRequest, options?: RequestOptions) =>
+    sendVoid("POST", "/api/auth/password", body, options),
+
+  requestPasswordReset: (body: ForgotPasswordRequest, _options?: RequestOptions) =>
+    sendVoid("POST", "/api/auth/password/forgot", body, { allowUnauthorized: true }),
+
+  resetPassword: (body: ResetPasswordRequest, _options?: RequestOptions) =>
+    sendVoid("POST", "/api/auth/password/reset", body, { allowUnauthorized: true }),
+
+  requestEmailVerification: (options?: RequestOptions) =>
+    sendJson("POST", EmailVerificationRequestResponseSchema, "/api/auth/email/verify/request", {}, options),
+
+  confirmEmailVerification: (body: VerifyEmailRequest, _options?: RequestOptions) =>
+    sendJson("POST", UserResponseSchema, "/api/auth/email/verify/confirm", body, { allowUnauthorized: true }),
+
+  fetchSessions: (options?: RequestOptions) =>
+    getJson(SessionListResponseSchema, "/api/auth/sessions", options),
+
+  revokeSession: (sessionId: string, options?: RequestOptions) =>
+    sendVoid("DELETE", `/api/auth/sessions/${seg(sessionId)}`, undefined, options),
+
+  fetchOAuthStartUrl: (provider: OAuthProvider, _options?: RequestOptions) =>
+    getJson(OAuthStartResponseSchema, `/api/auth/oauth/${seg(provider)}?json=1`, { allowUnauthorized: true }),
+
+  fetchOAuthProviders: (_options?: RequestOptions) =>
+    getJson(OAuthProvidersResponseSchema, "/api/auth/oauth", { allowUnauthorized: true }),
+
+  unlinkOAuthProvider: (provider: OAuthProvider, options?: RequestOptions) =>
+    sendVoid("DELETE", `/api/auth/oauth/${seg(provider)}`, undefined, options),
+
+  fetchHouseholds: (options?: RequestOptions) =>
+    getJson(HouseholdListResponseSchema, "/api/households", options),
+
+  createHousehold: (body: CreateHouseholdRequest, options?: RequestOptions) =>
+    sendJson("POST", HouseholdResponseSchema, "/api/households", body, options),
+
+  fetchInvitePreview: (token: string, _options?: RequestOptions) =>
+    getJson(InvitePreviewResponseSchema, `/api/households/invites/${seg(token)}`, { allowUnauthorized: true }),
+
+  acceptInvite: (body: AcceptInviteRequest, options?: RequestOptions) =>
+    sendJson("POST", AcceptInviteResponseSchema, "/api/households/invites/accept", body, options),
+
+  fetchHousehold: (householdId: string, options?: RequestOptions) =>
+    getJson(HouseholdDetailResponseSchema, `/api/households/${seg(householdId)}`, options),
+
+  updateHousehold: (householdId: string, body: UpdateHouseholdRequest, options?: RequestOptions) =>
+    sendJson("PATCH", HouseholdResponseSchema, `/api/households/${seg(householdId)}`, body, options),
+
+  deleteHousehold: (householdId: string, options?: RequestOptions) =>
+    sendVoid("DELETE", `/api/households/${seg(householdId)}`, undefined, options),
+
+  fetchHouseholdMembers: (householdId: string, options?: RequestOptions) =>
+    getJson(HouseholdMemberListResponseSchema, `/api/households/${seg(householdId)}/members`, options),
+
+  updateMemberRole: (householdId: string, userId: string, body: UpdateMemberRoleRequest, options?: RequestOptions) =>
+    sendJson(
+      "PATCH",
+      HouseholdMemberResponseSchema,
+      `/api/households/${seg(householdId)}/members/${seg(userId)}`,
+      body,
+      options,
+    ),
+
+  createPlaceholderMember: (householdId: string, body: CreatePlaceholderMemberRequest, options?: RequestOptions) =>
+    sendJson("POST", HouseholdMemberResponseSchema, `/api/households/${seg(householdId)}/members`, body, options),
+
+  renamePlaceholderMember: (
+    householdId: string,
+    userId: string,
+    body: UpdatePlaceholderMemberRequest,
+    options?: RequestOptions,
+  ) =>
+    sendJson(
+      "PATCH",
+      HouseholdMemberResponseSchema,
+      `/api/households/${seg(householdId)}/members/${seg(userId)}/placeholder`,
+      body,
+      options,
+    ),
+
+  removeHouseholdMember: (householdId: string, userId: string, options?: RequestOptions) =>
+    sendVoid("DELETE", `/api/households/${seg(householdId)}/members/${seg(userId)}`, undefined, options),
+
+  fetchHouseholdInvites: (householdId: string, query: Partial<PaginationQuery> = {}, options?: RequestOptions) =>
+    getJson(
+      HouseholdInviteListResponseSchema,
+      `/api/households/${seg(householdId)}/invites${queryString({ limit: query.limit, offset: query.offset })}`,
+      options,
+    ),
+
+  createHouseholdInvite: (householdId: string, body: CreateInviteRequest, options?: RequestOptions) =>
+    sendJson("POST", HouseholdInviteResponseSchema, `/api/households/${seg(householdId)}/invites`, body, options),
+
+  revokeHouseholdInvite: (householdId: string, inviteId: string, options?: RequestOptions) =>
+    sendVoid("DELETE", `/api/households/${seg(householdId)}/invites/${seg(inviteId)}`, undefined, options),
+
+  enableModule: (
+    householdId: string,
+    moduleId: ModuleId,
+    settings?: Record<string, unknown>,
+    options?: RequestOptions,
+  ) =>
+    sendJson(
+      "POST",
+      HouseholdResponseSchema,
+      `/api/households/${seg(householdId)}/modules/${seg(moduleId)}`,
+      settings === undefined ? {} : { settings },
+      options,
+    ),
+
+  disableModule: (householdId: string, moduleId: ModuleId, options?: RequestOptions) =>
+    sendVoid("DELETE", `/api/households/${seg(householdId)}/modules/${seg(moduleId)}`, undefined, options),
+};
+
 /* -------------------------------------------------------------------------- */
 /* health                                                                     */
 /* -------------------------------------------------------------------------- */
 
 export function fetchHealth(options?: RequestOptions): Promise<HealthResponse> {
-  return request<HealthResponse>("/api/health", { ...options, allowUnauthorized: true });
+  return runPromise(CoreApi.fetchHealth(options), options);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -368,51 +533,37 @@ export function registerAccount(
   body: RegisterRequest,
   options?: RequestOptions,
 ): Promise<AuthSessionResponse> {
-  return request<AuthSessionResponse>("/api/auth/register", {
-    ...options,
-    method: "POST",
-    body,
-    allowUnauthorized: true,
-  });
+  return runPromise(CoreApi.registerAccount(body, options), options);
 }
 
 export function loginWithPassword(
   body: LoginRequest,
   options?: RequestOptions,
 ): Promise<AuthSessionResponse> {
-  return request<AuthSessionResponse>("/api/auth/login", {
-    ...options,
-    method: "POST",
-    body,
-    allowUnauthorized: true,
-  });
+  return runPromise(CoreApi.loginWithPassword(body, options), options);
 }
 
 export function logout(options?: RequestOptions): Promise<void> {
-  return request<void>("/api/auth/logout", {
-    ...options,
-    method: "POST",
-    allowUnauthorized: true,
-  });
+  return runPromise(CoreApi.logout(options), options);
 }
 
 /** Bootstrap call: user + households + activeHouseholdId. 401 here is normal (= logged out). */
 export function fetchMe(options?: RequestOptions): Promise<MeResponse> {
-  return request<MeResponse>("/api/auth/me", { ...options, allowUnauthorized: true });
+  return runPromise(CoreApi.fetchMe(options), options);
 }
 
 export function updateProfile(
   body: UpdateProfileRequest,
   options?: RequestOptions,
 ): Promise<UserResponse> {
-  return request<UserResponse>("/api/auth/me", { ...options, method: "PATCH", body });
+  return runPromise(CoreApi.updateProfile(body, options), options);
 }
 
 export function changePassword(
   body: ChangePasswordRequest,
   options?: RequestOptions,
 ): Promise<void> {
-  return request<void>("/api/auth/password", { ...options, method: "POST", body });
+  return runPromise(CoreApi.changePassword(body, options), options);
 }
 
 /**
@@ -426,12 +577,7 @@ export function requestPasswordReset(
   body: ForgotPasswordRequest,
   options?: RequestOptions,
 ): Promise<void> {
-  return request<void>("/api/auth/password/forgot", {
-    ...options,
-    method: "POST",
-    body,
-    allowUnauthorized: true,
-  });
+  return runPromise(CoreApi.requestPasswordReset(body, options), options);
 }
 
 /**
@@ -444,12 +590,7 @@ export function resetPassword(
   body: ResetPasswordRequest,
   options?: RequestOptions,
 ): Promise<void> {
-  return request<void>("/api/auth/password/reset", {
-    ...options,
-    method: "POST",
-    body,
-    allowUnauthorized: true,
-  });
+  return runPromise(CoreApi.resetPassword(body, options), options);
 }
 
 /**
@@ -461,11 +602,7 @@ export function resetPassword(
 export function requestEmailVerification(
   options?: RequestOptions,
 ): Promise<EmailVerificationRequestResponse> {
-  return request<EmailVerificationRequestResponse>("/api/auth/email/verify/request", {
-    ...options,
-    method: "POST",
-    body: {},
-  });
+  return runPromise(CoreApi.requestEmailVerification(options), options);
 }
 
 /**
@@ -476,23 +613,15 @@ export function confirmEmailVerification(
   body: VerifyEmailRequest,
   options?: RequestOptions,
 ): Promise<UserResponse> {
-  return request<UserResponse>("/api/auth/email/verify/confirm", {
-    ...options,
-    method: "POST",
-    body,
-    allowUnauthorized: true,
-  });
+  return runPromise(CoreApi.confirmEmailVerification(body, options), options);
 }
 
 export function fetchSessions(options?: RequestOptions): Promise<SessionListResponse> {
-  return request<SessionListResponse>("/api/auth/sessions", options);
+  return runPromise(CoreApi.fetchSessions(options), options);
 }
 
 export function revokeSession(sessionId: string, options?: RequestOptions): Promise<void> {
-  return request<void>(`/api/auth/sessions/${seg(sessionId)}`, {
-    ...options,
-    method: "DELETE",
-  });
+  return runPromise(CoreApi.revokeSession(sessionId, options), options);
 }
 
 /**
@@ -508,10 +637,7 @@ export function fetchOAuthStartUrl(
   provider: OAuthProvider,
   options?: RequestOptions,
 ): Promise<OAuthStartResponse> {
-  return request<OAuthStartResponse>(`/api/auth/oauth/${seg(provider)}?json=1`, {
-    ...options,
-    allowUnauthorized: true,
-  });
+  return runPromise(CoreApi.fetchOAuthStartUrl(provider, options), options);
 }
 
 /** Full-page navigation into the provider's consent screen. */
@@ -524,10 +650,7 @@ export function startOAuth(provider: OAuthProvider, next?: string): void {
  * Public: a missing session just reports `linked: false`, so `allowUnauthorized`.
  */
 export function fetchOAuthProviders(options?: RequestOptions): Promise<OAuthProvidersResponse> {
-  return request<OAuthProvidersResponse>("/api/auth/oauth", {
-    ...options,
-    allowUnauthorized: true,
-  });
+  return runPromise(CoreApi.fetchOAuthProviders(options), options);
 }
 
 /**
@@ -544,7 +667,7 @@ export function unlinkOAuthProvider(
   provider: OAuthProvider,
   options?: RequestOptions,
 ): Promise<void> {
-  return request<void>(`/api/auth/oauth/${seg(provider)}`, { ...options, method: "DELETE" });
+  return runPromise(CoreApi.unlinkOAuthProvider(provider, options), options);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -552,14 +675,14 @@ export function unlinkOAuthProvider(
 /* -------------------------------------------------------------------------- */
 
 export function fetchHouseholds(options?: RequestOptions): Promise<HouseholdListResponse> {
-  return request<HouseholdListResponse>("/api/households", options);
+  return runPromise(CoreApi.fetchHouseholds(options), options);
 }
 
 export function createHousehold(
   body: CreateHouseholdRequest,
   options?: RequestOptions,
 ): Promise<HouseholdResponse> {
-  return request<HouseholdResponse>("/api/households", { ...options, method: "POST", body });
+  return runPromise(CoreApi.createHousehold(body, options), options);
 }
 
 /** Public invite preview for the landing page — works without a session. */
@@ -567,25 +690,18 @@ export function fetchInvitePreview(
   token: string,
   options?: RequestOptions,
 ): Promise<InvitePreviewResponse> {
-  return request<InvitePreviewResponse>(`/api/households/invites/${seg(token)}`, {
-    ...options,
-    allowUnauthorized: true,
-  });
+  return runPromise(CoreApi.fetchInvitePreview(token, options), options);
 }
 
 export function acceptInvite(
   body: AcceptInviteRequest,
   options?: RequestOptions,
 ): Promise<AcceptInviteResponse> {
-  return request<AcceptInviteResponse>("/api/households/invites/accept", {
-    ...options,
-    method: "POST",
-    body,
-  });
+  return runPromise(CoreApi.acceptInvite(body, options), options);
 }
 
 export function fetchHousehold(householdId: string, options?: RequestOptions): Promise<HouseholdDetailResponse> {
-  return request<HouseholdDetailResponse>(`/api/households/${seg(householdId)}`, options);
+  return runPromise(CoreApi.fetchHousehold(householdId, options), options);
 }
 
 export function updateHousehold(
@@ -593,18 +709,18 @@ export function updateHousehold(
   body: UpdateHouseholdRequest,
   options?: RequestOptions,
 ): Promise<HouseholdResponse> {
-  return request<HouseholdResponse>(`/api/households/${seg(householdId)}`, { ...options, method: "PATCH", body });
+  return runPromise(CoreApi.updateHousehold(householdId, body, options), options);
 }
 
 export function deleteHousehold(householdId: string, options?: RequestOptions): Promise<void> {
-  return request<void>(`/api/households/${seg(householdId)}`, { ...options, method: "DELETE" });
+  return runPromise(CoreApi.deleteHousehold(householdId, options), options);
 }
 
 export function fetchHouseholdMembers(
   householdId: string,
   options?: RequestOptions,
 ): Promise<HouseholdMemberListResponse> {
-  return request<HouseholdMemberListResponse>(`/api/households/${seg(householdId)}/members`, options);
+  return runPromise(CoreApi.fetchHouseholdMembers(householdId, options), options);
 }
 
 export function updateMemberRole(
@@ -613,11 +729,7 @@ export function updateMemberRole(
   body: UpdateMemberRoleRequest,
   options?: RequestOptions,
 ): Promise<HouseholdMemberResponse> {
-  return request<HouseholdMemberResponse>(`/api/households/${seg(householdId)}/members/${seg(userId)}`, {
-    ...options,
-    method: "PATCH",
-    body,
-  });
+  return runPromise(CoreApi.updateMemberRole(householdId, userId, body, options), options);
 }
 
 /** Adds a PLACEHOLDER member: a person by name, without an account (admin+, ADR 0006). */
@@ -626,11 +738,7 @@ export function createPlaceholderMember(
   body: CreatePlaceholderMemberRequest,
   options?: RequestOptions,
 ): Promise<HouseholdMemberResponse> {
-  return request<HouseholdMemberResponse>(`/api/households/${seg(householdId)}/members`, {
-    ...options,
-    method: "POST",
-    body,
-  });
+  return runPromise(CoreApi.createPlaceholderMember(householdId, body, options), options);
 }
 
 /** Renames a placeholder member (admin+). 409 `member_has_account` for a member with an account. */
@@ -640,10 +748,7 @@ export function renamePlaceholderMember(
   body: UpdatePlaceholderMemberRequest,
   options?: RequestOptions,
 ): Promise<HouseholdMemberResponse> {
-  return request<HouseholdMemberResponse>(
-    `/api/households/${seg(householdId)}/members/${seg(userId)}/placeholder`,
-    { ...options, method: "PATCH", body },
-  );
+  return runPromise(CoreApi.renamePlaceholderMember(householdId, userId, body, options), options);
 }
 
 /** Also used to leave a household (pass your own user id). */
@@ -652,10 +757,7 @@ export function removeHouseholdMember(
   userId: string,
   options?: RequestOptions,
 ): Promise<void> {
-  return request<void>(`/api/households/${seg(householdId)}/members/${seg(userId)}`, {
-    ...options,
-    method: "DELETE",
-  });
+  return runPromise(CoreApi.removeHouseholdMember(householdId, userId, options), options);
 }
 
 export function fetchHouseholdInvites(
@@ -663,10 +765,7 @@ export function fetchHouseholdInvites(
   query: Partial<PaginationQuery> = {},
   options?: RequestOptions,
 ): Promise<HouseholdInviteListResponse> {
-  return request<HouseholdInviteListResponse>(
-    `/api/households/${seg(householdId)}/invites${queryString({ limit: query.limit, offset: query.offset })}`,
-    options,
-  );
+  return runPromise(CoreApi.fetchHouseholdInvites(householdId, query, options), options);
 }
 
 export function createHouseholdInvite(
@@ -674,11 +773,7 @@ export function createHouseholdInvite(
   body: CreateInviteRequest,
   options?: RequestOptions,
 ): Promise<HouseholdInviteResponse> {
-  return request<HouseholdInviteResponse>(`/api/households/${seg(householdId)}/invites`, {
-    ...options,
-    method: "POST",
-    body,
-  });
+  return runPromise(CoreApi.createHouseholdInvite(householdId, body, options), options);
 }
 
 export function revokeHouseholdInvite(
@@ -686,10 +781,7 @@ export function revokeHouseholdInvite(
   inviteId: string,
   options?: RequestOptions,
 ): Promise<void> {
-  return request<void>(`/api/households/${seg(householdId)}/invites/${seg(inviteId)}`, {
-    ...options,
-    method: "DELETE",
-  });
+  return runPromise(CoreApi.revokeHouseholdInvite(householdId, inviteId, options), options);
 }
 
 /**
@@ -702,11 +794,7 @@ export function enableModule(
   settings?: Record<string, unknown>,
   options?: RequestOptions,
 ): Promise<HouseholdResponse> {
-  return request<HouseholdResponse>(`/api/households/${seg(householdId)}/modules/${seg(moduleId)}`, {
-    ...options,
-    method: "POST",
-    body: settings === undefined ? {} : { settings },
-  });
+  return runPromise(CoreApi.enableModule(householdId, moduleId, settings, options), options);
 }
 
 /** Disables a module for a household (admin, verified e-mail). Its data stays in its tables. */
@@ -715,10 +803,7 @@ export function disableModule(
   moduleId: ModuleId,
   options?: RequestOptions,
 ): Promise<void> {
-  return request<void>(`/api/households/${seg(householdId)}/modules/${seg(moduleId)}`, {
-    ...options,
-    method: "DELETE",
-  });
+  return runPromise(CoreApi.disableModule(householdId, moduleId, options), options);
 }
 
 /* -------------------------------------------------------------------------- */
