@@ -24,20 +24,8 @@ import {
   queryKeys as coreQueryKeys,
   STALE_TIME,
 } from "@/lib/queries";
-import {
-  fetchBalance,
-  fetchBalanceHistory,
-  fetchCategories,
-  fetchFinanceParticipants,
-  fetchPlan,
-  fetchPlanPreview,
-  fetchPlanRuns,
-  fetchSettlements,
-  fetchTags,
-  fetchTransaction,
-  fetchTransactionSummary,
-  fetchTransactions,
-} from "./api";
+import { FinanceApi } from "./api";
+import { runPromise } from "@/lib/runtime";
 
 export * from "@/lib/queries";
 
@@ -92,7 +80,7 @@ export const queryKeys = {
 export const financeParticipantsQuery = (householdId: string) =>
   queryOptions({
     queryKey: queryKeys.financeParticipants(householdId),
-    queryFn: ({ signal }) => fetchFinanceParticipants(householdId, { signal }),
+    queryFn: ({ signal }) => runPromise(FinanceApi.fetchFinanceParticipants(householdId), { signal }),
     staleTime: STALE_TIME.detail,
     networkMode: "offlineFirst",
   });
@@ -105,7 +93,7 @@ export const financeParticipantsQuery = (householdId: string) =>
 export const transactionsQuery = (householdId: string, query: Partial<TransactionListQuery> = {}) =>
   queryOptions({
     queryKey: queryKeys.transactions(householdId, query),
-    queryFn: ({ signal }) => fetchTransactions(householdId, query, { signal }),
+    queryFn: ({ signal }) => runPromise(FinanceApi.fetchTransactions(householdId, query), { signal }),
     staleTime: STALE_TIME.list,
     networkMode: "offlineFirst",
   });
@@ -113,7 +101,7 @@ export const transactionsQuery = (householdId: string, query: Partial<Transactio
 export const transactionQuery = (householdId: string, transactionId: string) =>
   queryOptions({
     queryKey: queryKeys.transaction(householdId, transactionId),
-    queryFn: ({ signal }) => fetchTransaction(householdId, transactionId, { signal }),
+    queryFn: ({ signal }) => runPromise(FinanceApi.fetchTransaction(householdId, transactionId), { signal }),
     staleTime: STALE_TIME.detail,
     networkMode: "offlineFirst",
   });
@@ -124,7 +112,7 @@ export const transactionSummaryQuery = (
 ) =>
   queryOptions({
     queryKey: queryKeys.transactionSummary(householdId, query),
-    queryFn: ({ signal }) => fetchTransactionSummary(householdId, query, { signal }),
+    queryFn: ({ signal }) => runPromise(FinanceApi.fetchTransactionSummary(householdId, query), { signal }),
     staleTime: STALE_TIME.list,
     networkMode: "offlineFirst",
   });
@@ -132,7 +120,7 @@ export const transactionSummaryQuery = (
 export const categoriesQuery = (householdId: string, includeHidden?: boolean) =>
   queryOptions({
     queryKey: queryKeys.categories(householdId, includeHidden),
-    queryFn: ({ signal }) => fetchCategories(householdId, includeHidden, { signal }),
+    queryFn: ({ signal }) => runPromise(FinanceApi.fetchCategories(householdId, includeHidden), { signal }),
     staleTime: STALE_TIME.meta,
     networkMode: "offlineFirst",
   });
@@ -140,14 +128,14 @@ export const categoriesQuery = (householdId: string, includeHidden?: boolean) =>
 export const tagsQuery = (householdId: string, query: { q?: string; limit?: number } = {}) =>
   queryOptions({
     queryKey: queryKeys.tags(householdId, query),
-    queryFn: ({ signal }) => fetchTags(householdId, query, { signal }),
+    queryFn: ({ signal }) => runPromise(FinanceApi.fetchTags(householdId, query), { signal }),
     staleTime: STALE_TIME.meta,
   });
 
 export const planQuery = (householdId: string) =>
   queryOptions({
     queryKey: queryKeys.plan(householdId),
-    queryFn: ({ signal }) => fetchPlan(householdId, { signal }),
+    queryFn: ({ signal }) => runPromise(FinanceApi.fetchPlan(householdId), { signal }),
     staleTime: STALE_TIME.detail,
     networkMode: "offlineFirst",
   });
@@ -155,14 +143,14 @@ export const planQuery = (householdId: string) =>
 export const planPreviewQuery = (householdId: string, period: string) =>
   queryOptions({
     queryKey: queryKeys.planPreview(householdId, period),
-    queryFn: ({ signal }) => fetchPlanPreview(householdId, period, { signal }),
+    queryFn: ({ signal }) => runPromise(FinanceApi.fetchPlanPreview(householdId, period), { signal }),
     staleTime: STALE_TIME.detail,
   });
 
 export const planRunsQuery = (householdId: string, query: Partial<PaginationQuery> = {}) =>
   queryOptions({
     queryKey: queryKeys.planRuns(householdId, query),
-    queryFn: ({ signal }) => fetchPlanRuns(householdId, query, { signal }),
+    queryFn: ({ signal }) => runPromise(FinanceApi.fetchPlanRuns(householdId, query), { signal }),
     staleTime: STALE_TIME.list,
   });
 
@@ -170,7 +158,7 @@ export const planRunsQuery = (householdId: string, query: Partial<PaginationQuer
 export const balanceQuery = (householdId: string, query: Partial<BalanceQuery> = {}) =>
   queryOptions({
     queryKey: queryKeys.balance(householdId, query),
-    queryFn: ({ signal }) => fetchBalance(householdId, query, { signal }),
+    queryFn: ({ signal }) => runPromise(FinanceApi.fetchBalance(householdId, query), { signal }),
     staleTime: STALE_TIME.list,
     networkMode: "offlineFirst",
   });
@@ -178,14 +166,14 @@ export const balanceQuery = (householdId: string, query: Partial<BalanceQuery> =
 export const balanceHistoryQuery = (householdId: string, query: Partial<BalanceHistoryQuery> = {}) =>
   queryOptions({
     queryKey: queryKeys.balanceHistory(householdId, query),
-    queryFn: ({ signal }) => fetchBalanceHistory(householdId, query, { signal }),
+    queryFn: ({ signal }) => runPromise(FinanceApi.fetchBalanceHistory(householdId, query), { signal }),
     staleTime: STALE_TIME.list,
   });
 
 export const settlementsQuery = (householdId: string, query: Partial<PaginationQuery> = {}) =>
   queryOptions({
     queryKey: queryKeys.settlements(householdId, query),
-    queryFn: ({ signal }) => fetchSettlements(householdId, query, { signal }),
+    queryFn: ({ signal }) => runPromise(FinanceApi.fetchSettlements(householdId, query), { signal }),
     staleTime: STALE_TIME.list,
   });
 
