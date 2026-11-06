@@ -1,6 +1,6 @@
 # M8 — calendar module: plan
 
-**Status: PLANNED (2026-11-06).** Base commit `94e2906f1` (`M8 design: calendar module (docs/modules/calendar.md, ADR 0016) and the
+**Status: DONE (2026-11-06; integration record section 9, what changed section 10).** Base commit `94e2906f1` (`M8 design: calendar module (docs/modules/calendar.md, ADR 0016) and the
 Hattingen 2027 flyer fixture`). Sections 9 and 10 (the integration record and "what changed vs plan") are written by M8-T18 and
 M8-T19.
 
@@ -734,9 +734,141 @@ import, sharing outside the household); M8-T18 records them in `docs/open-work.m
 
 ## 9. Integration record
 
-To be written by M8-T18 and M8-T19: the gate logs (typecheck, test count, build and bundle size, i18n classification), the merge
-conflicts and how they were resolved, the fixture seed run, the headless pass (screens, sizes, findings), the parser's tour-4 count.
+### 9.1 The merges (M8-T18, 2026-11-06)
+
+On `main` from the foundation tip `a5feecf19`, `git merge --no-ff --no-edit` in the plan's order:
+
+| Merge | Branch tip | Lane commits | Conflicts |
+| --- | --- | --- | --- |
+| `db48efdf9` | `m8/api-core` `d10800569` | 5 (M8-T05 … M8-T08, one P28 shared-fix) | none |
+| `654f698a4` | `m8/api-waste` `cf5462649` | 7 (M8-T09 … M8-T12, the test-first triple of M8-T10, one P28 shared-fix) | `apps/api/test/api-doc.test.ts`: BOTH lanes made the same P28 shared-fix (`enableCalendar(owner, householdId)` on the `+verified` gate household, commits `055e37a57` and `97b0ba135`); only the comment line above the call differed. Kept ONE copy (api-core's comment), one import, one call. `docs/API.md` merged cleanly (the two anchored subsections). |
+| `7b7175048` | `m8/web` `8fb3c87f2` | 6 (M8-T13 … M8-T17) | none |
+
+After each merge: `bun run typecheck` OK; after the last, the lanes' tests (`bun test apps/api/test/calendar- apps/api/test/api-doc.test.ts
+apps/api/test/import-order-effect.test.ts apps/api/test/effect-idioms.test.ts apps/web/src/modules packages/shared/test/calendar`) 928 pass,
+0 fail in 64 files, and the full suite 15676 pass, 1 skip, 0 fail in 215 files. No integration fix was needed. The three worktrees
+(`.worktrees/m8-api-core`, `.worktrees/m8-api-waste`, `.worktrees/m8-web`) were removed with `git worktree remove --force`, then
+`git worktree prune`, and the three branches deleted (`git branch -d`, all merged).
+
+Integration commits: `6217d3b45` (the contract test), `5bbfe0a57` (SPEC), `6dd41c9d3` (docs as built), then M8-T19's `fd76c91c3`,
+`44e4ea726`, `2954ad8d8` (review fixes) and `5128b8097` (screenshots, docs).
+
+### 9.2 The contract test
+
+`apps/api/test/web-contract-calendar.test.ts`: 35 rows over the 18 exports of `apps/web/src/modules/calendar/lib/api.ts` (15 JSON, 3
+void), each JSON body decoded with `{ disableChecks: true }` and `toEqual` the body; a household with a second member and a
+placeholder; every entry kind (all-day, timed without end, multi-day, weekly rotation, monthly with `until`, a car booking and a
+conflicting one with `allowConflict`), the four occurrence states, both waste sources (a link through `setWasteFlyerFetchForTests` with
+`makeTestWasteFlyerFetch`, the seam form of `WasteFlyerFetch.layerTest`, and a multipart upload of the committed flyer), a whole year of
+pickups with `bio_cleaning`. **No lenient row.** A coverage test fails for an export without a row.
+
+### 9.3 Gates on the final tree (`5128b8097`)
+
+Each in the background with a log ending `exit=$?`:
+
+- `bun install --frozen-lockfile`: exit 0 (no changes).
+- `bun run typecheck`: OK, exit 0.
+- `bun test`: **15682 pass, 1 skip, 0 fail in 216 files** (78.79 s); baseline 15236 in 183 files, the foundation tip 15414 in 192.
+- `bun run i18n:check`: parity `OK`; leftover `FAILED — 148 possible German literal(s)`, exit 1 by design: the same count as the
+  baseline and NO hit in a calendar file (`grep -c calendar` over the log: 0), so every hit is one of the 148 classified false
+  positives (`docs/open-work.md` O-5).
+- `bun run build`: exit 0. JS: 101 chunks, **462.66 kB gzipped** (E6: 84 chunks, 419.99 kB; +42.67 kB, the calendar's lazy screens
+  and its share of the shared chunk); the big `queries-*.js` chunk 602.13 kB (gzip 168.78 kB; E6 557.53 / 157.29: the shared calendar
+  schemas, recurrence and date math); PWA precache 121 entries, 1640.50 KiB.
+- `git status --porcelain repos/`: empty. `git status --porcelain`: clean after the last commit.
+- `bash docs/plans/e8-verify.sh`: `repos`, `imports`, `no-bridges all`, `guards`, `hono` OK. `api-rows` FAILS by construction (it
+  asserts that no `docs/API.md` ROW changed since E8's base; M8 adds the calendar's rows) and does not apply to M8.
+- The fixture seed on a scratch DB (`NODE_ENV=development DATABASE_URL=file:<scratch>/m8.db SESSION_SECRET=<32 hex> bun run seed`,
+  twice): exit 0 both; 27 calendar entries (1 car booking, 3 events, 23 tasks: "Blumen gießen", "Bad putzen" and 21 synthetic waste
+  pickups), 1 car, 1 waste import.
+
+### 9.4 The parser
+
+On the committed 2027 flyer: every row of design §5.4 reproduced, 365 dates covered, deterministic on shuffled items. Tour 4: **26**
+Restmüll (pinned in `4d4aed604`), 26 Gelber Sack, 27 Biotonne, 14 Papier, 1 Tannenbaum = 94 pickups; 7 `hiddenCopyDiffers` warnings
+(the hidden January/February copy is an older draft, section 10).
+
+### 9.5 Review (M8-T19)
+
+The merged diff read against design §1-§6 and P1-P29; four findings, three fixed with a test, one recorded:
+
+1. `fd76c91c3`: the preview showed every warning as its raw code ("hiddenCopyDiffers am Fr 15.01.", seven lines for the real
+   flyer). Now one sentence per code with its dates (`wasteWarningGroups`), test in
+   `apps/web/src/modules/calendar/features/waste/lib/errors.test.ts`.
+2. `44e4ea726`: at 390 the Müllabfuhr header action "Abfallkalender importieren" squeezed the household chip to its initial and the
+   module chip's icon into its chevron (found in the headless screenshots). The action reads "Importieren", the full label is its
+   accessible name; `apps/web/src/modules/calendar/phone-header.test.ts` pins header action labels at 12 characters or fewer.
+3. `2954ad8d8`: from `lg` the sidebar's segmented module switcher with Start · Rezepte · Finanzen · Kalender truncated every module
+   label ("Reze…"). From four items it is a two-column grid (`switcherColumns`, test in
+   `apps/web/src/components/layout/module-switcher-items.test.ts`).
+4. Recorded, not changed (`docs/open-work.md` O-12): the member-removal hook leaves the leaver's future waste pickups unassigned
+   instead of re-dealing them (it has no "today"; the next save of the Müllabfuhr settings re-deals).
+
+Read and found consistent with the plan: P6 rules in the create schema, P7 merge-then-validate with orphan marks deleted in the same
+transaction, P8 refusals, P10 order, P11 conflict horizon and skipped occurrences, P12 states, P14 hook, P15 per-day assignment (the day
+index over the whole import, so a re-deal from `today` keeps past days stable), P17 caps and seam, P20 one transaction with carried
+marks, P24 online-only writes and the optimistic toggle with rollback.
+
+### 9.6 Headless pass (M8-T19)
+
+Playwright 1.64.1 (the cached chromium-1248) in a scratch directory outside the repo; the seeded scratch DB; the built app
+(`bun run build`, then the API with `WEB_DIST_DIR=<repo>/apps/web/dist`, `WEB_ORIGIN=http://localhost:3001,http://127.0.0.1:3001`);
+one login through `fetch("/api/auth/login")` saved as `storageState`; `locale: "de-DE"` (the default context renders English). All 24
+checks OK:
+
+- Kalender enabled on Home with "Aktivieren" (the seed does not enable it).
+- Every screen of section 5.5 (`/calendar`, `/calendar/month`, `/calendar/tasks`, `/calendar/new`, the occurrence detail, its edit,
+  `/calendar/cars`, `/calendar/waste`) at 390 (mobile context, touch) and 1440: `scrollWidth <= clientWidth` (390/390; 1425/1440, the
+  `scrollbar-gutter` of CLAUDE.md "Headless runs") and no element right of `innerWidth + 0.5`.
+- The phone tab bar on Home: Start · Rezepte · Finanzen · Kalender · Profil.
+- A task's done checkbox toggled and reset on Aufgaben.
+- A car booking on the day of Robin's weekly booking, 09:00-10:00: the notice "Das Auto ist schon gebucht", then "Trotzdem buchen"
+  saved it (the one console error of the run is that expected `409`).
+- The waste upload of the fixture with Bezirk 4: preview "Abfallkalender 2027, Bezirk 4" with the counts of 9.4 and the grouped
+  hint, "Importieren" wrote the 2027 import, Aufgaben shows the next pickups.
+- The CSP at the second origin `http://127.0.0.1:3001` (its own login): Home and six calendar screens, the service worker registered,
+  **0 console errors**.
+
+Screenshots (after the fixes): `docs/plans/screenshots/m8/` (21 files: every screen at both widths, Home at both, the conflict notice,
+the waste preview, Aufgaben after the import).
 
 ## 10. What changed vs plan
 
-To be written by M8-T19.
+The expected deviations of section 7, as they happened:
+
+- **P9 (a)** `GET /occurrences` answers `{ items, members }`; **(b)** `GET /entries?kind=&recurring=` exists (one more `docs/API.md`
+  row). Both in `docs/modules/calendar.md` section 3.
+- **P15** waste assignees are resolved per pickup day and stored as `fixed`.
+- **P8** the DELETE of an imported waste entry is refused (`409 calendar_entry_imported`).
+- **P22** the golden-coverage test covers the E1 corpus only, with the calendar guard beside it (still 217 exported E1 schemas).
+
+And beyond section 7:
+
+- **The flyer's hidden copies are resolved by paint order, not consensus** (lane api-waste, M8-T10). Design §5.3 and P19 asked every
+  valid copy of a grid to agree; the 2027 flyer's hidden January/February copy is an older draft that differs on 7 days (2027-01-15
+  reads G 3; 2027-02-15 to -20 shifted one row, Rosenmontag empty; the visible values were confirmed on page 2 rendered at 200 dpi). The
+  section drawn last wins, a disagreeing covered copy is the preview warning `{ code: "hiddenCopyDiffers", date }`, and `consensus`
+  fires only for two blocks of one month inside the SAME section. ADR 0016 "Status after M8" records it.
+- **A weekday item may carry the holiday name** ("Sa Tag der Arbeit" is one text item): without it May and December failed the
+  weekday validation in every copy.
+- **No `isEvalSupported: false`** (design §5.2, P18): the pdf.js inside unpdf 1.8 no longer has the option. `WastePdfText` yields one
+  event-loop turn between pages, or the 20 s Effect timeout could never fire.
+- **A new test seam in `src`**: `setWasteFlyerFetchForTests(makeTestWasteFlyerFetch(bytesByUrl))` in
+  `apps/api/src/modules/calendar/services/waste/fetch.ts` (throws outside `NODE_ENV=test`): the route tests run on the one shared
+  runtime, whose layer a test cannot swap. Listed in CLAUDE.md "The test seams stay in `src`".
+- **P11 narrowed** (lane api-core): a PATCH re-runs the car conflict check only when the schedule or the car changed, so a note edit on
+  a booking saved with `allowConflict` is not refused again ("On PATCH the entry itself is excluded" still holds when it runs).
+- **`calendar_entries.resource_id` is `ON DELETE NO ACTION`**, not RESTRICT (foundation, section 5.6).
+- **Two P28 shared-fixes with the same content** in `apps/api/test/api-doc.test.ts` (both lanes; one copy kept, 9.1). One more
+  outside a lane's files, additive: `sendForm` in `apps/web/src/lib/api.ts` takes an optional fifth argument `fields` (the waste upload's
+  `tour` part; lane web, `886bb760b`).
+- **The seed also writes a waste settings row** (Hattingen, tour 4, no assignee) so the overview matches the synthetic import, and it
+  does not enable the module.
+- **The Übersicht member filter runs on the client** with the P10 rule (one occurrence query for the list, the Today card and the
+  offline copy); `memberId` stays in the API and the client.
+- **Integration**: the worktrees were under `.worktrees/m8-<lane>` (the harness's paths), not P1's `../toon-household-m8-<lane>`.
+  `docs/modules/calendar.md` keeps a map from the design's section numbers (cited as "design §N" in the code) to the as-built sections.
+- **M8-T19 review fixes outside the module's files**: the sidebar switcher's two-column layout
+  (`apps/web/src/components/layout/ModuleSwitcher.tsx`, `apps/web/src/components/layout/module-switcher-items.ts`), a consequence of
+  the third module that ADR 0016 did not foresee.
+- **Deferred** (to `docs/open-work.md`): design §7 as X-8 to X-13, the next year's flyer as X-14, the hook's waste re-deal as O-12.
