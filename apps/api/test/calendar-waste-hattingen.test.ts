@@ -25,6 +25,9 @@ import { FLYER_ITEMS } from "./fixtures/calendar/record-items.ts";
 
 const ITEMS: ReadonlyArray<WasteTextItem> = JSON.parse(readFileSync(FLYER_ITEMS, "utf8"));
 
+/** Design §5.4 "count it and pin the number the parser produces once the spot checks pass": 26 fortnightly dates. */
+const TOUR_4_REST_COUNT = 26;
+
 type Row = { R?: number; G?: number; B?: number; P?: number; T?: number };
 const KEY: Record<keyof Row, WasteCategory> = {
   R: "waste_rest",
@@ -217,14 +220,14 @@ describe("parseHattingenFlyer: whole-year properties", () => {
     expect(parsed(shuffled)).toEqual(result);
   });
 
-  test("tour 4 has Restmüll every second week (at least 20 dates, at most one per 13 days)", () => {
+  test("tour 4 has Restmüll every second week: 26 dates in 2027 (pinned once the spot checks passed), never 12 days apart", () => {
     const dates = selectTour(result, 4)
       .filter((pickup) => pickup.category === "waste_rest")
       .map((pickup) => pickup.date);
-    expect(dates.length).toBeGreaterThanOrEqual(20);
+    expect(dates.length).toBe(TOUR_4_REST_COUNT);
     for (let i = 1; i < dates.length; i += 1) {
       const gap = (Date.parse(`${dates[i]}T00:00:00Z`) - Date.parse(`${dates[i - 1]}T00:00:00Z`)) / 86_400_000;
-      expect(gap).toBeGreaterThanOrEqual(12);
+      expect(gap).toBeGreaterThanOrEqual(13);
     }
   });
 });
