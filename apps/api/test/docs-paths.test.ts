@@ -1,10 +1,11 @@
 /**
  * Keeps every repository path named in the living docs real (M7 plan decision 5).
  *
- * Scans CLAUDE.md, docs/API.md, docs/modules/recipe.md, docs/modules/finance.md and
- * docs/open-work.md (never the plans, ADRs or SPEC: they are dated records) for inline-code spans
- * that are repo-relative paths: a span starting with one of PATH_PREFIXES, or exactly one of
- * ROOT_FILES. For each span it
+ * Scans CLAUDE.md, docs/API.md, docs/EFFECT.md, docs/modules/recipe.md, docs/modules/finance.md,
+ * docs/open-work.md and every agent-patterns/*.md (never the plans, ADRs or SPEC: they are dated
+ * records) for inline-code spans that are repo-relative paths: a span starting with one of
+ * PATH_PREFIXES (the vendored Effect source under repos/effect/ included, plan e8 P9), or exactly
+ * one of ROOT_FILES. For each span it
  *   - joins a span that a line break split (paths hold no whitespace; a span that still holds
  *     whitespace after the join is a command or prose, not a path, and is skipped),
  *   - skips spans containing `<`, `…` or `$` (placeholders and shell variables),
@@ -17,20 +18,37 @@
  * ALLOW_MISSING names, with a reason each, the spans that name a path on purpose as absent.
  */
 import { describe, expect, test } from "bun:test";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const ROOT = resolve(import.meta.dir, "..", "..", "..");
 
+/** The pattern files of `docs/EFFECT.md` §2 (every `agent-patterns/*.md`, read from disk so a new one is scanned too). */
+const PATTERN_FILES = readdirSync(join(ROOT, "agent-patterns"))
+  .filter((name) => name.endsWith(".md"))
+  .sort()
+  .map((name) => `agent-patterns/${name}`);
+
 const DOCS = [
   "CLAUDE.md",
   "docs/API.md",
+  "docs/EFFECT.md",
   "docs/modules/recipe.md",
   "docs/modules/finance.md",
   "docs/open-work.md",
+  ...PATTERN_FILES,
 ];
 
-const PATH_PREFIXES = ["apps/", "packages/", "scripts/", "docs/", "docker/", ".github/"];
+const PATH_PREFIXES = [
+  "apps/",
+  "packages/",
+  "scripts/",
+  "docs/",
+  "docker/",
+  ".github/",
+  "agent-patterns/",
+  "repos/effect/",
+];
 
 const ROOT_FILES = [
   "Dockerfile",
@@ -156,6 +174,7 @@ describe("repository paths named in the living docs exist", () => {
 
   test("the scan finds path spans in every doc", () => {
     expect(result.checked).toBeGreaterThan(100);
+    expect(PATTERN_FILES.length).toBeGreaterThanOrEqual(12);
   });
 
   test("every path span resolves to a file or directory", () => {
@@ -169,6 +188,14 @@ describe("repository paths named in the living docs exist", () => {
       const bare = span.endsWith("/") ? span.slice(0, -1) : span;
       expect(KNOWN.files.has(bare) || KNOWN.dirs.has(bare)).toBe(false);
     }
+  });
+});
+
+describe("CLAUDE.md points an agent at the Effect references (docs/EFFECT.md §2, plan e8 P9)", () => {
+  const claude = readFileSync(join(ROOT, "CLAUDE.md"), "utf8");
+
+  test.each(["docs/EFFECT.md", "repos/effect/LLMS.md", "agent-patterns/"])("CLAUDE.md names %s", (name) => {
+    expect(claude).toContain(`\`${name}\``);
   });
 });
 

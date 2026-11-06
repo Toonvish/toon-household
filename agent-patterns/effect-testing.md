@@ -210,7 +210,7 @@ Where it lives:
   `runtime.runPromise(Effect.void)`, which builds the whole `AppLayer` after that import order.
 - `apps/api/test/effect-idioms.test.ts`: the grep gate (one `describe` per rule, a pinned allow list, failures as `file:line: code`, a rule
   self-check and a stale-entry check). It allows `effect/testing`; it forbids `repos/` imports, v3 paths and `effect/unstable/*`.
-- `packages/shared/test/*.test.ts` and the co-located `apps/web/src/**/*.test.ts(x)` call the decoders and `Effect.runPromise` directly.
+- `packages/shared/test/*.test.ts` and the co-located `apps/web/src/**/*.test.{ts,tsx}` call the decoders and `Effect.runPromise` directly.
 
 Rule served: E9 (`bun test` stays, no vitest; Effect tests run through layers; the pass count never drops below the previous record) with
 E12 (services read `Clock`, so time is testable).

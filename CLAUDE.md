@@ -46,7 +46,8 @@ framework (E1–E12; amends D10's wording); 0013 validation details come from th
 `docs/plans/e1-shared-schema.md` P7, P9, P10: every route's `details` carry the catalog message and `i18n`, a
 struct's own checks do not run while one of its fields fails); 0014 transitional bridges while the core moves onto
 Effect (E5, E7; plan `docs/plans/e2-api-core-services.md` P1, P6, P11, P17: the process-wide database instance, the
-legacy bridges with their calling conventions, the Promise module contract, the test seams); 0015 the HttpApi server:
+legacy bridges with their calling conventions, the Promise module contract, the test seams; closed at E8, "Status after
+E8": the 19 test-only doors live in `apps/api/test/support/bridges/`, the seams and the import-time client stay); 0015 the HttpApi server:
 what E7 does differently from `docs/EFFECT.md` (E8; plan `docs/plans/e7-http-api.md` D1 to D7, P3, P12: CORS, the origin
 guard, the security headers and the request log are global router middleware and there is no locale middleware, a module
 contributes `HttpApi`s that wrap its groups, endpoints declare no payload or success schema, the bounded stop with the
@@ -60,19 +61,12 @@ forces a deviation makes the smallest one and records it (ADR 0012, `docs/adr/00
 The app itself is built (see "Status"); the build workflow that did it (`build-household.js`, SPEC §8) was
 removed in commit `7788b45` and lives in git history only.
 
-**The Effect migration** is built by `.claude/workflows/migrate-effect.js` from `docs/EFFECT.md`, milestone by
-milestone (E0 foundation … E8 harden, `docs/EFFECT.md` §4). Run it from this directory with `Workflow
-migrate-effect` and `args: { milestones: ["E0"] }`, one or two milestones per invocation, and read the result
-before the next. Phases per milestone: Learn (a Haiku agent makes sure `repos/effect` is vendored, Sonnet
-agents distill the missing `agent-patterns/effect-<topic>.md` files from the vendored source), Plan (Opus
-plans, three Opus critics with the lenses feasibility, behaviour preservation and Effect v4 idioms, one
-revision), Implement (Haiku for spelled-out mechanical rewrites, Sonnet for implementation, Opus for the
-architecture tasks; dependency waves in parallel worktrees, merge, Sonnet verification, bounded fix rounds),
-Review (Haiku runs the gates, Opus judges against the exit criteria and the "behaviour unchanged" rule),
-Harden (Sonnet fixes findings, Opus re-reviews, docs and pattern files synced). It writes the plan to
-`docs/plans/e<N>-<name>.md`, commits per task and never pushes; it stops at the first milestone whose exit
-criteria are not met and resumes with `resumeFromRunId`. The E0 plan is `docs/plans/e0-foundation.md`; its Learn
-phase verifies that `repos/effect` is present and at the installed version instead of re-adding it.
+**The Effect migration is done** (E0 foundation … E8 harden, `docs/EFFECT.md` §4). It was built by
+`.claude/workflows/migrate-effect.js` (per milestone: Learn from the vendored source and distil the pattern files, Plan with three
+critics, Implement in parallel worktrees, Review against the exit criteria, Harden), which wrote one plan per milestone under
+`docs/plans/`, committed per task and never pushed. The workflow file stays as history; nothing in the tree needs it. A later change
+follows "Conventions" and "Gotchas in use" directly, with its own plan under `docs/plans/` and an ADR for any deviation from §1 of
+`docs/SPEC.md` or `docs/EFFECT.md`.
 
 ## Vendored reference code
 
@@ -90,11 +84,11 @@ web (`docs/EFFECT.md` E2, §2).
   `repos/effect/packages/effect/CONFIG.md`. (5) For an API you remember from v3: `repos/effect/MIGRATION.md` and
   `repos/effect/migration/*.md`. (6) When the docs are silent: the source under
   `repos/effect/packages/effect/src/` and the package's `test/`.
-- **Pattern files.** The five present are `agent-patterns/effect-core.md`, `agent-patterns/effect-schema.md`,
-  `agent-patterns/effect-services.md`, `agent-patterns/effect-errors.md` and `agent-patterns/effect-testing.md`;
-  the others (`effect-config`, `effect-datetime-clock`, `effect-stream`, `effect-http-client`, `effect-http-api`,
-  `effect-http-server-bun`, `effect-cli`) are distilled by the workflow's Learn phase before the milestone that
-  needs them. A milestone that finds a wrong line in one fixes the file in the same commit.
+- **Pattern files.** Twelve, under `agent-patterns/`: `effect-core.md`, `effect-schema.md`, `effect-services.md`,
+  `effect-errors.md`, `effect-testing.md`, `effect-config.md`, `effect-datetime-clock.md`, `effect-stream.md`,
+  `effect-http-client.md`, `effect-http-api.md`, `effect-http-server-bun.md`, `effect-cli.md`. Each ends with "In this repo",
+  examples copied from the tree with their paths (E8 refreshed all twelve). A task that finds a wrong line in one fixes the file
+  in the same commit; `apps/api/test/docs-paths.test.ts` checks every repo path they name.
 - **v4, not v3.** `Context.Tag` / `Effect.Service` became `Context.Service` with a static `layer` and no accessors,
   `Effect.catchAll` became `Effect.catch`, `Either` became `Result`, `Schema.Union` and `Schema.Literals` take arrays,
   `.annotations()` became `.annotate()`, `.filter()` became `.check()`, `decodeUnknown` became
@@ -116,55 +110,23 @@ web (`docs/EFFECT.md` E2, §2).
 
 ## Status
 
-All milestones are done: M0 scaffold (`docs/plans/m0-scaffold.md`), M1 core (`docs/plans/m1-core.md`), M2 recipe
-module (`docs/plans/m2-recipe-module.md`), M3 finance module (`docs/plans/m3-finance-module.md`), M3b finance-sync
-(`docs/plans/m3b-finance-sync.md`, toon-finance `cbdec67..1715207` plus placeholders), M4 design pass
-(`docs/plans/m4-design-pass.md`), M5 migration (`docs/plans/m5-migration.md`), M6 deploy (`docs/plans/m6-deploy.md`)
-and M7 harden (`docs/plans/m7-harden.md`), 2026-10-13 to 2026-10-15; each plan's last sections are its
-integration record and "what changed vs plan". Two modules are built (`API_MODULES` and `WEB_MODULES` are
-`[recipe, finance]`, `/api/health` reports `modules: ["recipe","finance"]`). The tree typechecks, builds and tests
-green (`bun test`: 15191 pass, 1 skip (the snapshot sweep's `describe.skipIf`), 0 fail in 181 files on the temp file DB at E7 (61.22 s on the final tree; 15175 pass in 58.05 s before E7-T13's 16 added import-order entries); 14993 pass in 177 files at E6 (51.57 s under a host load average of about 4 to 5); 14785 pass in 170 files at E5 (45.40 s under a host load average of about 3 to 10); 14725 pass in 163 files at E4 (37.07 s under a host load average of about 3.7); 14686 pass in 160 files after the E3 review (14684 at E3-T13, 32.88 s on a quiet host); 14658 pass in 158 files after E2 (69.96 s under a host load average of 14 to 50; 39.79 s at E2's quiet baseline), where 11357 of them are
-the golden parity cases of `packages/shared/test/parity/`; 14508 pass in 150 files after the E1 review; 2463 pass in 141 files at the end of E0; `i18n:check` exits 1 with
-the 148 classified false positives at E7 (the 145 below plus three `Effect.die` stopword hits in `apps/api/src/modules/mount.ts`: the check's stopword "die" matches the Effect constructor; no German string was added); the 145 at E4, at E5 and again at E6 (the same 145 lines at the E5 base, at its end and at E6's end, compared line-number-free; the 146 of before E2, 147 with the `Effect.die` stopword hit of the old module adapter file, since deleted; E4 deleted that line and reworded one comment line of `apps/api/src/modules/finance/lib/clock.ts`, no new hit); M7's integration record, `docs/plans/m7-harden.md` section 9, has the gate logs,
-the walkthrough, the `migrate:legacy` fixture run and the print-to-PDF proof). Milestone E0 of the Effect migration
-(foundation: the vendored source fenced off, the pinned Effect packages, the one `ManagedRuntime` serving
-`/api/health`, the idioms test, ADR 0012) is done; its integration record is `docs/plans/e0-foundation.md` sections
-9 and 10. Milestone E1 (shared-schema: every Zod schema of `packages/shared` is an Effect `Schema` with the same
-accepted and rejected inputs, the API validates through `apps/api/src/lib/validate.ts`, the web forms through the
-same shared schemas, and `zod` and `@hono/zod-validator` are gone from the tree and `bun.lock`; ADR 0013) is
-done and reviewed; its integration record is `docs/plans/e1-shared-schema.md` sections 9 and 10 (the one deliberate wire change, the `details` prose of the former `zValidator` routes, accepted by the owner on 2026-10-16, ADR 0013). Milestone E2 (api-core-services: `AppConfig`, `Database`, the
-tagged error family and its one boundary mapper, `Mailer`, `RateLimiter`, `VerifiedEmail`, `Thumbnails`, `Uploads`
-and every `apps/api/src/core/services/**` module as a `Context.Service` with a static `layer`, time from the
-`Clock`, the core routes and middlewares through `runtime.runPromise` with Hono on top, the module hooks as Effects
-behind an adapter that kept the Promise-based recipe and finance manifests working until E3/E4; ADR 0014) is done;
-its integration record is `docs/plans/e2-api-core-services.md` sections 9 and 10 (the surviving legacy bridges are
-listed there with their callers and removal milestones). Milestone E3 (recipe-services: every recipe service that does I/O is a
-`Context.Service` with a static `layer`, the module's `layer` is part of the one `AppLayer`, `recipeModule` is an
-`ApiModule<RecipeServices>` with its hooks as Effects and no longer behind `fromPromiseModule`, the recipe routes run through
-`runtime.runPromise`, the URL importer fetches through an `HttpClient` wrapped by the SSRF guard, the OCR and PDF subprocesses are
-scoped resources, the capability flags come from `AppConfig`, time from the `Clock`; ADR 0014 updated) is done; its integration
-record is `docs/plans/e3-recipe-services.md` sections 9 and 10 (the surviving bridges with their callers); the review (HEAD `9f0c9cd91`) restored the pre-E3 rule that a hero-image download is judged by its magic bytes alone, never by its `Content-Type` label. Milestone E4 (finance-services: every finance service that does I/O is a `Context.Service`
-with a static `layer`, the module's `layer` is part of the one `AppLayer`, `financeModule` is an `ApiModule<FinanceServices>` with its
-hooks as Effects, `PromiseApiModule` and `fromPromiseModule` are deleted (`runModuleHook` stayed for the scripts and was deleted at E5-T09), the finance routes
-and the participant gate run through `runtime.runPromise`, the boot catch-up and the 6-hour tick run on `Schedule` driven by the `Clock`
-with a `TestClock` test, idioms rule (10) is empty and rule (11) covers finance; ADR 0014 updated) is done; its integration record is
-`docs/plans/e4-finance-services.md` sections 9 and 10 (the nine surviving finance bridges with their callers). Milestone E5 (scripts: the
-eight operator scripts are Effect programs, seven on the one `AppLayer` through `runScript` and `migrate-legacy.ts` under `BunRuntime.runMain`
-on explicit values, the `migrate:legacy` library is Effect functions behind the `LegacyMigration` service, the script-only bridges and
-`runModuleHook` with its adapter file are deleted, idioms rule (12) is on; ADR 0014 updated) is done; its integration record is
-`docs/plans/e5-scripts.md` sections 9 and 10 (the survivors with their callers are in ADR 0014 "Status after E5's integration"). Milestone E6
-(web-client: the web app has ONE `ManagedRuntime` (`apps/web/src/lib/runtime.ts`) over `FetchHttpClient`, every API client of the web
-(`apps/web/src/lib/api.ts`, the recipe and finance `lib/api.ts`, the import client `importApi.ts`) describes each request once as an Effect that
-decodes the response with the shared `Schema` and fails with the tagged `ApiError`, every `queryFn` is `runPromise` of one of those effects, and
-three contract tests prove the decode is the identity on the wire, one of them over the migrated legacy fixtures plus an owner-run snapshot sweep;
-idioms rule (13) is on; gzip bundle 402.54 kB to 419.99 kB, growth 17.45 kB, no ADR needed) is done; its integration record is
-`docs/plans/e6-web-client.md` sections 9 and 10. Milestone E7 (http-api: Hono is gone; the API is `effect/http-api` definitions (`X.api.ts` per route file) with their
-handler layers, the `HttpApiMiddleware`s of `apps/api/src/http/middleware.ts` in the pinned order, the global layer (request log, security headers, CORS, origin
-guard) and `BunHttpServer` on the same port; the module contract is `householdApi` / `userApi` (`HttpApi`s plus a handler layer); `app.request` runs on the
-in-memory handler; `hono` is out of every `package.json` and `bun.lock`, idioms rule (14); the web, the Dockerfile, the compose file and the Caddyfile are
-untouched; ADR 0015) is done; its integration record is `docs/plans/e7-http-api.md` sections 9 and 10 (the gates, the live boot and in-flight SIGTERM
-checks, the local stack test with a fresh image, the OpenAPI counts). What is left is the owner's (see "Open work", which now holds the E6 decode sweep over a
-production snapshot and the E7 follow-ups: declared payload and success schemas, a typed `HttpApiClient`).
+Built and migrated; every milestone is done. The app: M0 scaffold, M1 core, M2 recipe module, M3 finance module, M3b
+finance-sync (toon-finance `cbdec67..1715207` plus placeholders), M4 design pass, M5 migration, M6 deploy and M7 harden
+(2026-10-13 to 2026-10-15). The Effect migration (`docs/EFFECT.md` §4, 2026-10-16 to 2026-11-06): E0 foundation, E1
+shared-schema (ADR 0013), E2 api-core-services, E3 recipe-services, E4 finance-services, E5 scripts (ADR 0014), E6 web-client,
+E7 http-api (Hono gone, ADR 0015) and E8 harden (the test doors, idioms rules (15) to (21), the docs as built; ADR 0014
+closed). Each milestone's record is the last two sections of its plan (the integration record with the gate logs, then "what
+changed vs plan"): `docs/plans/m0-scaffold.md`, `docs/plans/m1-core.md`, `docs/plans/m2-recipe-module.md`,
+`docs/plans/m3-finance-module.md`, `docs/plans/m3b-finance-sync.md`, `docs/plans/m4-design-pass.md`, `docs/plans/m5-migration.md`,
+`docs/plans/m6-deploy.md`, `docs/plans/m7-harden.md`, `docs/plans/e0-foundation.md`, `docs/plans/e1-shared-schema.md`,
+`docs/plans/e2-api-core-services.md`, `docs/plans/e3-recipe-services.md`, `docs/plans/e4-finance-services.md`,
+`docs/plans/e5-scripts.md`, `docs/plans/e6-web-client.md`, `docs/plans/e7-http-api.md`, `docs/plans/e8-harden.md`. Two modules
+are built (`API_MODULES` and `WEB_MODULES` are `[recipe, finance]`, `/api/health` reports `modules: ["recipe","finance"]`).
+
+Gates: `bun run typecheck` OK; `bun test` 15236 pass, 1 skip (the snapshot sweep's `describe.skipIf`), 0 fail in 183 files (measured at E8-T11; E8-T12 writes here the final count of
+`docs/plans/e8-harden.md` section 9; the floor is E7's 15191, and 11357 of the cases are the golden parity cases of
+`packages/shared/test/parity/`); `bun run i18n:check` exits 1 by design with 148 classified false positives (`docs/open-work.md`
+O-5); the gzipped web bundle is 419.99 kB (E6, unchanged by E7 and E8); `git status --porcelain repos/` is empty.
 
 ## Layout (as built)
 
@@ -214,7 +176,7 @@ Package names are `@toon/shared`, `@toon/api`, `@toon/web`; the root is `toon-ho
 - Scripts:
   `apps/api/scripts/{migrate,seed,reset-password,uploads-gc,plan-run,localize-images,finance-import-xlsx,migrate-legacy}.ts`;
   `apps/api/scripts/legacy/` is the `migrate:legacy` library (`claims.ts` is the placeholders' claim-invite step; `io.ts` the
-  Effect primitives `legacyTry`, `runLegacy`, `liftTagged`; `service.ts` the `LegacyMigration` service),
+  Effect primitives `legacyTry`, `liftTagged`; `service.ts` the `LegacyMigration` service),
   `apps/api/scripts/finance-import/` the workbook parsers (pure). Root `scripts/{dev,typecheck,i18n-check,icons}.ts` stay plain Bun.
 - Scripts (E5): `apps/api/scripts/support/main.ts` (`runScript`, `makeScriptTeardown`, `ScriptExit`; imports only `effect` and
   `@effect/platform-bun`), `docs/plans/e5-verify.sh` (the milestone's verification script, with the recorded fixture output
@@ -267,8 +229,7 @@ Package names are `@toon/shared`, `@toon/api`, `@toon/web`; the root is `toon-ho
   `apps/api/src/modules/finance/services/{participants,categories,ledger,plan,setup}/layer.ts`, the `Context.Service` classes
   `FinanceParticipants`, `FinanceSettings`, `FinanceCategories`, `FinanceTags`, `FinanceMutationClaims`, `FinanceBalance`,
   `FinanceTransactions`, `FinanceSummary`, `FinanceSettlements`, `FinancePlan`, `FinanceAccrual`, `FinanceSetup` (the table with files
-  is `docs/modules/finance.md` section 1.3); `apps/api/test/support/bridges/finance-bridge.ts` (`runFinanceBridge`, the runner of the finance
-  Promise bridges, moved there at E8, plan e8 P1), `apps/api/src/modules/finance/lib/clock.ts` (`financeTimeMillis`, `setClockForTest`),
+  is `docs/modules/finance.md` section 1.3); `apps/api/src/modules/finance/lib/clock.ts` (`financeTimeMillis`, `setClockForTest`),
   `apps/api/src/modules/finance/services/plan/scheduler.ts` (`startAccrualSchedule`, `stopAccrualSchedule`; not a service) and
   `apps/api/src/modules/finance/middleware.ts` (the participant gate on the runtime); the pure helpers (`defaults.ts`,
   `period-scan.ts`, `dateRange.ts`, `aggregateExclusion.ts`, `support.ts`) stay plain modules. Tests added by E4:
@@ -280,7 +241,7 @@ Package names are `@toon/shared`, `@toon/api`, `@toon/web`; the root is `toon-ho
   `apps/api/src/infra.ts` (`infraLayer()`: config, database, mailer, thumbnails, uploads, rate limiter, verified-email),
   `apps/api/src/core/services/layer.ts` (`coreServicesLayer()`, `baseServicesLayer()`) with
   `apps/api/src/core/services/auth/layer.ts` and `apps/api/src/core/services/households/layer.ts` (one hoisted
-  composition function each), `apps/api/src/lib/errors.ts` (the tagged error family, `ApiError` kept for the tests,
+  composition function each), `apps/api/src/lib/errors.ts` (the tagged error family, `isApiError`,
   `toApiError`, `errorBody`, `logBoundaryFailure`, `routeUnknown`), `apps/api/test/support/effect.ts` (`runTest`, `runTestExit`, `itEffect`, `recordingMailer`,
   `withMailer`) and `apps/api/test/import-order-effect.test.ts` (the fresh-process import guard for the files the
   runtime pulls into the cycle). Core services (`Context.Service` classes): `Mailer` (`mail/index.ts`, exported as
@@ -297,6 +258,13 @@ Package names are `@toon/shared`, `@toon/api`, `@toon/web`; the root is `toon-ho
   `apps/web/src/modules/recipe/features/import/lib/importApi.test.ts`, and the three API-side contract tests
   `apps/api/test/web-contract-core-recipe.test.ts`, `apps/api/test/web-contract-finance.test.ts`,
   `apps/api/test/web-contract-legacy.test.ts` (the last holds the snapshot sweep).
+- Test support (E8, plan `docs/plans/e8-harden.md` P1, ADR 0014 "Status after E8"): `apps/api/test/support/bridges/`, the 19
+  test-only doors, one file per source module (`migrate.ts`, `api-error.ts`, `sessions.ts`, `users.ts`, `rate-limit.ts`, `mail.ts`,
+  `recipe-{drafts,ocr,fetch,ssrf}.ts`, `finance-{bridge,participants,clock}.ts`, `legacy-{io,run,users,households,recipe,sources}.ts`),
+  their tests `apps/api/test/bridges-core.test.ts` and `apps/api/test/bridges-modules.test.ts`, and `docs/plans/e8-verify.sh` (the
+  milestone's checks, among them `no-bridges`, `imports` and `paths`). Beside them the harnesses `apps/api/test/support/effect.ts`,
+  `apps/api/test/support/finance-harness.ts`, `apps/api/test/support/legacy-harness.ts`, `apps/api/test/support/http.ts` and
+  `apps/api/test/support/explain.ts`.
 - Docs: see "Read order"; plus `docs/plans/screenshots/` and `docs/design/recipe-redesign/` (design record, D5).
 - Core DB tables (unprefixed): `users`, `oauth_accounts`, `sessions`, `password_reset_tokens`,
   `email_verification_tokens`, `households`, `household_members`, `household_invites`, `household_modules`,
@@ -393,8 +361,8 @@ cents everywhere; no float touches a user amount), with these household-wide rul
   `DEFAULT_HOUSEHOLD_NAME` stays "Meine Rezepte" (D10; a rename to "Haushalt" is an owner decision and needs an
   ADR). Server keys `server.group.*` and `{groupName}` placeholders keep their names.
 - Renames from toon-finance (apply them to every port): `household_members` → `finance_participants` (by user
-  id; `HouseholdContext` is `FinanceParticipantContext`, imported as `requireFinanceParticipantContext as
-  requireHouseholdContext` so route bodies stay F's), `members.service` → `participants.service`,
+  id; `HouseholdContext` is `FinanceParticipantContext`, read in a handler as `const household = yield*
+  CurrentFinanceParticipant` from `apps/api/src/modules/finance/http.ts` so route bodies keep F's `household`), `members.service` → `participants.service`,
   `useHousehold` / `useOtherMember` → `useFinanceHousehold` / `useOtherParticipant`, F's unprefixed catalog keys
   (`transactions.list.title`) → `finance.…`, F's URLs `/transactions`, `/new`, `/plan`, `/categories` →
   `/finance/…` (F's `/` is `/finance`, F's `/household` is the core's Gruppen plus the participants section on
@@ -406,6 +374,21 @@ cents everywhere; no float touches a user amount), with these household-wide rul
 - Module boundary: the core imports a module only through `apps/api/src/modules/index.ts` /
   `apps/web/src/modules/index.ts` (and, on the web, its catalogs through `apps/web/src/modules/catalogs.ts`); a
   module never imports another module's directory.
+- **Effect idioms (`docs/EFFECT.md` E12; the number is the rule of `apps/api/test/effect-idioms.test.ts` that pins it).**
+  `Effect.gen` inline; `Effect.fn("Service.method")` (a string or template-literal span name) for a reusable function,
+  `Effect.fnUntraced` on a hot path, combinators as extra arguments of `Effect.fn` and never `.pipe` on it, no function that only
+  returns `Effect.gen(`: (15). Raise with `return yield* new X(…)`: (16). Errors are `Schema.TaggedError`s caught with
+  `Effect.catchTag(s)`, never an `Error` subclass or `instanceof`: (17); no `throw ApiError` under `apps/api/src`: (10). Services are
+  `Context.Service` classes with a static `layer` and no accessors (`const s = yield* S` or `S.use(…)`), never `Context.Tag` or
+  `Effect.Service`: (4). `Predicate.isObject` / `Predicate.isObjectOrArray` instead of `typeof x === "object" && x !== null`: (18).
+  Time from `Clock` / `DateTime`: no `Date.now(` / `new Date(` in a `services/` directory and no `nowMs(` in the core or the
+  modules (11), none on the request path (19). An effect runs only at the edges: `Effect.run…(` / `runtime.run…(` in six pinned
+  files of non-test `apps/api/src` (20), one `ManagedRuntime.make(` per process (5), the scripts through `runScript` or
+  `BunRuntime.runMain` (12), the web through its one runtime with `effect` and `effect/http` only (13). v4 names only: no Effect 3
+  package (3), no `effect/unstable/` path (2), no v3 API name such as `Effect.catchAll(`, `Either.` or `.annotations(` (21).
+  Untrusted input is decoded with a shared `Schema` through `apps/api/src/lib/validate.ts`, never parsed by hand; no zod (9) (the
+  rest of that idiom is review, not grep). The tree: no import from `repos/` (1), one exact Effect version (6, 7), the vendored tree
+  and its fences (8), no hono (14). Never relax a rule to get green; a hit is fixed in the code.
 - Docs in English; a living doc names every repo file repo-relative from the root (`apps/api/test/docs-paths.test.ts`
   checks them). Commit messages end with the harness's `Co-Authored-By` line; no pushes from agent sessions.
 - Tests: `apps/api/test/` (never `apps/api/tests/`), web co-located, `packages/shared/test/`. Ported tests that
@@ -438,7 +421,8 @@ ones; the module gotchas are indexed below and live in the module docs.
   `[api] runtime dispose failed:`), and `process.exit(0)` last in every case. Measured: 23 to 48 ms idle, 5.03 s with a
   slow upload in flight, 354 ms through `docker compose stop` (`docs/plans/e7-http-api.md` 9.4). `index.ts` never
   `export default`s an object with `fetch` (Bun would auto-serve it a second time). Never dispose the runtime in a test: the
-  tests share one process and one runtime.
+  tests share one process and one runtime. Pinned by `apps/api/test/runtime.test.ts`, `apps/api/test/http-server.test.ts` and
+  idioms rule (5); the stop times by `docs/plans/e7-http-api.md` 9.4 and `docs/open-work.md` O-9.
 - **One composition point, evaluated lazily, siblings nested explicitly (E2, plan P3).** `AppLayer` is
   `Layer.suspend(appLayer)` over hoisted functions only (`infraLayer()`, `coreServicesLayer()`, `baseServicesLayer()`,
   `authServicesLayer()`, `householdServicesLayer()`, `moduleLayers()`), annotated `Layer.Layer<AppServices,
@@ -450,34 +434,37 @@ ones; the module gotchas are indexed below and live in the module docs.
   the current executor are read inside the method body on every call (never captured at build), so a `TestClock` or a
   transaction reaches them. `apps/api/test/import-order-effect.test.ts` builds the `AppLayer` after each entry point,
   first in a fresh process.
-- **Bridges until E8 (E2, E3, E4, E5, plan P1, ADR 0014).** A converted file keeps, in a section `/* legacy bridges:
-  callers listed; … */` at its end, a bridge with the OLD name and signature for every export a caller outside the
-  converted set still uses. E5 deleted every bridge a script was the last caller of (`initializeHousehold`, `findUserByEmail`,
-  `createPasswordResetToken`, `collectUploadReferences`, recipe `backfillFoldedColumns` and `localizeImageUrl`, finance `runCatchUp`,
-  `getBalance`, `slot1UserId`, `requireOtherMemberId`, `categoryIdBySlug`, `syncTransactionTags`, finance `withTransaction`). After E5
-  the survivors serve the pinned tests only and E8 removes them: in recipe `createDraft(db, input)`, the synchronous `importFromText`,
-  `fetchHtml` and `assertPublicUrl`; in finance exactly three, `assignParticipants`, `updateParticipantDisplayName` (the pinned
-  `finance-module.test.ts`) and the synchronous `requireFinanceParticipantContext` (the pinned `finance-participants.test.ts`), plus
-  `runFinanceBridge`; in the core `requireUser`, `requireMembership`, `claimPlaceholderUser`, `createSession`, `trySendMail` (only
-  `mail.test.ts`) and the test seams (`checkRateLimit`, `resetRateLimits`, `setMailer`, `getMailer`, `isMailerOverridden`); in the
-  scripts' library the five Promise bridges `runLegacyMigration`, `migrateUsers`, `migrateHouseholds`, `migrateRecipe`, `openLegacy`
-  (each next to an `…Effect` form, over `runLegacy` in `apps/api/scripts/legacy/io.ts`) and the Promise door `runMigrations(database?)` of
-  `migrateDatabase`; listed with callers in ADR 0014 "Status after E5's integration". **A finance Promise
-  bridge never imports `runtime.ts`:** it runs `runFinanceBridge(effect, executor)` (`apps/api/test/support/bridges/finance-bridge.ts`, moved there at E8, plan e8 P1), which
-  builds the services over the executor it is handed and provides `Database.layerFromExecutor(executor)` itself (E5-T09; `runModuleHook` is gone);
-  the scripts no longer need it (`apps/api/scripts/legacy/balance.ts` builds `FinanceBalance` over the migration's explicit target with
-  `withFinanceServices`, `finance-import-xlsx.ts` calls the services inside `Database.transaction`); it rejects with a
-  `DatabaseError`'s `cause` (the raw driver error), a family refusal unchanged. **A bridge keeps its calling convention and says so with an
-  explicit return type:** a Promise export runs `runtime.runPromise` (a failure rejects with the tagged error itself); a
-  SYNCHRONOUS export (`checkRateLimit`, `resetRateLimits`, `requireUser`, `requireMembership`, `getMailer`, the recipe
-  `importFromText`) stays synchronous over a service-free effect with `Effect.runSync` (a failure throws the tagged error
-  synchronously); a fire-and-forget `void` export never returns before starting and never rejects. The reason is the E2
-  `enforceRateLimit` (deleted in E3-T12): recipe's `imports.ts` called it as a plain unawaited statement, and a
-  Promise-returning bridge would have typechecked there, stayed green under test (the limiter is off) and silently dropped the
-  import limit in production. A new bridge gets its caller list in its doc comment; a bridge whose last caller moves is
-  deleted in that commit. The one tolerated `throw` in recipe code is the `NODE_ENV=test` guard of a test seam
-  (`setImportDbForTests`, `setRemoteImageDownloaderForTests`, `setImportGuardForTests`: a seam is a plain synchronous function
-  called outside any effect, and a production caller must fail loudly).
+- **Test-only doors live in `apps/api/test/support/bridges/` (E8, plan `docs/plans/e8-harden.md` P1, P4, ADR 0014 "Status
+  after E8").** `apps/api/src` and `apps/api/scripts` hold only the Effect forms. Every Promise or synchronous form a pinned test
+  still calls is a DOOR, one file per source module it mirrors, 19 in all: `runMigrations`, the legacy `ApiError` class with its ten
+  static helpers, `createSession`, `claimPlaceholderUser`, `checkRateLimit`, `trySendMail`, recipe `createDraft`, `importFromText`,
+  `fetchHtml` and `assertPublicUrl`, finance `assignParticipants` with `updateParticipantDisplayName`, `runFinanceBridge` and `nowMs`,
+  and the `migrate:legacy` forms `runLegacy`, `runLegacyMigration`, `migrateUsers`, `migrateHouseholds`, `migrateRecipe`,
+  `openLegacy`. **A door keeps the old name, signature and calling convention, and says so with an explicit return type:** a
+  Promise door runs `runtime.runPromise` or `Effect.runPromise` and rejects with the tagged error itself (a finance or legacy door
+  with a `DatabaseError`'s `cause`, the raw driver error); a SYNCHRONOUS door (`checkRateLimit`, `importFromText`, `nowMs`) runs a
+  service-free effect with `Effect.runSync` and throws synchronously. The reason is E2's `enforceRateLimit`: called as a plain
+  unawaited statement, a Promise-returning form typechecked, stayed green under test (the limiter is off) and would have silently
+  dropped the import limit in production. A door imports only the module it mirrors and what its body needs (the runtime, the
+  `Database` service, the shared client, the finance layer, a sibling door); nothing under `apps/api/src`, `apps/api/scripts`,
+  `apps/web/src` or `packages` imports a door. `runFinanceBridge(effect, executor)` never imports `runtime.ts`: it builds the finance
+  services over the executor it is handed (`withFinanceServices`) and provides `Database.layerFromExecutor(executor)` itself. `nowMs`
+  is the one door that is not a copy: `Effect.runSync(financeTimeMillis)`, the same value in both clock states.
+  `apps/api/test/bridges-core.test.ts` and `apps/api/test/bridges-modules.test.ts` run each door against its Effect form on the same
+  input; idioms rule (20) and `bash docs/plans/e8-verify.sh no-bridges all` keep `src` free of them. A new test calls the Effect form
+  (`runTest`, `itEffect` of `apps/api/test/support/effect.ts`); a new door is a last resort and lists its callers in its doc comment.
+- **The test seams stay in `src` (E8, plan e8 P2, ADR 0014 "Status after E8").** `setMailer`, `getMailer`, `isMailerOverridden`,
+  `isMailConfigured` (`apps/api/src/core/services/mail/index.ts`), `resetRateLimits` (`apps/api/src/core/services/auth/rateLimit.ts`),
+  `setVerifiedEmailRequired` (`apps/api/src/core/services/auth/verifiedEmail.ts`), `setImportDbForTests`
+  (`apps/api/src/modules/recipe/services/import/db.ts`), `setImportGuardForTests` (`apps/api/src/modules/recipe/services/import/url/fetch.ts`),
+  `setRemoteImageDownloaderForTests` (`apps/api/src/modules/recipe/services/recipes/remoteImage.ts`) and `setClockForTest`
+  (`apps/api/src/modules/finance/lib/clock.ts`) mutate module-level state that the services of the ONE runtime read at CALL time. The
+  tests drive the app through the in-memory handler on that same runtime (one process, one database, ADR 0009), so a test layer
+  cannot reach them: a seam is the smallest correct mechanism, not a transitional bridge. Their section headers read `test seams:
+  …`. A seam is a plain synchronous function called outside any effect; the three recipe `…ForTests` seams throw outside
+  `NODE_ENV=test` (the one tolerated `throw` in recipe code: a production caller must fail loudly). A test that sets one releases it
+  (`setMailer(null)`, `setClockForTest(null)`, `resetRateLimits()`). Pinned by `apps/api/test/mail.test.ts`,
+  `apps/api/test/rate-limiter.test.ts` and `apps/api/test/finance-clock.test.ts`.
 - **The scripts are Effect programs (E5, ADR 0014, plan `docs/plans/e5-scripts.md` P1, P2, P18).** Seven of the eight run on the one
   `AppLayer` (`Effect.provide(AppLayer)` INSIDE the program, so the layer's scope has closed when the teardown runs) through
   `runScript(program)` of `apps/api/scripts/support/main.ts` under `if (import.meta.main)`: a program that succeeds with a number exits
@@ -494,6 +481,7 @@ ones; the module gotchas are indexed below and live in the module docs.
   `Context.Service` class has no static accessors and none is added (`bash docs/plans/e5-verify.sh statics`). Time comes from the
   `Clock`; the `migrate:legacy` library is Effect functions with no `await`, its services-free steps over an explicit `MigrationContext`
   and the one service `LegacyMigration` (`apps/api/scripts/legacy/service.ts`).
+  Pinned by idioms rule (12), `apps/api/test/scripts-main.test.ts` and `apps/api/test/legacy-service.test.ts`.
 - **Catch-all stays catch-all (E2, plan P2).** `Effect.catch` and `Effect.catchTag(s)` see the typed error channel
   only; a synchronous throw inside a generator and an `Effect.promise` rejection are DEFECTS and pass them by. Where
   the old code caught everything (`verifyPassword`: a malformed hash is `false`, never a 500; `trySendMail`; the
@@ -502,8 +490,9 @@ ones; the module gotchas are indexed below and live in the module docs.
   `Effect.tryPromise` and recovers the WHOLE cause with `Effect.catchCause` (`Cause.squash(cause)` is the value the
   old `catch (error)` saw) or `Effect.ignoreCause`. The OAuth callback must never use `Effect.catch`: a defect would
   become a `500` JSON instead of the redirect with `oauth_failed`.
-- **The recipe module's services and the URL import guard (E3, plan P2, P10, P17).** Each recipe service is read inside the
-  runtime (`runtime.runPromise` in a handler, never at module scope); an area composes siblings in an outer `provideMerge` step
+  Pinned by `apps/api/test/auth.test.ts` (a malformed hash) and `apps/api/test/oauth-callback.test.ts`.
+- **The recipe module's services and the URL import guard (E3, plan P2, P10, P17).** Each recipe service is yielded inside a handler
+  or another service's method (never at module scope); an area composes siblings in an outer `provideMerge` step
   and `apps/api/src/modules/recipe/layer.ts` nests the areas (the table is `docs/modules/recipe.md` section 1.2). The URL fetch
   is one `HttpClient` request per hop (`redirect: "manual"`, no `traceparent`), each hop checked by `checkPublicUrl` BEFORE the
   request. The test seam of the guard is `setImportGuardForTests({ allowHosts, resolve })`: an EXACT-HOST allow list, never an
@@ -517,43 +506,43 @@ ones; the module gotchas are indexed below and live in the module docs.
   `Conflict`, `PayloadTooLarge`, `UnsupportedMediaType`, `ValidationFailed`, `Internal`, `RateLimited` with
   `Retry-After`, the generic `ApiFailure`), permissive field schemas (a constructor never throws on a value today's
   code passes) and `isApiError` (a `Predicate`, no `instanceof`). Services and routes fail with them
-  (`return yield* new NotFound()`), `toApiError` / `errorBody` render the envelope once, at the one boundary (`ApiErrorBoundary`, outermost on every `HttpApi`, in
-  `apps/api/src/http/response.ts`, and `errorResponse` for the global middlewares). The old
-  `ApiError` class and its ten static helpers stay for the tests (`errors.test.ts` and others) until E8 (`x instanceof ApiError` is true for
-  every family member; idioms rule (10) allows no `throw ApiError` anywhere under `apps/api/src` since E4). `DatabaseError` and `MailError` are tagged errors OUTSIDE the family: a database failure is a `500
-  internal_error` whose log line shows its `cause`, never an API error to module code. A 5xx family member logs
-  `[api] <METHOD> <path> -> <status> <code>: <English message>` and its stack (the pre-E2 line, `logBoundaryFailure`; a 4xx warns outside production; `apps/api/test/errors.test.ts`).
-- **The `Database` service and the shared client (E2, plan P6, ADR 0014).** `apps/api/src/db/client.ts` still creates
-  the process-wide instance at import, after E5 too (the tests' shared `db` of ADR 0009 and `migrate-legacy.ts`'s pinned import order read it;
-  E8 decides whether the layer creates the client, ADR 0014 "Status after E5's integration"); the `Database`
+  (`return yield* new NotFound()`), `toApiError` / `errorBody` render the envelope once, at the one boundary (`ApiErrorBoundary`,
+  outermost on every `HttpApi`, in `apps/api/src/http/response.ts`, and `errorResponse` for the global middlewares). No `throw
+  ApiError` under `apps/api/src` (idioms rule (10)), no `Error` subclass (rule (17)). `DatabaseError` and `MailError` are tagged
+  errors OUTSIDE the family: a database failure is a `500 internal_error` whose log line shows its `cause`, never an API error to
+  module code. A 5xx family member logs `[api] <METHOD> <path> -> <status> <code>: <English message>` and its stack (the pre-E2
+  line, `logBoundaryFailure`; a 4xx warns outside production). Pinned by `apps/api/test/errors.test.ts`.
+- **The `Database` service and the shared client (E2, plan P6, ADR 0014).** **Decided at E8 (plan e8 P3, ADR 0014
+  "Status after E8", `docs/open-work.md` O-7): `apps/api/src/db/client.ts` keeps creating the process-wide `client` / `db` / `dbReady`
+  at import and `apps/api/src/env.ts` keeps re-exporting the resolved `env`**, because the tests' shared `db` (ADR 0009),
+  `migrate-legacy.ts`'s pinned import order (`apps/api/test/legacy-cli.test.ts`, `apps/api/test/import-order.test.ts`) and 23
+  synchronous `env` readers depend on them; creating the client in the layer would change that contract for no gain. The `Database`
   service (`apps/api/src/db/database.ts`) owns its lifetime: acquire awaits `dbReady` (the D7 pragmas), release closes
   the client and logs `[db] database closed`, **never under `NODE_ENV=test`** (one process, one client, ADR 0009;
   a test that disposes an `AppLayer` runtime must not close it, `apps/api/test/database.test.ts` proves it).
   The current executor is a `Context.Reference`: inside `Database.transaction` it is the open transaction (no
-  savepoint for a nested call), `Database.withExecutor(db)(effect)` hands in an instance (what the bridges do),
+  savepoint for a nested call), `Database.withExecutor(db)(effect)` hands in an instance (what the doors do),
   `Database.layerFromExecutor(executor)` wraps a bare drizzle executor and closes nothing, `layerFrom` and
   `layerFromUrl` are the test and script constructors. On a `:memory:` URL `transaction` degrades to sequential
   exactly as `withTransaction` did.
-- **The mail seam (E2, plan P8).** `Mailer` is a service whose layers (`layerConsole`, `layerSmtp`, `layerResend`)
-  choose by `AppConfig.mailTransport`; the transport is read AT SEND TIME through the module-level override of
-  `setMailer(m)` / `setMailer(null)`, so a test that installs a fake (or a failing relay) works through the
-  runtime, and `isMailConfigured()` / `getMailer()` / `isMailerOverridden()` stay synchronous. `trySendMail` never
-  fails and logs `[mail] Sending to <redacted> failed (<transport>): <reason>`; the SMTP `Date` header takes the
-  Clock's time through the optional `now` of `SmtpMailer.send`. The other seams in the same spirit:
-  `setVerifiedEmailRequired` and `resetRateLimits` (same live state the services read).
+- **The mail seam (E2, plan P8).** `Mailer` (`MailerService`) is a service whose layers (`layerConsole`, `layerSmtp`,
+  `layerResend`) choose by `AppConfig.mailTransport`; the transport is read AT SEND TIME through the module-level override of
+  `setMailer(m)` / `setMailer(null)`, so a test that installs a fake (or a failing relay) works through the runtime. The service's
+  `trySendMail` never fails and logs `[mail] Sending to <redacted> failed (<transport>): <reason>`; the SMTP `Date` header takes the
+  Clock's time through the optional `now` of `SmtpMailer.send`. Pinned by `apps/api/test/mail.test.ts` and
+  `apps/api/test/mail/smtp.test.ts`.
 - **Hooks are Effects; both manifests are `ApiModule`s (E2 P11, E3, E4 P3-P5).** `ApiModule` hooks are Effects that read the
   current executor from `Database`; `recipeModule` (E3) and `financeModule` (E4) implement the contract directly
-  (`ApiModule<RecipeServices>`, `ApiModule<FinanceServices>`: hooks as Effects, `layer` merged into `AppLayer`), and
-  `PromiseApiModule` and `fromPromiseModule` are deleted. A hook is typed over `Database` only (`start` too: SPEC §2), so finance
+  (`ApiModule<RecipeServices>`, `ApiModule<FinanceServices>`: hooks as Effects, `layer` merged into `AppLayer`). A hook is typed over `Database` only (`start` too: SPEC §2), so finance
   wraps each hook program in `withFinanceServices` (`apps/api/src/modules/finance/layer.ts`), which builds the finance services over
   the CURRENT `Database` of the calling fiber (the core's open transaction for a hook) with `Effect.provide(layer, { local: true })`,
   a fresh memo map: a plain `Effect.provide` would reuse the services the runtime's `AppLayer` memoized, bound to the runtime's
   database, and a test's private `Database.layerFrom(…)` would silently never be reached (`apps/api/test/finance-services-local.test.ts`
-  proves it; the finance services hold no state, so the copies cannot disagree). Outside the runtime (`runMigrations`, the
-  finance bridges) a hook runs with `Database.layerFromExecutor(executor)` provided (`Effect.runPromise`; every finance bridge through
-  `runFinanceBridge`, `apps/api/test/support/bridges/finance-bridge.ts`, moved there at E8, plan e8 P1; `runMigrations(database?)` over `migrateDatabase`), never importing
-  `runtime.ts`, so `db/migrate.ts` keeps `migrate-legacy.ts`'s import-order rule; the scripts run their hooks on the `AppLayer` (`seed`'s
-  `seedDemo`, the `UploadReferences` service for `uploads:gc`); `runModuleHook` and its file are deleted (E5-T09). `API_MODULES` in
+  proves it; the finance services hold no state, so the copies cannot disagree). Outside the runtime a hook runs
+  with `Database.layerFromExecutor(executor)` provided: `migrate-legacy.ts` runs `migrateDatabase()` (`apps/api/src/db/migrate.ts`,
+  then every `afterMigrate`) on its explicit target, the doors `runMigrations` and `runFinanceBridge` under `Effect.runPromise`;
+  `apps/api/src/db/migrate.ts` never imports `runtime.ts`, so it keeps `migrate-legacy.ts`'s import-order rule. The other scripts run
+  their hooks on the `AppLayer` (`seed`'s `seedDemo`, the `UploadReferences` service for `uploads:gc`). `API_MODULES` in
   `apps/api/src/modules/index.ts` is a lazy array (a `Proxy` over the manifests, built on first access) so a manifest imported FIRST
   in a fresh process does not read the list in its TDZ; a read at module scope still fails loudly. The finance scheduler is not a
   service: `startAccrualSchedule` awaits the boot catch-up and forks ONE detached fiber on `Effect.schedule(tick,
@@ -588,6 +577,7 @@ ones; the module gotchas are indexed below and live in the module docs.
   hand; DDL is verified through `@libsql/client` (`bun:sqlite` is a newer SQLite). `db:migrate` needs only
   `DATABASE_URL`: it supplies a placeholder `SESSION_SECRET` (never overriding a real one) and imports the db
   modules dynamically so `apps/api/src/env.ts` validates after that.
+  `apps/api/test/db-placeholder-migration.test.ts` pins `0003`'s corrected body.
 - **Middleware chain order is load-bearing (E7: HttpApi terms).** A module's `householdApi` is built by `householdModuleApi(id, api)`
   (`apps/api/src/http/middleware.ts`), which attaches `ApiErrorBoundary` → `RequireSession` → `RequireHouseholdMember` →
   `RequireModule` (annotated with the group's `ModuleId`), then the group's chain, then the endpoint's: no cookie is 401 first, a
@@ -610,20 +600,22 @@ ones; the module gotchas are indexed below and live in the module docs.
   `POST /api/households`, seed) goes through `initializeHousehold(db, id)`, which writes the
   `DEFAULT_ENABLED_MODULES` rows (even for a module the build lacks; the UI filters by `WEB_MODULES`) and then
   runs each build module's `onHouseholdCreated`. `enableModule` runs the module's `onEnable` BEFORE the upsert, so
-  a refusal writes nothing even where `withTransaction` degrades (an explicit `TEST_DATABASE_URL=file::memory:`).
+  a refusal writes nothing even where `Database.transaction` degrades (an explicit `TEST_DATABASE_URL=file::memory:`).
   `disableModule` deletes the row (settings lost, module data kept). The legacy migration (ADR 0005) is the one
   writer that bypasses this path. `API_MODULES` is read inside functions only: `initializeHousehold` imports
   `apps/api/src/modules/index.ts` from a core service, so a top-level read becomes an import cycle.
+  Pinned by `apps/api/test/modules.test.ts`.
 - **`HouseholdWithRole` has `modules: string[]`, no counts (ADR 0001).** It travels in `/api/auth/me` (the one
   persisted core query, `["toon","me"]`) and drives the shell: `moduleGuard(enabledIds, id)`
   (`apps/web/src/modules/enabled.ts`, pure) decides `RequireModule`, which `moduleLayoutComponent(id)` wraps
   around every module layout's `<Outlet/>`. The query client's `onError` invalidates `["toon","me"]` on
   `404 module_disabled`, so a stale bundle and a live disable take one path. Core query-key segments (`me`,
   `sessions`, `oauth-providers`, `households`, `invite`, `detail`, `members`, `invites`) never equal a module id.
+  Pinned by `apps/web/src/modules/enabled.test.ts` and `apps/web/src/modules/layout.test.tsx`.
 - **Validation details come from the wire-issue vocabulary (E1, ADR 0013).** A schema that can fail on the wire is
   built from `packages/shared/src/core/schemas/checks.ts` (or carries the `WIRE_ISSUE` annotation), is decoded with
   `ALL_ISSUES` (every issue collected, as Zod did) and exports its type as `Types.DeepMutable<typeof X.Type>`;
-  `apps/api/src/lib/validate.ts` (`validate`, `decodeOrThrow`, `decodeOption`) throws `Schema.SchemaError`,
+  `apps/api/src/lib/validate.ts` (`decode`, `decodeOrThrow`, `decodeOption`) fails with `Schema.SchemaError`,
   `toApiError` maps it once through `toValidationIssues` (`packages/shared/src/core/i18n/issues.ts`), so every
   route's `details` item is `{ path, code, message, i18n }` in the negotiated locale. Never read an Effect
   message or write `details` by hand. The golden JSON of `packages/shared/test/fixtures/schema-golden/` (made
@@ -636,6 +628,7 @@ ones; the module gotchas are indexed below and live in the module docs.
 - **Uploads are signed, not cookie-checked.** `/uploads/:filename` answers 404 for an unsigned, forged or expired
   URL (`apps/api/src/lib/uploadUrls.ts`); `<name>.thumb.webp` is built with `sharp` on first request and falls
   back to the original (short cache) when sharp cannot convert.
+  Pinned by `apps/api/test/uploads.test.ts` and `apps/api/test/thumbnails.test.ts`.
 - **Cross-household guard (D8).** The household comes from `:householdId` only. Every by-id lookup in a module
   service filters by `membership.householdId` and answers `404 not_found` for another household's id;
   `apps/api/test/recipe-cross-household.test.ts` and `apps/api/test/finance-cross-household.test.ts` address
@@ -653,7 +646,7 @@ ones; the module gotchas are indexed below and live in the module docs.
   `email IS NULL AND password_hash IS NULL`: `isPlaceholderUser` (`apps/api/src/core/services/auth/users.ts`) is
   the one predicate (an OAuth-only account also has a NULL hash). It has no OAuth link, session or avatar and
   cannot sign in; `toUserDto` answers 401 for one, and every reader of `users.email` narrows it
-  (`requireAccountEmail`). `claimPlaceholderUser` is ONE conditional `UPDATE … WHERE id = ? AND password_hash IS
+  (`requireAccountEmail`). `Users.claimPlaceholderUser` is ONE conditional `UPDATE … WHERE id = ? AND password_hash IS
   NULL AND email IS NULL RETURNING id` (F gotcha 72: never check-then-write; zero rows is `409
   member_has_account`, a unique violation `409 email_taken`; `apps/api/test/placeholders.test.ts` races two
   claims). A claim invite is redeemed ONLY by `POST /api/auth/register { inviteToken }` (same user id, so every
@@ -672,6 +665,7 @@ ones; the module gotchas are indexed below and live in the module docs.
   route, `originGuardMiddleware` registered by `globalHttpLayer()`; its refusal is `errorResponse(new Forbidden(…))` and still
   carries the security and CORS headers), and `readJson` in `apps/api/src/core/routes/auth.ts` wants `Content-Type: application/json`. A second origin
   that legitimately calls the API must be listed in `WEB_ORIGIN`, comma-separated.
+  Pinned by `apps/api/test/security.test.ts` and `apps/api/test/http-global.test.ts`.
 - **The CSP and the baked API URL (plan m3b decision 16, F gotchas 67 and 50, ADR 0007).**
   `apps/api/src/middleware/securityHeaders.ts` (a pre-response handler of the global layer: every response, errors and the
   preflight included; the literal header set is `docs/API.md` "Security headers and the CSP") hashes every inline `<script>` of the built `index.html` at boot
@@ -683,6 +677,7 @@ ones; the module gotchas are indexed below and live in the module docs.
   `localhost:3001` hides. Build the served app with the variable EMPTY (`.env.example` keeps the absolute value
   for `bun run dev`); unset in a production build is relative too (`apps/web/src/lib/api.ts`). Only a browser
   sees a CSP break: check a served build at a second origin (`127.0.0.1:3001`) with the console open.
+  Pinned by `apps/api/test/security.test.ts` and `apps/api/test/deploy-dockerfile.test.ts`.
 - **Core hardening from `1715207` (F gotchas 18 and 74).** `clientIp` reads the LAST `X-Forwarded-For` entry
   (what the trusted proxy appends; keep `header_up X-Forwarded-For {remote_host}` in the Caddyfile), e-mail
   invites are rate limited per user (10/h; a claim invite without an address is not) and `POST /api/households`
@@ -690,10 +685,12 @@ ones; the module gotchas are indexed below and live in the module docs.
   API refuses the `change-me…` `SESSION_SECRET`, `apps/api/src/db/client.ts` creates the data directory `0o700`,
   passwords are capped at 200 characters before argon2, display and household names refuse control characters,
   and a 401 in the web app purges the persisted cache like a logout.
+  Pinned by `apps/api/test/security.test.ts`, `apps/api/test/config.test.ts` and `apps/api/test/db-pragmas.test.ts`.
 - **Claim links are credentials (plan m3b decision 14).** Whoever holds a claim link becomes that person. The
   migration's `--apply` report and stdout carry live links (`<first WEB_ORIGIN>/invite/<token>`; never a dry run)
   and must stay outside any repository (`docs/migration.md`); the claim-link dialogs show the link to an admin
   and copy it (`shareOrCopy` / `copyToClipboard`); a record of a real run names counts only.
+  `apps/api/test/legacy-placeholders.test.ts` redeems a migrated claim link.
 - **Core copy stays module-neutral (plan m3b decision 8).** The core Gruppe screens and the auth pages say
   "Gruppe" and never "Buchungen", "Platz" or "Haushalt": F's module-neutral strings are in the core catalogs
   byte-identical, F's finance-flavoured ones live only in `finance.settings.household.*`. Five core web strings
@@ -701,6 +698,7 @@ ones; the module gotchas are indexed below and live in the module docs.
   `household.claim.hint`, `household.claim.linkHint`), listed in `NEW_GERMAN` with the server keys
   `server.household.placeholderRole` and `server.finance.placeholderSlotOne`. A person's name is content and
   never goes through `t()`.
+  `NEW_GERMAN` in `scripts/i18n-check.ts` pins them.
 
 ### Web shell
 
@@ -750,11 +748,13 @@ ones; the module gotchas are indexed below and live in the module docs.
 - **No module-level constants over `WEB_MODULES`** in files a manifest imports; nav items are computed by
   functions at render time (`apps/web/src/components/layout/nav-items.ts`,
   `apps/web/src/components/layout/use-nav-items.ts`).
+  Pinned by `apps/web/src/components/layout/nav-items.test.ts`.
 - **Persist policy comes from the manifests (D9).** `buildPersistPolicy(WEB_MODULES)` feeds
   `createShouldPersistQuery` / `createShouldPersistMutation` (`apps/web/src/lib/persist.ts`); a module that
   declares `persistMutationNamespaces` must also register `mutationDefaults` for each namespace (a restored
   mutation carries its variables, not its function). `PERSIST_BUSTER = "household-v1"`. The persisted cache is
   keyed per user id and purged on account switch (toon-recipe's data-leak guard, unchanged).
+  Pinned by `apps/web/src/lib/persist.test.ts` and `apps/web/src/modules/persist.test.ts`.
 - **Service worker.** `apps/web/vite.config.ts` rules, first match wins, so every `NetworkOnly` rule precedes the
   one `NetworkFirst` rule: `/api/auth/`, the recipe `imports`, `shopping-lists`, `plan` and `/api/recipe/cards`,
   and finance's `/api/households/<id>/finance/…` (toon-finance gotcha 11: the offline ledger IS the persisted
@@ -763,6 +763,7 @@ ones; the module gotchas are indexed below and live in the module docs.
   `/api` and `/uploads` stay out of the navigation fallback; `skipWaiting` is off. The dev server has no service
   worker: check offline behaviour on the built app (`bun run build`, then `WEB_DIST_DIR=./apps/web/dist bun run
   start`).
+  No test pins the order: read `apps/web/vite.config.ts` against ADR 0011.
 - **The route tree is strict, with one hole.** `WEB_MODULES = [recipeModule, financeModule] as const satisfies
   readonly WebModule[]` and neither manifest carries a type annotation (`satisfies WebModule<"…">` only), so
   `router.tsx`'s `WEB_MODULES.map((m) => m.route)` keeps the concrete route types and a raw
@@ -787,10 +788,12 @@ ones; the module gotchas are indexed below and live in the module docs.
   and a second reload lost the booking. `apps/web/src/lib/query-client.ts` `seedOnlineManager()` seeds the
   manager from `navigator.onLine` once at boot. The shell has no sync badge; a module shows its own note
   (finance's `PendingSyncNote`).
+  Pinned by `apps/web/src/lib/query-client.test.ts`.
 - **`ActionMenu` has `renderTrigger` and `item.current`.** `renderTrigger(props)`
   (`apps/web/src/components/ui/ActionMenu.tsx`) replaces the icon button with the caller's element (spread
   `props`; the phone module chip is one); a `current` item is the brand-soft row with `aria-current="true"` and a
   check. Both are optional.
+  No test pins them; `apps/web/src/components/layout/ModuleSwitcher.tsx` is the `renderTrigger` caller.
 - **Every shell screen renders `PhoneHeaderRow` itself** (no global top bar, ADR 0010): the recipe screens
   (guard `apps/web/src/modules/recipe/phone-header.test.ts`, reading `routes.tsx` for the screen list; the detail
   is exempt: its hero owns the top edge), finance's (`apps/web/src/modules/finance/phone-header.test.ts` and its
@@ -810,6 +813,7 @@ ones; the module gotchas are indexed below and live in the module docs.
   `--gutter` variable (`lg:[--gutter:2rem]` on `<main>`) instead. `-mx-gutter` does NOT exist: use
   `bleed-gutter` or `bleed-gutter-inset`. `top-topbar` is dead (a sticky header uses `top-0`, the status-bar
   inset is `<main>`'s). `.bottom-tabbar` adds 1px for the tab bar's own top border.
+  No test pins the cascade; `apps/web/src/styles/index.css` holds the utilities.
 - **Theme colour has one source.** `apps/web/src/lib/theme-colors.ts` `THEME_COLORS = { light: "#faf5ee", dark:
   "#17120f" }` (the light and dark `--bg`); `apps/web/index.html`'s inline pre-paint script keeps the literals
   (it cannot import), `apps/web/src/lib/theme.ts` and the manifest import the module;
@@ -831,28 +835,18 @@ ones; the module gotchas are indexed below and live in the module docs.
   finds nothing, so never "fix" it. `.dockerignore`, `.vscode/settings.json` and Vite's `server.watch.ignored`
   fence the rest; the idioms test reads all four.
 - **The idioms test is the E12 gate.** `apps/api/test/effect-idioms.test.ts` makes the greps of `docs/EFFECT.md` E12
-  permanent, in the shape of the design-system gate: a comment-free line scan, one `describe` per rule, a failure
-  of `file:line: code`, and a pinned allow list (file or path prefix to reason) per rule. At E0 it holds: no import from
-  `repos/`, no `effect/unstable/` path, no Effect 3 package or service constructor, `ManagedRuntime.make(` only in
-  `apps/api/src/runtime.ts`, every `effect` / `@effect/*` dependency and lockfile entry one exact version, and the
-  vendored tree and the four fences matching it. Rule (9) is "no zod" (E1: no `zod` import, dependency or lockfile entry).
-  Rule (10) (E2) is "no `throw ApiError` / `throw new ApiError` under `apps/api/src`", allow list EMPTY (E3 removed recipe's
-  prefix, E4 finance's). Rule (11) (E2) is "no `Date.now(` / `new Date(` in a `services/` directory under `apps/api/src`" (allow
-  list EMPTY: the core `nowMs()` of `households/support.ts` is deleted) plus "no `nowMs(` call under `apps/api/src/core/`,
-  `apps/api/src/modules/recipe/` or `apps/api/src/modules/finance/`" (the one allowed line is the definition of the finance module
-  clock's synchronous `nowMs()` in `apps/api/src/modules/finance/lib/clock.ts`, kept for `apps/api/test/support/finance-harness.ts`):
-  `nowMs()` reads `Date.now()`, so a call bypasses the `Clock`. Rule (12) (E5) is "the scripts are Effect programs (E10)": (a) every `.ts`
-  file directly under `apps/api/scripts/` contains `runScript(` or `BunRuntime.runMain(`, (b) no `process.exit(` under `apps/api/scripts/`
-  but the one line of `apps/api/scripts/support/main.ts` (the runner's teardown), (c) no `await ` under `apps/api/scripts/legacy/` or
-  `apps/api/scripts/finance-import/` (the Promise bridges return `runLegacy(...)` unawaited), (d) no `runModuleHook` under `apps/api/src` or
-  `apps/api/scripts`. Rule (13) (E6) is the web's edge (the gotcha "One web runtime; API calls are described once"): (a) every `from "effect…"`
-  specifier under non-test `apps/web/src` is exactly `"effect"` or `"effect/http"`, (b) only the files of `WEB_EFFECT_ALLOW_LIST` import
-  `effect`, (c) `\bfetch\(` only in `apps/web/src/lib/runtime.ts` and `\bnew XMLHttpRequest\b` only in
-  `apps/web/src/modules/recipe/features/import/lib/importApi.ts` (two separate allow lists). Rules (10) to (13) fail a stale allow-list entry (a fixed file leaves the list in the same commit).
-  Rule (14) (E7) is "no hono": no `hono` / `hono/*` specifier in a scanned file, no `hono` key in a dependency section of a
-  `package.json`, no `"hono"` key in `bun.lock`, allow list EMPTY. A rule a later milestone switches on is a `PENDING_RULES`
-  comment in the file (none is left after E7), never a skipped test, and becomes a `describe` in the commit of the migration that makes it
-  true. Never relax a rule to get green.
+  permanent, in the shape of the design-system gate: a comment-free line scan (or a documented multi-line scan), one `describe`
+  per rule, a regex self-check, a failure of `file:line: code`, and a pinned allow list (file or path prefix to reason) whose stale
+  entries fail. All 21 rules are on (`PENDING_RULES` lists none; "Conventions" maps each idiom to its number). The non-empty allow
+  lists: (5) `apps/api/src/runtime.ts` and `apps/web/src/lib/runtime.ts`; (12) `process.exit(` in `apps/api/scripts/support/main.ts`;
+  (13) `WEB_EFFECT_ALLOW_LIST`, `fetch(` in `apps/web/src/lib/runtime.ts`, `new XMLHttpRequest` in
+  `apps/web/src/modules/recipe/features/import/lib/importApi.ts`; (17) the pure workbook parser `apps/api/scripts/finance-import/amounts.ts`
+  and its loop in `apps/api/scripts/finance-import-xlsx.ts`; (20) six files: `apps/api/src/index.ts` (boot, shutdown),
+  `apps/api/src/http/in-memory.ts`, `apps/api/src/config.ts` (the eager validation), `apps/api/src/core/routes/system.ts` (pinned by
+  `apps/api/test/runtime.test.ts` (b), `docs/open-work.md` O-11), `apps/api/src/modules/recipe/services/ocr/tesseract.ts` (the
+  Promise engine contract) and `apps/api/src/db/database.ts` (the drizzle transaction callback). (10), (11), (14), (15), (16), (18),
+  (19) and (21) allow nothing. A new rule is a `describe` in the commit that makes it true, never a skipped test. Never relax a rule
+  to get green.
 - **The web contract tests and the snapshot sweep (E6, plan P7, P7b).** `apps/api/test/web-contract-core-recipe.test.ts`,
   `apps/api/test/web-contract-finance.test.ts` and `apps/api/test/web-contract-legacy.test.ts` decode every response the web clients decode
   with `{ disableChecks: true }` and assert the decoded value `toEqual` the body (83 JSON rows and 27 void rows, 49 finance rows; the legacy
@@ -878,6 +872,7 @@ ones; the module gotchas are indexed below and live in the module docs.
   `/api/auth/me` and set the key on a non-SPA page; accepting an invite also moves it). Phone screenshots use
   `isMobile: true, hasTouch: true` at 390x844. Never `pkill -f` a pattern that also matches the shell running it;
   kill the server's pid.
+  The record is `docs/plans/m7-harden.md` section 9; no test.
 - **`scrollbar-gutter: stable`** on `<html>` (toon-recipe's) makes `scrollWidth` 375/1425 against `clientWidth`
   390/1440 under classic scrollbars (a desktop-Chromium context; a mobile context with overlay scrollbars
   measures 390/390); check no-overflow as `scrollWidth <= clientWidth` plus no element's right edge beyond
@@ -886,6 +881,7 @@ ones; the module gotchas are indexed below and live in the module docs.
 - **i18n-check is self-contained.** Its parity half greps the commit the branch forked from on main
   (`I18N_CHECK_BASE=<sha>` overrides it) and nothing outside this repo: since the port every source string is in
   the repo's own history. A genuinely new German string still goes to `NEW_GERMAN`.
+  The check is `scripts/i18n-check.ts`.
 - **Long commands** (cold `bun install`, docker build, headless browser) go to the background with one log
   ending in `exit=$?`. A `docker build` is judged by `$?` written to its log, never through a pipe (`docker build
   ... | tail` reports tail's status); the repo-root `build.log` is ignored by `*.log` and removed after the check.
@@ -901,6 +897,7 @@ ones; the module gotchas are indexed below and live in the module docs.
   target; `--apply` = that pass, then the real write only if it is clean, then a balance re-check. Every row and
   its `legacy_ids` entry go in the same `client.batch(…, "write")` (chunks of 500); a mapped row is never updated
   again (a one-shot cutover that resumes, not a sync).
+  Pinned by `apps/api/test/legacy-framework.test.ts` and `apps/api/test/legacy-cli.test.ts`.
 - **The CLI never imports `src/env.ts`, and its import order is load-bearing.** `apps/api/src/env.ts` freezes
   `env.databaseUrl` on first load and `apps/api/src/db/client.ts` opens that database on import, so importing
   either before the redirect would create and switch to WAL the REAL target during a dry run.
@@ -922,7 +919,7 @@ ones; the module gotchas are indexed below and live in the module docs.
   `apps/api/src/env.ts` picks its own temp test DB and `resolveCliEnv` reads no `.env`; they also pass an
   absolute `DATABASE_URL`, an explicit `UPLOAD_DIR` and a placeholder `SESSION_SECRET`. Migration tests use their
   own temp-file targets and temp upload directories, never the shared test `db` and never `env.uploadDir`.
-- **Claimed ids and the verified-only e-mail match (users, households).** `migrateUsers` decides every recipe
+- **Claimed ids and the verified-only e-mail match (users, households).** The users step (`migrateUsersEffect`) decides every recipe
   user first, then the finance-only ones, with an in-run `Set` of claimed target ids next to the DB lookup (the
   fixture's gina has toon-finance's id equal to cleo's toon-recipe id, both in one batch: a DB lookup alone would
   fail the primary key and "fix" the wrong row). A claimed id gets `crypto.randomUUID()` and a warning (household
@@ -931,6 +928,7 @@ ones; the module gotchas are indexed below and live in the module docs.
   ("unverified target account <email> blocks the merge"), on a resumed run too. An OAuth-only recipe account
   keeps no password when a finance row has its e-mail (finance never verified addresses: account takeover).
   Finance-only users start unconfirmed.
+  Pinned by `apps/api/test/legacy-users.test.ts`.
 - **Ledger states the runtime refuses are written by the migration alone (ADR 0005).** A one-participant finance
   household gets its `finance` module row, a lone slot-2 participant is re-seated in slot 1, a plan payer who is
   not a participant is re-pointed to slot 1 and an income naming a non-participant is kept, each a warning; the
@@ -938,6 +936,7 @@ ones; the module gotchas are indexed below and live in the module docs.
   `initializeHousehold`, `onHouseholdCreated` or `onEnable` (they would seed default categories next to the
   copied ones). The balance invariant is identity-based: computed from the perspective of the legacy user who
   holds slot 1 in the TARGET and compared with `getBalance` on the migrated rows (balance, count, amount sum).
+  Pinned by `apps/api/test/legacy-finance.test.ts`.
 - **The legacy fixtures are built, checked and tracked on purpose.** `apps/api/test/fixtures/legacy/build.ts`
   rebuilds `recipe.db`, `finance.db` and `uploads/` deterministically from verbatim copies of the two sources'
   migration SQL and `apps/api/test/fixtures/legacy/facts.ts` (argon2id hashes precomputed; Bun's hash is
@@ -965,6 +964,7 @@ ones; the module gotchas are indexed below and live in the module docs.
   '@libsql/client'". The runtime user is `bun` (uid 1000) with no capability (`cap_drop: [ALL]`,
   `no-new-privileges`); a volume PRE-FILLED by a root container (the migration's copy-in) keeps root
   ownership, which is why `docs/migration.md` step 6 ends in `chown -R 1000:1000 /data`.
+  Pinned by `apps/api/test/deploy-dockerfile.test.ts`.
 - **Caddy treats an empty `{$VAR}` as set (M6, plan m6 decision 7).** `{$VAR:default}` falls back only when the
   variable is UNSET; a set-but-empty `RECIPE_HOSTNAME` leaves a site block without an address and `caddy adapt`
   fails with "server block without any key is global configuration, and if used, it must be first". The
@@ -974,6 +974,7 @@ ones; the module gotchas are indexed below and live in the module docs.
   --env-file <empty> config`, then `run … caddy validate`); a raw `docker run -e RECIPE_HOSTNAME=` failing is
   expected, never a reason to change the Caddyfile. One global `cert_issuer {$TOON_TLS_ISSUER:acme}` serves every
   site, so the old-hostname sites need no `tls` block (one on the `.invalid` placeholder is a config error).
+  Pinned by `apps/api/test/deploy-compose.test.ts` and `apps/api/test/deploy-caddyfile.test.ts`.
 - **The old-hostname blocks use `handle`, never a bare `redir` (ADR 0008).** Caddy sorts `redir` before
   `handle`, so a bare `redir` would swallow `/sw.js`; every route of an old-host block is a `handle`, and
   `/sw.js` answers 200 with the retiring worker (`(retire_old_worker)`: deletes the caches, claims, unregisters
@@ -990,11 +991,13 @@ ones; the module gotchas are indexed below and live in the module docs.
   caddy container when the Caddyfile changed. `docker/toon-deploy.sh` is the forced command of ONE ssh key
   (`toon-household-deploy`; verbs `deploy [latest|sha256:<64 hex>]`, `sync-config`, `status`; `set -f`),
   distinct from the old `toon-deploy` and `toon-finance-deploy` keys.
+  Pinned by `apps/api/test/deploy-script.test.ts`.
 - **A freshly published GHCR package is private (M6).** `.github/workflows/release.yml` pushes on `main` and `v*`
   tags (typecheck and test first, `provenance: false`, SHA-pinned actions, `WITH_OCR=1 WITH_PDF=0`); the package
   stays private until the owner makes it public or the server runs `docker login`, and
   `.github/workflows/deploy.yml` runs only when the repository VARIABLE `DEPLOY_ENABLED` is `true` (a job-level
   `if` cannot read secrets). Both are verified by their YAML tests only until the first push to `main`.
+  The YAML tests are `apps/api/test/deploy-workflows.test.ts`.
 - **The local stack is the compose project `toon-household-local`, never the production name (M6, plan m6
   decision 5).** The compose file says `name: toon-household`, so without a project name of its own a local `up`
   would use `toon-household_toon-data` and a local `down -v` would delete the production data volume.
@@ -1010,6 +1013,7 @@ ones; the module gotchas are indexed below and live in the module docs.
   `Fixkostenanteil MM/YYYY` rows (origin `fixed_plan`) at that boot. After a cutover the balance equals the
   report's plus those rows; without them it must match (the legacy fixtures: 119486 ct in the report, 222286 ct
   after the boot, two rows of 51400 ct).
+  Pinned by `apps/api/test/finance-scheduler.test.ts`.
 
 ### Module gotchas (moved to the module docs)
 
@@ -1037,13 +1041,13 @@ gotchas 62, 63, 65)."; "F gotcha numbers are F's numbering at `1715207`."
 ### Retired gotchas
 
 - **`file::memory:` is per client.** Retired by ADR 0009: `bun test` no longer forces `file::memory:`; under
-  `NODE_ENV=test` `apps/api/src/env.ts` gives each process a fresh temp file DB, so every `withTransaction` is a
+  `NODE_ENV=test` `apps/api/src/env.ts` gives each process a fresh temp file DB, so every `Database.transaction` is a
   real transaction. What remains: a test going through `app.request` must use the shared `db`;
   `createDatabase({ url: "file::memory:" })` is a separate, empty database, and an `EXPLAIN` against the shared
   client goes through `apps/api/test/support/explain.ts`.
 - **Two validation paths with different `details` (`zValidator` + `onValidationError`, `readJson` + `ZodError`).**
-  Retired by E1 and ADR 0013: every route validates through `apps/api/src/lib/validate.ts` (`validate`,
-  `decodeOrThrow`, `decodeOption`), a refusal is a thrown `Schema.SchemaError`, `toApiError` renders it once with
+  Retired by E1 and ADR 0013: every route validates through `apps/api/src/lib/validate.ts` (`decode`,
+  `decodeOrThrow`, `decodeOption`), a refusal is a `Schema.SchemaError`, `toApiError` renders it once with
   `toValidationIssues`, and `zod` and `@hono/zod-validator` are not dependencies (idioms rule (9)). What remains of the
   old gotcha: a form-facing 422 carries `i18n` and the catalog text on every route, and `readJson` in
   `apps/api/src/core/routes/auth.ts` still wants `Content-Type: application/json`.
@@ -1059,11 +1063,21 @@ gotchas 62, 63, 65)."; "F gotcha numbers are F's numbering at `1715207`."
   `finance` prefix", the web half).** Retired by E6: `request<T>` and its unvalidated cast are deleted; each endpoint names its
   response schema once (`getJson(url, Schema)` in `CoreApi` / `RecipeApi` / `FinanceApi`), the response is decoded with it, and the
   three `apps/api/test/web-contract-*.test.ts` fail on a wrong schema. What remains: the aliases themselves in finance's ported files.
+- **Bridges until E8 (E2 to E5, ADR 0014).** Retired by E8 (plan e8 P1, P2, P4): the `/* legacy bridges */` sections of
+  `apps/api/src` and `apps/api/scripts`, the finance `bridge.ts` and the legacy `ApiError` class of `lib/errors.ts` are gone
+  (`requireUser`, `requireMembership` and `requireFinanceParticipantContext` went with Hono at E7). What remains: the 19 doors and
+  their calling-convention rule ("Test-only doors live in `apps/api/test/support/bridges/`") and the seams ("The test seams stay
+  in `src`").
+- **The finance `nowMs()` survivor (plan e4 P12).** Retired by E8-T06: the synchronous `nowMs()` of
+  `apps/api/src/modules/finance/lib/clock.ts`, kept for the test harness, was the one entry of idioms rule (11)'s `nowMs(` allow
+  list. What remains: the door `apps/api/test/support/bridges/finance-clock.ts` for `apps/api/test/support/finance-harness.ts` and
+  `apps/api/test/finance-clock.test.ts`; `src` reads `financeTimeMillis`, and rule (11)'s allow lists are empty.
 
 ## Open work
 
-What is deliberately not done lives in `docs/open-work.md`: owner actions (the real cutover, the first
-`release.yml` / `deploy.yml` runs, GHCR visibility, `DEPLOY_ENABLED`, OAuth callbacks, arm64, the old hostnames
-and volumes, an iOS install check, the E6 decode sweep over a production snapshot), owner decisions ("Gruppe" vs "Haushalt", toon-recipe's pinned design
-exceptions, finance print styles, a per-household PWA name or icon), items deferred by design (the N-person
-ledger, D3; the member-leaves veto beyond finance) and recorded observations. New open items go there, not here.
+What is deliberately not done lives in `docs/open-work.md`: owner actions (A1 to A11, among them the cutover, the first
+`release.yml` / `deploy.yml` runs and the E6 decode sweep over a production snapshot), owner decisions (D-1 to D-6: "Gruppe" vs
+"Haushalt", the pinned design exceptions, finance print styles, a per-household PWA name or icon, `@effect/sql-libsql`,
+`@effect/atom-react`), items deferred by design (X-1 to X-7: the N-person ledger, D3; the member-leaves veto beyond finance; the
+declared HttpApi schemas, a typed `HttpApiClient`, the request log format) and recorded observations (O-1 to O-11). New open items
+go there, not here.
