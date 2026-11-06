@@ -8,8 +8,13 @@
  * - Whole-year properties: 365 dates, the three cleaning ranges, determinism (twice, and on shuffled input), `selectTour`
  *   for tours 1, 4 and 9, the tour-4 Restmüll count.
  * - The traps of design §5.3 as mutations of the recorded items: a block whose weekday column is shifted is DISCARDED
- *   (the other copy carries the month), two valid blocks that disagree fail `consensus` with the date and both readings,
- *   a missing month fails `months`, a missing title fails `year`, a tour on a Sunday fails `sundays`, a `0` fails `values`.
+ *   (the other copy carries the month), the stale 2026 artwork never contributes, a missing month fails `months`, a
+ *   missing title fails `year`, a tour on a Sunday or a holiday fails `sundays`, a `0` fails `values`.
+ * - Paint order instead of design §5.3's agreement across ALL copies: the fixture's hidden January/February copy is an
+ *   older draft that differs on 7 days (2027-01-15 G 3; 2027-02-15 to -20 one row later), the rendered flyer shows the
+ *   copy drawn LAST (the golden 2027-01-15 G 9), so the last-drawn section's reading wins and a covered copy that
+ *   disagrees is a `hiddenCopyDiffers` warning; two valid blocks of one month inside that one section that disagree fail
+ *   `consensus` with the date and both readings.
  */
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
@@ -247,7 +252,7 @@ describe("selectTour", () => {
           .filter((pickup) => pickup.date === row[0])
           .map((pickup) => pickup.category)
           .sort();
-        expect(got).toEqual(want);
+        expect(got as string[]).toEqual(want);
       }
       for (const pickup of pickups) expect(result.days.get(pickup.date)?.[pickup.category]).toBe(tour);
     });
@@ -276,26 +281,84 @@ describe("parseHattingenFlyer: the traps of design §5.3", () => {
     expect(julySections.length).toBe(4);
   });
 
-  test("a January block with a shifted weekday column is discarded; the other copy carries the month", () => {
-    const mutated = shiftWeekdays(ITEMS, januarSections[0]!, "Januar");
-    expect(parsed(mutated)).toEqual(parsed());
+  test("the visible copy is the one drawn last: January's is the later section (golden 2027-01-15 G 9, not the draft's 3)", () => {
+    // Sorted by x: the visible January grid sits 14.4 pt LEFT of the hidden draft copy (design §5.3).
+    expect(januarSections[0]!).toBeGreaterThan(januarSections[1]!);
+    expect(parsed().days.get("2027-01-15")).toEqual({ waste_rest: 9, waste_yellow: 9, waste_bio: 4 });
+    // What the hidden draft prints: Jan 15 G 3, and Feb 15 (Rosenmontag) empty with the week moved a row down.
+    expect(parsed().days.get("2027-02-15")).toEqual({ waste_rest: 1, waste_yellow: 1, waste_bio: 5 });
+    expect(parsed().days.get("2027-02-19")).toEqual({ waste_bio: 9 });
+  });
+
+  test("a covered copy that reads a day otherwise is a warning, never a refusal (the 2027 draft differs on 7 days)", () => {
+    expect(parsed().warnings).toEqual([
+      { code: "hiddenCopyDiffers", date: "2027-01-15" },
+      { code: "hiddenCopyDiffers", date: "2027-02-15" },
+      { code: "hiddenCopyDiffers", date: "2027-02-16" },
+      { code: "hiddenCopyDiffers", date: "2027-02-17" },
+      { code: "hiddenCopyDiffers", date: "2027-02-18" },
+      { code: "hiddenCopyDiffers", date: "2027-02-19" },
+      { code: "hiddenCopyDiffers", date: "2027-02-20" },
+    ]);
+  });
+
+  test("the hidden January copy with a shifted weekday column is discarded: same days, its warning gone", () => {
+    const result = parsed(shiftWeekdays(ITEMS, januarSections[1]!, "Januar"));
+    expect(result.days).toEqual(parsed().days);
+    expect(result.warnings.map((warning) => warning.date)).not.toContain("2027-01-15");
+  });
+
+  test("the visible January copy with a shifted weekday column is discarded: the remaining copy carries the month", () => {
+    const result = parsed(shiftWeekdays(ITEMS, januarSections[0]!, "Januar"));
+    expect(result.days.get("2027-01-04")).toEqual(parsed().days.get("2027-01-04"));
+    expect(result.days.get("2027-01-15")).toEqual({ waste_rest: 9, waste_yellow: 3, waste_bio: 4 });
+  });
+
+  test("the stale 2026 artwork (weekdays a day off) never contributes: its blocks are all discarded", () => {
+    // Remove the two 2027 July-December copies: the 2026 copies are left, and July is missing.
+    const stale = new Set(julySections.filter((section) => {
+      const title = ITEMS.find((item) => item.section === section && item.str.startsWith("Abfallkalender"));
+      return title?.str === "Abfallkalender 2027";
+    }));
+    expect(stale.size).toBe(2);
+    expect(parseHattingenFlyer(ITEMS.filter((item) => !stale.has(item.section)))).toMatchObject({
+      ok: false,
+      check: "months",
+      date: "2027-07-01",
+    });
   });
 
   test("both January blocks shifted: no valid block for January is `months`", () => {
     let mutated = shiftWeekdays(ITEMS, januarSections[0]!, "Januar");
     mutated = shiftWeekdays(mutated, januarSections[1]!, "Januar");
-    expect(parseHattingenFlyer(mutated)).toMatchObject({ ok: false, check: "months" });
+    expect(parseHattingenFlyer(mutated)).toMatchObject({ ok: false, check: "months", date: "2027-01-01" });
   });
 
-  test("two valid blocks that disagree on a date fail `consensus` with the date and both readings", () => {
-    const section = januarSections[1]!;
+  test("a changed digit in the hidden copy is a warning; in the visible copy it changes the reading", () => {
+    const change = (section: number) => {
+      const target = rowDigits(ITEMS, section, "Januar", 4).sort((a, b) => a.x - b.x)[0]!;
+      expect(target.str).toBe("9");
+      return ITEMS.map((item) => (item === target ? { ...item, str: "8" } : item));
+    };
+    const hidden = parsed(change(januarSections[1]!));
+    expect(hidden.days.get("2027-01-04")).toEqual(parsed().days.get("2027-01-04"));
+    expect(hidden.warnings).toContainEqual({ code: "hiddenCopyDiffers", date: "2027-01-04" });
+    const visible = parsed(change(januarSections[0]!));
+    expect(visible.days.get("2027-01-04")?.waste_rest).toBe(8);
+    expect(visible.warnings).toContainEqual({ code: "hiddenCopyDiffers", date: "2027-01-04" });
+  });
+
+  test("two valid blocks of one month in the drawn-last section that disagree fail `consensus` with the date and both readings", () => {
+    // A second January grid inside the visible section, 1000 pt to the right, with the R of Jan 04 changed.
+    const section = januarSections[0]!;
+    const { name } = block(section, "Januar");
+    const own = ITEMS.filter((item) => item.section === section && item.x > name.x - 60 && item.x < name.x + 75 && item.y <= name.y + 1);
     const target = rowDigits(ITEMS, section, "Januar", 4).sort((a, b) => a.x - b.x)[0]!;
-    expect(target.str).toBe("9");
-    const mutated = ITEMS.map((item) => (item === target ? { ...item, str: "8" } : item));
-    const result = parseHattingenFlyer(mutated);
+    const twin = own.map((item) => ({ ...item, x: item.x + 1000, str: item === target ? "7" : item.str }));
+    const result = parseHattingenFlyer([...ITEMS, ...twin]);
     expect(result).toMatchObject({ ok: false, check: "consensus", date: "2027-01-04" });
     if (result.ok) throw new Error("unreachable");
-    expect(result.readings?.length).toBe(2);
+    expect(result.readings?.map((reading) => reading.waste_rest).sort()).toEqual([7, 9]);
   });
 
   test("a missing month (no `Februar` item anywhere) is `months`", () => {
