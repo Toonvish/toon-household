@@ -2,31 +2,18 @@
  * The finance module's participant gate (SPEC D3, plan M3 decisions 3 and 5).
  *
  * A household has any number of core members; finance seats two of them (slots 1 and 2 of
- * `finance_participants`). Every ledger router runs `requireVerifiedEmail()` then
- * `requireFinanceParticipant()` for every method, so a household member without a slot gets
- * `403 finance_not_participant` on reads too (decision 3). The module chain of
- * `modules/mount.ts` has already applied `requireSession()` -> `requireHouseholdRole("member")`
- * -> `requireModule("finance")`, so `membership` is set; a router never repeats those.
+ * `finance_participants`). Every ledger group attaches `RequireVerifiedEmail` then `RequireFinanceParticipant` for every
+ * method, so a household member without a slot gets `403 finance_not_participant` on reads too (decision 3). The module
+ * chain of `modules/mount.ts` has already applied `RequireSession` -> `RequireHouseholdMember` -> `RequireModule` for
+ * `finance`, so the membership is set; a route group never repeats those.
  *
- * `requireFinanceParticipant` and `requireFinanceParticipantContext` are hoisted FUNCTION DECLARATIONS, not `const`
- * arrows: the API's import graph has a cycle (see test/import-order.test.ts) and a `const` here could still be in
- * its TDZ when a router file calls `requireFinanceParticipant()` at module scope. The module-scope
- * `currentFinanceParticipant` is an `Effect.fnUntraced` that reads no imported binding but `effect` and the error
- * family until it runs.
- *
- * ON THE RUNTIME (docs/EFFECT.md E7; plan `docs/plans/e4-finance-services.md` P9): the middleware does its service
- * and database work as ONE `await runtime.runPromise(...)` before `await next()` (`next()` is never called inside an
- * effect); the refusal is the family's `ApiFailure`. `requireFinanceParticipantContext` is the synchronous bridge
- * (`Effect.runSync` over a service-free effect) the pinned `finance-participants.test.ts` still calls (E8); the
- * routes read the context through the service-free effect directly.
- *
- * The Effect HTTP layer (docs/EFFECT.md E8; E7-T09; plan P5, P17): `RequireFinanceParticipantLayer` implements the tag
- * `RequireFinanceParticipant` of `./http.ts` with the same gate (`checkFinanceParticipant`); the Hono section below
- * (until E7-T12 deletes it) keeps the Hono middleware and its context accessors.
- *
- * The context variable is typed by the module-local augmentation below; the core `AppVariables`
- * gains nothing. Ported route handlers import `requireFinanceParticipantContext as
- * requireHouseholdContext` and keep toon-finance's bodies.
+ * `RequireFinanceParticipantLayer` implements the tag `RequireFinanceParticipant` of `./http.ts` (docs/EFFECT.md E8;
+ * plan `docs/plans/e7-http-api.md` P5, P17): the gate (`checkFinanceParticipant`) does its service and database work
+ * as one effect over `CurrentMembership`, the refusal is the family's `ApiFailure`, and the handlers read the seat as
+ * `CurrentFinanceParticipant`. The module scope of this file reads no imported binding but `effect` and the error
+ * family until it runs: the API's import graph has a cycle (see `apps/api/test/import-order.test.ts`), so a binding
+ * read at module scope could still be in its TDZ. The pre-E7 Hono middleware and its synchronous context bridge are
+ * gone.
  */
 import { Effect, Layer } from "effect";
 import { CurrentMembership, type Membership } from "../../http/context.ts";
@@ -55,8 +42,8 @@ const checkFinanceParticipant = Effect.fn("FinanceParticipant.check")(function* 
 
 /**
  * `RequireFinanceParticipant` (P5): the gate over the membership of the request, providing the seat to the handler.
- * A route file passes it to its bridge inside `Layer.suspend` (E7-T09): the bridge call runs at module scope, while
- * this file may still be evaluating through the API's import cycle (P15), so the read must wait for the build.
+ * A route file's handler layer reads it inside `Layer.suspend` (E7-T09): the read would otherwise run at module scope,
+ * while this file may still be evaluating through the API's import cycle (P15), so it must wait for the build.
  */
 export const RequireFinanceParticipantLayer = Layer.effect(
   RequireFinanceParticipant,

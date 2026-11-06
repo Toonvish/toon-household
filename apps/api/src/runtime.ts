@@ -7,8 +7,8 @@
  * over the infrastructure (`src/infra.ts`: `Database` over `AppConfig`, the mailer, uploads,
  * thumbnails and the rate limiter). A module service may therefore use any core or
  * infrastructure service (`ModuleRequirements`, `src/modules/types.ts`), never the reverse. `runtime` is the ONE `ManagedRuntime` of the process (no other application
- * file calls `ManagedRuntime.make`): Hono handlers bridge into Effect with
- * `runtime.runPromise(...)` until E7 replaces Hono.
+ * file calls `ManagedRuntime.make`): the HTTP server (`src/index.ts`) and the scripts run
+ * on it, and the pre-E7 Hono handlers used to bridge into it with `runtime.runPromise(...)`.
  *
  * `AppLayer` is `Layer.suspend` over the HOISTED `appLayer()`, and it is annotated with a
  * `never` requirement: a service left unsatisfied by a wrong nesting is a `tsc` error here,

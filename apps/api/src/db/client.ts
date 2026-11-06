@@ -16,8 +16,12 @@ import * as schema from "./schema.ts";
 export type Database = ReturnType<typeof drizzle<typeof schema>>;
 /**
  * The same drizzle type under a name that never collides with the `Database` SERVICE of
- * `src/db/database.ts` (docs/EFFECT.md E5, plan e2 P6). Module and script files keep importing
- * `Database` from here until E3 to E5 move them onto the service.
+ * `src/db/database.ts` (docs/EFFECT.md E5, plan e2 P6). This file keeps the TYPE; the service is the one way services reach
+ * the database.
+ *
+ * The process-wide client, `db` and `dbReady` below are created at import of this file, and that stays (plan e8 P3, ADR 0014):
+ * the tests' shared `db` (ADR 0009), `scripts/migrate-legacy.ts`'s pinned import order and the synchronous `env` readers
+ * depend on it, while `Database.layer` owns the client's lifetime (release closes it).
  */
 export type DrizzleDatabase = Database;
 

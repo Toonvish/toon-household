@@ -5,8 +5,8 @@
  * `recipes.language` (the CONTENT axis).
  *
  * `negotiateRequestLocale` is the pure rule, shared by the Effect HTTP layer (`apps/api/src/http/request.ts`
- * `requestLocale`, `apps/api/src/http/response.ts` `errorResponse`; plan `docs/plans/e7-http-api.md` P4) and the Hono
- * section below until E7-T12 deletes it.
+ * `requestLocale`, `apps/api/src/http/response.ts` `errorResponse`; plan `docs/plans/e7-http-api.md` P4), where the pre-E7 Hono
+ * locale middleware used it too.
  */
 import { negotiateLocale, type Locale } from "@toon/shared";
 import { env } from "../env.ts";

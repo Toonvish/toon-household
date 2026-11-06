@@ -14,18 +14,19 @@
  *   `.transaction(…)`, which is a savepoint when the executor is itself a drizzle transaction, exactly as
  *   `withTransaction(tx, …)` does. Where `transactionsSupported` is false (an explicit `:memory:` URL) `effect` runs
  *   without a transaction: same statement order, no rollback guarantee (the rule of `withTransaction`).
- * - `executor` reads the current executor itself (a Promise-based module hook gets it, plan e2 P11).
+ * - `executor` reads the current executor itself (a caller that needs the raw drizzle executor gets it, plan e2 P11).
  *
  * The current executor is a `Context.Reference` read on EVERY call, never captured at layer build: inside
- * `transaction` it is the open transaction, under `Database.withExecutor(db)` the handed-in instance (the legacy
- * bridges of plan e2 P1 take the old `db` argument this way), otherwise the service's root `drizzle`.
+ * `transaction` it is the open transaction, under `Database.withExecutor(db)` the handed-in instance (the test doors of
+ * `apps/api/test/support/bridges/` take their `db` argument this way, plan e8 P1, and so do the core's own callers of
+ * `Database.withExecutor`), otherwise the service's root `drizzle`.
  *
  * Layers:
  * - `Database.layer`: the process-wide instance of `src/db/client.ts` (`db`, `client`, `dbReady`). Acquire awaits
  *   the D7 pragmas (`dbReady`); release closes the client and logs `[db] database closed`, EXCEPT under
  *   `NODE_ENV=test`, where it does nothing (every test file shares one process and one client, ADR 0009).
- *   The instance itself is still created at import of `src/db/client.ts`, because recipe, finance and the scripts
- *   import `db` until E3 to E5 (ADR 0014).
+ *   The instance itself is created at import of `src/db/client.ts`, a decision of plan e8 P3 (ADR 0014): the tests'
+ *   shared `db`, the legacy CLI's import order and the synchronous `env` readers depend on it.
  * - `Database.layerFrom(created)`: an existing `createDatabase(...)` result; never closes it.
  * - `Database.layerFromExecutor(executor)`: a bare drizzle executor (a root or an open drizzle transaction, what the
  *   module-hook call sites hold); never closes anything; `transactionsSupported` is the process-wide rule.
@@ -133,7 +134,7 @@ function makeDatabase(parts: DatabaseParts): DatabaseShape {
 
 /**
  * The database as a service (docs/EFFECT.md E5). The drizzle TYPE of the same name lives in `src/db/client.ts`
- * (also exported as `DrizzleDatabase`); module and script files import that one until E3 to E5.
+ * (also exported as `DrizzleDatabase`); the service is how module, core and script code reach the database.
  */
 export class Database extends Context.Service<Database, DatabaseShape>()("toon/api/db/database/Database") {
   /** The process-wide instance of `src/db/client.ts`: acquire awaits the pragmas, release closes (never under test). */
@@ -209,8 +210,9 @@ export class Database extends Context.Service<Database, DatabaseShape>()("toon/a
   }
 
   /**
-   * Runs `effect` with `db` as the current executor: the legacy bridges (plan e2 P1) honour their old `db` argument
-   * through it. `db` counts as a root: a `transaction` inside calls `db.transaction(…)` (a savepoint on a `tx`).
+   * Runs `effect` with `db` as the current executor: the test doors of `apps/api/test/support/bridges/`
+   * (plan e8 P1) and the core's own callers hand in their `db` through it. `db` counts as a root: a `transaction`
+   * inside calls `db.transaction(…)` (a savepoint on a `tx`).
    */
   static withExecutor(db: DbExecutor): <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R> {
     return (effect) => Effect.provideService(effect, CurrentExecutor, { executor: db, open: false });

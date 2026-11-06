@@ -1,27 +1,27 @@
 /**
  * The whole HTTP application as one route layer (docs/EFFECT.md E7, E8, E9; plan `docs/plans/e7-http-api.md` P11, P13,
- * P14, P16; E7-T11): what the Hono app of `src/index.ts` served before the cutover.
+ * P14, P16; E7-T11): what the pre-E7 Hono app of `src/index.ts` served before the cutover.
  *
  * `appRoutesLayer()` registers, on one `HttpRouter`:
  * - `globalHttpLayer()` (`./global.ts`): the request log, the security headers, CORS for `/api/*` and the origin guard,
- *   as global router middleware in Hono's `use` order (P11, deviation D6);
+ *   as global router middleware in the `use` order of the pre-E7 Hono app (P11, deviation D6);
  * - `SystemApi` (`GET /api/health`, `GET /uploads/:filename`), `AuthApi` (`/api/auth`), `HouseholdsApi`
  *   (`/api/households`, the invite-token routes beside `/:householdId`; the router matches by specificity, so the old
  *   registration order no longer matters) with their handler layers;
  * - `moduleRoutesLayer(API_MODULES)` (`../modules/mount.ts`): every module's `householdApi` / `userApi` behind the
  *   module chain, plus the household catch-alls (P14);
  * - `fallbackRoutesLayer()` (`./global.ts`): the static web for a `GET` when `WEB_DIST_DIR` is set, else the JSON
- *   route-unknown `404`, at the lowest specificity (the Hono app's static web LAST and its `notFound`).
+ *   route-unknown `404`, at the lowest specificity (as the pre-E7 Hono app's static web LAST and its `notFound` stood).
  * The core `HttpApiMiddleware` implementations (`httpMiddlewareLayer()`) are `Layer.provideMerge`d under the routes, so
  * `HttpApiBuilder.layer` finds them when it builds; the services the handlers and the middlewares yield come from the
  * one `AppLayer` (the in-memory composition of `./in-memory.ts`, or the runtime the server runs on, `./server.ts`).
  *
- * `app` is the in-memory handler over it (P13): `app.request(path, init)` keeps Hono's call shape, so every test that
+ * `app` is the in-memory handler over it (P13): `app.request(path, init)` keeps the call shape of pre-E7 Hono's `app.request`, so every test that
  * imports `app` from `src/index.ts` runs through HttpApiBuilder's handlers unchanged (E9). It is built on the first
  * request, on a child memo map of `appMemoMap`, and never disposed in a test.
  *
  * `httpApiRoutes()` lists `METHOD path` of every endpoint the definitions declare (P16; `apps/api/test/api-doc.test.ts`
- * compares it with `docs/API.md`): the full path after every prefix, in Hono's `:name` syntax; the module catch-alls
+ * compares it with `docs/API.md`): the full path after every prefix, in the `:name` syntax of the pre-E7 Hono router; the module catch-alls
  * and the fallback are not endpoints.
  *
  * Import cycle (P15): both functions are hoisted and read `API_MODULES`, the APIs and the handler layers only when
@@ -51,7 +51,7 @@ export interface ServedRoute {
   readonly path: string;
 }
 
-/** The core APIs, in the order the Hono app mounted them (system, auth, households). */
+/** The core APIs, in the order the pre-E7 Hono app mounted them (system, auth, households). */
 function coreApis(): ReadonlyArray<AnyApi> {
   return [SystemApi, AuthApi, HouseholdsApi];
 }

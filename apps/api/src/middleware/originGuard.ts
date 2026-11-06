@@ -103,7 +103,7 @@ export function isForeignOrigin(
 
 /**
  * The global middleware for `/api/*`: 403 `forbidden` (`server.error.originMismatch`) for a foreign-origin unsafe
- * request. The request host comes from the full request URL (`originalUrl`, as `c.req.url` was).
+ * request. The request host comes from the full request URL (`originalUrl`, as the pre-E7 `c.req.url` was).
  */
 export function originGuardMiddleware(trustedOrigins: readonly string[]): GlobalMiddleware {
   return (httpEffect) =>
