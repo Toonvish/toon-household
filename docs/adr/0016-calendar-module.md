@@ -2,6 +2,8 @@
 
 Date: 2026-11-06
 
+Status: accepted and built (M8, `docs/plans/m8-calendar-module.md`; the module as built is `docs/modules/calendar.md`).
+
 ## Context
 
 The owner asked for a household calendar: appointments for everybody or for one person, car bookings, chores
@@ -45,3 +47,12 @@ sources", D13's inherited decisions) have nothing to bind. The design is `docs/m
 - A fourth module would need a decision about the tab bar again (six items do not fit).
 - The waste parser is specific to the layout of Hattingen's flyer and its hidden copies; a new year's flyer is
   re-validated by the parser's own checks (a refusal names the check), and a layout change is a code change.
+
+## Status after M8
+
+Built as decided. Two refinements, both inside this ADR's scope and recorded in plan m8 section 10: `calendar_entries.resource_id`
+is `ON DELETE NO ACTION` instead of RESTRICT (a RESTRICT failed the cascade of a household delete; the service's `409
+calendar_resource_in_use` refuses the delete of a booked car), and the flyer's hidden copies are resolved by paint order (the copy
+drawn last wins, a disagreeing hidden copy is a preview warning) because the 2027 flyer's hidden January/February copy is an older
+draft. SPEC D2, D5, D6, D7, D8, D10, §2, §3 and §5 name the calendar; `apps/api/test/docs-paths.test.ts` scans
+`docs/modules/calendar.md`.

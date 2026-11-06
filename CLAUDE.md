@@ -14,8 +14,9 @@ the cross-cutting rules; each module's knowledge lives in its own doc (`docs/mod
    the target architecture and the milestones E0–E8. Read it before any Effect work. Before writing Effect code
    read `repos/effect/LLMS.md` and the pattern files under `agent-patterns/` first ("Vendored reference code"
    below).
-3. Before touching a module, its doc: `docs/modules/recipe.md` or `docs/modules/finance.md` (what the module owns,
-   its source's locked decisions with their status here, its gotchas, the source's gotchas mapped one by one).
+3. Before touching a module, its doc: `docs/modules/recipe.md`, `docs/modules/finance.md` or `docs/modules/calendar.md`
+   (what the module owns, its source's locked decisions with their status here, its gotchas, the source's gotchas mapped
+   one by one; the calendar has no source repository).
 4. The two source repos are archived on GitHub (`Toonvish/toon-recipe`, `Toonvish/toon-finance`) and this repo
    no longer reads them: their locked decisions and gotchas are mapped one by one in the module docs (step 3)
    and stay binding inside the module that inherits them (SPEC D13). Consult an archive only as history.
@@ -51,7 +52,9 @@ E8": the 19 test-only doors live in `apps/api/test/support/bridges/`, the seams 
 what E7 does differently from `docs/EFFECT.md` (E8; plan `docs/plans/e7-http-api.md` D1 to D7, P3, P12: CORS, the origin
 guard, the security headers and the request log are global router middleware and there is no locale middleware, a module
 contributes `HttpApi`s that wrap its groups, endpoints declare no payload or success schema, the bounded stop with the
-server fiber outside the runtime's fiber scope).
+server fiber outside the runtime's fiber scope); 0016 a third module, `calendar` (M8; D2, D5, D6, D7, D8, D10, SPEC §2, §5:
+`MODULE_IDS` gains `calendar`, three module tabs outside a module, eleven waste and person tokens, new German admitted by
+namespace, an exact-host outbound fetch of the waste flyer).
 
 `docs/EFFECT.md` §1 (E1–E12) is fixed in the same way as D1–D15: it changes only through an ADR, and a task that
 forces a deviation makes the smallest one and records it (ADR 0012, `docs/adr/0012-effect-application-framework.md`).
@@ -115,13 +118,15 @@ finance-sync (toon-finance `cbdec67..1715207` plus placeholders), M4 design pass
 (2026-10-13 to 2026-10-15). The Effect migration (`docs/EFFECT.md` §4, 2026-10-16 to 2026-11-06): E0 foundation, E1
 shared-schema (ADR 0013), E2 api-core-services, E3 recipe-services, E4 finance-services, E5 scripts (ADR 0014), E6 web-client,
 E7 http-api (Hono gone, ADR 0015) and E8 harden (the test doors, idioms rules (15) to (21), the docs as built; ADR 0014
-closed). Each milestone's record is the last two sections of its plan (the integration record with the gate logs, then "what
+closed). M8 calendar module (2026-11-06, ADR 0016): the third module, `calendar` (Kalender: appointments, car bookings,
+chores with rotation, the Stadt Hattingen waste flyer import by tour). Each milestone's record is the last two sections of its plan (the integration record with the gate logs, then "what
 changed vs plan"): `docs/plans/m0-scaffold.md`, `docs/plans/m1-core.md`, `docs/plans/m2-recipe-module.md`,
 `docs/plans/m3-finance-module.md`, `docs/plans/m3b-finance-sync.md`, `docs/plans/m4-design-pass.md`, `docs/plans/m5-migration.md`,
 `docs/plans/m6-deploy.md`, `docs/plans/m7-harden.md`, `docs/plans/e0-foundation.md`, `docs/plans/e1-shared-schema.md`,
 `docs/plans/e2-api-core-services.md`, `docs/plans/e3-recipe-services.md`, `docs/plans/e4-finance-services.md`,
-`docs/plans/e5-scripts.md`, `docs/plans/e6-web-client.md`, `docs/plans/e7-http-api.md`, `docs/plans/e8-harden.md`. Two modules
-are built (`API_MODULES` and `WEB_MODULES` are `[recipe, finance]`, `/api/health` reports `modules: ["recipe","finance"]`).
+`docs/plans/e5-scripts.md`, `docs/plans/e6-web-client.md`, `docs/plans/e7-http-api.md`, `docs/plans/e8-harden.md`,
+`docs/plans/m8-calendar-module.md`. Three modules are built (`API_MODULES` and `WEB_MODULES` are `[recipe, finance, calendar]`,
+`/api/health` reports `modules: ["recipe","finance","calendar"]`).
 
 Gates: `bun run typecheck` OK; `bun test` 15236 pass, 1 skip (the snapshot sweep's `describe.skipIf`), 0 fail in 183 files (63.38 s; the final count of E8-T12, `docs/plans/e8-harden.md` section 9.1; E7's was 15191 in 181 files, and
 11357 of the cases are the golden parity cases of `packages/shared/test/parity/`); `bun run i18n:check` exits 1 by design with 148 classified false positives (`docs/open-work.md`
@@ -170,8 +175,18 @@ Package names are `@toon/shared`, `@toon/api`, `@toon/web`; the root is `toon-ho
   hoisted `…HouseholdApis()` / `…HouseholdHandlers()` (and recipe's `…UserApis()` / `…UserHandlers()`) the manifest reads lazily;
   finance's gate is `apps/api/src/modules/finance/http.ts` (the leaf tag `RequireFinanceParticipant`, `CurrentFinanceParticipant`) with its
   layer in `apps/api/src/modules/finance/middleware.ts`.
-- Migrations: `apps/api/drizzle/{0000_core,0001_recipe,0002_finance,0003_placeholder_members}.sql`, generated by
+- Migrations: `apps/api/drizzle/{0000_core,0001_recipe,0002_finance,0003_placeholder_members,0004_calendar}.sql`, generated by
   drizzle-kit (`0003` has three generator defects corrected by hand, ADR 0006).
+- Calendar module (M8, ADR 0016; details and the service table in `docs/modules/calendar.md`): shared
+  `packages/shared/src/modules/calendar/` (`dates.ts` date math without `Date`, `recurrence.ts`, `people.ts`, `limits.ts`, `waste.ts`,
+  `schemas/`), API `apps/api/src/modules/calendar/` (manifest `index.ts`, `schema.ts`, `layer.ts` (`calendarLayer()`, `CalendarServices`),
+  `hooks.ts`, `seed.ts`, `routes/` with `core.index.ts` and `waste.index.ts`, `services/members.ts`, `services/entries/`,
+  `services/waste/` with the pure parser `services/waste/hattingen.ts`), web `apps/web/src/modules/calendar/` (manifest, `routes.tsx`,
+  `HomeCard.tsx`, `catalogs/`, `components/`, `lib/`, `features/{agenda,month,tasks,entries,cars,waste}/`). Tests: `packages/shared/test/calendar*.test.ts`,
+  `apps/api/test/calendar-*.test.ts`, `apps/api/test/db-calendar-migration.test.ts`, `apps/api/test/web-contract-calendar.test.ts`, the harness
+  `apps/api/test/support/calendar-harness.ts`, the flyer fixture `apps/api/test/fixtures/calendar/hattingen-abfall-2027.pdf` with its recorded
+  items `apps/api/test/fixtures/calendar/hattingen-2027.items.json` (`apps/api/test/fixtures/calendar/record-items.ts`), and the web's
+  co-located tests plus `apps/web/src/styles/calendar-tokens.test.ts`.
 - Scripts:
   `apps/api/scripts/{migrate,seed,reset-password,uploads-gc,plan-run,localize-images,finance-import-xlsx,migrate-legacy}.ts`;
   `apps/api/scripts/legacy/` is the `migrate:legacy` library (`claims.ts` is the placeholders' claim-invite step; `io.ts` the
@@ -293,7 +308,9 @@ Run from the repo root. Bun 1.4.2 (`.bun-version`); `bun install --frozen-lockfi
   for every login: `SEED_PASSWORD`, else `demo1234`; under `NODE_ENV=production` it refuses (exit 1) unless
   `ALLOW_SEED=1` and a 10+ character `SEED_PASSWORD` are set; modules get it in the `seedDemo` context
   (`demoPassword`). Logins: `demo@toon.local` (household "Familie"), `robin@toon.local` (finance slot 2),
-  `kim@toon.local` (member WITHOUT a slot); the module docs list each module's demo data.
+  `kim@toon.local` (member WITHOUT a slot); the module docs list each module's demo data. The calendar's demo data (a car with
+  bookings, events, rotating tasks and a synthetic tour-4 waste import) is written but the module is NOT enabled: press
+  "Aktivieren" on the Kalender card on Home (`docs/modules/calendar.md` section 1.8).
 - `bun run icons`: regenerates the PNGs in `apps/web/public/icons/` from `apps/web/public/favicon.svg` with
   `sharp` (`rsvg-convert` is the fallback). Committed; CI never runs it; only when the mark changes.
 - `bun run plan:run [householdId]`: the fixed-cost catch-up by hand (the API runs it at boot and every 6 hours);
@@ -456,13 +473,14 @@ ones; the module gotchas are indexed below and live in the module docs.
   `isMailConfigured` (`apps/api/src/core/services/mail/index.ts`), `resetRateLimits` (`apps/api/src/core/services/auth/rateLimit.ts`),
   `setVerifiedEmailRequired` (`apps/api/src/core/services/auth/verifiedEmail.ts`), `setImportDbForTests`
   (`apps/api/src/modules/recipe/services/import/db.ts`), `setImportGuardForTests` (`apps/api/src/modules/recipe/services/import/url/fetch.ts`),
-  `setRemoteImageDownloaderForTests` (`apps/api/src/modules/recipe/services/recipes/remoteImage.ts`) and `setClockForTest`
-  (`apps/api/src/modules/finance/lib/clock.ts`) mutate module-level state that the services of the ONE runtime read at CALL time. The
+  `setRemoteImageDownloaderForTests` (`apps/api/src/modules/recipe/services/recipes/remoteImage.ts`), `setClockForTest`
+  (`apps/api/src/modules/finance/lib/clock.ts`) and `setWasteFlyerFetchForTests` (`apps/api/src/modules/calendar/services/waste/fetch.ts`,
+  M8: the flyer download, fed by `makeTestWasteFlyerFetch(bytesByUrl)`) mutate module-level state that the services of the ONE runtime read at CALL time. The
   tests drive the app through the in-memory handler on that same runtime (one process, one database, ADR 0009), so a test layer
   cannot reach them: a seam is the smallest correct mechanism, not a transitional bridge. Their section headers read `test seams:
   …`. A seam is a plain synchronous function called outside any effect; the three recipe `…ForTests` seams throw outside
-  `NODE_ENV=test` (the one tolerated `throw` in recipe code: a production caller must fail loudly). A test that sets one releases it
-  (`setMailer(null)`, `setClockForTest(null)`, `resetRateLimits()`). Pinned by `apps/api/test/mail.test.ts`,
+  `NODE_ENV=test` (the one tolerated `throw` in recipe code: a production caller must fail loudly), and so does the calendar's. A test
+  that sets one releases it (`setMailer(null)`, `setClockForTest(null)`, `setWasteFlyerFetchForTests(null)`, `resetRateLimits()`). Pinned by `apps/api/test/mail.test.ts`,
   `apps/api/test/rate-limiter.test.ts` and `apps/api/test/finance-clock.test.ts`.
 - **The scripts are Effect programs (E5, ADR 0014, plan `docs/plans/e5-scripts.md` P1, P2, P18).** Seven of the eight run on the one
   `AppLayer` (`Effect.provide(AppLayer)` INSIDE the program, so the layer's scope has closed when the teardown runs) through
@@ -630,7 +648,8 @@ ones; the module gotchas are indexed below and live in the module docs.
   Pinned by `apps/api/test/uploads.test.ts` and `apps/api/test/thumbnails.test.ts`.
 - **Cross-household guard (D8).** The household comes from `:householdId` only. Every by-id lookup in a module
   service filters by `membership.householdId` and answers `404 not_found` for another household's id;
-  `apps/api/test/recipe-cross-household.test.ts` and `apps/api/test/finance-cross-household.test.ts` address
+  `apps/api/test/recipe-cross-household.test.ts`, `apps/api/test/finance-cross-household.test.ts`,
+  `apps/api/test/calendar-cross-household.test.ts` and `apps/api/test/calendar-waste-cross-household.test.ts` address
   every by-id route with another household's id (cards: another user's card). A new by-id route gets its case
   in the same commit.
 - **API import cycle: read the registry inside functions, hoist what the cycle touches (E7: see "Middleware, APIs and handler layers are
@@ -757,20 +776,21 @@ ones; the module gotchas are indexed below and live in the module docs.
 - **Service worker.** `apps/web/vite.config.ts` rules, first match wins, so every `NetworkOnly` rule precedes the
   one `NetworkFirst` rule: `/api/auth/`, the recipe `imports`, `shopping-lists`, `plan` and `/api/recipe/cards`,
   and finance's `/api/households/<id>/finance/…` (toon-finance gotcha 11: the offline ledger IS the persisted
-  TanStack cache; a `NetworkFirst` hit would overwrite an optimistic row) are `NetworkOnly`; then
+  TanStack cache; a `NetworkFirst` hit would overwrite an optimistic row) and the calendar's
+  `/api/households/<id>/calendar/…` (M8: the persisted cache is its offline copy) are `NetworkOnly`; then
   `recipes|tags|collections` (`NetworkFirst`, cache `toon-api-recipes`) and `/uploads/` (`CacheFirst`), ADR 0011.
   `/api` and `/uploads` stay out of the navigation fallback; `skipWaiting` is off. The dev server has no service
   worker: check offline behaviour on the built app (`bun run build`, then `WEB_DIST_DIR=./apps/web/dist bun run
   start`).
   No test pins the order: read `apps/web/vite.config.ts` against ADR 0011.
-- **The route tree is strict, with one hole.** `WEB_MODULES = [recipeModule, financeModule] as const satisfies
-  readonly WebModule[]` and neither manifest carries a type annotation (`satisfies WebModule<"…">` only), so
+- **The route tree is strict, with one hole.** `WEB_MODULES = [recipeModule, financeModule, calendarModule] as const satisfies
+  readonly WebModule[]` and no manifest carries a type annotation (`satisfies WebModule<"…">` only), so
   `router.tsx`'s `WEB_MODULES.map((m) => m.route)` keeps the concrete route types and a raw
   `<Link to="/recipe/nope">` fails `tsc`. The hole: module screens navigate through `AppLink` / `useAppNavigate`
   (`apps/web/src/lib/nav.tsx`, `to: string`) and template-string helpers, which `tsc` does NOT check; an
   unprefixed target (`/plan` instead of `/recipe/plan`) compiles and lands on `NotFoundPage`. The LINKS greps are
   the check, not `tsc`: recipe's in `docs/modules/recipe.md` section 5, `LINKS_FIN` with `NOROUTER`, `NOCORE`
-  and `NOSHADOW` in `docs/modules/finance.md` section 5.1. Run them after every web port; a headless pass that
+  and `NOSHADOW` in `docs/modules/finance.md` section 5.1, the calendar's LINKS in `docs/modules/calendar.md` section 5.1. Run them after every web port; a headless pass that
   clicks the links is the second check.
 - **A module owns its layout route and its static import graph stays shell-free (SPEC §2).** `WebModule.route`
   is built in `modules/<id>/routes.tsx` with `getParentRoute: () => householdScopedRoute` from
@@ -796,10 +816,11 @@ ones; the module gotchas are indexed below and live in the module docs.
 - **Every shell screen renders `PhoneHeaderRow` itself** (no global top bar, ADR 0010): the recipe screens
   (guard `apps/web/src/modules/recipe/phone-header.test.ts`, reading `routes.tsx` for the screen list; the detail
   is exempt: its hero owns the top edge), finance's (`apps/web/src/modules/finance/phone-header.test.ts` and its
-  `PageHeader`), and the core's Home, Settings, Gruppen and Gruppe detail
+  `PageHeader`), the calendar's (`apps/web/src/modules/calendar/phone-header.test.ts` and its `CalendarPageHeader`), and the core's Home, Settings, Gruppen and Gruppe detail
   (`apps/web/src/core/features/phone-header.test.ts`). It is a `<header data-app-shell>`: `print.css` hides it.
 - **The design-system test is the Table D gate (M4-T08).** `apps/web/src/styles/design-system.test.ts` makes the
-  design greps permanent: the four `apps/web/src/styles/theme.css` blocks define the same 39 tokens, no
+  design greps permanent: the four `apps/web/src/styles/theme.css` blocks define the same 50 tokens (39 plus the calendar's eleven, ADR 0016,
+  `apps/web/src/styles/calendar-tokens.test.ts`), no
   `fonts.googleapis`, arbitrary `text-[…]` sizes only where the pinned record says (the 34 inherited toon-recipe
   hits in 17 files; a cleanup edits the record in the same commit), `bottom-0` only on the tab bar and the recipe
   hero overlay, no `font-display` beside `font-semibold`, no bare `1fr` track in an arbitrary grid template, text
@@ -879,7 +900,8 @@ ones; the module gotchas are indexed below and live in the module docs.
   "auto"` makes them equal. A bar that bleeds to the viewport edge ends at 375 beside the gutter, 390 without.
 - **i18n-check is self-contained.** Its parity half greps the commit the branch forked from on main
   (`I18N_CHECK_BASE=<sha>` overrides it) and nothing outside this repo: since the port every source string is in
-  the repo's own history. A genuinely new German string still goes to `NEW_GERMAN`.
+  the repo's own history. A genuinely new German string still goes to `NEW_GERMAN`; a module without a source
+  repository is admitted by namespace instead (`NEW_GERMAN_NAMESPACES`: `calendar.` and `server.calendar.`, ADR 0016).
   The check is `scripts/i18n-check.ts`.
 - **Long commands** (cold `bun install`, docker build, headless browser) go to the background with one log
   ending in `exit=$?`. A `docker build` is judged by `$?` written to its log, never through a pipe (`docker build
@@ -1037,6 +1059,13 @@ outlet, never inside a wrapper `div`."; "Inherited finance gotchas stay binding 
 (section 4b maps F1 to F74); "The Erfassen sheet is module-local and has no FAB (plan m3b decisions 9 and 10, F
 gotchas 62, 63, 65)."; "F gotcha numbers are F's numbering at `1715207`."
 
+`docs/modules/calendar.md` (no source repository, so no section 4b): "The flyer's text layer holds several copies of every
+grid."; "Hidden copies may be older drafts."; "A weekday item can carry the holiday name."; "pdf.js finishes on microtasks
+alone."; "Route tests reach the flyer fetch through a seam."; "The server never decides today."; "`resource_id` is NO ACTION,
+the refusal is the service's."; "A car booking can lose its person."; "The calendar must be enabled before its routes
+answer."; "Imported waste entries are read-mostly"; "API sub-paths are built from segments on the web."; "Three module tabs
+fill the phone bar."
+
 ### Retired gotchas
 
 - **`file::memory:` is per client.** Retired by ADR 0009: `bun test` no longer forces `file::memory:`; under
@@ -1077,6 +1106,7 @@ gotchas 62, 63, 65)."; "F gotcha numbers are F's numbering at `1715207`."
 What is deliberately not done lives in `docs/open-work.md`: owner actions (A1 to A11, among them the cutover, the first
 `release.yml` / `deploy.yml` runs and the E6 decode sweep over a production snapshot), owner decisions (D-1 to D-6: "Gruppe" vs
 "Haushalt", the pinned design exceptions, finance print styles, a per-household PWA name or icon, `@effect/sql-libsql`,
-`@effect/atom-react`), items deferred by design (X-1 to X-7: the N-person ledger, D3; the member-leaves veto beyond finance; the
-declared HttpApi schemas, a typed `HttpApiClient`, the request log format) and recorded observations (O-1 to O-11). New open items
+`@effect/atom-react`), items deferred by design (X-1 to X-14: the N-person ledger, D3; the member-leaves veto beyond finance; the
+declared HttpApi schemas, a typed `HttpApiClient`, the request log format; the calendar's per-occurrence edits, reminders, ICS feed,
+offline writes, other waste providers, sharing outside the household and the next year's flyer) and recorded observations (O-1 to O-11). New open items
 go there, not here.

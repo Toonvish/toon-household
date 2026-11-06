@@ -2,6 +2,7 @@
  * Keeps every repository path named in the living docs real (M7 plan decision 5).
  *
  * Scans CLAUDE.md, docs/API.md, docs/EFFECT.md, docs/modules/recipe.md, docs/modules/finance.md,
+ * docs/modules/calendar.md (M8),
  * docs/open-work.md and every agent-patterns/*.md (never the plans, ADRs or SPEC: they are dated
  * records) for inline-code spans that are repo-relative paths: a span starting with one of
  * PATH_PREFIXES (the vendored Effect source under repos/effect/ included, plan e8 P9), or exactly
@@ -35,6 +36,7 @@ const DOCS = [
   "docs/EFFECT.md",
   "docs/modules/recipe.md",
   "docs/modules/finance.md",
+  "docs/modules/calendar.md",
   "docs/open-work.md",
   ...PATTERN_FILES,
 ];

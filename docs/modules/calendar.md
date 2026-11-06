@@ -1,16 +1,33 @@
-# Calendar module (`calendar`) — design
+# Calendar module
 
-Status: DESIGN (2026-11-06), to be built by milestone M8 (`docs/plans/m8-calendar-module.md`, written by the
-plan stage of the build workflow). This document is the module's spec until M8 rewrites it "as built" in the
-shape of `docs/modules/finance.md` (section 4a gotchas, section 5 verification). ADR 0016
-(`docs/adr/0016-calendar-module.md`) records what it adds to SPEC §1, §2, §3 and §5.
+The household's shared calendar: appointments for everybody or for named members, car bookings ("wer braucht das
+Auto?") with a conflict check, chores (Müll rausstellen, Blumen gießen) with a rotating assignee, and an import of the
+city's waste collection flyer (Stadt Hattingen, by Abfuhrbezirk/tour number 1-9). Built by milestone M8
+(`docs/plans/m8-calendar-module.md`, 2026-11-06) on the `calendar_` tables, behind the module contract of `docs/SPEC.md`
+section 2; ADR 0016 (`docs/adr/0016-calendar-module.md`) records what it adds to SPEC §1, §2, §3 and §5. Read this
+document before touching `apps/api/src/modules/calendar`, `apps/web/src/modules/calendar` or
+`packages/shared/src/modules/calendar`; `CLAUDE.md` keeps the core and cross-cutting rules and points here.
 
-The household's shared calendar: appointments for everybody or for one person, car bookings ("wer braucht das
-Auto?") and chores (Müll rausstellen, Blumen gießen) with a rotating assignee, plus an import of the city's
-waste collection schedule (Stadt Hattingen, by Abfuhrbezirk/Tour number 1-9).
+Unlike recipe and finance the module has **no source repository**: every German string is NEW German (ADR 0016, admitted
+by namespace in `scripts/i18n-check.ts`), every decision is H's own, and there is no "inherited gotchas" section.
 
-Unlike recipe and finance it has no source repository: every German string is NEW German (ADR 0016), every
-decision is H's own, and there is no "inherited gotchas" section.
+**Section references in the code.** The code and plan m8 cite "design §N": the DESIGN version of this file (commit
+`94e2906f1`, readable with `git show 94e2906f1:docs/modules/calendar.md`). Where each design section lives now:
+
+| Design § | Topic | Here |
+| --- | --- | --- |
+| 1.1, 1.2 | Concepts, tables | 1.1, 1.2 |
+| 1.3 | Recurrence | 1.5 |
+| 2 | API, hooks | 1.3, 1.4 |
+| 3 | Shared package | 1.5 |
+| 4, 4.1-4.6 | Web, navigation, screens, design | 1.6 |
+| 4.7 | Home card, offline, service worker | 1.6, 1.7 |
+| 5.1-5.6 | Waste import | 1.9 |
+| 6 | Seed | 1.8 |
+| 7 | Out of scope | 6 |
+
+Conventions: dates are `YYYY-MM-DD` and times `HH:MM` wall-clock text with no time zone everywhere (SQLite, wire, web);
+timestamps are integer unix ms in SQLite and ISO strings on the wire. "P N" is a decision of plan m8 section 2.
 
 ## 1. What the module owns
 
@@ -18,294 +35,251 @@ decision is H's own, and there is no "inherited gotchas" section.
 
 | Concept | German UI | What it is |
 | --- | --- | --- |
-| Entry, kind `event` | Termin | An appointment: title, all-day or timed, single or recurring, for **everybody** (no members selected) or for named household members (attendees). |
-| Entry, kind `task` | Aufgabe | A chore on a day (optionally at a time), single or recurring; each OCCURRENCE can be marked done (`erledigt`) or skipped (`übersprungen`). Assignee: nobody, one fixed member, or a **rotation** over an ordered member list (occurrence n goes to rotation[n mod len]). |
-| Entry, kind `car` | Autobuchung | A member needs a car (a resource) for a time range; single or recurring. Overlapping bookings of the same car are refused with `409 calendar_car_conflict` unless the request says `allowConflict: true` (the UI shows who has the car and offers "Trotzdem buchen"). |
-| Resource | Auto | A household's car (`kind = "car"`, name such as "Familienauto" or "VW Golf"); archived, never hard-deleted while bookings reference it. |
-| Waste schedule | Müllabfuhr | The household's provider (`hattingen`), its tour number (1-9), the assignee rule, and the imports: each import writes one `task` entry per (waste type, date) with `category = waste_*`, removable as a unit. |
+| Entry, kind `event` | Termin | An appointment: title, all-day or timed (an end time is optional), single or recurring, for **everybody** (no attendee) or for named household members (attendees, 0-20). |
+| Entry, kind `task` | Aufgabe | A chore on ONE day (optionally at a time), single or recurring; each OCCURRENCE can be marked done (`erledigt`) or skipped (`übersprungen`). Assignee: nobody, one fixed member, or a **rotation** over an ordered list of 2-12 members (occurrence n goes to `assigneeIds[n mod len]`, n counting every occurrence from the series start, a skipped one too). |
+| Entry, kind `car` | Autobuchung | Exactly one member needs a car (a resource), all-day or timed with start AND end, single or recurring. An overlapping booking of the same car is `409 calendar_car_conflict` unless the request says `allowConflict: true` (the UI shows who has the car and offers "Trotzdem buchen"). |
+| Resource | Auto | A household's car (`kind = "car"`, a name of 1-60 characters). Archived (it keeps its bookings and refuses new ones), never deleted while a booking references it. |
+| Waste schedule | Müllabfuhr | The household's provider (`hattingen`), its tour (1-9), the assignee rule, and the imports: each import writes one all-day `task` entry per (waste type, date) with `category = waste_*`, removable only as a unit. |
 
-Members are household members (`household_members`, placeholders included: a placeholder can have a dentist
-appointment or water the flowers). A person's colour is derived deterministically from their position in the
-household's member list (sorted by join time), one of six person tokens (section 4.6).
+Members are household members (`household_members`, placeholders included: a placeholder can have a dentist appointment
+or water the flowers). A person's colour is derived from their position in the household's member list (join time, then
+user id): `colorIndex = (position mod 6) + 1`, one of the six person tokens (`calendarPersonColors`,
+`packages/shared/src/modules/calendar/people.ts`, used by the API's member list and the web alike).
 
-### 1.2 Tables (all `calendar_`, D7 conventions: text UUID ids, unix-ms timestamps, `YYYY-MM-DD` dates)
+### 1.2 Tables
 
-- `calendar_entries`: `id`, `household_id` (cascade), `kind` (`event|task|car`, CHECK), `title` (text, NULL only
-  when `category` is set: a waste entry's label is rendered from the catalog, never stored, section 5.6),
-  `notes`, `location`, `all_day` (bool), `start_date`, `start_time` (`HH:MM` or NULL when all-day), `end_date`,
-  `end_time`, `repeat_freq` (`none|daily|weekly|monthly|yearly`), `repeat_interval` (1-99), `repeat_weekdays`
-  (`MO,TU,…` for weekly, else NULL), `repeat_until` (date or NULL), `resource_id` (NULL unless `car`; RESTRICT),
-  `assignee_mode` (`none|fixed|rotate`, tasks only; events and car bookings use attendees), `category` (NULL or
-  `waste_rest|waste_yellow|waste_bio|waste_paper|waste_tree`), `category_detail` (NULL or `bio_cleaning`),
-  `waste_import_id` (NULL or the import, cascade), `created_by` (SET NULL), `created_at`, `updated_at`.
-  Indexes: `(household_id, start_date)`, `(household_id, repeat_freq)`, `(resource_id)`, `(waste_import_id)`.
-- `calendar_entry_members`: `entry_id` (cascade), `user_id` (cascade), `role` (`attendee|assignee`), `position`
-  (the rotation order; 0 for the rest). PK `(entry_id, user_id, role)`.
-- `calendar_occurrence_states`: `entry_id` (cascade), `occurrence_date` (the occurrence's start date),
-  `status` (`done|skipped`), `done_by` (SET NULL), `updated_at`. PK `(entry_id, occurrence_date)`. A row exists
-  only for a marked occurrence; "reset" deletes it.
-- `calendar_resources`: `id`, `household_id` (cascade), `kind` (`car`), `name`, `archived_at`, `created_at`.
-- `calendar_waste_settings`: `household_id` PK (cascade), `provider` (`hattingen`), `tour` (1-9), `source_url`
-  (the last URL used), `assignee_mode`, plus its members in `calendar_waste_assignees(household_id, user_id,
-  position)`, `updated_at`.
-- `calendar_waste_imports`: `id`, `household_id` (cascade), `provider`, `year`, `tour`, `source` (`url|upload`),
-  `source_name` (URL or file name), `entry_count`, `imported_at`, `imported_by` (SET NULL). Unique
-  `(household_id, provider, year)`: re-importing a year REPLACES that import (section 5.5).
+Seven SQL tables, all prefixed `calendar_`, declared in `apps/api/src/modules/calendar/schema.ts` (drizzle identifiers
+`calendarEntries`, `calendarEntryMembers`, `calendarOccurrenceStates`, `calendarResources`, `calendarWasteSettings`,
+`calendarWasteAssignees`, `calendarWasteImports`, together `calendarTables`, the manifest's `schema`) and applied by
+`apps/api/drizzle/0004_calendar.sql` (generated by drizzle-kit, never by hand). Every index and CHECK is named
+`calendar_…`; dates and times carry a `glob` CHECK. No column default stamps a time: the services stamp `created_at`,
+`updated_at`, `imported_at` and `archived_at` from `Clock.currentTimeMillis` (idioms rule (11)). The column-by-column
+table is `docs/API.md` "Calendar module" → "Tables"; `apps/api/test/db-calendar-migration.test.ts` applies the migration
+on a scratch file and probes every CHECK.
 
-Wall-clock local dates and times are stored as text (`YYYY-MM-DD`, `HH:MM`) with no time zone: a household
-calendar lives in one zone, and storing local wall time makes DST a non-issue. **The server never decides
-"today"**: every read takes explicit `from`/`to` dates from the client (time rule of CLAUDE.md "Effect idioms"
-(11), (19) stays trivially true); only `created_at`/`updated_at`/`imported_at` come from the `Clock`.
+- `calendar_entries` (a series), `calendar_entry_members` (`role` `attendee` or `assignee`, `position` = the rotation
+  order), `calendar_occurrence_states` (a row only for a marked occurrence; "reset" deletes it).
+- `calendar_resources` (cars), `calendar_waste_settings` (one row per household) with `calendar_waste_assignees` (PK
+  `(household_id, user_id)`, the rule's ordered members), `calendar_waste_imports` (unique `(household_id, provider,
+  year)`: a re-import of a year replaces it; its entries cascade through `waste_import_id`).
+- `calendar_entries.resource_id` is `ON DELETE NO ACTION`, not RESTRICT as the design said (SQLite checks RESTRICT
+  inside the cascade of a household delete and refused it); the service's `409 calendar_resource_in_use` is the refusal
+  for a booked car.
 
-### 1.3 Recurrence (`packages/shared/src/modules/calendar/recurrence.ts`, pure, shared by API and web)
+**The server never decides "today".** Every read takes explicit `from`/`to` dates from the client, and the one write
+that depends on today (`PUT …/waste/settings`) takes the client's `today` in its body; only the timestamps come from the
+`Clock`.
 
-A deliberately small RRULE subset: `freq` `daily|weekly|monthly|yearly`, `interval` n ≥ 1, `weekdays` for weekly
-(default: the start date's weekday), `until` inclusive. Monthly repeats on the start date's day of month and
-SKIPS months without it (31st); yearly on the same month/day (29 Feb only in leap years). A multi-day entry keeps
-its duration in every occurrence. `expandOccurrences(entry, from, to)` returns `{ date, endDate, ordinal }` for
-every occurrence that OVERLAPS `[from, to]`, where `ordinal` counts occurrences from the series start (the
-rotation index). Caps: a range of at most 400 days and at most 2000 occurrences per entry per request (a cap
-hit is a `422`, never a silent truncation). No per-occurrence move/edit ("nur diesen Termin ändern") in M8: an
-edit changes the series; an occurrence can be done, skipped or reset (open work, section 7).
+### 1.3 API: route files, services, mount
 
-## 2. API (`/api/households/:householdId/calendar/…`, D8)
+Every group is built with `householdModuleApi("calendar", …)` (ApiErrorBoundary → RequireSession →
+RequireHouseholdMember → RequireModule) and `.pipe(chain(RequireVerifiedEmail))` (reads pass, writes need a confirmed
+account). Any member may write (household content, D1): there is no admin-only route and no user-scoped route. The
+routes (16, each with a `docs/API.md` row) are:
 
-Every group goes through `householdModuleApi("calendar", …)` (ApiErrorBoundary → RequireSession →
-RequireHouseholdMember → RequireModule); every WRITE group adds `RequireVerifiedEmail` (unconfirmed accounts are
-read-only, as everywhere). Any member may write (household content, D1); there is no admin-only route. Every by-id
-lookup filters by the household (D8 cross-household guard: another household's id is `404 not_found`), and every
-member id in a body must be a member of THIS household (`422` with the catalog message otherwise). Route files
-(`X.api.ts` + `X.ts` each, E7): `entries`, `occurrences`, `resources`, `waste`.
+| Route file (leaf `X.api.ts` + `X.ts`) | Group | Routes below `/api/households/:householdId/calendar` |
+| --- | --- | --- |
+| `apps/api/src/modules/calendar/routes/occurrences.ts` | `calendar.occurrences` | `GET /occurrences`, `PUT /entries/:entryId/occurrences/:date` |
+| `apps/api/src/modules/calendar/routes/entries.ts` | `calendar.entries` | `GET /entries`, `GET /entries/:entryId`, `POST /entries`, `PATCH /entries/:entryId`, `DELETE /entries/:entryId` |
+| `apps/api/src/modules/calendar/routes/resources.ts` | `calendar.resources` | `GET /resources`, `POST /resources`, `PATCH /resources/:resourceId`, `DELETE /resources/:resourceId` |
+| `apps/api/src/modules/calendar/routes/waste.ts` | `calendar.waste` | `GET /waste`, `PUT /waste/settings`, `POST /waste/preview`, `POST /waste/import`, `DELETE /waste/imports/:importId` |
 
-| Method | Path (below `…/calendar`) | Body / query | Answer |
-| --- | --- | --- | --- |
-| GET | `/occurrences?from=&to=[&memberId=][&kind=]` | dates inclusive, ≤ 400 days | `{ items: CalendarOccurrence[] }` sorted by date, all-day first, then time |
-| GET | `/entries/:entryId` | – | `CalendarEntry` (the series, with members and resource) |
-| POST | `/entries` | `CreateCalendarEntryRequest` (+ `allowConflict?`) | 201 `CalendarEntry`; 409 `calendar_car_conflict` with `details: [{ entryId, date, title, memberIds }]` |
-| PATCH | `/entries/:entryId` | partial, same rules | `CalendarEntry`; a waste entry's `category`/`waste_import_id` cannot change (`409 calendar_entry_imported` for kind/date/category edits; notes and assignees may change) |
-| DELETE | `/entries/:entryId` | – | 204 (the series and its states) |
-| PUT | `/entries/:entryId/occurrences/:date` | `{ status: "done" \| "skipped" \| null }` | `CalendarOccurrence`; 404 when `:date` is not an occurrence of the series; `done` only on tasks (`409 calendar_not_a_task`), `skipped` on any kind |
-| GET | `/resources` | `?includeArchived=` | `{ items: CalendarResource[] }` |
-| POST | `/resources` | `{ name }` | 201 |
-| PATCH | `/resources/:resourceId` | `{ name?, archived? }` | 200 |
-| DELETE | `/resources/:resourceId` | – | 204, or `409 calendar_resource_in_use` while bookings exist (archive instead) |
-| GET | `/waste?from=` | `from` = the client's today | `{ settings \| null, imports: [...], next: [{ category, date, detail }] }` (the next pickup per type on or after `from`) |
-| PUT | `/waste/settings` | `{ provider, tour, assigneeMode, assigneeIds }` | settings; re-assigns the members of the FUTURE entries of every import of the household (dates ≥ the body's `today`) |
-| POST | `/waste/preview` | multipart `file` (PDF ≤ 10 MiB) OR JSON `{ url }`; plus `tour` | `WastePreview`: `{ provider, year, tour, counts: { waste_rest: n, … }, dates: [{ category, date, detail }], warnings: [] }`; nothing written |
-| POST | `/waste/import` | same as preview | 201 `{ import, entryCount }`; replaces an existing import of that year (section 5.5) |
-| DELETE | `/waste/imports/:importId` | – | 204, its entries go with it |
+`apps/api/src/modules/calendar/routes/core.index.ts` (`calendarCoreApis()`, `calendarCoreHandlers()`) and
+`apps/api/src/modules/calendar/routes/waste.index.ts` (`calendarWasteApis()`, `calendarWasteHandlers()`) list the two
+areas; `apps/api/src/modules/calendar/routes/index.ts` (`calendarHouseholdApis()`, `calendarHouseholdHandlers()`) merges
+them, and the manifest reads them lazily (a getter, `Layer.suspend`). `apps/api/test/import-order-effect.test.ts` lists
+the route files by READING `apps/api/src/modules/calendar/routes/` (every `*.ts` not ending `.api.ts`).
 
-`CalendarOccurrence` = `{ id: "<entryId>:<date>", entryId, kind, title | null, category | null, categoryDetail |
-null, date, endDate, allDay, startTime | null, endTime | null, location | null, recurring, memberIds (attendees),
-assigneeId | null (fixed, or the rotation's pick for this ordinal), resourceId | null, status: "open" | "done" |
-"skipped", doneBy | null }`.
+The services (`Context.Service` classes, each with a static `layer` over `effect` exports and its own class only):
 
-New error codes (added to `ERROR_CODES`, a row each in `docs/API.md` "Error codes", server catalog messages in
-`server.calendar.*`): `calendar_car_conflict` (409), `calendar_resource_in_use` (409), `calendar_entry_imported`
-(409), `calendar_not_a_task` (409), `calendar_range_too_large` (422 path `to`), `calendar_waste_source_refused`
-(400: URL not https or host not the provider's), `calendar_waste_fetch_failed` (502: the city's server failed or
-timed out), `calendar_waste_unparseable` (422: the PDF is not a Hattingen flyer this parser understands; `details`
-name the failed check, section 5.3).
+| Service | File | What it does |
+| --- | --- | --- |
+| `CalendarMembers` | `apps/api/src/modules/calendar/services/members.ts` | `list(householdId)`: `CalendarMember[]` in join order with `colorIndex` and `hasAccount`; `assertMembers(householdId, ids, path)`: the `422 memberNotInHousehold` at `<path>.<i>`. |
+| `CalendarResources` | `apps/api/src/modules/calendar/services/entries/resources.service.ts` | Cars: list, create, update (archive from the Clock), remove (`409 calendar_resource_in_use`), `assertBookable` (another household's car 404, an archived own car 422 at `resourceId`). |
+| `CalendarCarConflicts` | `apps/api/src/modules/calendar/services/entries/conflicts.service.ts` | `check(householdId, candidate, excludeEntryId)`: half-open wall-time intervals, all-day covers its whole days, recurring bookings over 366 days from the start, skipped occurrences block nothing; at most 10 conflicts by date. |
+| `CalendarEntries` | `apps/api/src/modules/calendar/services/entries/entries.service.ts` | list (never the waste entries), get, create, update (merge-then-validate, orphan marks deleted), remove; the P8 refusals of imported waste entries. |
+| `CalendarOccurrences` | `apps/api/src/modules/calendar/services/entries/occurrences.service.ts` | `list(householdId, query)` → `{ items, members }` with the P4 caps and the P10 filters and order; `setStatus` (P12). |
+| `WastePdfText` | `apps/api/src/modules/calendar/services/waste/pdf-text.ts` | The flyer's text items with their marked-content section (section 1.9). |
+| `WasteFlyerFetch` | `apps/api/src/modules/calendar/services/waste/fetch.ts` | The flyer download over `effect/http`: exact hosts, hop loop, caps (section 1.9). |
+| `CalendarWaste` | `apps/api/src/modules/calendar/services/waste/waste.service.ts` | `overview`, `putSettings`, `preview`, `importFlyer`, `removeImport`. |
 
-Hooks (`apps/api/src/modules/calendar/index.ts`, an `ApiModule<CalendarServices>` with `layer:
-Layer.suspend(calendarLayer)`): `onMemberRemoving` removes the leaving user from attendees, assignees, rotations
-and the waste assignees (no veto; a placeholder's appointments must not block a removal); `seedDemo` (section
-6); `onHouseholdCreated`/`onEnable` none (the module needs no setup; `DEFAULT_ENABLED_MODULES` stays `["recipe"]`,
-the owner enables Kalender on Home). No `start`/`shutdown`, no `uploadReferences`.
+Beside them the plain modules: `apps/api/src/modules/calendar/services/entries/rows.ts` (the entry loader with its
+members in order, the row-to-response mappers, the P10 sort, the range refusal),
+`apps/api/src/modules/calendar/services/waste/hattingen.ts` (the parser, pure),
+`apps/api/src/modules/calendar/services/waste/upload.ts` (the multipart or JSON source of preview and import) and
+`apps/api/src/modules/calendar/services/waste/errors.ts` (the waste refusal builders).
 
-## 3. Shared package (`packages/shared/src/modules/calendar/`)
+Composition (`apps/api/src/modules/calendar/layer.ts`, `calendarLayer()`, type `CalendarServices`):
+`Layer.mergeAll(calendarEntriesAreaLayer(), calendarWasteAreaLayer())` over `CalendarMembers.layer`. The entries area
+(`apps/api/src/modules/calendar/services/entries/layer.ts`) puts `CalendarEntries` and `CalendarOccurrences` in an outer
+`provideMerge` step over `CalendarResources` + `CalendarCarConflicts`; the waste area
+(`apps/api/src/modules/calendar/services/waste/layer.ts`) puts `CalendarWaste` over `WastePdfText` + `WasteFlyerFetch`
+(`WasteFlyerFetch.layer` provides `FetchHttpClient.layer` itself: `HttpClient` is no `ModuleRequirements` service). The
+areas do not depend on each other: the waste service writes its entries with its own statements.
 
-`recurrence.ts` (section 1.3), `waste.ts` (the provider registry `WASTE_PROVIDERS = { hattingen: { name: "Stadt
-Hattingen", tours: 1..9, hosts: ["www.hattingen.de", "hattingen.de"], defaultUrl:
-"https://www.hattingen.de/stadt_hattingen/Rathaus/Fachbereiche/Stadtbetriebe/Abfallentsorgung/AbfallFlyer%202027.pdf"
-} }`, the category list in display order `waste_rest, waste_yellow, waste_bio, waste_paper, waste_tree`), and
-`schemas/{entries,occurrences,resources,waste}.ts` built from the core vocabulary
-(`packages/shared/src/core/schemas/checks.ts`, decoded with `ALL_ISSUES`, `Types.DeepMutable` types; ADR 0013).
-Re-exported FLAT from `packages/shared/src/index.ts` with a `Calendar` prefix on every name that could collide
-(`CalendarEntrySchema`, `CalendarResourceSchema`, …). `MODULE_IDS` becomes `["recipe", "finance", "calendar"]`.
+Error codes (`ERROR_CODES`, a row each in `docs/API.md` "Error codes", messages under `server.calendar.*`):
+`calendar_car_conflict` (409, `details` = `CalendarCarConflict[]`), `calendar_resource_in_use` (409),
+`calendar_entry_imported` (409), `calendar_not_a_task` (409), `calendar_range_too_large` (422, one detail at `to`),
+`calendar_waste_source_refused` (400), `calendar_waste_fetch_failed` (502, `details: [{ reason }]`),
+`calendar_waste_unparseable` (422, one detail `{ check, … }`).
 
-## 4. Web (`apps/web/src/modules/calendar/`)
+### 1.4 Manifest hooks (`apps/api/src/modules/calendar/index.ts`)
 
-Manifest `index.ts` (literal-typed, `satisfies WebModule<"calendar">`), `routes.tsx` (lazy screens), `HomeCard.tsx`,
-`catalogs/` (`calendar.*`), `lib/{api,queries,format}.ts` (`CalendarApi` over the one web runtime, E6: each endpoint
-names its response schema; READ rows in the web contract test), `features/{agenda,month,tasks,entries,cars,waste}/`,
-`components/` (`CalendarPageHeader` with `PhoneHeaderRow`, `OccurrenceRow`, `PersonDot`, `WasteDot`, `DayHeading`).
-Icon `CalendarDays`; name "Kalender".
+`calendarModule: ApiModule<CalendarServices>` with `schema: calendarTables`, `layer: Layer.suspend(calendarLayer)`, and
+two hooks, both Effects over the CURRENT `Database` executor with direct drizzle statements (no calendar service, so
+they run outside the runtime too, P14):
 
-### 4.1 Navigation (D6)
+- `onMemberRemoving` = `calendarOnMemberRemoving` (`apps/api/src/modules/calendar/hooks.ts`), **no veto**: deletes the
+  user's `calendar_entry_members` rows in the household's entries and their `calendar_waste_assignees` row, renumbers
+  the remaining positions, and degrades a rotation left with one person to `fixed` and a rule left with nobody to
+  `none` (entries and waste settings alike). A car booking keeps its row without a person; `done_by` keeps the user id
+  (the web shows an unknown id as "Ehemaliges Mitglied").
+- `seedDemo` = `seedCalendarDemo` (`apps/api/src/modules/calendar/seed.ts`), section 1.8.
 
-Tabs: **Übersicht** `/calendar` · **Monat** `/calendar/month` · **Aufgaben** `/calendar/tasks` · Profil (shared).
-Sidebar-only: **Autos** `/calendar/cars`, **Müllabfuhr** `/calendar/waste`. Reachability: the car card on
-Übersicht links to Autos (and the booking form's car picker has "Autos verwalten"); the Müllabfuhr card on
-Aufgaben links to Müllabfuhr. Creating is the ONE header action of every tab screen (`+`, "Neu"), opening
-`/calendar/new` with the current day preselected. Outside a module the phone tab bar shows up to THREE enabled
-modules (`MAX_MODULE_TABS` 2 → 3, ADR 0016): Start · Rezepte · Finanzen · Kalender · Profil.
+No `onHouseholdCreated` / `onEnable` (the module needs no setup; `DEFAULT_ENABLED_MODULES` stays `["recipe"]`, an owner
+or admin enables Kalender on Home), no `start` / `shutdown`, no `uploadReferences`, no `healthFeatures`.
 
-Routes: `/calendar`, `/calendar/month?month=YYYY-MM&day=YYYY-MM-DD`, `/calendar/tasks`, `/calendar/new?kind=&date=`,
-`/calendar/entries/$entryId?date=` (an occurrence's detail; `date` selects the occurrence), `/calendar/entries/$entryId/edit`,
-`/calendar/cars`, `/calendar/waste`.
+### 1.5 Shared package (`packages/shared/src/modules/calendar/`)
 
-### 4.2 Übersicht (`/calendar`)
+Re-exported FLAT from `packages/shared/src/index.ts`; every name carries a `Calendar` / `Waste` / `CALENDAR_` prefix.
+None of it uses `Date` (idioms rules (11), (19); the parser under `services/` needs weekdays too).
 
-Phone (390), top to bottom:
+- `packages/shared/src/modules/calendar/dates.ts`: date math on `YYYY-MM-DD` text with the days-from-civil algorithm
+  (`calendarDayNumber`, `fromDayNumber`, `addCalendarDays`, `calendarDaysBetween`, `calendarWeekday` 0 = Monday,
+  `daysInCalendarMonth`, `isLeapYear`, `isCalendarDate` (a REAL date between 1900-01-01 and 2199-12-31),
+  `isCalendarTime`, `compareDateTime` (a `null` time sorts first), `calendarDateParts`, `formatCalendarDate`).
+- `packages/shared/src/modules/calendar/recurrence.ts`: a small RRULE subset, `freq` `none|daily|weekly|monthly|yearly`,
+  `interval` 1-99, `weekdays` for weekly (default: the start's weekday; the ISO week of the start is week 0),
+  `until` inclusive on the occurrence START. Monthly repeats on the start's day of month and SKIPS months without it;
+  yearly on the same month and day (29 Feb only in leap years). A multi-day entry keeps its duration; an occurrence
+  overlaps `[from, to]` when `date ≤ to` and `endDate ≥ from`. `expandOccurrences(series, from, to, limit)` →
+  `{ occurrences: { date, endDate, ordinal }[], overflow }`, `occurrenceOrdinal(series, date)` (`null` when not an
+  occurrence start), `nextOccurrences(series, from, count)`. The ordinal is arithmetic for daily and weekly and month
+  stepping for monthly and yearly, never a day-by-day walk from the start.
+- `packages/shared/src/modules/calendar/limits.ts` (`CALENDAR_LIMITS`: 400 days, 2000 occurrences, 366 conflict days,
+  10 conflict details, the text lengths, 10 MiB / 6 pages / 20 s / 5 redirects for the flyer),
+  `packages/shared/src/modules/calendar/people.ts` (`CALENDAR_PERSON_COLORS`, `calendarColorIndex`,
+  `calendarPersonColors`), `packages/shared/src/modules/calendar/waste.ts` (`WASTE_PROVIDERS` with the Hattingen
+  hosts and default URL, `WASTE_CATEGORIES` in display order `waste_rest, waste_yellow, waste_bio, waste_paper,
+  waste_tree`, `WASTE_DETAILS`, `isWasteSourceHost`).
+- `packages/shared/src/modules/calendar/schemas/{common,entries,occurrences,resources,waste}.ts`: every request,
+  query and response schema of plan m8 section 5.1, built from `packages/shared/src/core/schemas/checks.ts`, decoded
+  with `ALL_ISSUES`, types `Types.DeepMutable`. The P6 rules per kind are the create schema's struct checks, each a
+  `details` item at its path with its `server.calendar.*` key. `CalendarRepeatSchema` defaults `interval` 1,
+  `weekdays` `[]`, `until` `null`.
 
-```
-┌──────────────────────────────────────┐
-│ (F) Familie ▾            ▣ Kalender ▾│  PhoneHeaderRow, action: +
-├──────────────────────────────────────┤
-│ HEUTE · MITTWOCH, 11. NOVEMBER       │  eyebrow
-│ ┌──────────────────────────────────┐ │  Today card (Card, elevation-card)
-│ │ 08:00  ● Zahnarzt          Robin │ │  person dot + name
-│ │ ganzt. □ Blumen gießen  Eric ↻   │ │  task checkbox, rotation mark
-│ │ ─────────────────────────────── │ │
-│ │ Heute Abend rausstellen:         │ │  only when tomorrow has pickups
-│ │  ● Restmüll  ● Gelber Sack       │ │  waste dots (grey, yellow)
-│ │ ─────────────────────────────── │ │
-│ │ 🚗 Familienauto · Robin 08–17 Uhr│ │  car status today ("frei" if none)
-│ └──────────────────────────────────┘ │
-│ [Alle] [Eric] [Robin] [Kim]          │  member filter chips (Chip)
-│ MORGEN · DO 12.11.                   │  DayHeading per day, next 14 days
-│  ● Restmüll · Gelber Sack  ✓ Kim     │  waste occurrences merge into ONE row per day
-│  18:30 ● Elternabend    Alle         │
-│ FR 13.11.                            │
-│  □ Blumen gießen          Robin ↻    │
-│  …                                   │
-│ (empty days are skipped; "Nichts geplant" if the 14 days are empty)
-└──────────────────────────────────────┘
-```
+The golden corpus of `packages/shared/test/fixtures/schema-golden/` covers the E1 schemas only (made once from Zod,
+ADR 0013); the calendar schemas never had a Zod form, so `packages/shared/test/schema-golden-coverage.test.ts` excludes
+names declared under `packages/shared/src/modules/calendar/` and asserts that each excluded name has its ok and not-ok
+case in `packages/shared/test/calendar-schemas.test.ts` (P22: a stricter guard, not a relaxed one).
 
-Desktop (`lg`, 1204 content): two columns: agenda (left, 2/3) and a right rail with the Today card, the car card
-("Autos": each car with its next/current booking, link Autos verwalten) and the next pickups card. Overdue task
-occurrences (open, date before today, at most 7 days back) are listed first under "Überfällig" with the danger-soft
-tone. Tapping a row opens the occurrence detail; the checkbox toggles `done` in place (optimistic, rolled back on
-error; online only, section 4.7).
+### 1.6 Web: tabs, screens (`apps/web/src/modules/calendar/`)
 
-### 4.3 Monat (`/calendar/month`)
+Manifest `apps/web/src/modules/calendar/index.ts` (literal-typed, `satisfies WebModule<"calendar">`, icon
+`CalendarDays`, name "Kalender"), `apps/web/src/modules/calendar/routes.tsx` (every screen a `lazyRouteComponent`
+under `householdScopedRoute`), `apps/web/src/modules/calendar/HomeCard.tsx`, catalogs under
+`apps/web/src/modules/calendar/catalogs/` (`calendar.*`, de and en).
 
-Phone: month title with ‹ › and "Heute", a 7-column grid (Mo-So, ISO weeks) with the day number and up to three
-dots (person colour, waste colour, car = `--fg-muted`), today ringed with `--brand`, the selected day filled
-`--brand-soft`; below the grid the selected day's occurrence list (same `OccurrenceRow`). Desktop: the full grid,
-each cell lists up to three chips (time + title, colour bar on the left) and "+N weitere", which selects the day
-and opens its list in a side panel. Weekends use `--bg-sunken`.
+- **Tabs** (D6, ADR 0016): Übersicht `/calendar` (exact) · Monat `/calendar/month` · Aufgaben `/calendar/tasks` ·
+  Profil (shared). **Sidebar-only**: Autos `/calendar/cars` (reached from the car card on Übersicht and the booking
+  form), Müllabfuhr `/calendar/waste` (from the Müllabfuhr card on Aufgaben). Creating is the ONE header action of
+  every tab screen (`/calendar/new` with the current day). Outside a module the phone tab bar shows up to THREE
+  modules (`MAX_MODULE_TABS = 3` in `apps/web/src/components/layout/nav-items.ts`): Start · Rezepte · Finanzen ·
+  Kalender · Profil.
+- **Screens** (`features/`, named exports equal the file names): `AgendaPage` (Übersicht: Today card, member filter
+  chips, the next 14 days by day with waste pickups merged into one row per day, "Überfällig"; from `lg` a right rail
+  with `TodayCard`, `CarStatusCard`, `NextPickupsCard`), `MonthPage` (`MonthGrid`, `grid-cols-7`, dots on phones and
+  chips from `lg`; `DayList` for the selected day), `TasksPage` (`OpenTasks`, `TaskSeries` with the rhythm in words and
+  the rotation's next person, `WasteSummaryCard`), `NewEntryPage` / `EditEntryPage` (`EntryForm` with `RepeatFields`,
+  `WhoFields` / `AssigneeFields`, `CarConflictNotice`), `OccurrenceDetailPage`, `CarsPage`, `WastePage`
+  (`WasteSettingsForm`, `WasteImportDialog`, `WasteImportList`).
+- **Shared components** (`apps/web/src/modules/calendar/components/`): `CalendarPageHeader` (renders `PhoneHeaderRow`),
+  `OccurrenceRow`, `PersonDot`, `WasteDot`, `DayHeading`, `MemberFilterChips`, `PickupList`.
+- **Data layer**: `apps/web/src/modules/calendar/lib/api.ts` (`CalendarApi`, one member per endpoint, 18 with a
+  Promise facade each; reads `getJson` with the shared response schema, writes `sendJson` / `sendForm` / `sendVoid`;
+  API sub-paths are built from segments so the LINKS grep sees navigation targets only),
+  `apps/web/src/modules/calendar/lib/queries.ts` (`calendarKeys`, query options, write hooks behind the offline guard,
+  the optimistic done toggle), and the pure helpers `apps/web/src/modules/calendar/lib/{format,group,rhythm,people,hooks}.ts`
+  (no `Date` but the client's today from `todayPlanDate()`). Forms validate with `@/lib/validation` over
+  `CreateCalendarEntryRequestSchema` (`apps/web/src/modules/calendar/features/entries/lib/form.ts`) and guard unsaved
+  input with `useNavigationGuard`.
+- **Design** (D5, ADR 0016): the `components/ui` primitives only, `.eyebrow` day headings, eleven tokens in all four
+  `theme.css` blocks (`--waste-rest`, `--waste-yellow`, `--waste-bio`, `--waste-paper`, `--waste-tree`,
+  `--person-1` … `--person-6`, mapped in `apps/web/src/styles/index.css` as `bg-waste-rest`, `bg-person-1`, …; each
+  ≥ 3:1 against `--surface`, `apps/web/src/styles/calendar-tokens.test.ts`). A dot is 8 px; colour is never the only
+  signal (the name or the waste label is always written).
+- **Home card**: HEUTE and MORGEN with at most four rows together (time, title, person), "Heute Abend rausstellen: …"
+  when tomorrow has pickups, and Kalender / Neu links. Content (titles, names) never goes through `t()`.
 
-### 4.4 Aufgaben (`/calendar/tasks`)
+### 1.7 Offline and the service worker
 
-Sections: **Offen** (overdue, today, the next 7 days; task occurrences with checkbox, assignee and the rotation's
-next person), **Wiederkehrend** (each task series: rhythm in words "alle 3 Tage", "jeden Mo, Do", the rotation
-order as avatars with the next one marked), **Müllabfuhr** (the next pickup per waste type with its dot and date,
-the tour, "Einrichten" / "Ändern" → `/calendar/waste`; when nothing is configured a short explainer and the
-button).
+Reads are `offlineFirst` and persisted (`persistQueryAllowList`: the household segments `occurrences`, `entries`,
+`entry`, `resources`, `waste`); the occurrence list carries `members`, so names and colours render offline. **Writes
+are online only**: with `onlineManager` offline a write shows the core offline toast and sends nothing (no outbox, no
+`persistMutationNamespaces`, no `mutationDefaults`). Every write invalidates `["toon","household",id,"calendar"]`; the
+done toggle is optimistic over every cached occurrence list of the household and rolls back on error. The service
+worker has a `NetworkOnly` rule for `/api/households/<id>/calendar/…` after finance's and before the one `NetworkFirst`
+rule (`apps/web/vite.config.ts`, ADR 0011 order).
 
-### 4.5 Neu / Bearbeiten (`/calendar/new`, `/calendar/entries/$entryId/edit`)
+### 1.8 Seed (`bun run seed`, idempotent)
 
-A segmented control **Termin · Aufgabe · Auto** (kind; fixed on edit), then: Titel; Ganztägig (switch); Datum
-and Uhrzeit von/bis (an all-day task needs only the date); **Wiederholen**: Nie · Täglich · Wöchentlich (weekday
-chips) · Monatlich · Jährlich, "alle [n]", "bis [Datum]" (optional), with a live preview line "Nächste: Fr 13.11.,
-Mo 16.11., Do 19.11." from the shared `expandOccurrences`; **Wer**: Termin = member chips (none selected = "Alle");
-Aufgabe = Niemand · Person · Abwechselnd (choose and order members); Auto = the car (Select) and the person who
-needs it (one member), a conflict answer shows "Robin hat das Familienauto am Do 12.11., 08:00–17:00" with
-"Trotzdem buchen"; Ort; Notiz. Leaving with unsaved input asks (`useNavigationGuard`).
+`seedCalendarDemo` in household "Familie", relative to the Clock's date in `Europe/Berlin`: a car "Familienauto" with
+Robin's weekly booking (Thursday 08:00-17:00); events "Elternabend" (everybody, next Tuesday 19:30), "Zahnarzt" (Robin,
+in two days 10:30), "Kim: Fußballtraining" (weekly Wednesday 17:00-18:30); tasks "Blumen gießen" (every 3 days,
+rotating demo → Robin → Kim) and "Bad putzen" (weekly Saturday, fixed Kim); a waste settings row (Hattingen, tour 4, no
+assignee) and a SYNTHETIC tour-4 import of the seed year (`source_name "demo-seed"`, the current and next 8 weeks:
+Restmüll and Gelber Sack fortnightly, Biotonne weekly, Papier every 4 weeks; never data copied from the flyer), skipped
+when a real import of that year exists. The marker is the household's car named "Familienauto". The seed does NOT
+enable the module: log in as `demo@toon.local` and press "Aktivieren" on the Kalender card on Home.
 
-### 4.6 Design (D5)
+### 1.9 The waste import (Stadt Hattingen flyer)
 
-Inside toon-recipe's system: the `components/ui` primitives only (Card, Chip, Tabs as the segmented control,
-Switch, Select, Input, Textarea, Dialog, ActionMenu, EmptyState, Skeleton), Newsreader for page titles and the
-Today card's date, `.eyebrow` for day headings, the 1204 content width and 236 sidebar. New tokens, defined in all
-four `theme.css` blocks (the design-system test's 39 becomes 50, ADR 0016):
-
-- waste: `--waste-rest` (grey), `--waste-yellow` (yellow), `--waste-bio` (brown), `--waste-paper` (blue),
-  `--waste-tree` (green): the flyer's colours, so the dots read like the paper calendar on the fridge; dark
-  variants keep the hue at lower lightness, each with ≥ 3:1 against `--surface`;
-- people: `--person-1` … `--person-6`, six tones harmonised with brand/accent/herb (light and dark).
-
-A dot is 8 px, a colour bar 3 px; colour is never the only signal (the name or waste label is always written).
-
-### 4.7 Home card, offline, service worker
-
-Home card "Kalender": HEUTE and MORGEN with at most four rows together (time, title, person), the "Heute Abend
-rausstellen" line when tomorrow has pickups, and two buttons Kalender / + Neu. Content (titles, names) is never
-`t()` and never truncated in a way that hides the person.
-
-Offline (D9): reads persist (`persistQueryAllowList`: `["calendar","occurrences"]`, `["calendar","entry"]`,
-`["calendar","resources"]`, `["calendar","waste"]`); writes are ONLINE ONLY in M8 (no outbox; an offline toggle
-shows the offline toast and changes nothing). The service worker gets a `NetworkOnly` rule for
-`/api/households/<id>/calendar/…` before the one `NetworkFirst` rule (ADR 0011 order; the persisted TanStack
-cache is the offline copy). Query keys `["toon","household",id,"calendar","occurrences",from,to,filters]`,
-`["toon","household",id,"calendar","entry",entryId]`, `…,"resources"`, `…,"waste"`; a write invalidates
-`["toon","household",id,"calendar"]`.
-
-## 5. Waste import (Stadt Hattingen flyer)
-
-### 5.1 The source
-
+**The source.** `WASTE_PROVIDERS.hattingen.defaultUrl` is
 `https://www.hattingen.de/stadt_hattingen/Rathaus/Fachbereiche/Stadtbetriebe/Abfallentsorgung/AbfallFlyer%202027.pdf`
-(2 pages, 2483 x 595 pt, RC4-encrypted with an empty user password, copy flag off: pdf.js reads it). Page 1: the
-street directory "Straßenverzeichnis von A - Z mit Bezirken (1-9)" (`Waldweg……3`) and adverts. Page 2: the
-"Umweltbrummi" dates and the four quarter grids "Abfallkalender / 1. Januar - 31. März 2027" … "1. Oktober - 31.
-Dezember 2027", three months each. A month column: header row `R G B P` (January also `T`; March, June, July,
-October and some others also a drop icon column, the Biotonnenreinigung), then one row per day: `01 Fr Neujahr`,
-`04 Mo 9 9 4 4 4`: the day, the German weekday abbreviation, then in each type column the TOUR NUMBER (1-9) that
-is collected that day. R = Restmülltonne, G = Gelber Wertstoffsack, B = Biotonne, P = Papiertonne, T =
-Tannenbäume. Holidays carry their name and no numbers. The footer lines give the Biotonnen cleaning ranges:
-"Reinigungstermine der Biotonnen: 08.03.-19.03.2027 | 28.06.-09.07.2027" and "… 18.10.-29.10.2027". The user
-configures the tour ("Bezirk") of their street, as printed in the directory; the import keeps only that tour's
-dates.
+(2 pages, RC4-encrypted with an empty user password: pdf.js reads it). Page 1 is the street directory (`Waldweg……3`:
+street → tour), page 2 the four quarter grids "Abfallkalender / 1. Januar - 31. März 2027" …, three months each. A month
+column: header `R G B P` (January also `T`), then one row per day: `04 Mo 9 9 4 4 4`, the TOUR number collected that day
+per type (R = Restmülltonne, G = Gelber Wertstoffsack, B = Biotonne, P = Papiertonne, T = Tannenbäume). Holidays carry
+their name and no numbers. The footer gives the Biotonnen cleaning ranges. The user picks the tour of their street; the
+import keeps only that tour's dates. The committed fixture is `apps/api/test/fixtures/calendar/hattingen-abfall-2027.pdf`.
 
-### 5.2 Extraction (`unpdf`, already a dependency of `apps/api`; pure JS, so it works in the published image
-without poppler, `WITH_PDF=0`)
+**Fetch** (`WasteFlyerFetch`): only `https:` on a host EXACTLY in the provider's list (`www.hattingen.de`,
+`hattingen.de`; no credentials, no port), redirects followed by hand (at most 5, each hop checked BEFORE it is
+requested), no `traceparent`, 20 s for the whole fetch, ≤ 10 MiB by `Content-Length` and by the streamed count. Never
+`IMPORT_ALLOW_PRIVATE_HOSTS` and never recipe's SSRF guard (module boundary). Layers `layerFromClient`, `layer`,
+`layerTest(bytesByUrl)`. The upload of the PDF (`multipart/form-data`, parts `file` and `tour`) is the other path.
 
-`getDocumentProxy(bytes, { isEvalSupported: false })`, then per page `getTextContent({ includeMarkedContent: true })`.
-Each text item becomes `{ str, x: transform[4], y: transform[5], width, page, section }`, where `section` counts
-the top-level marked-content blocks (`beginMarkedContentProps` … `endMarkedContent`, depth-tracked). Limits: ≤ 10
-MiB, ≤ 6 pages, extraction under a 20 s timeout (an Effect `timeout`), a password-protected file (non-empty user
-password) is `422 calendar_waste_unparseable`. The extractor is a `Context.Service` (`WastePdfText`) so tests can
-feed recorded items; the parser is a pure function over the items.
+**Extraction** (`WastePdfText`): `unpdf` imported dynamically inside the method (pdf.js stays out of the boot graph),
+one extraction at a time (a one-permit semaphore), a 20 s budget, at most 6 pages; per page
+`getTextContent({ includeMarkedContent: true })`, each item `{ str, x, y, width, page, section }` with `section` from the
+depth-tracked marked-content blocks. Refusals `422 calendar_waste_unparseable` with check `notPdf`, `encrypted`,
+`pages`, `timeout`. `apps/api/test/fixtures/calendar/record-items.ts` recorded
+`apps/api/test/fixtures/calendar/hattingen-2027.items.json` (6623 items) once; `--check` compares a fresh extraction.
 
-### 5.3 Parsing (`apps/api/src/modules/calendar/services/waste/hattingen.ts`, pure) — THE TRAPS FOUND IN THE 2027 FLYER
+**Parsing** (`parseHattingenFlyer(items)`, `selectTour(parse, tour)` in
+`apps/api/src/modules/calendar/services/waste/hattingen.ts`; pure, no throw, order-independent). The text layer is NOT
+what you see (gotcha "The flyer's text layer holds several copies of every grid." below). As built:
 
-The text layer is NOT what you see. The grids are InDesign "PlacedPDF" artwork, and the placed PDFs carry
-**several copies of every grid**, all present in the text layer, only one visible:
+1. Year from the four quarter titles (all present, one year, else `year`).
+2. Blocks PER SECTION, one per month-name item: the header row `R G B P [T]` below it, the day items and weekday items
+   to the left. A block is valid only when every day of the month is present once and every row's weekday is the real
+   weekday of that date (a weekday item may carry a holiday name: "Sa Tag der Arbeit"); an invalid block (a stale
+   year's copy) is DISCARDED, never repaired.
+3. In a valid block a row band is the day's y ± half the row pitch measured from the block's own day items; a digit
+   belongs to the column whose cell (header x to the NEXT header x of the same block) holds its centre.
+4. **Paint order**: the section drawn LAST (the highest section number) is the visible copy and wins; its own valid
+   blocks must agree (else `consensus` with the date and two readings); a covered copy that reads a date otherwise is a
+   preview WARNING `{ code: "hiddenCopyDiffers", date }`, never a refusal. Every date must come from a valid block
+   (else `months`).
+5. Sanity: every value a tour 1-9 (`values`), Sundays and holidays empty (`sundays`), every tour has Restmüll ≥ 20
+   times (`tourCount`); a tour without a pickup is `noTourDates`.
+6. Cleaning: a Biotonne pickup inside a footer range is `bio_cleaning` ("Biotonne + Reinigung").
 
-1. Copies at the same y but shifted in x by a constant (14.4 pt for January-June: the visible January grid has
-   `R` at x 477.6 and day `01` at 438.1; a hidden copy has `R` at 492.0 and `01` at 452.5). A copy's digits
-   therefore fall INTO the neighbouring column of the other copy (copy B's R digit at 493.3 sits 1.2 pt from copy
-   A's G digit at 492.1), and their rows differ in y by only 0.1-0.2 pt. **Geometry alone cannot separate them.**
-2. July-December exists FOUR times: two sections titled "Abfallkalender 2026" (at the same position as one
-   another) and two titled "Abfallkalender 2027" (x 1315.9 and 1338.0). Stale artwork of the previous year may sit
-   underneath the visible grid.
-3. Each copy is its own marked-content section (`PlacedPDF`), and the items of one section are geometrically
-   consistent. **So: parse per section, never across sections.**
+On the 2027 fixture tour 4 has 26 Restmüll, 26 Gelber Sack, 27 Biotonne, 14 Papier and 1 Tannenbaum dates (94 pickups),
+and the preview lists 7 `hiddenCopyDiffers` warnings (the hidden January/February copy is an older draft).
 
-The algorithm:
-
-- Year: the quarter titles `1. <Monat> - <d>. <Monat> <YYYY>` (all four must agree; "Abfallkalender 2026" is
-  ignored).
-- Per section, per month-name item (`Januar` … `Dezember`): the header items `R G B P [T]` just below it (same y
-  within 3 pt, x from the month name -25 to +70) define the columns; the day items (`01`…`31`) and the weekday
-  items (`Mo Di Mi Do Fr Sa So`) to the left define the rows. **Validate the block against the calendar**: every
-  day of the month present once, and every row's weekday equal to the real weekday of that date in the year
-  from the titles. A block that fails (e.g. a stale 2026 copy, whose weekdays are a day off) is DISCARDED.
-- Within a valid block, a digit belongs to a row when its y is within the row's band (row pitch ≈ 13.6 pt; use
-  half the pitch measured from the block's own day items, not a fixed tolerance) and to a column when its x lies
-  within that column's own cell (from the column's header x to the next header x of the SAME block). Digits of
-  other sections are never considered.
-- Consensus: every date must be produced by at least one valid block, and all valid blocks producing the same
-  date must agree on every column; disagreement is `422 calendar_waste_unparseable` (`details`: the date and the
-  two readings). A missing month is the same refusal.
-- Sanity (the refusal names the check): each tour 1-9 occurs in R at least 20 times in the year, no type column
-  has a value outside 1-9, Sundays and the holidays carry nothing.
-- Cleaning: the footer ranges `dd.mm.-dd.mm.YYYY`; a B pickup inside a range gets `category_detail =
-  "bio_cleaning"` ("Biotonne + Reinigung").
-
-The prototype on the 2027 flyer (the scratch spike of this design session) confirmed: sections separate the
-copies, the weekday check rejects misaligned blocks, and a fixed ±3 pt column tolerance is WRONG (it read Jan 15
-as `R9 G3 B4` because a neighbouring copy's digit leaked in). Build the parser test-first against the fixture.
-
-### 5.4 Golden spot checks (read off the rendered 2027 flyer at 200 dpi, verified by eye)
-
-Tours per type; an empty type is absent. These are acceptance tests of the parser
-(`apps/api/test/calendar-waste-hattingen.test.ts`, over the committed fixture
-`apps/api/test/fixtures/calendar/hattingen-abfall-2027.pdf`):
+**Golden spot checks** (read off the rendered 2027 flyer at 200 dpi; `apps/api/test/calendar-waste-hattingen.test.ts`
+reproduces every row; tours per type, an empty type absent):
 
 | Date | R | G | B | P | T |
 | --- | --- | --- | --- | --- | --- |
@@ -343,39 +317,140 @@ Tours per type; an empty type is absent. These are acceptance tests of the parse
 | 2027-12-27 Mo | 5 | 5 | 1 | 1 | – |
 | 2027-12-30 Do | 8 | 8 | 4 | 4 | – |
 
-Plus whole-year properties: 365 dates covered, tour 4 has R on every 2nd week (count it and pin the number the
-parser produces once the spot checks pass), and the parse is deterministic (same input, same output).
+**Import** (`CalendarWaste.importFlyer`, ONE `Database.transaction`): upsert the settings (provider, tour, `source_url`
+for a URL source; the assignee rule kept, `none` on first use); read the marks of the household's import of
+`(provider, year)` keyed by `(category, date)`; delete that import (its entries cascade); insert the new import and one
+entry per (category, date) of the tour (`kind task`, all-day, `title NULL`, `category`, `category_detail`,
+`waste_import_id`); re-insert the carried marks for the pairs that still exist. **Assignees are resolved per pickup
+DAY** (P15): the import's pickup days ascending, day `k` → `assigneeIds[k mod n]` (every type of one day to the same
+person), stored on each entry as `fixed` with that one id (or `none`); `PUT …/waste/settings` re-runs this for every
+entry dated on or after the body's `today`. Preview and import share the rate limit `calendar-waste` (30 per user and
+hour). An imported entry takes only `notes` and assignee changes; its delete is `409 calendar_entry_imported` (the unit is
+`DELETE …/waste/imports/:importId`).
 
-### 5.5 Import semantics
+**Rendering**: the label is the catalog's by category (`calendar.waste.type.waste_rest` = "Restmüll", … "Gelber Sack",
+"Biotonne", "Papiertonne", "Tannenbaum"), "+ Reinigung" for `bio_cleaning`; several pickups of one day are ONE agenda
+row with their dots; the evening before a pickup the Today card and the Home card show "Heute Abend rausstellen: …"
+(client side: tomorrow's pickups).
 
-Preview and import parse the same way; the preview writes nothing. Import, in ONE `Database.transaction`: upsert
-the settings (provider, tour, `source_url`), delete the household's import of that `(provider, year)` with its
-entries, then insert the new import and one entry per (category, date) for the tour (`kind task`, all-day,
-`title NULL`, `assignee_mode` and members from the settings, `waste_import_id`), and carry the occurrence states
-of the replaced entries over by `(category, date)` (a re-import keeps the "rausgestellt" ticks). URL source: only
-`https`, host in the provider's `hosts`, every redirect hop re-checked against the same list, ≤ 10 MiB
-(Content-Length and the streamed count), 20 s timeout, through the `HttpClient` of `effect/http` (no
-`traceparent`), never `IMPORT_ALLOW_PRIVATE_HOSTS`. The test seam is a `Context.Service` for the fetch
-(`WasteFlyerFetch`) whose test layer serves the fixture; no test reaches the network.
+## 2. Source decisions
 
-### 5.6 Rendering a waste entry
+None: the module has no source repository (ADR 0016). SPEC D13 has nothing to bind here.
 
-Label from the catalog by category (`calendar.waste.type.waste_rest` = "Restmüll", `…yellow` = "Gelber Sack",
-`…bio` = "Biotonne", `…paper` = "Papiertonne", `…tree` = "Tannenbaum"), "+ Reinigung" for `bio_cleaning`. Several
-pickups on one day render as ONE agenda row ("Restmüll · Gelber Sack") with their dots. The evening before a
-pickup the Today card and the Home card show "Heute Abend rausstellen: …" (client side: tomorrow's pickups).
+## 3. H's own decisions for the module
 
-## 6. Seed (`bun run seed`, idempotent)
+The binding decisions are plan m8 section 2 (P1-P29). Where the build refines or departs from the design (plan m8
+section 10 has the full list):
 
-Demo household "Familie": a car "Familienauto" with Robin's weekly booking (Do 08:00-17:00); events "Elternabend"
-(everybody, next Tuesday 19:30), "Zahnarzt" (Robin), "Kim: Fußballtraining" (weekly Mi 17:00); a task "Blumen
-gießen" every 3 days rotating Demo → Robin → Kim; a task "Bad putzen" weekly Sa fixed Kim; a SYNTHETIC waste
-schedule (`provider hattingen`, tour 4, the current and next 8 weeks: Restmüll and Gelber Sack fortnightly, Biotonne
-weekly, Papier every 4 weeks), never data copied from the flyer. Dates are relative to the seed run's Clock date.
+- **P9 (a)** `GET /occurrences` answers `{ items, members }` (the household's `CalendarMember[]`), so the persisted
+  calendar renders names and colours offline (the core members query is not persisted). **P9 (b)** `GET /entries?kind=
+  &recurring=` (not in the design's API table) lists the non-waste series: Aufgaben's "Wiederkehrend" needs every task
+  series, also one without an occurrence in the visible window.
+- **P8** An imported waste entry's DELETE is refused (the design allowed it); PATCH takes only `notes`, `assigneeMode`,
+  `assigneeIds`.
+- **P15** Waste assignees are resolved per pickup day at write time and stored as `fixed` (a rotation over single
+  entries would always pick the first person).
+- **P22** The golden-coverage test covers the E1 corpus only, with the calendar guard beside it.
+- **Paint order instead of consensus** (M8-T10): the design wanted every copy of a grid to agree; the 2027 flyer's
+  hidden January/February copy is an older draft, so the copy drawn last wins and a disagreeing hidden copy is a
+  warning.
+- **A PATCH re-runs the car conflict check only when the schedule or the car changed** (M8-T05): a note edit on a
+  booking saved with `allowConflict` is not refused again.
+- **The Übersicht member filter runs on the client** with the P10 rule (`matchesMember`): one occurrence query serves the
+  list, the Today card and the offline copy; `CalendarApi.fetchOccurrences` still supports `memberId`.
 
-## 7. Out of scope for M8 (to `docs/open-work.md`)
+## 4. Gotchas
 
-Per-occurrence edits ("nur diesen Termin"), reminders/notifications (Web Push or e-mail), an ICS subscription
-feed (the cheapest route to phone reminders: a secret-token `GET /api/calendar/feed/<token>.ics`), offline writes
-(an outbox like finance's), other cities' waste providers, a street search over the flyer's directory (page 1:
-street → tour), ICS import, calendar sharing outside the household.
+### 4a. The module's own gotchas
+
+- **The flyer's text layer holds several copies of every grid.** The grids are InDesign "PlacedPDF" artwork carrying
+  hidden copies, all in the text layer: copies shifted by 14.4 pt (a copy's digits fall INTO the neighbouring column of
+  the other copy, rows 0.1-0.2 pt apart), and July-December four times (two titled "Abfallkalender 2026", stale
+  artwork). Geometry alone cannot separate them; each copy is its own marked-content section. Parse per section, never
+  across sections; validate every block against the real weekdays; take the copy drawn LAST. A fixed ±3 pt column
+  tolerance is wrong (it read 2027-01-15 as `R9 G3 B4`). Pinned by `apps/api/test/calendar-waste-hattingen.test.ts`
+  (every golden row, determinism on shuffled items, the shifted-weekday and missing-month traps).
+- **Hidden copies may be older drafts.** The 2027 fixture's hidden January/February copy differs on 7 days (2027-01-15
+  reads G 3; 2027-02-15 to -20 shifted one row, Rosenmontag empty); the rendered page (200 dpi) shows the last-drawn
+  copy. A disagreeing hidden copy is the preview warning `hiddenCopyDiffers`, never a refusal; only two blocks of one
+  month inside the SAME section that disagree are `consensus`. A new year's flyer is re-validated by these checks; a
+  layout change is a code change.
+- **A weekday item can carry the holiday name.** The flyer prints "Sa Tag der Arbeit" as ONE text item; the weekday
+  check reads its first token. Without it May and December failed validation in every copy.
+- **pdf.js finishes on microtasks alone.** `WastePdfText` yields one event-loop turn between pages; without it the 20 s
+  Effect timeout could never fire. It does not pass `isEvalSupported: false` (design §5.2): the pdf.js inside unpdf 1.8
+  no longer has that option.
+- **Route tests reach the flyer fetch through a seam.** The route tests run on the one shared runtime, whose layer a
+  test cannot swap, so `apps/api/src/modules/calendar/services/waste/fetch.ts` has the test seam
+  `setWasteFlyerFetchForTests(makeTestWasteFlyerFetch(bytesByUrl))` (throws outside `NODE_ENV=test`; a file that sets
+  it hands it back with `setWasteFlyerFetchForTests(null)` in `afterEach`/`afterAll`). Without it the production layer
+  under `bun test` answers `502 calendar_waste_fetch_failed` (`network`) and sends nothing: no test reaches the network.
+  Service tests use `WasteFlyerFetch.layerTest` or `layerFromClient` with a recording `HttpClient.make` client.
+- **The server never decides today.** No `Date` in `packages/shared/src/modules/calendar/` or
+  `apps/api/src/modules/calendar/` (idioms rules (11), (19)); dates come from the client (`from`, `to`, `today`), the
+  seed's from the Clock in `Europe/Berlin`. A new endpoint that needs "today" takes it in its request.
+- **`resource_id` is NO ACTION, the refusal is the service's.** RESTRICT made a household delete fail inside its
+  cascade (SQLite checks it there); `DELETE …/resources/:id` of a booked car is `409 calendar_resource_in_use`, and the
+  UI tells the user to archive instead.
+- **A car booking can lose its person.** When the last attendee of a booking leaves the household (P14), the booking
+  keeps its row with no attendee; a later PATCH fails the create rules (`carNeedsOnePerson`) until a person is set again.
+  The edit form decodes with the create schema, so it names the missing person before it sends.
+- **The calendar must be enabled before its routes answer.** A household gets only `recipe` by default, so every
+  calendar route of a fresh household answers `404 module_disabled` (also BEFORE the verified-email gate):
+  `apps/api/test/api-doc.test.ts`'s `+verified` sweep enables the calendar on its gate household
+  (`enableCalendar` of `apps/api/test/support/calendar-harness.ts`), and the seed does not enable it.
+- **Imported waste entries are read-mostly** (P8): only `notes` and the assignee fields change; delete the import, not
+  an entry. `GET /entries` never lists them; they appear as occurrences.
+- **API sub-paths are built from segments on the web.** `CalendarApi` builds every path through a private
+  `calendarPath(householdId, ...segments)` so no API path literal starts with `/`, and the module's LINKS grep (section
+  5.1) finds navigation targets only. `sendForm` of `apps/web/src/lib/api.ts` takes an optional fifth argument
+  `fields` (extra text parts after the file): the waste upload sends `tour` there.
+- **Three module tabs fill the phone bar.** `MAX_MODULE_TABS` is 3 (ADR 0016): Start · Rezepte · Finanzen · Kalender ·
+  Profil is five items at 390 px. A fourth module needs a new decision about the tab bar.
+
+## 5. Verification
+
+### 5.1 The greps
+
+```
+# LINKS: every in-module navigation literal starts with /calendar (empty)
+grep -rnoE "[\"'\`]/(recipe|finance|month|tasks|cars|waste|new|entries)[/\"'\`?]" apps/web/src/modules/calendar
+# No Date in the shared calendar code or the API module (empty)
+grep -rnE "new Date\(|Date\.now\(" packages/shared/src/modules/calendar apps/api/src/modules/calendar
+# No effect import in the web module (empty; idioms rule (13))
+grep -rn "from \"effect" apps/web/src/modules/calendar
+```
+
+### 5.2 Calendar tests
+
+- Shared: `packages/shared/test/calendar-dates.test.ts`, `packages/shared/test/calendar-recurrence.test.ts` (every freq,
+  ordinals against a naive enumerator), `packages/shared/test/calendar-schemas.test.ts`, `packages/shared/test/calendar.test.ts`.
+- API: `apps/api/test/calendar-module.test.ts`, `apps/api/test/calendar-members-service.test.ts`,
+  `apps/api/test/db-calendar-migration.test.ts`, `apps/api/test/calendar-entries.test.ts`,
+  `apps/api/test/calendar-occurrences.test.ts`, `apps/api/test/calendar-car-conflicts.test.ts`,
+  `apps/api/test/calendar-resources.test.ts`, `apps/api/test/calendar-members.test.ts`,
+  `apps/api/test/calendar-seed.test.ts`, `apps/api/test/calendar-cross-household.test.ts`,
+  `apps/api/test/calendar-waste-pdf-text.test.ts`, `apps/api/test/calendar-waste-hattingen.test.ts`,
+  `apps/api/test/calendar-waste-fetch.test.ts`, `apps/api/test/calendar-waste-service.test.ts`,
+  `apps/api/test/calendar-waste-routes.test.ts`, `apps/api/test/calendar-waste-cross-household.test.ts`,
+  `apps/api/test/web-contract-calendar.test.ts` (every export of the web client, decoded with `disableChecks` and equal
+  to the body; no lenient row). Harness: `apps/api/test/support/calendar-harness.ts`.
+- Web: `apps/web/src/modules/calendar/manifest.test.ts`, `apps/web/src/modules/calendar/persist.test.ts`,
+  `apps/web/src/modules/calendar/phone-header.test.ts`, the `lib/*.test.ts` beside the helpers,
+  `apps/web/src/modules/calendar/features/entries/lib/form.test.ts`,
+  `apps/web/src/modules/calendar/features/waste/lib/errors.test.ts`, `apps/web/src/styles/calendar-tokens.test.ts`.
+
+Run them all with `bun test calendar` (a path filter).
+
+### 5.3 Manual and recorded checks
+
+- The headless pass of M8-T19 (plan m8 section 9): every screen at 390 and 1440 without horizontal overflow, the tab bar
+  outside a module, the done toggle, the car conflict notice and "Trotzdem buchen", the waste upload of the fixture with
+  tour 4, the CSP at a second origin; screenshots under docs/plans/screenshots/m8.
+- A new flyer year: run a preview of the new PDF before telling users; a refusal names its check.
+
+## 6. Out of scope (deferred)
+
+Recorded in `docs/open-work.md` (X-8 to X-14): per-occurrence edits ("nur diesen Termin"), reminders (Web Push or
+e-mail), an ICS subscription feed, offline writes (an outbox like finance's), other cities' waste providers and a street
+search over the flyer's directory, ICS import, calendar sharing outside the household.
