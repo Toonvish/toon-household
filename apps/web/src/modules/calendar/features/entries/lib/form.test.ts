@@ -98,6 +98,15 @@ describe("edit", () => {
     expect(toUpdateBody(state, true)).toEqual({ notes: "Tonne steht hinten", assigneeMode: "fixed", assigneeIds: [A] });
   });
 
+  test("an imported pickup stored with a rotation is edited as its first person (P15)", () => {
+    const state = formStateFromEntry({ ...entry, assigneeMode: "rotate", assigneeIds: [B, A] });
+    expect(state).toMatchObject({ assigneeMode: "fixed", assigneeIds: [B] });
+    expect(toUpdateBody(state, true)).toMatchObject({ assigneeMode: "fixed", assigneeIds: [B] });
+    // A regular task keeps its rotation.
+    const task = formStateFromEntry({ ...entry, wasteImportId: null, category: null, assigneeMode: "rotate", assigneeIds: [B, A] });
+    expect(task).toMatchObject({ assigneeMode: "rotate", assigneeIds: [B, A] });
+  });
+
   test("a regular entry sends every field but kind", () => {
     const body = toUpdateBody({ ...formStateFromEntry({ ...entry, title: "Bad", category: null, wasteImportId: null }) }, false);
     expect("kind" in body).toBe(false);

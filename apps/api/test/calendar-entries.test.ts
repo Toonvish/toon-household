@@ -360,6 +360,20 @@ describe("imported waste entries are read-mostly (P8)", () => {
     expect(await refusal(await patch(path, { assigneeMode: "fixed", assigneeIds: [] }))).toEqual([
       ["assigneeIds", "server.calendar.fixedNeedsOne"],
     ]);
+    // One pickup, one person: a rotation would always pick its first person (P15); the rule is the waste settings'.
+    expect(await refusal(await patch(path, { assigneeMode: "rotate", assigneeIds: [robin.id, owner.id] }))).toEqual([
+      ["assigneeMode", "server.calendar.wasteNoRotation"],
+    ]);
+    expect((await body<Entry>(await call(calendarPath(householdId, path), as()))).assigneeMode).toBe("fixed");
+    // A regular task keeps its rotation.
+    const chore = await body<Entry>(
+      await call(calendarPath(householdId, "/entries"), {
+        method: "POST",
+        ...as(),
+        body: { ...task, assigneeMode: "rotate", assigneeIds: [robin.id, owner.id] },
+      }),
+    );
+    expect(chore.assigneeMode).toBe("rotate");
     const removed = await call(calendarPath(householdId, path), { method: "DELETE", ...as() });
     expect(removed.status).toBe(409);
     expect((await body<ErrorBody>(removed)).error.code).toBe("calendar_entry_imported");

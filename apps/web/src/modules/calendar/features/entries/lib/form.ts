@@ -91,8 +91,12 @@ export function withKind(state: EntryFormState, kind: CalendarEntryKind): EntryF
   };
 }
 
-/** The stored series as a draft (Bearbeiten). */
+/**
+ * The stored series as a draft (Bearbeiten). An imported pickup saved with a rotation before the server refused one
+ * shows what it does: its first person (one occurrence, P15).
+ */
 export function formStateFromEntry(entry: CalendarEntry): EntryFormState {
+  const singlePickup = entry.wasteImportId !== null && entry.assigneeMode === "rotate";
   return {
     kind: entry.kind,
     title: entry.title ?? "",
@@ -106,8 +110,8 @@ export function formStateFromEntry(entry: CalendarEntry): EntryFormState {
     weekdays: [...entry.repeat.weekdays],
     until: entry.repeat.until ?? "",
     attendeeIds: [...entry.attendeeIds],
-    assigneeMode: entry.assigneeMode,
-    assigneeIds: [...entry.assigneeIds],
+    assigneeMode: singlePickup ? "fixed" : entry.assigneeMode,
+    assigneeIds: singlePickup ? entry.assigneeIds.slice(0, 1) : [...entry.assigneeIds],
     resourceId: entry.resourceId ?? "",
     location: entry.location ?? "",
     notes: entry.notes ?? "",

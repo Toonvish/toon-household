@@ -370,6 +370,7 @@ export const serverDe = {
   "server.calendar.assigneesOnlyTasks": "Zuständige gibt es nur bei Aufgaben.",
   "server.calendar.fixedNeedsOne": "Wähle genau eine zuständige Person.",
   "server.calendar.rotateNeedsTwo": "Zum Abwechseln braucht es mindestens zwei Personen.",
+  "server.calendar.wasteNoRotation": "Eine Abfuhr hat höchstens eine zuständige Person. Das Abwechseln stellst du bei der Müllabfuhr ein.",
   "server.calendar.assigneesForNone": "Ohne Zuständigkeit wählst du keine Personen aus.",
   "server.calendar.carNeedsResource": "Wähle ein Auto.",
   "server.calendar.carNeedsOnePerson": "Wähle die Person, die das Auto braucht.",

@@ -13,7 +13,8 @@
  *   entry; then the member, resource and conflict checks (the resource only when it changed, the conflicts only when
  *   the schedule or the car changed). When the schedule changed, occurrence states whose date is no longer an
  *   occurrence start are deleted in the same `Database.transaction`. An imported waste entry (P8) takes only `notes`,
- *   `assigneeMode` and `assigneeIds`; any other key is `409 calendar_entry_imported`.
+ *   `assigneeMode` and `assigneeIds`; any other key is `409 calendar_entry_imported`, and `rotate` is `422` at
+ *   `assigneeMode` (`server.calendar.wasteNoRotation`: one pickup, one person; the rotation is the waste settings').
  * - `remove`: `409 calendar_entry_imported` for a waste entry (the import is the unit), else the series with its
  *   members and states.
  *
@@ -25,13 +26,15 @@ import {
   type CalendarEntryListQuery,
   type CreateCalendarEntryRequest,
   CreateCalendarEntryRequestSchema,
+  DEFAULT_LOCALE,
   type UpdateCalendarEntryRequest,
   occurrenceOrdinal,
+  serverText,
 } from "@toon/shared";
 import { type SQL, and, eq, isNull, ne } from "drizzle-orm";
 import { Clock, Context, Effect, Layer, type Schema } from "effect";
 import { Database } from "../../../../db/database.ts";
-import { ApiFailure, type DatabaseError, type NotFound, type ValidationFailed } from "../../../../lib/errors.ts";
+import { ApiFailure, type DatabaseError, type NotFound, ValidationFailed } from "../../../../lib/errors.ts";
 import { decode } from "../../../../lib/validate.ts";
 import { type NewCalendarEntryMemberRow, calendarEntries, calendarEntryMembers, calendarOccurrenceStates } from "../../schema.ts";
 import { CalendarMembers } from "../members.ts";
@@ -298,6 +301,14 @@ export class CalendarEntries extends Context.Service<
         }
         const decoded = yield* decode(CreateCalendarEntryRequestSchema, merged);
         const entry = normalise({ ...decoded, allowConflict: body.allowConflict ?? false });
+        if (isWaste && entry.assigneeMode === "rotate") {
+          // A pickup is ONE occurrence: a rotation would always pick its first person (P15). The rule is the settings'.
+          const key = "server.calendar.wasteNoRotation";
+          return yield* new ValidationFailed({
+            text: key,
+            details: [{ path: "assigneeMode", code: "custom", message: serverText(DEFAULT_LOCALE, key), i18n: { key } }],
+          });
+        }
         const scheduleChanged =
           scheduleOf(entry) !==
           scheduleOf({

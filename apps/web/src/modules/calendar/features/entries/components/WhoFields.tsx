@@ -98,6 +98,9 @@ export function WhoFields({
 
 const MODES = ["none", "fixed", "rotate"] as const satisfies ReadonlyArray<CalendarAssigneeMode>;
 
+/** An imported pickup is one occurrence: nobody or one person (plan m8 P15; the rotation is the waste settings'). */
+export const SINGLE_ASSIGNEE_MODES = ["none", "fixed"] as const satisfies ReadonlyArray<CalendarAssigneeMode>;
+
 /**
  * Niemand · Eine Person · Abwechselnd with its people: one Select for a fixed person; for a rotation the members
  * are tapped in turn order and the order is shown with a "nach vorne" button. Shared by the task form and the
@@ -111,10 +114,13 @@ export function AssigneeFields({
   members,
   error,
   disabled,
+  modes = MODES,
   onChange,
 }: {
   label: string;
   hint?: string;
+  /** The modes offered, in order (default Niemand · Eine Person · Abwechselnd). */
+  modes?: ReadonlyArray<CalendarAssigneeMode>;
   mode: CalendarAssigneeMode;
   ids: ReadonlyArray<string>;
   members: ReadonlyArray<CalendarMember>;
@@ -150,7 +156,7 @@ export function AssigneeFields({
         aria-label={label}
         value={mode}
         onChange={setMode}
-        items={MODES.map((value) => ({ value, label: t(`calendar.entries.who.mode.${value}`), disabled }))}
+        items={modes.map((value) => ({ value, label: t(`calendar.entries.who.mode.${value}`), disabled }))}
       />
       {mode === "fixed" ? (
         <Select

@@ -349,6 +349,7 @@ export const serverEn: LocaleCatalog<ServerCatalog> = {
   "server.calendar.assigneesOnlyTasks": "Only tasks have assignees.",
   "server.calendar.fixedNeedsOne": "Choose exactly one assignee.",
   "server.calendar.rotateNeedsTwo": "Taking turns needs at least two people.",
+  "server.calendar.wasteNoRotation": "A pickup has at most one person in charge. Set up taking turns in the waste collection settings.",
   "server.calendar.assigneesForNone": "Without an assignee rule, choose no people.",
   "server.calendar.carNeedsResource": "Choose a car.",
   "server.calendar.carNeedsOnePerson": "Choose the person who needs the car.",

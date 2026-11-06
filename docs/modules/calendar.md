@@ -349,7 +349,9 @@ section 10 has the full list):
   &recurring=` (not in the design's API table) lists the non-waste series: Aufgaben's "Wiederkehrend" needs every task
   series, also one without an occurrence in the visible window.
 - **P8** An imported waste entry's DELETE is refused (the design allowed it); PATCH takes only `notes`, `assigneeMode`,
-  `assigneeIds`.
+  `assigneeIds`, and refuses `rotate` (`422` at `assigneeMode`, `server.calendar.wasteNoRotation`; M8 review fix): a
+  pickup is one occurrence, so a rotation would always pick its first person. Its edit form offers Niemand and Eine
+  Person only (`SINGLE_ASSIGNEE_MODES`), and a pickup stored with a rotation before the fix opens as its first person.
 - **P15** Waste assignees are resolved per pickup day at write time and stored as `fixed` (a rotation over single
   entries would always pick the first person).
 - **P22** The golden-coverage test covers the E1 corpus only, with the calendar guard beside it.

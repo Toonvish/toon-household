@@ -4,7 +4,7 @@ import { Button, Input, Switch, Tabs, Textarea } from "@/components/ui";
 import { useT } from "@/lib/i18n";
 import { ENTRY_KINDS, errorAt, withKind, type EntryFormState } from "../lib/form";
 import { RepeatFields } from "./RepeatFields";
-import { AssigneeFields, WhoFields } from "./WhoFields";
+import { AssigneeFields, SINGLE_ASSIGNEE_MODES, WhoFields } from "./WhoFields";
 
 /**
  * Neu / Bearbeiten (design §4.5): the segmented control Termin · Aufgabe · Auto (fixed on edit), Titel,
@@ -62,10 +62,11 @@ export function EntryForm({
       {imported ? (
         <AssigneeFields
           label={t("calendar.waste.settings.who")}
+          modes={SINGLE_ASSIGNEE_MODES}
           mode={state.assigneeMode}
           ids={state.assigneeIds}
           members={members}
-          error={errorAt(errors, "assigneeIds")}
+          error={errorAt(errors, "assigneeIds") ?? errorAt(errors, "assigneeMode")}
           onChange={(assigneeMode, assigneeIds) => patch({ assigneeMode, assigneeIds })}
         />
       ) : (
