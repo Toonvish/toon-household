@@ -28,6 +28,7 @@ import { users } from "../src/db/schema.ts";
 import { httpApiRoutes } from "../src/http/app.ts";
 import { app } from "../src/index.ts";
 import { createHousehold, createUser } from "./support/finance-harness.ts";
+import { enableCalendar } from "./support/calendar-harness.ts";
 
 /** Module ids whose routes must all have a row (grows with each module section). */
 const REQUIRED_MODULE_SECTIONS: string[] = ["recipe", "finance", "calendar"];
@@ -144,6 +145,8 @@ describe("docs/API.md marks +verified on exactly the module writes that gate on 
   test("the +verified rows are the writes that answer 403 email_unverified", async () => {
     const owner = await createUser("Unconfirmed");
     const householdId = await createHousehold(owner, "Doc gate");
+    // M8: the calendar too, so its writes reach the gate instead of `404 module_disabled`.
+    await enableCalendar(owner, householdId);
     await db.update(users).set({ emailVerified: false, emailVerifiedAt: null }).where(eq(users.id, owner.id));
 
     const gated: string[] = [];
