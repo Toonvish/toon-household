@@ -85,12 +85,18 @@ function SingleRow({
         />
       ) : null}
       <div className="flex min-w-0 flex-1 flex-col gap-0.5 pt-1">
-        <div className="flex min-w-0 items-center gap-2">
+        <div className={TITLE_LINE}>
           {occurrence.kind === "car" ? (
-            <Car aria-hidden="true" className="size-4 shrink-0 text-fg-muted" />
-          ) : (
-            people.slice(0, 3).map((id) => <PersonDot key={id} colorIndex={members.get(id)?.colorIndex ?? 1} />)
-          )}
+            <span className={FIRST_LINE}>
+              <Car aria-hidden="true" className="size-4 shrink-0 text-fg-muted" />
+            </span>
+          ) : people.length > 0 ? (
+            <span className={FIRST_LINE}>
+              {people.slice(0, 3).map((id) => (
+                <PersonDot key={id} colorIndex={members.get(id)?.colorIndex ?? 1} />
+              ))}
+            </span>
+          ) : null}
           <AppLink
             to="/calendar/entries/$entryId"
             params={{ entryId: occurrence.entryId }}
@@ -103,12 +109,16 @@ function SingleRow({
             {title}
           </AppLink>
           {occurrence.recurring ? (
-            <Repeat aria-label={t("calendar.common.recurring")} className="size-3.5 shrink-0 text-fg-faint" />
+            <span className={FIRST_LINE}>
+              <Repeat aria-label={t("calendar.common.recurring")} className="size-3.5 shrink-0 text-fg-faint" />
+            </span>
           ) : null}
           {skipped ? (
-            <Badge size="sm" variant="neutral">
-              {t("calendar.common.status.skipped")}
-            </Badge>
+            <span className={FIRST_LINE}>
+              <Badge size="sm" variant="neutral">
+                {t("calendar.common.status.skipped")}
+              </Badge>
+            </span>
           ) : null}
         </div>
         {meta.length > 0 ? <p className="text-sm break-words text-fg-muted">{meta.join(" · ")}</p> : null}
@@ -163,10 +173,12 @@ function WasteRow({
         onChange={toggle}
       />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5 pt-1">
-        <div className="flex min-w-0 items-center gap-2">
-          {occurrences.map((occurrence) =>
-            occurrence.category === null ? null : <WasteDot key={occurrence.id} category={occurrence.category} />,
-          )}
+        <div className={TITLE_LINE}>
+          <span className={FIRST_LINE}>
+            {occurrences.map((occurrence) =>
+              occurrence.category === null ? null : <WasteDot key={occurrence.id} category={occurrence.category} />,
+            )}
+          </span>
           <AppLink
             to="/calendar/entries/$entryId"
             params={{ entryId: first.entryId }}
@@ -188,6 +200,14 @@ function WasteRow({
     </li>
   );
 }
+
+/**
+ * The title line: the marks before and after the title sit on its FIRST line, so a title that wraps (three waste
+ * types merged into one row, a long title at 390) reads as a list item instead of dots centred beside a block
+ * (M8 UI check). Each group of marks is one line box high (`h-lh`) and centres its marks in it.
+ */
+const TITLE_LINE = "flex min-w-0 items-start gap-2";
+const FIRST_LINE = "flex h-lh shrink-0 items-center gap-2";
 
 function TimeColumn({ occurrence, today, showDate }: { occurrence: CalendarOccurrence; today: string; showDate: boolean }) {
   const t = useT();
