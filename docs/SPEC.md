@@ -40,13 +40,14 @@ changes none of them.
   Besides R's e-mail invites, a claim invite (no e-mail, naming a placeholder member) turns that
   placeholder into an account; it is redeemed only by registration (ADR 0006).
 - **D2 — Modules.** The app is a core plus modules. Core: auth, users, households, members,
-  invites, mail, uploads, i18n runtime, the shell, Home, Settings. Modules: `recipe` and `finance`
-  now; more later. A module is a directory with a manifest on both sides of the wire (§2). **Modules
+  invites, mail, uploads, i18n runtime, the shell, Home, Settings. Modules: `recipe`, `finance`
+  and `calendar` (ADR 0016, M8: the first module without a source repository); more later. A module is a directory with a manifest on both sides of the wire (§2). **Modules
   are enabled per household**: `household_modules(household_id, module_id, enabled_at, settings)`.
   The shell hides a disabled module, its routes redirect to Home, and the API answers
   `404 module_disabled` for that household. `recipe` is enabled by default on a new household;
   `finance` is enabled when its two slots are assigned (D3) (a household migrated from a one-person
-  toon-finance ledger keeps its one seat, ADR 0005).
+  toon-finance ledger keeps its one seat, ADR 0005); `calendar` needs no setup and is enabled by an
+  owner or admin on Home (ADR 0016; `DEFAULT_ENABLED_MODULES` stays `["recipe"]`).
 - **D3 — Finance keeps the two-person ledger.** `toon-finance` decision 1 (exactly two people,
   `member_slot ∈ {1,2}`, symmetric `payer_id` + `split_mode`, four viewer-projected kinds, slot 1 as
   the balance anchor) is kept as is. In a household with more than two members, **the finance
@@ -68,7 +69,7 @@ changes none of them.
   finance ledger can name them); they cannot sign in and become accounts only through a claim
   invite redeemed by registration, in place, same id (ADR 0006).
 - **D5 — Design = toon-recipe's 2026-09 design system.** Tokens (`theme.css` with its four blocks
-  and 39 semantic tokens), the type scale (`--text-control`, `--text-item`, `--text-display-*`,
+  and 39 semantic tokens, 50 since the calendar's eleven waste and person tokens, ADR 0016), the type scale (`--text-control`, `--text-item`, `--text-display-*`,
   `.eyebrow`), Newsreader + Figtree self-hosted in `public/fonts/`, the `components/ui` primitives,
   the 236px sidebar / 1204px content measurements, the bottom tab bar, the `ActionMenu` sheet
   pattern. Finance's screens are restyled onto that system; the new Home, the module switcher and
@@ -81,21 +82,26 @@ changes none of them.
   that module's own four tabs, so each module keeps the mobile layout it was designed for:
   recipe: Rezepte `/recipe` · Plan `/recipe/plan` · Einkauf `/recipe/shopping` · Profil `/settings`;
   finance: Übersicht `/finance` · Buchungen `/finance/transactions` · Erfassen `/finance/new` ·
-  Profil `/settings`. Profil is shared and is the fourth tab of every module. Each module's
+  Profil `/settings`; calendar (ADR 0016): Übersicht `/calendar` · Monat `/calendar/month` · Aufgaben
+  `/calendar/tasks` · Profil `/settings`, with Autos `/calendar/cars` and Müllabfuhr `/calendar/waste`
+  sidebar-only and creating as the one header action of each tab screen. Profil is shared and is the fourth tab of every module. Each module's
   reachability rule ("everything sidebar-only must be reachable from a tab screen") carries over.
   The nav items stay catalog keys, never labels.
 - **D7 — One database, ledger-grade durability.** One libSQL file, one Drizzle schema, one
   migration set. Connection pragmas: WAL + `synchronous = FULL` — toon-finance's choice wins
   because the ledger is in the file now (toon-recipe's `NORMAL` was justified by "a recipe box, not
-  a ledger"). Core tables are unprefixed; module tables are prefixed `recipe_` and `finance_`
-  (both apps have a `tags` table, which is the reason). The Drizzle schema is split per module
-  (`db/schema/core.ts`, `modules/recipe/schema.ts`, `modules/finance/schema.ts`) and re-exported
-  from one `db/schema.ts`. Timestamps stay integer unix ms; `recipe_meal_plan_entries.planned_on`
-  and finance periods stay `YYYY-MM-DD` / `YYYY-MM` text, as in the sources.
+  a ledger"). Core tables are unprefixed; module tables are prefixed `recipe_`, `finance_` and
+  `calendar_` (both source apps have a `tags` table, which is the reason; ADR 0016 for the calendar).
+  The Drizzle schema is split per module (`db/schema/core.ts`, `modules/recipe/schema.ts`,
+  `modules/finance/schema.ts`, `modules/calendar/schema.ts`) and re-exported from one `db/schema.ts`.
+  Timestamps stay integer unix ms; `recipe_meal_plan_entries.planned_on` and finance periods stay
+  `YYYY-MM-DD` / `YYYY-MM` text, as in the sources; the calendar stores local wall-clock dates and
+  times as `YYYY-MM-DD` / `HH:MM` text with no time zone (migration `0004_calendar.sql`).
 - **D8 — API paths.** Core: `/api/auth`, `/api/households`, `/api/households/:householdId`
   (members, invites, modules). Module routers mount under
   `/api/households/:householdId/<module>/…` (e.g. `/api/households/:id/recipe/recipes`,
-  `/api/households/:id/finance/transactions`). User-scoped module routes mount under
+  `/api/households/:id/finance/transactions`, `/api/households/:id/calendar/occurrences`; the
+  calendar has no user-scoped routes, ADR 0016). User-scoped module routes mount under
   `/api/<module>/…` (`/api/recipe/cards`). Error envelope, codes-as-wire-contract, list envelopes,
   PATCH semantics and the `requireSession()` / `requireHouseholdRole()` / `requireVerifiedEmail()`
   middleware chain are toon-recipe's; a fourth middleware `requireModule("finance")` answers
@@ -119,7 +125,9 @@ changes none of them.
   count and `household.count.recipes` is not ported. A second recorded exception (ADR 0002): finance's generic validation messages (Zod's in toon-finance, Effect `Schema`'s here from milestone E1 of `docs/EFFECT.md` on, ADR 0012) render the core's wording; finance's field-specific validation messages keep their text. toon-recipe's `scripts/i18n-check.ts` carries
   over and gains the finance tree; finance's "typecheck is the gate" rule is subsumed. Content
   language (German recipe vocabulary, finance's stored descriptions) is a separate axis and is
-  never routed through `t()`.
+  never routed through `t()`. The calendar (ADR 0016) has no source: every `calendar.*` web key and
+  every `server.calendar.*` server key is new German, admitted by namespace
+  (`NEW_GERMAN_NAMESPACES` in `scripts/i18n-check.ts`) rather than key by key.
 - **D11 — Deployment: one stack with its own Caddy, a new hostname, toon-edge retired.**
   `docker-compose.yml` has the shape toon-recipe had before toon-edge (commit `a369217^`: `app` +
   `caddy`, bridge network `toon`, volumes `toon-data`, `caddy-data`, `caddy-config`, Caddy
@@ -173,7 +181,7 @@ directories knows its tables, routes or screens except through the manifest.
 
 ```ts
 // packages/shared/src/modules/registry.ts
-export const MODULE_IDS = ["recipe", "finance"] as const
+export const MODULE_IDS = ["recipe", "finance", "calendar"] as const   // calendar since M8 (ADR 0016)
 export type ModuleId = (typeof MODULE_IDS)[number]
 
 // apps/api/src/modules/types.ts (since E2: the hooks are Effects; docs/EFFECT.md E7; since E7 the routes are HttpApis, E8)
@@ -195,14 +203,17 @@ export interface ApiModule<Services = never> {   // Services: what the module's 
   layer?: Layer<Services, never, ModuleRequirements>   // the module's own services, merged into the runtime's
                                               // AppLayer by moduleLayers() OVER the core services and the infrastructure;
                                               // recipe: Layer.suspend(recipeLayer) (E3), finance:
-                                              // Layer.suspend(financeLayer) (E4)
+                                              // Layer.suspend(financeLayer) (E4), calendar:
+                                              // Layer.suspend(calendarLayer) (M8)
   // Every hook below that writes reads its executor from the `Database` service: the current executor is the
   // transaction the core opened around the operation (household creation, enabling, removeMember), else the root.
   onHouseholdCreated?(householdId): Effect<void, HookError, Database>   // e.g. finance seeds its 21 categories
   onEnable?(householdId, settings): Effect<void, HookError, Database>   // e.g. finance validates its two participants;
                                               // `settings` is the body of the enable POST ({ settings? }), null without one
   onMemberRemoving?(householdId, userId): Effect<void, HookError, Database>   // runs in removeMember before the row
-                                              // is deleted; may veto by failing (finance: 409 member_has_ledger, D13)
+                                              // is deleted; may veto by failing (finance: 409 member_has_ledger, D13;
+                                              // calendar: no veto, it drops the user from attendees, rotations and
+                                              // the waste rule, ADR 0016)
   afterMigrate?(): Effect<void, HookError, Database>   // runs after every migrate() in runMigrations (db:migrate, seed,
                                               // tests), on the database just migrated; idempotent, no transaction;
                                               // e.g. recipe's folded-column backfill
@@ -269,7 +280,8 @@ Rules:
   runtime provides, and `shutdown` requires nothing.
 - A module carries its own services since E3 (docs/EFFECT.md E7; plan `docs/plans/e3-recipe-services.md` P3, P4).
   `ApiModule<Services>` names what the manifest's `layer` provides; `apps/api/src/modules/index.ts` exports
-  `ModuleServices` (recipe's `RecipeServices` and, since E4, finance's `FinanceServices`) and `apps/api/src/runtime.ts` adds it to
+  `ModuleServices` (recipe's `RecipeServices`, since E4 finance's `FinanceServices` and since M8 the calendar's
+  `CalendarServices`) and `apps/api/src/runtime.ts` adds it to
   `AppServices`, nesting `Layer.mergeAll(Layer.empty, ...moduleLayers())` over `coreServicesLayer()` over
   `infraLayer()`. The manifest's annotation is the compile-time guard: recipe's `layer: Layer.suspend(recipeLayer)`
   (`apps/api/src/modules/recipe/layer.ts`, the areas nested by dependency) fails `tsc` when the composition leaves a
@@ -319,7 +331,7 @@ Rules:
   each build module's `onHouseholdCreated` runs after it.
 - A module's drizzle migration is a normal file in `apps/api/drizzle/`; the module prefix is the
   namespace. There is one migration journal.
-- `/api/health` reports `modules: ["recipe", "finance"]` (the build's modules) and the merged
+- `/api/health` reports `modules: ["recipe", "finance", "calendar"]` (the build's modules) and the merged
   `features` map; the UI treats an unknown module in the household's enabled set as disabled.
 
 ## 3. Target repository layout
@@ -338,6 +350,9 @@ packages/shared/src/
   modules/finance/       money.ts, ledger.ts, period.ts, plan.ts, categories.ts, tags.ts,
                          schemas/{common,transactions,categories,tags,plan,balance,settlements,participants}.ts,
                          index.ts barrel (finance tag schemas and pagination are exported as Finance…)
+  modules/calendar/      dates.ts (date math on YYYY-MM-DD text, no Date), recurrence.ts, people.ts, limits.ts,
+                         waste.ts (WASTE_PROVIDERS), schemas/{common,entries,occurrences,resources,waste}.ts,
+                         index.ts barrel (every name Calendar…/Waste… prefixed; ADR 0016)
 apps/api/src/
   index.ts               wiring: health, uploads, /api/auth, /api/households, module mounts, staticWeb LAST
   env.ts  db/{client,migrate,schema.ts,schema/core.ts}
@@ -357,6 +372,11 @@ apps/api/src/
                          services/ mirrors toon-finance's (ledger, categories, tags, plan) plus participants/
                          (replaces household_members, D3), settings/ (finance_settings) and support.ts; tables
                          are `finance_*` and their TS identifiers carry a `finance` prefix
+  modules/calendar/{index.ts,schema.ts,layer.ts,hooks.ts,seed.ts,routes/,services/}
+                         routes: entries, occurrences, resources (core.index.ts), waste (waste.index.ts);
+                         services/ members.ts, entries/ (entries, occurrences, resources, car conflicts) and
+                         waste/ (the PDF text, the flyer fetch, the Hattingen parser, the import); tables
+                         `calendar_*` (ADR 0016)
 apps/api/scripts/        migrate, seed, reset-password, uploads-gc, plan-run, finance-import-xlsx.ts + finance-import/,
                          migrate-legacy.ts (the CLI), legacy/{types,sources,ledger,copy,report,users,mapping,
                          households,recipe,uploads,finance,claims,balance,run}.ts (the library; not a module hook, §6;
@@ -386,11 +406,15 @@ apps/web/src/
                          PlaceholderForm, ClaimLinkDialog); components/{AmountText,KindBadge,PeriodLabel,
                          PageHeader,PendingSyncNote}; lib/ shims like recipe's plus quick-add.tsx (the Erfassen
                          sheet's provider, module-local, no FAB: D6 stands)
+  modules/calendar/{index.ts,routes.tsx,HomeCard.tsx,features/,components/,catalogs/,lib/}
+                         features/{agenda,month,tasks,entries,cars,waste}/; components/{CalendarPageHeader,
+                         OccurrenceRow,PersonDot,WasteDot,DayHeading,MemberFilterChips,PickupList}; lib/ shims
+                         like finance's plus format, group, rhythm, people (ADR 0016)
   styles/{index.css,theme.css}   toon-recipe's, unchanged except new tokens in all four blocks
   public/fonts/          Newsreader + Figtree woff2 + licences
 docker/                  Caddyfile, entrypoint.sh, env.example, toon-deploy.sh
 docker-compose.yml  Dockerfile  .github/workflows/{ci,release,deploy}.yml
-docs/                    SPEC.md (this), API.md, deployment.md, i18n.md, migration.md, modules/{recipe,finance}.md,
+docs/                    SPEC.md (this), API.md, deployment.md, i18n.md, migration.md, modules/{recipe,finance,calendar}.md,
                          open-work.md, design/recipe-redesign/ (copied record), plans/, adr/
 ```
 
@@ -434,7 +458,9 @@ the plan's `start_period` etc. → `finance_settings`; `categories`, `tags`, `tr
   module name, the viewer-projected balance sentence (`viewerBalanceCents`, never a raw sign) with its
   amount, this period's spend, and Finanzen / Erfassen links, or for a household member without a slot
   the one line naming the two participants. Cards reuse existing catalog keys only; recipe titles and
-  list names are content, never `t()`, and never truncated.
+  list names are content, never `t()`, and never truncated. The calendar's card (M8, ADR 0016) shows
+  HEUTE and MORGEN with at most four rows, the "Heute Abend rausstellen" line when tomorrow has waste
+  pickups, and Kalender / Neu links.
 - **Module switcher**: an `ActionMenu` sheet (its `renderTrigger` is the labelled chip, the active
   module is its `current` row with a check mark) from the module chip in the screen's `PhoneHeaderRow`
   on phones; a segmented group at the head of the sidebar from `lg`. There is no global top bar: every
@@ -442,7 +468,9 @@ the plan's `start_period` etc. → `finance_settings`; `categories`, `tags`, `tr
   recipe detail excepted (its hero owns the top edge). The active module is the URL prefix; Home and
   Settings are module-less.
 - **Tab bar**: `NAV_ITEMS` is computed from the active module's `navItems` + the shared Profil
-  item; outside a module (Home, Settings) it shows Home · the enabled modules (max two) · Profil.
+  item; outside a module (Home, Settings) it shows Home · the enabled modules (max three since
+  ADR 0016, `MAX_MODULE_TABS` in `apps/web/src/components/layout/nav-items.ts`) · Profil; with the
+  three modules that is Start · Rezepte · Finanzen · Kalender · Profil.
 - **Settings** (`/settings`): recipe's profile/language/theme/e-mail cards, the households card
   (`GroupsCard` renamed), and each enabled module's `settingsSections` — finance's is the
   participant assignment (D3).
