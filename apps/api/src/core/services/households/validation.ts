@@ -1,6 +1,7 @@
 /**
  * Helpers shared by the household-scoped routes' validation.
  */
+import { Predicate } from "effect";
 
 /**
  * CONTRACT WORKAROUND (frozen @toon/shared schemas, cannot be changed here):
@@ -11,7 +12,7 @@
  * would wipe every child row — while docs/API.md says absent means untouched.
  *
  * So we drop the listed keys again unless they really were in the JSON body.
- * Hono caches the parsed body, so reading it after the validator is free.
+ * The pre-E7 Hono app cached the parsed body, so reading it after the validator was free.
  */
 export function keepOnlySentKeys<T extends object>(
   validated: T,
@@ -19,7 +20,7 @@ export function keepOnlySentKeys<T extends object>(
   keys: readonly (keyof T & string)[],
 ): T {
   const sent =
-    rawBody !== null && typeof rawBody === "object" ? (rawBody as Record<string, unknown>) : {};
+    Predicate.isObjectOrArray(rawBody) ? (rawBody as Record<string, unknown>) : {};
   const result = { ...validated };
   for (const key of keys) {
     if (!Object.hasOwn(sent, key)) delete result[key];

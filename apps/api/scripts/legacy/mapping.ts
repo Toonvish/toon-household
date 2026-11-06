@@ -15,7 +15,7 @@
  * (JSON, the top-level shape) and then calls it, so the file path and the raw-object path cannot
  * disagree.
  */
-import { Schema } from "effect";
+import { Predicate, Schema } from "effect";
 import type { DecisionReason, MappingOverride } from "./types.ts";
 
 /** One toon-recipe group (R `groups` + `group_members` + the `recipes` count). */
@@ -67,7 +67,7 @@ export interface KnownIds {
 const NEW = "new";
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return Predicate.isObject(value);
 }
 
 /**

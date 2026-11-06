@@ -23,7 +23,7 @@
  * `docs/plans/e5-scripts.md` P9): `migrateRecipeEffect`, with the Promise bridge `migrateRecipe` at the end.
  */
 import { foldText } from "@toon/shared";
-import { Effect } from "effect";
+import { Effect, Predicate } from "effect";
 import { type CopyProgrammingError, copyTable, renameColumns, type SkipResult } from "./copy.ts";
 import { loadAll } from "./ledger.ts";
 import type { MigrationContext, Row } from "./types.ts";
@@ -86,7 +86,7 @@ function parentOf(map: Map<string, string>, what: string, value: unknown, nullab
 }
 
 function isSkip(value: unknown): value is SkipResult {
-  return typeof value === "object" && value !== null && "skip" in value;
+  return Predicate.isObjectOrArray(value) && "skip" in value;
 }
 
 /** Legacy id -> target id of every row of `table` the ledger knows for the recipe source. */

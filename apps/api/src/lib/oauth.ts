@@ -13,9 +13,10 @@
  * arctic call goes through `Effect.tryPromise`: a transport failure is an `OAuthTransportError` (outside the API
  * error family, so the callback logs it and redirects with `oauth_failed`, as it did for the raw `TypeError`), the
  * provider's own refusals are `ApiFailure` 400 `oauth_failed` with today's texts. The pure helpers
- * (`isProviderConfigured`, `callbackUrl`, `createAuthorization`, the three parsers, `webUrl`, `safeNextPath`) stay
- * plain functions reading the process `env` (or the settings they are handed); `createAuthorization` refuses an
- * unconfigured provider synchronously (`Effect.runSync` over the same check). The service has no legacy bridge.
+ * (`isProviderConfigured`, `callbackUrl`, the three parsers, `webUrl`, `safeNextPath`) stay plain functions
+ * reading the process `env` (or the settings they are handed); `createAuthorization` is an `Effect.fnUntraced`
+ * that fails with the same `oauth_not_configured` refusal for an unconfigured provider and is yielded by the two
+ * OAuth start handlers. The service has no legacy bridge.
  */
 import type { OAuthProvider } from "@toon/shared";
 import { GitHub, Google, decodeIdToken, generateCodeVerifier, generateState } from "arctic";
@@ -101,8 +102,11 @@ function githubClient(settings: OAuthSettings): GitHub {
 }
 
 /** Builds the provider authorization URL plus the values to store in cookies. */
-export function createAuthorization(provider: OAuthProvider, settings: OAuthSettings = env): OAuthStart {
-  Effect.runSync(checkProviderConfigured(provider, settings));
+export const createAuthorization = Effect.fnUntraced(function* (
+  provider: OAuthProvider,
+  settings: OAuthSettings = env,
+): Effect.fn.Return<OAuthStart, ApiFailure> {
+  yield* checkProviderConfigured(provider, settings);
   const state = generateState();
 
   if (provider === "google") {
@@ -116,7 +120,7 @@ export function createAuthorization(provider: OAuthProvider, settings: OAuthSett
 
   const url = githubClient(settings).createAuthorizationURL(state, GITHUB_SCOPES);
   return { url: url.toString(), state };
-}
+});
 
 /* --------------------------- provider responses --------------------------- */
 

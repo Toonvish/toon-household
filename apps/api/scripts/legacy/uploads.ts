@@ -40,7 +40,7 @@ function parseJson(value: unknown): Record<string, unknown> | undefined {
   if (typeof value !== "string" || value.length === 0) return undefined;
   try {
     const parsed: unknown = JSON.parse(value);
-    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+    return Predicate.isObject(parsed)
       ? (parsed as Record<string, unknown>)
       : undefined;
   } catch {

@@ -13,6 +13,7 @@
  *   prepTime:            "PT30M" | "30 Minuten" | 30
  */
 import { type ParsedRecipeConfidence, parseDuration, parseServings } from "@toon/shared";
+import { Predicate } from "effect";
 import { cleanMultilineText, cleanText } from "../html/entities.ts";
 import {
   type ParsedFields,
@@ -28,7 +29,7 @@ import { hasType, isNodeReference, type JsonLdNode } from "./jsonld.ts";
 /* ------------------------------ value readers ----------------------------- */
 
 function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return Predicate.isObject(value);
 }
 
 /** Unwraps `{"@list":[…]}` / `{"@set":[…]}` and single-element arrays. */
