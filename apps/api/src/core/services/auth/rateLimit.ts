@@ -95,7 +95,7 @@ export interface RateLimitResult {
 }
 
 /** Records an attempt for `key` and reports whether it is allowed. Time comes from the `Clock`. */
-const checkIn = Effect.fnUntraced(function* (key: string, rule: RateLimitRule): Effect.fn.Return<RateLimitResult> {
+export const checkIn = Effect.fnUntraced(function* (key: string, rule: RateLimitRule): Effect.fn.Return<RateLimitResult> {
   const now = yield* Clock.currentTimeMillis;
   const cutoff = now - rule.windowMs;
   const hits = (buckets.get(key) ?? []).filter((at) => at > cutoff);

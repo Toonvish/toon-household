@@ -98,7 +98,7 @@ export function setImportGuardForTests(options: ImportGuardSeam | null): void {
 }
 
 /** The guard for one call: the base (escape hatch, resolver, `skipDns`) plus the seam's allow list and resolver. */
-function guardNow(base: SsrfGuard): SsrfGuard {
+export function guardNow(base: SsrfGuard): SsrfGuard {
   if (guardSeam === null) return base;
   const hosts = (guardSeam.allowHosts ?? []).map((host) => host.toLowerCase());
   return {
