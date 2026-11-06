@@ -217,92 +217,101 @@ Source: `repos/effect/migration/schema.md` summary table and notes.
 
 ## 7. In this repo
 
-- Where it lands (E4, milestone E1): `packages/shared/src/core/schemas/{common,household,user,auth}.ts`,
-  `packages/shared/src/modules/recipe/schemas/*.ts`, `packages/shared/src/modules/finance/schemas/*.ts`,
-  `packages/shared/src/core/i18n/issues.ts` (the issue-to-catalog adapter is a `SchemaIssue` walk, `flattenIssue`,
-  over the `WIRE_ISSUE` annotations of the vocabulary `packages/shared/src/core/schemas/checks.ts`; `refineKey`
-  becomes `keyed` / `keyedIssue` there), `apps/api/src/core/services/households/validation.ts` (`onValidationError`) and the route files that used
-  `@hono/zod-validator` (now `jsonBody` / `queryParams` of `apps/api/src/http/request.ts` over `apps/api/src/lib/validate.ts`, decoding with `ALL_ISSUES`),
-  `apps/web/src/lib/validation.ts`.
-- Tests: `packages/shared/test/` keeps its assertions; add table-driven accept/reject parity cases per schema file;
-  run schemas with `Schema.decodeUnknownSync` / `decodeUnknownExit` under `bun test`.
-- Rule served: **E4** ("`Schema` replaces Zod as THE contract": same accepted and rejected inputs, same
-  `422 { error: { code: "validation_failed", message, details: [{ path, code, message, i18n }] } }` envelope of
-  `docs/API.md`, wording from the
-  catalog (ADR 0002), never Effect's default messages), with **E12** (`Schema` instead of manual parsing,
-  `Schema.TaggedError` for errors, `Predicate` instead of hand-written guards).
+Every shared schema is an Effect `Schema` (E1, ADR 0013); `zod` and `@hono/zod-validator` are gone and `apps/api/test/effect-idioms.test.ts`
+rule (9) keeps them out. Where it lives, and the example to copy:
 
-**As built (E0):** no `Schema` code exists in the repo yet; E0 touches no schema file and the health payload is still
-checked by the Zod `HealthResponseSchema` (`packages/shared/src/core/schemas/common.ts`), which
-`apps/api/test/runtime.test.ts` uses to prove the Effect-built body keeps its shape. That test is the parity
-check E1 must keep green when `HealthResponseSchema` becomes a `Schema.Struct` (same accepted input, same key order
-on the wire: the order comes from the object `healthResponse` builds, not from the schema).
+- `packages/shared/src/core/schemas/checks.ts` is the vocabulary (`Str`, `Num`, `minLength`, `keyed`, `wireIssue`, `ALL_ISSUES`, ...); the schemas are
+  `packages/shared/src/core/schemas/{common,household,user,auth}.ts`, `packages/shared/src/modules/recipe/schemas/*.ts` and
+  `packages/shared/src/modules/finance/schemas/*.ts`; the issue-to-catalog adapter is `packages/shared/src/core/i18n/issues.ts`.
+- The API decodes through `apps/api/src/lib/validate.ts` (`decode`, `decodeOrThrow`, `decodeOption`), a handler reads a body or a query with
+  `jsonBody(schema)` / `queryParams(schema)` of `apps/api/src/http/request.ts`, a refusal is a `Schema.SchemaError` and `toApiError`
+  (`apps/api/src/lib/errors.ts`) maps it once to `422 validation_failed`. The web runs the SAME schemas for forms
+  (`apps/web/src/lib/validation.ts`) and for responses (`apps/web/src/lib/api.ts`, `disableChecks: true`).
+- Tests: the golden JSON of `packages/shared/test/fixtures/schema-golden/` (made once from Zod 4.5.4) is the oracle, run by
+  `packages/shared/test/parity/*.parity.test.ts` through `packages/shared/test/support/schema.ts`; a new vocabulary construct gets a
+  `primitives.json` case first.
 
-**As built (E1):** every shared schema is an Effect `Schema`; `zod` and `@hono/zod-validator` are gone (rule (9) of
-`apps/api/test/effect-idioms.test.ts`). The three moving parts, each with the real code:
+A failure that reaches the wire carries a `WIRE_ISSUE` annotation (the issue Zod reported: `code` plus `origin`, `expected`, `format`, bounds), never an
+Effect message. From `packages/shared/src/core/schemas/checks.ts`, a string bound is a filter that annotates itself:
 
-- **The vocabulary, `packages/shared/src/core/schemas/checks.ts`.** A failure that reaches the wire carries a
-  `WIRE_ISSUE` annotation (the Zod issue it replaces: `code` plus `origin`, `expected`, `format`, bounds), never an
-  Effect message. A string bound is a filter that annotates itself:
-  ```ts
-  export function minLength(n: number): SchemaAST.Filter<string> {
-    return Schema.isMinCodePoints(n, wire({ code: "too_small", origin: "string", minimum: n }));
+```ts
+export function minLength(n: number): SchemaAST.Filter<string> {
+  return Schema.isMinCodePoints(n, wire({ code: "too_small", origin: "string", minimum: n }));
+}
+```
+
+A flipped schema is a `pipe` and `check` over those (`packages/shared/src/core/schemas/user.ts`; exported types are
+`Types.DeepMutable<typeof X.Type>`, because Effect's `Type` is readonly and Zod's output was not):
+
+```ts
+export const DisplayNameSchema = Str.pipe(trim).check(
+  minLength(1),
+  maxLength(80),
+  keyed(hasNoControlChars, "server.validation.noControlChars"),
+);
+```
+
+The adapter resolves each flattened issue through the catalog ladder, so `details` items are `{ path, code, message, i18n }`
+(`packages/shared/src/core/i18n/issues.ts`):
+
+```ts
+export function toValidationIssues(
+  source: SchemaIssue.Issue,
+  locale: Locale = DEFAULT_LOCALE,
+): Array<ValidationIssueItem> {
+  return flattenIssue(source).map((issue) => {
+    const resolved = resolveIssue(issue, locale);
+    return {
+      path: issue.path.join("."),
+      code: issue.code,
+      message: resolved.message,
+      i18n: { key: resolved.key, values: resolved.values },
+    };
+  });
+}
+```
+
+Rules learned in E1: decode with `ALL_ISSUES` (`{ errors: "all" }`) wherever `details` or a form field error is rendered, or only the first issue survives;
+`Schema.withDecodingDefault` validates the ENCODED side first, so a default over items that transform or carry checks is `Schema.withDecodingDefaultType`
+(it hides every item check behind one `invalid_type` otherwise); a struct's own checks and an array or string length check do not run while a child failed
+(Zod's did), which the parity tests list as P7 allow-map entries; plain `Schema.Number` accepts `NaN` and `+-Infinity`, so a wire number is `Num` (finite filter
+that aborts). The one health payload schema, `HealthResponseSchema` (`packages/shared/src/core/schemas/common.ts`), is a `Schema.Struct`
+that `apps/api/test/runtime.test.ts` decodes the live body with (the key order on the wire comes from the object `healthResponse` builds, not from the schema).
+
+**An error outside the API family is still a `Schema.TaggedError`** (E3, `apps/api/src/modules/recipe/services/import/url/ssrf.ts`). A field whose runtime
+values are not worth a codec is a `Schema.declare` with a `Predicate` guard, and the `message` getter renders the catalog text in English for the log:
+
+```ts
+const SsrfText = Schema.declare<ErrorText>((u): u is ErrorText => Predicate.isString(u) || Predicate.isObject(u));
+
+export class SsrfError extends Schema.TaggedError<SsrfError>()("SsrfError", {
+  reason: Schema.String,
+  text: SsrfText,
+}) {
+  // English: this is what lands in the log, same rule as the API family.
+  override get message(): string {
+    return serverText("en", this.text);
   }
-  ```
-  A catalog-keyed rule (Zod's `.refine(p, refineKey(key))`) is `keyed(predicate, key)`; a rule that reports at a
-  path is `Schema.makeFilter` returning `keyedIssue(key, path)`.
-- **The adapter, `packages/shared/src/core/i18n/issues.ts`.** `flattenIssue` walks the `SchemaIssue` tree and
-  reads the annotations back; `toValidationIssues` resolves each flat issue through the catalog ladder (unchanged
-  since the Zod era, keys still `server.zod.*`):
-  ```ts
-  export function toValidationIssues(source: SchemaIssue.Issue, locale: Locale = DEFAULT_LOCALE) {
-    return flattenIssue(source).map((issue) => {
-      const resolved = resolveIssue(issue, locale);
-      return { path: issue.path.join("."), code: issue.code, message: resolved.message,
-        i18n: { key: resolved.key, values: resolved.values } };
-    });
-  }
-  ```
-- **A flipped schema, `packages/shared/src/core/schemas/user.ts`.** The Zod chain `z.string().trim().min(1).max(80)
-  .refine(noControlChars, refineKey(...))` is a `pipe` and `check`:
-  ```ts
-  export const DisplayNameSchema = Str.pipe(trim).check(
-    minLength(1),
-    maxLength(80),
-    keyed(hasNoControlChars, "server.validation.noControlChars"),
-  );
-  export type OAuthProvider = Types.DeepMutable<typeof OAuthProviderSchema.Type>;
-  ```
-  Exported types are `Types.DeepMutable<typeof X.Type>` (Effect's `Type` is readonly, Zod's output was not).
+}
+```
 
-Rules learned in E1: decode with `ALL_ISSUES` (`{ errors: "all" }`) wherever `details` or a form field error is
-rendered, or only the first issue survives; `Schema.withDecodingDefault` validates the ENCODED side first, so a
-default over items that transform or carry checks is `Schema.withDecodingDefaultType` (it hides every item check
-behind one `invalid_type` otherwise); a struct's own checks and an array or string length check do not run while a
-child failed (Zod's did), which the parity tests list as P7 allow-map entries; plain `Schema.Number` accepts `NaN`
-and `±Infinity`, so a wire number is `Num` (finite filter that aborts). The oracle is the golden JSON in
-`packages/shared/test/fixtures/schema-golden/`, run by `packages/shared/test/parity/*.parity.test.ts` through
-`packages/shared/test/support/schema.ts`; a new vocabulary construct gets a `primitives.json` case first. The API
-decodes through `apps/api/src/lib/validate.ts` (`validate`, `decodeOrThrow`, `decodeOption`), which throws
-`Schema.SchemaError`; `toApiError` maps it once to `422 validation_failed`.
+`ImportHttp` maps it once to a `400 fetch_failed` with `details: { reason }`.
 
-**As built (E3):** the recipe module adds no wire schema (the recipe schemas moved in E1 and its routes still decode through
-`apps/api/src/lib/validate.ts`); what E3 adds is the two places the module uses `Schema` as a plain building block.
+**A route helper keeps both failure channels typed** (`apps/api/src/modules/recipe/routes/imports.ts`, `readJson`; the cards route has the same shape):
+malformed JSON is `BadRequest`, a failed decode is `Schema.SchemaError`, every issue collected:
 
-- **An error that lives OUTSIDE the API family is still a `Schema.TaggedError`** (`apps/api/src/modules/recipe/services/import/url/ssrf.ts`).
-  A field whose runtime values are not worth a codec is a `Schema.declare` with a `Predicate` guard (no hand-written `typeof` chain), and the
-  `message` getter renders the catalog text in English for the log, as the family does:
-  ```ts
-  const SsrfText = Schema.declare<ErrorText>((u): u is ErrorText => Predicate.isString(u) || Predicate.isObject(u));
-  export class SsrfError extends Schema.TaggedError<SsrfError>()("SsrfError", { reason: Schema.String, text: SsrfText }) {
-    override get message(): string { return serverText("en", this.text); }
-  }
-  ```
-  `ImportHttp` maps it once to a `400 fetch_failed` with `details: { reason }`; `assertPublicUrl` (a surviving bridge) rejects with it as is.
-- **A route helper decodes with the one adapter and keeps both failure channels typed** (`apps/api/src/modules/recipe/routes/imports.ts`,
-  `readJson`; the cards route has the same shape): malformed JSON is `BadRequest` (`Effect.tryPromise` with a `catch` that builds it), a failed
-  decode is `Schema.SchemaError` (from `decode(schema, body)` of `lib/validate.ts`, every issue collected), and the return type is
-  `Effect.fn.Return<Decoded<S>, BadRequest | Schema.SchemaError>`. `onErrorHandler` renders the second as `422 validation_failed` exactly as
-  the thrown form did.
-- **Lesson:** a service never decodes a request; the route decodes and hands the service the typed value. A service that needs to parse
-  something from outside (the JSON-LD of a fetched page) keeps its pure parser and wraps only the fallible part.
+```ts
+const readJson = Effect.fnUntraced(function* <S extends Decodable>(
+  schema: S,
+): Effect.fn.Return<Decoded<S>, BadRequest | Schema.SchemaError, HttpServerRequest.HttpServerRequest> {
+  const body = yield* rawJsonOr(() => new BadRequest({ text: "server.import.invalidJsonBody" }));
+  return yield* decode(schema, body);
+});
+```
+
+Lesson: a service never decodes a request; the route decodes and hands the service the typed value. A service that needs to parse something from outside (the
+JSON-LD of a fetched page) keeps its pure parser and wraps only the fallible part.
+
+Rule served: **E4** (`Schema` replaces Zod as THE contract: same accepted and rejected inputs, same `422 { error: { code: "validation_failed", message, details } }`
+envelope of `docs/API.md`, wording from the catalog (ADR 0002, 0013), never Effect's default messages), with **E12** (`Schema` instead of manual parsing,
+`Schema.TaggedError` for errors, `Predicate` instead of hand-written guards).

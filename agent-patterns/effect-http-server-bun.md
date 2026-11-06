@@ -183,7 +183,7 @@ ranges, `If-None-Match` / `If-Modified-Since` `304`s, and with `spa: true` serve
 
 ## 7. In this repo
 
-Applied by milestone E7 (`docs/EFFECT.md` decision E8, ADR 0015, plan `docs/plans/e7-http-api.md`); Bun's auto-serve of a Hono default export is gone.
+Applied by milestone E7 (`docs/EFFECT.md` decision E8, ADR 0015, plan `docs/plans/e7-http-api.md`); the Hono default export that Bun used to auto-serve is history.
 
 - **The server** is `apps/api/src/http/server.ts`: `HttpRouter.serve(appRoutesLayer(), { disableLogger: true, disableListenLog: true })` provided with `BunHttpServer.layer({ hostname: "0.0.0.0", port: env.API_PORT, maxRequestBodySize: 20 * 1024 * 1024, gracefulShutdownTimeout: Duration.seconds(4) })`. The hostname is explicit because the layer's own default is
   `"::"` (Bun's auto-serve bound `0.0.0.0`); the request log is our global middleware, Effect's logger and its "Listening on" line are off. `appRoutesLayer()` (`apps/api/src/http/app.ts`) is the one route layer: `globalHttpLayer()`, `SystemApi` (health, uploads), `AuthApi`, `HouseholdsApi`, `moduleRoutesLayer(API_MODULES)`, `fallbackRoutesLayer()`, over
@@ -196,4 +196,28 @@ Applied by milestone E7 (`docs/EFFECT.md` decision E8, ADR 0015, plan `docs/plan
 - **The request** is a path in `request.url` (read `request.source.url` for the full URL); `request.remoteAddress` is the socket address (`clientIp` in `apps/api/src/http/request.ts`); the body is read once (`HttpServerRequest.text` is cached per request: never mix it with `request.source.text()`).
 - **Cookies** go through `apps/api/src/http/cookies.ts` (pre-response handlers on the final response, `Max-Age` as `Duration.seconds(n)`, a deleted cookie is `Max-Age=0` without `Expires`).
 - **Tests** run the same layers through `HttpRouter.toWebHandler` (`apps/api/src/http/in-memory.ts`, never disposed, a child memo map of `appMemoMap` per handler so no two handlers share a router) and a real socket through `BunHttpServer.layerTest` (`apps/api/test/http-server.test.ts`).
+
+From `apps/api/src/http/server.ts` (imported from the subpath `@effect/platform-bun/BunHttpServer`):
+
+```ts
+/** `routes` (the application's by default) served on the `HttpServer` in the environment. */
+export function appServer(routes = appRoutesLayer()) {
+  return HttpRouter.serve(routes, { disableLogger: true, disableListenLog: true });
+}
+
+/** The application served by `Bun.serve` on `0.0.0.0:<API_PORT>`; launched on the one runtime by `src/index.ts`. */
+export function serverLayer() {
+  return appServer().pipe(
+    Layer.provide(
+      BunHttpServer.layer({
+        hostname: "0.0.0.0",
+        port: env.API_PORT,
+        maxRequestBodySize: MAX_REQUEST_BODY_SIZE,
+        gracefulShutdownTimeout: GRACEFUL_SHUTDOWN_TIMEOUT,
+      }),
+    ),
+  );
+}
+```
+
 - Rule served: **E8** (the observable contract is frozen: every `docs/API.md` row, status, body and header including `Set-Cookie`, CSP, CORS and `Location`, and the middleware order) with **E12** (`Effect.gen` / `Effect.fn`, `return yield*` for failures, `Schema` for bodies, `Effect.catchTag(s)` instead of `instanceof`).

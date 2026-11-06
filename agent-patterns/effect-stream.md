@@ -202,21 +202,46 @@ A service that spawns reads `ChildProcessSpawner` in its `Layer.effect` and its 
 
 ## 7. In this repo
 
-- `apps/api/src/modules/recipe/services/ocr/tesseract.ts` and `apps/api/src/modules/recipe/services/ocr/pdf.ts` keep `Bun.spawn` as the spawn
-  primitive and do NOT use `ChildProcessSpawner` (E3-T02, plan `docs/plans/e3-recipe-services.md` P11). The Node-based spawner reports a missing binary as a
-  `PlatformError` whose message differs from Bun's (`Executable not found in $PATH: "tesseract"`), and that message reaches the wire as `details.cause`
-  of the documented `422 ocr_failed` / `422 pdf_no_text_layer`, so the primitive is not swapped. What the section 2 and 6 patterns still give them:
-  the child is a scoped resource, `Effect.acquireRelease(Effect.try(() => Bun.spawn(...)), (child) => Effect.sync(() => { if (child.exitCode === null) child.kill() }))`,
-  and so is the temp directory (`mkdtemp` / `rm`, catch-all). **Each native run is its own `Effect.scoped(...)`** (`Effect.fnUntraced(body, Effect.scoped)`: the
-  scope never reaches a method's requirement, R = `never`) and that scoped region sits INSIDE the hard timeout (`Effect.timeoutOrElse`), so the child is
-  killed and the directory removed when the run ends: success, failure, or the timeout's interruption. A scope taken from a layer would hold them until
-  `runtime.dispose()`. The exit code is compared and mapped as before (`failedError`, the last three stderr lines); stderr and the exit code are read with
-  `Effect.promise(() => Promise.all([child.exited, new Response(child.stderr).text()]))` (a `Stream.decodeText` + `Stream.mkString` would do the same).
-  The test engine seam stays a Promise interface (`OcrEngine`): `fromSeamPromise` (`ocr/seam.ts`) turns it into an effect with `Effect.tryPromise`, an API-family
-  rejection stays typed and any other rejection is a defect (`Effect.die`) carrying the original error.
-- `apps/api/src/middleware/staticWeb.ts`, `apps/api/src/index.ts` and `apps/api/src/modules/recipe/routes/imports.ts` serve `Bun.file(...)`: they stay
-  until E7; `Stream.toReadableStream` / `FileSystem.stream` is the bridge if a handler must return an Effect-built body.
-- `apps/api/scripts/legacy/`, `apps/api/scripts/finance-import/` (E5) read workbooks and databases; line- or record-oriented inputs become
+No `Stream` value is built in the application code yet; what the pattern gives this repo today is the scoped child process and the readers around it.
+
+- **The OCR and PDF subprocesses keep `Bun.spawn` as the spawn primitive and do NOT use `ChildProcessSpawner`** (`apps/api/src/modules/recipe/services/ocr/tesseract.ts`
+  and `apps/api/src/modules/recipe/services/ocr/pdf.ts`; E3, plan `docs/plans/e3-recipe-services.md` P11). The Node-based spawner reports a missing binary as a
+  `PlatformError` whose message differs from Bun's (`Executable not found in $PATH: "tesseract"`), and that message reaches the wire as `details.cause` of the documented
+  `422 ocr_failed` / `422 pdf_no_text_layer`, so the primitive is not swapped. What sections 2 and 6 still give them: the child and the temp directory are scoped resources.
+  **Each native run is its own `Effect.scoped`** (`Effect.fnUntraced(body, Effect.scoped)`: the scope never reaches a method's requirement, R = `never`) and that scoped
+  region sits INSIDE the hard timeout (`Effect.timeoutOrElse` in `apps/api/src/modules/recipe/services/ocr/index.ts`), so the child is killed and the directory removed
+  when the run ends: success, failure, or the timeout's interruption. A scope taken from a layer would hold them until `runtime.dispose()`. Stderr and the exit code are
+  read with `Effect.promise(() => Promise.all([child.exited, new Response(child.stderr).text()]))` (a `Stream.decodeText` + `Stream.mkString` would do the same). The test
+  engine seam stays a Promise interface (`OcrEngine`): `apps/api/src/modules/recipe/services/ocr/seam.ts` turns it into an effect with `Effect.tryPromise`.
+- Files are served as web `Response`s, not as Effect streams: `apps/api/src/middleware/staticWeb.ts`, `apps/api/src/core/routes/system.ts` (uploads) and
+  `apps/api/src/modules/recipe/routes/imports.ts` (the draft's source file) hand `new Response(Bun.file(path), { headers })` to `fromWeb`
+  (`apps/api/src/http/response.ts`). `Stream.toReadableStream` / `FileSystem.stream` is the bridge if a handler ever has to return an Effect-built body.
+- The URL importer reads a response body as a `Stream` only through `HttpClientResponse.stream` (`Stream.runForEachWhile`, see `effect-http-client.md`).
+- `apps/api/scripts/legacy/` and `apps/api/scripts/finance-import/` read workbooks and databases with plain Effect functions; line- or record-oriented inputs become
   `Stream`s with `mapEffect({ concurrency })` only where the output order and the report lines stay identical.
-- Rule served: E3 ("Effect wraps what is fallible, asynchronous, resourceful or needs a dependency", a child process is all four) with E7 (services on one
-  `Layer`, the spawner is a dependency, never a global) and E12 (`Effect.fn` / `Effect.gen`, `Schema.TaggedError` for the mapped failure, `Effect.catchTag`).
+
+From `apps/api/src/modules/recipe/services/ocr/tesseract.ts`, the scoped temp directory and child process of one run (the closing `Effect.scoped` is the second argument
+of the `Effect.fnUntraced` that wraps the whole body):
+
+```ts
+const directory = yield* Effect.acquireRelease(
+  Effect.promise(() => mkdtemp(join(tmpdir(), "toon-ocr-"))),
+  (created) => Effect.promise(() => rm(created, { recursive: true, force: true }).catch(() => undefined)),
+);
+
+const child = yield* Effect.acquireRelease(
+  Effect.try({
+    try: () => Bun.spawn([config.bin, ...args], { stdin: input, stdout: "ignore", stderr: "pipe" }),
+    // ENOENT: the binary is not installed at all.
+    catch: (error) => unavailableError(error, config.bin),
+  }),
+  // Kills a child that is still running: the hard timeout interrupts the run, which closes this scope.
+  (spawned) =>
+    Effect.sync(() => {
+      if (spawned.exitCode === null) spawned.kill();
+    }),
+);
+```
+
+Rule served: E3 ("Effect wraps what is fallible, asynchronous, resourceful or needs a dependency", a child process is all four) with E7 (services on one `Layer`, the
+spawner is a dependency, never a global) and E12 (`Effect.fn` / `Effect.gen`, `Schema.TaggedError` for the mapped failure, `Effect.catchTag`).
