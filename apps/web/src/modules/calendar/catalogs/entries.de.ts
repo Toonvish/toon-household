@@ -50,7 +50,7 @@ export const calendarEntriesDe = {
   "calendar.entries.car.driver": "Wer braucht das Auto?",
 
   "calendar.entries.conflict.title": "Das Auto ist schon gebucht",
-  "calendar.entries.conflict.line": "{name} hat {car} am {date}, {time}",
+  "calendar.entries.conflict.line": "{car} ist am {date}, {time} bei {name}.",
   "calendar.entries.conflict.force": "Trotzdem buchen",
 
   "calendar.entries.submit.create": "Anlegen",

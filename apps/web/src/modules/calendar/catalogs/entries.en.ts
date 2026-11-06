@@ -50,7 +50,7 @@ export const calendarEntriesEn: LocaleCatalog<CalendarEntriesCatalog> = {
   "calendar.entries.car.driver": "Who needs the car?",
 
   "calendar.entries.conflict.title": "The car is already booked",
-  "calendar.entries.conflict.line": "{name} has {car} on {date}, {time}",
+  "calendar.entries.conflict.line": "{car} is with {name} on {date}, {time}.",
   "calendar.entries.conflict.force": "Book anyway",
 
   "calendar.entries.submit.create": "Create",

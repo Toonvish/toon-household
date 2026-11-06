@@ -56,9 +56,19 @@ export function NewEntryLink({ date, kind }: { date?: string | undefined; kind?:
 }
 
 /** A back link above a title. */
-export function BackLink({ to, search, label }: { to: string; search?: Record<string, string | undefined>; label: string }) {
+export function BackLink({
+  to,
+  params,
+  search,
+  label,
+}: {
+  to: string;
+  params?: Record<string, string>;
+  search?: Record<string, string | undefined>;
+  label: string;
+}) {
   return (
-    <AppLink to={to} search={search} className="inline-flex min-h-11 items-center self-start text-sm font-semibold text-brand hover:underline">
+    <AppLink to={to} params={params} search={search} className="inline-flex min-h-11 items-center self-start text-sm font-semibold text-brand hover:underline">
       {label}
     </AppLink>
   );

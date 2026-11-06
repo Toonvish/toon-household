@@ -50,6 +50,15 @@ export function calendarBase(householdId: string, rest = ""): string {
   return `/api/households/${seg(householdId)}/calendar${rest}`;
 }
 
+/**
+ * `calendarBase` from path SEGMENTS (`calendarPath(h, "entries", seg(id))`): API sub-paths never appear as a
+ * literal starting with `/`, so the module's LINKS grep (every in-module route literal starts with `/calendar`)
+ * finds navigation targets only.
+ */
+function calendarPath(householdId: string, ...segments: string[]): string {
+  return calendarBase(householdId, `/${segments.join("/")}`);
+}
+
 /** The occurrence filters the screens send (the dates are separate arguments). */
 export type CalendarOccurrenceFilters = Partial<Pick<CalendarOccurrenceQuery, "memberId" | "kind">>;
 
@@ -69,7 +78,7 @@ export const CalendarApi = {
   ) =>
     getJson(
       CalendarOccurrenceListResponseSchema,
-      calendarBase(householdId, `/occurrences${queryString({ from, to, memberId: filters.memberId, kind: filters.kind })}`),
+      calendarPath(householdId, `occurrences${queryString({ from, to, memberId: filters.memberId, kind: filters.kind })}`),
       options,
     ),
 
@@ -83,7 +92,7 @@ export const CalendarApi = {
     sendJson(
       "PUT",
       CalendarOccurrenceSchema,
-      calendarBase(householdId, `/entries/${seg(entryId)}/occurrences/${seg(date)}`),
+      calendarPath(householdId, "entries", seg(entryId), "occurrences", seg(date)),
       body,
       options,
     ),
@@ -93,68 +102,68 @@ export const CalendarApi = {
   fetchEntries: (householdId: string, query: Partial<CalendarEntryListQuery> = {}, options?: RequestOptions) =>
     getJson(
       CalendarEntryListResponseSchema,
-      calendarBase(householdId, `/entries${queryString({ kind: query.kind, recurring: query.recurring })}`),
+      calendarPath(householdId, `entries${queryString({ kind: query.kind, recurring: query.recurring })}`),
       options,
     ),
 
   fetchEntry: (householdId: string, entryId: string, options?: RequestOptions) =>
-    getJson(CalendarEntrySchema, calendarBase(householdId, `/entries/${seg(entryId)}`), options),
+    getJson(CalendarEntrySchema, calendarPath(householdId, "entries", seg(entryId)), options),
 
   createEntry: (householdId: string, body: CreateCalendarEntryRequest, options?: RequestOptions) =>
-    sendJson("POST", CalendarEntrySchema, calendarBase(householdId, "/entries"), body, options),
+    sendJson("POST", CalendarEntrySchema, calendarPath(householdId, "entries"), body, options),
 
   updateEntry: (householdId: string, entryId: string, body: UpdateCalendarEntryRequest, options?: RequestOptions) =>
-    sendJson("PATCH", CalendarEntrySchema, calendarBase(householdId, `/entries/${seg(entryId)}`), body, options),
+    sendJson("PATCH", CalendarEntrySchema, calendarPath(householdId, "entries", seg(entryId)), body, options),
 
   deleteEntry: (householdId: string, entryId: string, options?: RequestOptions) =>
-    sendVoid("DELETE", calendarBase(householdId, `/entries/${seg(entryId)}`), undefined, options),
+    sendVoid("DELETE", calendarPath(householdId, "entries", seg(entryId)), undefined, options),
 
   /* resources (cars) */
 
   fetchResources: (householdId: string, includeArchived = false, options?: RequestOptions) =>
     getJson(
       CalendarResourceListResponseSchema,
-      calendarBase(householdId, `/resources${queryString({ includeArchived: includeArchived ? "true" : undefined })}`),
+      calendarPath(householdId, `resources${queryString({ includeArchived: includeArchived ? "true" : undefined })}`),
       options,
     ),
 
   createResource: (householdId: string, body: CreateCalendarResourceRequest, options?: RequestOptions) =>
-    sendJson("POST", CalendarResourceSchema, calendarBase(householdId, "/resources"), body, options),
+    sendJson("POST", CalendarResourceSchema, calendarPath(householdId, "resources"), body, options),
 
   updateResource: (
     householdId: string,
     resourceId: string,
     body: UpdateCalendarResourceRequest,
     options?: RequestOptions,
-  ) => sendJson("PATCH", CalendarResourceSchema, calendarBase(householdId, `/resources/${seg(resourceId)}`), body, options),
+  ) => sendJson("PATCH", CalendarResourceSchema, calendarPath(householdId, "resources", seg(resourceId)), body, options),
 
   deleteResource: (householdId: string, resourceId: string, options?: RequestOptions) =>
-    sendVoid("DELETE", calendarBase(householdId, `/resources/${seg(resourceId)}`), undefined, options),
+    sendVoid("DELETE", calendarPath(householdId, "resources", seg(resourceId)), undefined, options),
 
   /* waste */
 
   fetchWaste: (householdId: string, from: string, options?: RequestOptions) =>
-    getJson(CalendarWasteOverviewResponseSchema, calendarBase(householdId, `/waste${queryString({ from })}`), options),
+    getJson(CalendarWasteOverviewResponseSchema, calendarPath(householdId, `waste${queryString({ from })}`), options),
 
   putWasteSettings: (householdId: string, body: PutCalendarWasteSettingsRequest, options?: RequestOptions) =>
-    sendJson("PUT", CalendarWasteSettingsSchema, calendarBase(householdId, "/waste/settings"), body, options),
+    sendJson("PUT", CalendarWasteSettingsSchema, calendarPath(householdId, "waste", "settings"), body, options),
 
   previewWasteFromUrl: (householdId: string, body: CalendarWasteSourceRequest, options?: RequestOptions) =>
-    sendJson("POST", CalendarWastePreviewSchema, calendarBase(householdId, "/waste/preview"), body, options),
+    sendJson("POST", CalendarWastePreviewSchema, calendarPath(householdId, "waste", "preview"), body, options),
 
   previewWasteFromFile: (householdId: string, file: File, tour: number, options?: RequestOptions) =>
-    sendForm(CalendarWastePreviewSchema, calendarBase(householdId, "/waste/preview"), file, options, { tour: String(tour) }),
+    sendForm(CalendarWastePreviewSchema, calendarPath(householdId, "waste", "preview"), file, options, { tour: String(tour) }),
 
   importWasteFromUrl: (householdId: string, body: CalendarWasteSourceRequest, options?: RequestOptions) =>
-    sendJson("POST", CalendarWasteImportResponseSchema, calendarBase(householdId, "/waste/import"), body, options),
+    sendJson("POST", CalendarWasteImportResponseSchema, calendarPath(householdId, "waste", "import"), body, options),
 
   importWasteFromFile: (householdId: string, file: File, tour: number, options?: RequestOptions) =>
-    sendForm(CalendarWasteImportResponseSchema, calendarBase(householdId, "/waste/import"), file, options, {
+    sendForm(CalendarWasteImportResponseSchema, calendarPath(householdId, "waste", "import"), file, options, {
       tour: String(tour),
     }),
 
   deleteWasteImport: (householdId: string, importId: string, options?: RequestOptions) =>
-    sendVoid("DELETE", calendarBase(householdId, `/waste/imports/${seg(importId)}`), undefined, options),
+    sendVoid("DELETE", calendarPath(householdId, "waste", "imports", seg(importId)), undefined, options),
 };
 
 /* -------------------------------------------------------------------------- */
