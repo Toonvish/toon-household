@@ -52,7 +52,7 @@ export function TasksPage() {
             />
           )}
         </div>
-        {/* Design §4.4's order (Offen, Wiederkehrend, Müllabfuhr) also when the columns stack on a phone. */}
+        {/* Design §4.4's section order (open tasks, recurring series, waste pickups) also when the columns stack on a phone. */}
         <div className="flex min-w-0 flex-col gap-6">
           {series.isPending ? (
             <Skeleton lines={4} />
