@@ -43,7 +43,7 @@ const RUNTIME_CACHING = [
   },
   // Module rules, recipe (M2, SPEC D9): the union of both source apps' lists, in R's order, under
   // `/api/households/[^/]+/recipe/…` and `/api/recipe/cards`. Finance (M3) adds its own under
-  // `/api/households/[^/]+/finance/…`.
+  // `/api/households/[^/]+/finance/…`, the calendar (M8) under `/api/households/[^/]+/calendar/…`.
   // Every NetworkOnly rule must precede any NetworkFirst rule: the first match wins, so a
   // NetworkOnly rule placed after a NetworkFirst one would never be consulted.
   {
@@ -96,6 +96,16 @@ const RUNTIME_CACHING = [
      * rule below for the same reason rule 1 does.
      */
     urlPattern: /\/api\/households\/[^/]+\/finance\//,
+    handler: "NetworkOnly" as const,
+  },
+  {
+    /**
+     * CALENDAR (M8, ADR 0016, docs/modules/calendar.md §4.7): `/api/households/…/calendar/…` is never cached
+     * here either. Its offline copy is the persisted TanStack cache (the module's `persistQueryAllowList`); a
+     * `NetworkFirst` hit would hand TanStack a stale occurrence list that looks like a fresh success and undo an
+     * optimistic "done" tick. Before the NetworkFirst rule below, like every NetworkOnly rule (ADR 0011).
+     */
+    urlPattern: /\/api\/households\/[^/]+\/calendar\//,
     handler: "NetworkOnly" as const,
   },
   {

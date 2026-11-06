@@ -52,7 +52,7 @@ describe("financeModule — identity", () => {
   test("the registry lists it after recipe (imported AFTER the manifest — no TDZ either way)", async () => {
     const { WEB_MODULES } = await import("@/modules");
     expect(WEB_MODULES).toContain(financeModule);
-    expect(WEB_MODULES.map((module) => module.id)).toEqual(["recipe", "finance"]);
+    expect(WEB_MODULES.map((module) => module.id)).toEqual(["recipe", "finance", "calendar"]);
   });
 });
 

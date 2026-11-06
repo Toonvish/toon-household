@@ -92,8 +92,12 @@ export const HOUSEHOLDS_NAV_ITEM: NavItem = {
   exact: false,
 };
 
-/** At most this many modules get a tab outside a module (SPEC §5: Home · max two · Profil). */
-const MAX_MODULE_TABS = 2;
+/**
+ * At most this many modules get a tab outside a module (SPEC §5: Home · at most three · Profil). Three since ADR 0016
+ * (the calendar module, M8): with three modules the phone bar has five items, which fits 390 px; two would hide one
+ * enabled module from the bar of Home and Settings. A fourth module needs this decision again (six do not fit).
+ */
+export const MAX_MODULE_TABS = 3;
 
 export interface NavContext {
   /** The current location's pathname. */
@@ -125,7 +129,7 @@ export function activeModule(
  *
  *  - Inside a module: that module's own three `navItems` (passed through untouched, so a
  *    `trailing` slot survives) · Profil.
- *  - Outside (Home, Settings, Gruppen): Home · the enabled modules, at most two · Profil.
+ *  - Outside (Home, Settings, Gruppen): Home · the enabled modules, at most three (`MAX_MODULE_TABS`) · Profil.
  *
  * With no module enabled (all of M1) the result is `[HOME_NAV_ITEM, PROFILE_NAV_ITEM]`.
  */

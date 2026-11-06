@@ -12,11 +12,12 @@
  * No type annotation, ever — let inference keep the literal keys.
  *
  * `./recipe/catalogs/index.ts` spreads the module's six namespace files (`recipe.*`) and
- * `./finance/catalogs/index.ts` the finance ones (`finance.*`), each as one more spread of the
- * literal objects.
+ * `./finance/catalogs/index.ts` the finance ones (`finance.*`) and `./calendar/catalogs/index.ts` the calendar
+ * ones (`calendar.*`), each as one more spread of the literal objects.
  */
+import { calendarDe, calendarEn } from "./calendar/catalogs/index.ts";
 import { financeDe, financeEn } from "./finance/catalogs/index.ts";
 import { recipeDe, recipeEn } from "./recipe/catalogs/index.ts";
 
-export const MODULE_CATALOGS_DE = { ...recipeDe, ...financeDe } as const;
-export const MODULE_CATALOGS_EN = { ...recipeEn, ...financeEn } as const;
+export const MODULE_CATALOGS_DE = { ...recipeDe, ...financeDe, ...calendarDe } as const;
+export const MODULE_CATALOGS_EN = { ...recipeEn, ...financeEn, ...calendarEn } as const;

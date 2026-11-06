@@ -5,7 +5,7 @@ import { ToastProvider } from "@/components/ui/Toast";
 import { I18nProvider } from "@/lib/i18n";
 import { PERSIST_BUSTER, PERSIST_MAX_AGE_MS, createIndexedDbPersister } from "@/lib/persist";
 import { queryClient } from "@/lib/query-client";
-import { WEB_MODULES } from "@/modules";
+import { WEB_MODULES, type WebModule } from "@/modules";
 import { buildPersistPolicy } from "@/modules/persist";
 import { router } from "@/router";
 
@@ -14,9 +14,10 @@ import { router } from "@/router";
  * capture) registers its mutation defaults HERE, at module scope, before anything
  * renders. A restored mutation carries its variables but not its function, so those
  * defaults must exist before the persister restores and `resumePausedMutations()` runs.
- * (toon-recipe did this with a side-effect import of its shopping offline module.)
+ * (toon-recipe did this with a side-effect import of its shopping offline module.) Read through the wide
+ * `WebModule` type: a manifest without an outbox (calendar, M8) declares no `mutationDefaults` at all.
  */
-for (const module of WEB_MODULES) module.mutationDefaults?.(queryClient);
+for (const module of WEB_MODULES as readonly WebModule[]) module.mutationDefaults?.(queryClient);
 
 /**
  * What the persister may write: the union of every manifest's

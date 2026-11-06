@@ -9,6 +9,7 @@ import type { WebModule } from "@/modules/types";
 import {
   HOME_NAV_ITEM,
   HOUSEHOLDS_NAV_ITEM,
+  MAX_MODULE_TABS,
   PROFILE_NAV_ITEM,
   activeModule,
   primaryNavItems,
@@ -19,7 +20,7 @@ import {
 /** A stand-in for a module's layout route (`WebModule.route`); these rules never read it. */
 const fakeRoute = createRootRoute();
 
-function fakeModule(id: "recipe" | "finance", navItems: NavItem[], secondary: NavItem[] = []): WebModule {
+function fakeModule(id: "recipe" | "finance" | "calendar", navItems: NavItem[], secondary: NavItem[] = []): WebModule {
   return {
     id,
     nameKey: "home.title",
@@ -35,8 +36,8 @@ function fakeModule(id: "recipe" | "finance", navItems: NavItem[], secondary: Na
 }
 
 /**
- * A third, hypothetical module for the "at most two tabs" rule. `MODULE_IDS` has two ids
- * today, so the id is cast — `primaryNavItems` only compares `id` with the enabled ids.
+ * A hypothetical module beyond `MODULE_IDS` for the "at most three tabs" rule (ADR 0016), so the id is cast —
+ * `primaryNavItems` only compares `id` with the enabled ids.
  */
 function extraModule(id: string): WebModule {
   return { ...fakeModule("finance", []), id, basePath: `/${id}` } as unknown as WebModule;
@@ -49,7 +50,9 @@ const recipeTabs: NavItem[] = [
 ];
 const recipeSecondary: NavItem[] = [{ to: "/recipe/tags", labelKey: "common.nav.tags", icon: Tag, exact: false }];
 const financeTabs: NavItem[] = [{ to: "/finance", labelKey: "home.title", icon: Wallet, exact: true }];
+const calendarTabs: NavItem[] = [{ to: "/calendar", labelKey: "home.title", icon: CalendarDays, exact: true }];
 const modules = [fakeModule("recipe", recipeTabs, recipeSecondary), fakeModule("finance", financeTabs)];
+const threeModules = [...modules, fakeModule("calendar", calendarTabs)];
 
 const paths = (items: readonly NavItem[]) => items.map((item) => item.to);
 
@@ -95,13 +98,26 @@ describe("primaryNavItems", () => {
     expect(paths(items)).toEqual(["/", "/recipe", "/finance", "/settings"]);
   });
 
-  test("three enabled modules: only two module tabs, in registry order", () => {
+  test("MAX_MODULE_TABS is three (ADR 0016: Home · three modules · Profil fit 390 px)", () => {
+    expect(MAX_MODULE_TABS).toBe(3);
+  });
+
+  test("three enabled modules: three module tabs, in registry order", () => {
     const items = primaryNavItems({
       pathname: "/",
-      modules: [...modules, extraModule("garden")],
-      enabledModuleIds: ["garden", "finance", "recipe"],
+      modules: threeModules,
+      enabledModuleIds: ["calendar", "finance", "recipe"],
     });
-    expect(paths(items)).toEqual(["/", "/recipe", "/finance", "/settings"]);
+    expect(paths(items)).toEqual(["/", "/recipe", "/finance", "/calendar", "/settings"]);
+  });
+
+  test("four enabled modules: only three module tabs, in registry order", () => {
+    const items = primaryNavItems({
+      pathname: "/",
+      modules: [...threeModules, extraModule("garden")],
+      enabledModuleIds: ["garden", "calendar", "finance", "recipe"],
+    });
+    expect(paths(items)).toEqual(["/", "/recipe", "/finance", "/calendar", "/settings"]);
   });
 
   test("the module tab carries the module's name key and icon", () => {
