@@ -90,6 +90,8 @@ function expectNone(rule: string, hits: Line[]) {
 }
 
 // --- (a) theme.css: the palette is declared four times --------------------------------------------
+// The override set is 50 custom properties since M8 (the design pass's 39 plus the calendar's eleven, ADR 0016);
+// styles/calendar-tokens.test.ts pins the count and the eleven, this block keeps the four blocks in step.
 
 function cssBlocks(css: string): string[] {
   // Split into top-level blocks by brace depth (comments contain no braces).

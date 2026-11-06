@@ -17,6 +17,9 @@
  * accent/success/warning/ring and all three --elevation-*, and [data-theme="dark"] was
  * missing the elevations, which is why an explicitly-dark app on a light OS had no
  * card shadows. ADD EVERY NEW TOKEN TO ALL FOUR BLOCKS.
+ *
+ * The override set is 50 tokens: the 39 of the design pass plus the calendar's eleven (M8, ADR 0016:
+ * --waste-rest/-yellow/-bio/-paper/-tree, --person-1 … --person-6), pinned by styles/calendar-tokens.test.ts.
  */
 
 :root {
@@ -101,6 +104,19 @@
   --fg-body: var(--toon-sand-700);
   --fg-faint: #7f6f5b;
 
+  /* calendar (M8, ADR 0016): the flyer's waste colours, six person tones; each >= 3:1 on --surface */
+  --waste-rest: #76716a;
+  --waste-yellow: #a87c00;
+  --waste-bio: #8a5a2b;
+  --waste-paper: #2f6db5;
+  --waste-tree: #3f7d3a;
+  --person-1: #c2532c;
+  --person-2: #2a7d8c;
+  --person-3: #a9720f;
+  --person-4: #557a3b;
+  --person-5: #7a5ea8;
+  --person-6: #b0466c;
+
   --elevation-soft: 0 1px 2px rgb(41 31 24 / 6%), 0 1px 3px rgb(41 31 24 / 5%);
   --elevation-card: 0 1px 2px rgb(41 31 24 / 5%), 0 4px 14px -6px rgb(41 31 24 / 12%);
   --elevation-pop: 0 10px 30px -10px rgb(41 31 24 / 28%), 0 2px 8px rgb(41 31 24 / 10%);
@@ -149,6 +165,19 @@
     --fg-body: #e8dccd;
     --fg-faint: #8d7c67;
 
+    /* calendar (M8, ADR 0016): the flyer's waste colours, six person tones; each >= 3:1 on --surface */
+    --waste-rest: #a9a39b;
+    --waste-yellow: #e3c04a;
+    --waste-bio: #c58f5c;
+    --waste-paper: #6fa3e0;
+    --waste-tree: #7fb36a;
+    --person-1: #dc7051;
+    --person-2: #5fb3c2;
+    --person-3: #eab54f;
+    --person-4: #8cb36b;
+    --person-5: #a68bd4;
+    --person-6: #e07a9c;
+
     --elevation-soft: 0 1px 2px rgb(0 0 0 / 40%);
     --elevation-card: 0 1px 2px rgb(0 0 0 / 40%), 0 6px 18px -8px rgb(0 0 0 / 55%);
     --elevation-pop: 0 12px 34px -12px rgb(0 0 0 / 70%), 0 2px 10px rgb(0 0 0 / 45%);
@@ -195,6 +224,19 @@
   --fg-body: var(--toon-sand-700);
   --fg-faint: #7f6f5b;
 
+  /* calendar (M8, ADR 0016): the flyer's waste colours, six person tones; each >= 3:1 on --surface */
+  --waste-rest: #76716a;
+  --waste-yellow: #a87c00;
+  --waste-bio: #8a5a2b;
+  --waste-paper: #2f6db5;
+  --waste-tree: #3f7d3a;
+  --person-1: #c2532c;
+  --person-2: #2a7d8c;
+  --person-3: #a9720f;
+  --person-4: #557a3b;
+  --person-5: #7a5ea8;
+  --person-6: #b0466c;
+
   --elevation-soft: 0 1px 2px rgb(41 31 24 / 6%), 0 1px 3px rgb(41 31 24 / 5%);
   --elevation-card: 0 1px 2px rgb(41 31 24 / 5%), 0 4px 14px -6px rgb(41 31 24 / 12%);
   --elevation-pop: 0 10px 30px -10px rgb(41 31 24 / 28%), 0 2px 8px rgb(41 31 24 / 10%);
@@ -238,6 +280,19 @@
   --bg-sunken: #130f0c;
   --fg-body: #e8dccd;
   --fg-faint: #8d7c67;
+
+  /* calendar (M8, ADR 0016): the flyer's waste colours, six person tones; each >= 3:1 on --surface */
+  --waste-rest: #a9a39b;
+  --waste-yellow: #e3c04a;
+  --waste-bio: #c58f5c;
+  --waste-paper: #6fa3e0;
+  --waste-tree: #7fb36a;
+  --person-1: #dc7051;
+  --person-2: #5fb3c2;
+  --person-3: #eab54f;
+  --person-4: #8cb36b;
+  --person-5: #a68bd4;
+  --person-6: #e07a9c;
 
   --elevation-soft: 0 1px 2px rgb(0 0 0 / 40%);
   --elevation-card: 0 1px 2px rgb(0 0 0 / 40%), 0 6px 18px -8px rgb(0 0 0 / 55%);

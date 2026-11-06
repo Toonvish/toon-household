@@ -257,6 +257,9 @@ const ALLOW_LIST = [
   "apps/api/scripts/seed.ts",
   "apps/api/src/modules/recipe/seed.ts",
   "apps/api/src/modules/finance/seed.ts",
+  // M8 calendar (ADR 0016): demo content in German, and the flyer vocabulary (month and weekday names) the parser reads
+  "apps/api/src/modules/calendar/seed.ts",
+  "apps/api/src/modules/calendar/services/waste/hattingen.ts",
 ];
 
 const PORTED_ROOTS = [

@@ -54,6 +54,19 @@
   --color-fg-faint: var(--fg-faint);
   --color-accent-strong: var(--accent-strong);
 
+  /* calendar (M8, ADR 0016): bg-waste-*, bg-person-* for the 8 px dots and 3 px bars */
+  --color-waste-rest: var(--waste-rest);
+  --color-waste-yellow: var(--waste-yellow);
+  --color-waste-bio: var(--waste-bio);
+  --color-waste-paper: var(--waste-paper);
+  --color-waste-tree: var(--waste-tree);
+  --color-person-1: var(--person-1);
+  --color-person-2: var(--person-2);
+  --color-person-3: var(--person-3);
+  --color-person-4: var(--person-4);
+  --color-person-5: var(--person-5);
+  --color-person-6: var(--person-6);
+
   --shadow-soft: var(--elevation-soft);
   --shadow-card: var(--elevation-card);
   --shadow-pop: var(--elevation-pop);
