@@ -42,6 +42,7 @@ export const calendarWasteEn: LocaleCatalog<CalendarWasteCatalog> = {
   "calendar.waste.import.file": "PDF file",
   "calendar.waste.import.fileHint": "At most 10 MB.",
   "calendar.waste.import.fileMissing": "Choose a PDF file first.",
+  "calendar.waste.import.tourMissing": "Choose your street's district first.",
   "calendar.waste.import.preview": "Preview",
   "calendar.waste.import.previewTitle": "Waste calendar {year}, district {tour}",
   "calendar.waste.import.count": { one: "1 date", other: "{count} dates" },

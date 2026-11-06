@@ -3,7 +3,7 @@
  * order (plan m8 P10: date, all-day before timed, time, waste before other entries, title), and nothing here
  * re-sorts within a day.
  *
- * Waste pickups of one day render as ONE row (`Restmüll · Gelber Sack`) at the position of the day's first pickup.
+ * Waste pickups of one day render as ONE row (the labels joined by a middle dot) at the position of the day's first pickup.
  */
 import {
   WASTE_CATEGORIES,
@@ -95,7 +95,7 @@ export function tonightPickups(items: ReadonlyArray<CalendarOccurrence>, today: 
   return WASTE_CATEGORIES.filter((category) => categories.has(category));
 }
 
-/** Open task occurrences before today, at most `days` back (design §4.2 "Überfällig"); pickups are not chores to catch up on. */
+/** Open task occurrences before today, at most `days` back (design §4.2, the overdue section); pickups are not chores to catch up on. */
 export function overdueTasks(items: ReadonlyArray<CalendarOccurrence>, today: string, days = 7): CalendarOccurrence[] {
   const earliest = addCalendarDays(today, -days);
   return items.filter(

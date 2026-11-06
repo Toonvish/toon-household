@@ -1,6 +1,6 @@
 /**
  * Aufgaben (`/calendar/tasks`, design §4.4): Offen (a week back to a week ahead), Wiederkehrend (every task
- * series) and the Müllabfuhr card. Desktop: the open tasks on the left, the series and the waste card on the right.
+ * series) and the waste card. Desktop: the open tasks on the left, the series and the waste card on the right.
  */
 import { useQuery } from "@tanstack/react-query";
 import { addCalendarDays } from "@toon/shared";

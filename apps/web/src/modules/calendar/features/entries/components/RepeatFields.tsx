@@ -8,8 +8,8 @@ import { draftSeries, errorAt, previewFrom, type EntryFormState } from "../lib/f
 const FREQS = ["none", "daily", "weekly", "monthly", "yearly"] as const satisfies ReadonlyArray<CalendarRepeatFreq>;
 
 /**
- * Wiederholen (design §4.5): Nie · Täglich · Wöchentlich (weekday chips) · Monatlich · Jährlich, "alle [n]",
- * "bis [Datum]", and the live preview "Nächste: Fr 13.11., Mo 16.11., Do 19.11." from the shared recurrence.
+ * The repeat fields (design §4.5): never, daily, weekly (weekday chips), monthly, yearly; every n; until a date;
+ * and the live preview of the next three dates from the shared recurrence.
  */
 export function RepeatFields({
   state,

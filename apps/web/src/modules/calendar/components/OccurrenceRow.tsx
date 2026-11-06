@@ -14,7 +14,7 @@ import { WasteDot } from "./WasteDot";
 /**
  * One line of the agenda, the Today card, the month's day list and the open tasks (design §4.2): the time column,
  * a task's checkbox, the colour dots, the title (a link to the occurrence's detail) and below it who, which car,
- * where. A day's waste pickups arrive as ONE merged row (`Restmüll · Gelber Sack`, design §5.6) whose checkbox
+ * where. A day's waste pickups arrive as ONE merged row (two waste type labels joined by a middle dot, design §5.6) whose checkbox
  * ticks all of them. Colour is never the only signal: names and labels are always written.
  */
 export interface OccurrenceRowProps {

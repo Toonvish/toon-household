@@ -161,7 +161,7 @@ export function toUpdateBody(state: EntryFormState, imported: boolean): UpdateCa
   return rest;
 }
 
-/** The series a draft describes, for the "Nächste: …" preview (null while the draft is not a valid rhythm). */
+/** The series a draft describes, for the next-dates preview (null while the draft is not a valid rhythm). */
 export function draftSeries(state: EntryFormState) {
   if (state.freq === "none" || !isCalendarDate(state.startDate)) return null;
   const interval = intervalOf(state.interval);

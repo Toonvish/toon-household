@@ -1,6 +1,6 @@
 /**
  * A series' rhythm in words and its rotation (design §1.3, §4.4, §4.5). Pure, over the shared recurrence: the
- * preview line of the form ("Nächste: …") and the rotation's next person use the very `nextOccurrences` and
+ * preview line of the form (`calendar.entries.repeat.preview`) and the rotation's next person use the very `nextOccurrences` and
  * ordinals the API expands with, so the screen and the server never disagree.
  */
 import {
@@ -41,8 +41,8 @@ export function weeklyDays(repeat: Pick<CalendarRepeat, "weekdays">, startDate: 
 }
 
 /**
- * The rhythm in words: `einmalig`, `täglich`, `alle 3 Tage`, `jeden Mo, Do`, `alle 2 Wochen: Sa`,
- * `monatlich am 13.`, `jährlich am 13.11.`, plus `bis Fr 31.12.` when the series ends.
+ * The rhythm in words (`calendar.rhythm.*`): once, every n days, the weekdays of a weekly rhythm, the day of
+ * month or of the year, plus the end date when the series ends.
  */
 export function rhythmLabel(repeat: CalendarRepeat, startDate: string, today?: string): string {
   const count = repeat.interval;

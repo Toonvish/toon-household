@@ -45,6 +45,7 @@ export const calendarWasteDe = {
   "calendar.waste.import.file": "PDF-Datei",
   "calendar.waste.import.fileHint": "Höchstens 10 MB.",
   "calendar.waste.import.fileMissing": "Wähle zuerst eine PDF-Datei aus.",
+  "calendar.waste.import.tourMissing": "Wähle zuerst den Bezirk deiner Straße.",
   "calendar.waste.import.preview": "Vorschau",
   "calendar.waste.import.previewTitle": "Abfallkalender {year}, Bezirk {tour}",
   "calendar.waste.import.count": { one: "1 Termin", other: "{count} Termine" },

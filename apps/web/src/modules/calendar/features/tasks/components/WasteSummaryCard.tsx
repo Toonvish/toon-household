@@ -8,8 +8,9 @@ import { PickupList } from "@/modules/calendar/components/PickupList";
 import { wasteQuery } from "@/modules/calendar/lib/queries";
 
 /**
- * Aufgaben "Müllabfuhr" (design §4.4): the next pickup per waste type with its dot and date, the tour, and
- * "Ändern"; before the first setup a short explainer and "Einrichten". The phone's way to Müllabfuhr (design §4.1).
+ * The waste card of the tasks screen (design §4.4): the next pickup per waste type with its dot and date, the
+ * tour, and a change link; before the first setup a short explainer and a set-up link. The phone's way to the
+ * waste screen (design §4.1).
  */
 export function WasteSummaryCard({ householdId, today }: { householdId: string; today: string }) {
   const t = useT();

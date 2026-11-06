@@ -8,7 +8,7 @@ import { AssigneeFields, WhoFields } from "./WhoFields";
 
 /**
  * Neu / Bearbeiten (design §4.5): the segmented control Termin · Aufgabe · Auto (fixed on edit), Titel,
- * Ganztägig, Datum and Uhrzeit von/bis, Wiederholen, Wer, Ort, Notiz. An imported waste entry shows only its note
+ * all-day, date and times, repeat, who, location, note. An imported waste entry shows only its note
  * and who puts the bin out (plan m8 P8). The page owns the state, the submit and the navigation guard; `notice`
  * is the conflict answer above the submit bar.
  */

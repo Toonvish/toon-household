@@ -1,5 +1,5 @@
 /**
- * Übersicht (`/calendar`, design §4.2). Phone: the Today card, the member chips, the overdue tasks, then the next
+ * The overview (`/calendar`, design §4.2). Phone: the Today card, the member chips, the overdue tasks, then the next
  * 14 days by day (empty days skipped). Desktop: the agenda on the left (two thirds) and a rail with the Today card,
  * the cars and the next pickups.
  *

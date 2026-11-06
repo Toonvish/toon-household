@@ -112,7 +112,7 @@ export interface WhenLike {
 }
 
 /**
- * The time column of a row: `ganztägig`, `08:00`, `08:00–17:00`. A multi-day span names its dates
+ * The time column of a row: the all-day word, `08:00`, `08:00–17:00`. A multi-day span names its dates
  * (`Fr 13.11. bis So 15.11.`), with the times when it has them.
  */
 export function formatWhen(when: WhenLike, today?: string): string {
@@ -135,7 +135,7 @@ const WASTE_TYPE_KEYS = {
   waste_tree: "calendar.waste.type.waste_tree",
 } as const satisfies Record<CalendarWasteCategory, MessageKey>;
 
-/** `Restmüll`, `Biotonne + Reinigung` (design §5.6). */
+/** A waste type's catalog label, with the cleaning suffix for `bio_cleaning` (design §5.6). */
 export function wasteLabel(category: CalendarWasteCategory, detail: CalendarWasteDetail | null = null): string {
   const label = translate(WASTE_TYPE_KEYS[category]);
   return detail === "bio_cleaning" ? translate("calendar.waste.withCleaning", { label }) : label;
@@ -152,7 +152,7 @@ export function entryTitle(item: {
   return translate("calendar.common.untitled");
 }
 
-/** Several pickups of one day as ONE label: `Restmüll · Gelber Sack`. */
+/** Several pickups of one day as ONE label, joined by a middle dot. */
 export function wasteListLabel(
   pickups: ReadonlyArray<{ readonly category: CalendarWasteCategory; readonly detail?: CalendarWasteDetail | null }>,
 ): string {

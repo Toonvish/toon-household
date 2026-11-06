@@ -2,7 +2,7 @@
  * An occurrence's detail (`/calendar/entries/$entryId?date=`, design §4.1): the series with THIS occurrence's date,
  * people and state. `date` selects the occurrence; without one (or with a day the series does not have) the next
  * occurrence from today is shown, else the first. Actions: done / reopen (tasks), skip / unskip (any kind, plan m8
- * P12), Bearbeiten, Löschen (the whole series). An imported waste entry is changed under Müllabfuhr (P8): it keeps
+ * P12), edit, delete (the whole series). An imported waste entry is changed on the waste screen (P8): it keeps
  * its tick, its note and its assignee here.
  */
 import { useQuery } from "@tanstack/react-query";
