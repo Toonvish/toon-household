@@ -28,6 +28,7 @@ import { users } from "../src/db/schema.ts";
 import { httpApiRoutes } from "../src/http/app.ts";
 import { app } from "../src/index.ts";
 import { createHousehold, createUser } from "./support/finance-harness.ts";
+import { enableCalendar } from "./support/calendar-harness.ts";
 
 /** Module ids whose routes must all have a row (grows with each module section). */
 const REQUIRED_MODULE_SECTIONS: string[] = ["recipe", "finance", "calendar"];
@@ -114,7 +115,7 @@ describe("docs/API.md matches the served routes", () => {
 
 /**
  * The Auth column's `+verified` suffix is checked against behaviour, not against the source text:
- * an unconfirmed owner of a household with both modules enabled sends every served module write
+ * an unconfirmed owner of a household with every module enabled sends every served module write
  * (no body: the confirmed-address gate runs before any parsing) and the routes that answer
  * `403 email_unverified` must be exactly the rows whose Auth cell carries `+verified`.
  */
@@ -144,6 +145,8 @@ describe("docs/API.md marks +verified on exactly the module writes that gate on 
   test("the +verified rows are the writes that answer 403 email_unverified", async () => {
     const owner = await createUser("Unconfirmed");
     const householdId = await createHousehold(owner, "Doc gate");
+    // The calendar too (M8-T06 shared-fix): a disabled module answers 404 module_disabled before the gate.
+    await enableCalendar(owner, householdId);
     await db.update(users).set({ emailVerified: false, emailVerifiedAt: null }).where(eq(users.id, owner.id));
 
     const gated: string[] = [];
