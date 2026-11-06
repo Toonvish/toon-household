@@ -331,7 +331,9 @@ hour). An imported entry takes only `notes` and assignee changes; its delete is 
 **Rendering**: the label is the catalog's by category (`calendar.waste.type.waste_rest` = "Restmüll", … "Gelber Sack",
 "Biotonne", "Papiertonne", "Tannenbaum"), "+ Reinigung" for `bio_cleaning`; several pickups of one day are ONE agenda
 row with their dots; the evening before a pickup the Today card and the Home card show "Heute Abend rausstellen: …"
-(client side: tomorrow's pickups).
+(client side: tomorrow's pickups). The preview's warnings are grouped by code and named in words
+(`wasteWarningGroups` in `apps/web/src/modules/calendar/features/waste/lib/errors.ts`): the 2027 flyer's seven
+`hiddenCopyDiffers` are one sentence with their dates.
 
 ## 2. Source decisions
 
@@ -406,7 +408,17 @@ section 10 has the full list):
   5.1) finds navigation targets only. `sendForm` of `apps/web/src/lib/api.ts` takes an optional fifth argument
   `fields` (extra text parts after the file): the waste upload sends `tour` there.
 - **Three module tabs fill the phone bar.** `MAX_MODULE_TABS` is 3 (ADR 0016): Start · Rezepte · Finanzen · Kalender ·
-  Profil is five items at 390 px. A fourth module needs a new decision about the tab bar.
+  Profil is five items at 390 px. A fourth module needs a new decision about the tab bar. The sidebar's segmented module
+  switcher wraps to two columns from four items (`switcherColumns` in
+  `apps/web/src/components/layout/module-switcher-items.ts`, M8-T19): in one row the 236 px sidebar truncated every label.
+- **A phone header action has a short label.** The phone header row holds the household chip, the module chip and ONE
+  action; a long label ("Abfallkalender importieren") squeezed the chips at 390 px. The Müllabfuhr action reads
+  "Importieren" with the full label as its accessible name; `apps/web/src/modules/calendar/phone-header.test.ts` pins the
+  header action labels at 12 characters or fewer.
+- **A member who leaves keeps nobody on their waste days.** The hook (P14) drops the leaver's assignee rows and degrades
+  the rule, but it does not re-deal the leaver's FUTURE pickup days to the others (it has no "today"): those entries stay
+  unassigned until someone saves the Müllabfuhr settings again (`PUT …/waste/settings` re-deals from the client's today).
+  `docs/open-work.md` O-12.
 
 ## 5. Verification
 
@@ -446,7 +458,7 @@ Run them all with `bun test calendar` (a path filter).
 
 - The headless pass of M8-T19 (plan m8 section 9): every screen at 390 and 1440 without horizontal overflow, the tab bar
   outside a module, the done toggle, the car conflict notice and "Trotzdem buchen", the waste upload of the fixture with
-  tour 4, the CSP at a second origin; screenshots under docs/plans/screenshots/m8.
+  tour 4, the CSP at a second origin; screenshots under `docs/plans/screenshots/m8/`.
 - A new flyer year: run a preview of the new PDF before telling users; a refusal names its check.
 
 ## 6. Out of scope (deferred)

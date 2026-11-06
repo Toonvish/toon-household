@@ -1064,7 +1064,7 @@ grid."; "Hidden copies may be older drafts."; "A weekday item can carry the holi
 alone."; "Route tests reach the flyer fetch through a seam."; "The server never decides today."; "`resource_id` is NO ACTION,
 the refusal is the service's."; "A car booking can lose its person."; "The calendar must be enabled before its routes
 answer."; "Imported waste entries are read-mostly"; "API sub-paths are built from segments on the web."; "Three module tabs
-fill the phone bar."
+fill the phone bar."; "A phone header action has a short label."; "A member who leaves keeps nobody on their waste days."
 
 ### Retired gotchas
 
@@ -1108,5 +1108,5 @@ What is deliberately not done lives in `docs/open-work.md`: owner actions (A1 to
 "Haushalt", the pinned design exceptions, finance print styles, a per-household PWA name or icon, `@effect/sql-libsql`,
 `@effect/atom-react`), items deferred by design (X-1 to X-14: the N-person ledger, D3; the member-leaves veto beyond finance; the
 declared HttpApi schemas, a typed `HttpApiClient`, the request log format; the calendar's per-occurrence edits, reminders, ICS feed,
-offline writes, other waste providers, sharing outside the household and the next year's flyer) and recorded observations (O-1 to O-11). New open items
+offline writes, other waste providers, sharing outside the household and the next year's flyer) and recorded observations (O-1 to O-12). New open items
 go there, not here.
