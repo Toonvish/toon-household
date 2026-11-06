@@ -306,4 +306,61 @@ export const serverEn: LocaleCatalog<ServerCatalog> = {
   /* M3b: placeholder rules (ADR 0006) */
   "server.household.placeholderRole": "A person without an account cannot get another role.",
   "server.finance.placeholderSlotOne": "A person without an account can only take seat 2.",
+  /* ---------- calendar module (M8, ADR 0016) ---------- */
+  /* calendar: errors */
+  "server.calendar.carConflict": "The car is already booked at that time.",
+  "server.calendar.resourceInUse": "This car still has bookings. Archive it instead.",
+  "server.calendar.entryImported":
+    "This entry comes from the waste schedule. Only its note and assignees can change; remove the whole import instead.",
+  "server.calendar.notATask": "Only tasks can be marked done.",
+  "server.calendar.rangeTooLarge": "The range may span at most 400 days.",
+  "server.calendar.tooManyOccurrences": "An entry repeats more than 2000 times in this range. Choose a shorter range.",
+  "server.calendar.wasteSourceRefused": "The waste schedule can only be loaded over https from the city's website.",
+  "server.calendar.wasteFetchFailed": "The waste schedule could not be loaded from the city's website. Upload the PDF file instead.",
+  "server.calendar.wasteUnparseable": "This PDF file cannot be read as a waste schedule.",
+  "server.calendar.wasteFileRequired": "Please choose a PDF file or enter a link.",
+  "server.calendar.wasteNotPdf": "This is not a PDF file.",
+  "server.calendar.wasteTooLarge": "The file is too large (at most 10 MB).",
+  /* calendar: parser checks (the `details[].check` of `calendar_waste_unparseable`) */
+  "server.calendar.wasteCheck.notPdf": "The file is not a PDF file.",
+  "server.calendar.wasteCheck.encrypted": "The PDF file is protected by a password.",
+  "server.calendar.wasteCheck.pages": "The PDF file has too many pages for a waste schedule.",
+  "server.calendar.wasteCheck.timeout": "Reading the PDF file took too long.",
+  "server.calendar.wasteCheck.year": "The year of the waste schedule cannot be determined.",
+  "server.calendar.wasteCheck.months": "At least one month is missing from the waste schedule.",
+  "server.calendar.wasteCheck.consensus": "The waste schedule contains conflicting values for a day.",
+  "server.calendar.wasteCheck.values": "The waste schedule contains a tour outside 1 to 9.",
+  "server.calendar.wasteCheck.tourCount": "At least one tour has too few collection dates.",
+  "server.calendar.wasteCheck.sundays": "The waste schedule lists collections on Sundays or holidays.",
+  "server.calendar.wasteCheck.noTourDates": "The waste schedule has no dates for this tour.",
+  /* calendar: validation (P6, P13, P15) */
+  "server.calendar.invalidDate": "Please enter a valid date in the format YYYY-MM-DD.",
+  "server.calendar.invalidTime": "Please enter a time in the format HH:MM.",
+  "server.calendar.rangeOrder": "The end must not be before the start.",
+  "server.calendar.endBeforeStart": "The end must be after the start.",
+  "server.calendar.timeRequired": "Please enter a time.",
+  "server.calendar.allDayNoTime": "An all-day entry has no time.",
+  "server.calendar.taskSingleDay": "A task starts and ends on the same day.",
+  "server.calendar.untilBeforeStart": "The repetition must not end before the first date.",
+  "server.calendar.weekdaysOnlyWeekly": "Weekdays apply only to a weekly repetition.",
+  "server.calendar.duplicateIds": "Each person may appear only once.",
+  "server.calendar.memberNotInHousehold": "This person is not a member of the household.",
+  "server.calendar.attendeesNotOnTasks": "A task has assignees, not attendees.",
+  "server.calendar.assigneesOnlyTasks": "Only tasks have assignees.",
+  "server.calendar.fixedNeedsOne": "Choose exactly one assignee.",
+  "server.calendar.rotateNeedsTwo": "Taking turns needs at least two people.",
+  "server.calendar.assigneesForNone": "Without an assignee rule, choose no people.",
+  "server.calendar.carNeedsResource": "Choose a car.",
+  "server.calendar.carNeedsOnePerson": "Choose the person who needs the car.",
+  "server.calendar.resourceOnlyCars": "Only a car booking has a car.",
+  "server.calendar.resourceArchived": "This car is archived.",
+
+  /* calendar: api-core additions (M8) */
+
+  /* ------------------------------------------------------------------------- */
+  /* Lane boundary (plan m8 P21): api-core adds keys under its anchor above,   */
+  /* api-waste under its anchor below; neither edits the other's region.       */
+  /* ------------------------------------------------------------------------- */
+
+  /* calendar: api-waste additions (M8) */
 };

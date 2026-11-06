@@ -129,6 +129,23 @@ const NEW_GERMAN = new Set<string>([
   "household.claim.linkHint",
 ]);
 
+/**
+ * Whole namespaces of NEW German (ADR 0016): a module without a source repository has no string to stay
+ * byte-identical to, so its keys are admitted by prefix, one entry per namespace with its reason. The per-key
+ * `NEW_GERMAN` list stays for new German inside the ported modules and the core; the leftover-German scan
+ * (check 2) still runs over the module's source.
+ */
+const NEW_GERMAN_NAMESPACES = new Map<string, string>([
+  ["calendar.", "M8 calendar module, no source repository (ADR 0016)"],
+  ["server.calendar.", "M8 calendar module's server messages, no source repository (ADR 0016)"],
+]);
+
+function isNewGermanKey(key: string): boolean {
+  if (NEW_GERMAN.has(key)) return true;
+  for (const prefix of NEW_GERMAN_NAMESPACES.keys()) if (key.startsWith(prefix)) return true;
+  return false;
+}
+
 /** Immediate subdirectories of `rel` (relative to ROOT); empty when `rel` does not exist. */
 function subdirs(rel: string): string[] {
   const dir = join(ROOT, rel);
@@ -197,7 +214,7 @@ function checkGermanParity(base: string): string[] {
     const source = readFileSync(file, "utf8");
     const rel = relative(ROOT, file);
     for (const [key, rawValues] of extractCatalogValues(source)) {
-      if (NEW_GERMAN.has(key)) continue;
+      if (isNewGermanKey(key)) continue;
       for (const value of rawValues) {
         for (const fragment of fragmentsOf(value)) {
           if (!exists(fragment)) {

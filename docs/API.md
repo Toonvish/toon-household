@@ -95,7 +95,7 @@ means that module's routes (the module section lists which).
 | Code | Status | Raised by | Meaning |
 | --- | --- | --- | --- |
 | `bad_request` | 400 | core, recipe | Malformed or non-JSON body, a route without a usable id, or a framework error mapped to 400. |
-| `validation_failed` | 422 | core, recipe, finance | The shared schema refused the body or query; `details` lists the issues. |
+| `validation_failed` | 422 | core, recipe, finance, calendar | The shared schema refused the body or query; `details` lists the issues. |
 | `unauthorized` | 401 | core | No session cookie, or it is expired, revoked or unknown (the stale cookie is cleared). |
 | `invalid_credentials` | 401 | core | Wrong e-mail or password at login, a wrong or missing `currentPassword` at `POST /api/auth/password`. The answer and its timing are identical for an unknown address. |
 | `forbidden` | 403 | core, recipe, finance | The role is too low, the caller is not a member, or the origin guard refused a foreign-origin write (message `server.error.originMismatch`). |
@@ -147,6 +147,14 @@ means that module's routes (the module section lists which).
 | `finance_participants_required` | 422 | finance | The two finance participants must be two different household members in slots 1 and 2. This is also what enabling finance answers without them. |
 | `finance_participant_in_use` | 409 | finance | A participant who leaves the budget cannot be replaced while the household has any transaction row or an income naming them (ADR 0004). |
 | `member_has_ledger` | 409 | finance | A seated participant cannot leave or be removed from the household while the ledger has rows (ADR 0004). Raised through the member-removal veto, so it surfaces on a core route. |
+| `calendar_car_conflict` | 409 | calendar | The car is booked by someone else in an overlapping time (plan m8 P11). `details` lists up to 10 `CalendarCarConflict` items (`entryId`, `date`, `startTime`, `endTime`, `title`, `memberIds`); the same request with `allowConflict: true` saves anyway. |
+| `calendar_resource_in_use` | 409 | calendar | A car that any booking references cannot be deleted; archive it with `PATCH { archived: true }` instead (P13). |
+| `calendar_entry_imported` | 409 | calendar | An entry of a waste import is changed through its import: a PATCH may change only `notes`, `assigneeMode` and `assigneeIds`, a DELETE is refused (delete the import, P8). |
+| `calendar_not_a_task` | 409 | calendar | `status: "done"` on an occurrence of an event or a car booking; only tasks are done (P12). |
+| `calendar_range_too_large` | 422 | calendar | The read range spans more than 400 days inclusive, or one entry expands to more than 2000 occurrences in it (P4). `details: [{ path: "to", code: "custom", message, i18n }]`; nothing is truncated silently. |
+| `calendar_waste_source_refused` | 400 | calendar | The flyer URL is not `https`, or its host, or a redirect hop's, is not one of the provider's hosts (P17). Nothing is requested from a refused host. |
+| `calendar_waste_fetch_failed` | 502 | calendar | Fetching the flyer failed (P17): `details: [{ reason }]` with `reason` one of `network`, `status`, `redirects`, `timeout`, `tooLarge`. Uploading the PDF is the alternative. |
+| `calendar_waste_unparseable` | 422 | calendar | The PDF is not a flyer the parser understands (P18, P19): `details: [{ check, … }]` names the failed check (`notPdf`, `encrypted`, `pages`, `timeout`, `year`, `months`, `consensus`, `values`, `tourCount`, `sundays`, `noTourDates`). |
 
 Notes on the codes the core answers in more than one shape:
 

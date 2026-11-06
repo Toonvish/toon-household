@@ -6,7 +6,7 @@
  * package entry only: it imports no zod, so it keeps running after zod is gone.
  */
 import { describe, expect, test } from "bun:test";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as sharedModule from "../src/index.ts";
 
@@ -71,10 +71,31 @@ for (const entry of allCases) {
   casesBySchema.set(entry.schema, list);
 }
 
+/**
+ * The calendar module's schemas (plan m8 P22): they never had a Zod form, so the golden corpus (made once from
+ * Zod 4.5.4, ADR 0013) cannot cover them. Their names are read from the calendar SOURCE files, and each must have an
+ * ok and a not-ok case in `calendar-schemas.test.ts` instead (asserted below): a stricter guard, not a relaxed one.
+ */
+const CALENDAR_DIR = join(import.meta.dir, "../src/modules/calendar");
+const CALENDAR_SCHEMA_TEST = join(import.meta.dir, "calendar-schemas.test.ts");
+function calendarSourceFiles(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+    entry.isDirectory() ? calendarSourceFiles(join(dir, entry.name)) : entry.name.endsWith(".ts") ? [join(dir, entry.name)] : [],
+  );
+}
+const calendarSchemaNames = new Set(
+  calendarSourceFiles(CALENDAR_DIR).flatMap((file) =>
+    [...readFileSync(file, "utf8").matchAll(/^export const (\w+Schema)\b/gm)].map((match) => match[1]!),
+  ),
+);
+
 /** Every export whose name ends in `Schema` and whose value is an object (a zod schema) or a function (an Effect schema). */
-const schemaExports = Object.keys(shared)
+const allSchemaExports = Object.keys(shared)
   .filter((name) => name.endsWith("Schema") && (typeof shared[name] === "object" || typeof shared[name] === "function") && shared[name] !== null)
   .sort();
+/** The E1 schemas the golden corpus covers: every exported `*Schema` not declared under `src/modules/calendar/`. */
+const schemaExports = allSchemaExports.filter((name) => !calendarSchemaNames.has(name));
+const excludedSchemaExports = allSchemaExports.filter((name) => calendarSchemaNames.has(name));
 
 const NUMBER_LEAVES = ["CentsSchema", "PositiveCentsSchema", "ConfidenceSchema", "MemberSlotSchema"] as const;
 const OTHER_LEAVES = [
@@ -225,6 +246,15 @@ describe("the golden files", () => {
 describe("coverage of the exported schemas", () => {
   test("there are 217 exported schemas, in 17 source files", () => {
     expect(schemaExports).toHaveLength(217);
+  });
+
+  test("the excluded schemas are exactly the calendar module's, each with cases in calendar-schemas.test.ts (P22)", () => {
+    expect(excludedSchemaExports.length).toBeGreaterThan(30);
+    expect(excludedSchemaExports).toEqual([...calendarSchemaNames].sort());
+    const calendarTest = readFileSync(CALENDAR_SCHEMA_TEST, "utf8");
+    for (const name of excludedSchemaExports) {
+      expect(calendarTest.includes(`  ${name}: {`), `${name} has no CASES row in calendar-schemas.test.ts`).toBe(true);
+    }
   });
 
   test("every exported *Schema appears as `schema` in some case", () => {

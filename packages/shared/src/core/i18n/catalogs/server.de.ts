@@ -326,6 +326,64 @@ export const serverDe = {
   /* M3b: placeholder rules (ADR 0006), new German (NEW_GERMAN in scripts/i18n-check.ts) */
   "server.household.placeholderRole": "Eine Person ohne Konto kann keine andere Rolle bekommen.",
   "server.finance.placeholderSlotOne": "Eine Person ohne Konto kann nur Platz 2 belegen.",
+  /* ---------- calendar module (M8, ADR 0016): new German, NEW_GERMAN_NAMESPACES ---------- */
+  /* calendar: errors */
+  "server.calendar.carConflict": "Das Auto ist zu dieser Zeit schon gebucht.",
+  "server.calendar.resourceInUse": "An diesem Auto hängen noch Buchungen. Archiviere es stattdessen.",
+  "server.calendar.entryImported":
+    "Dieser Eintrag stammt aus dem Müllkalender. Ändern lassen sich nur Notiz und Zuständige; entfernen kannst du den ganzen Import.",
+  "server.calendar.notATask": "Nur Aufgaben lassen sich abhaken.",
+  "server.calendar.rangeTooLarge": "Der Zeitraum darf höchstens 400 Tage umfassen.",
+  "server.calendar.tooManyOccurrences": "Ein Eintrag wiederholt sich in diesem Zeitraum mehr als 2000-mal. Wähle einen kürzeren Zeitraum.",
+  "server.calendar.wasteSourceRefused": "Der Abfallkalender kann nur per https von der Website der Stadt geladen werden.",
+  "server.calendar.wasteFetchFailed":
+    "Der Abfallkalender konnte nicht von der Website der Stadt geladen werden. Lade die PDF-Datei stattdessen hoch.",
+  "server.calendar.wasteUnparseable": "Diese PDF-Datei können wir nicht als Abfallkalender lesen.",
+  "server.calendar.wasteFileRequired": "Bitte wähle eine PDF-Datei oder gib einen Link an.",
+  "server.calendar.wasteNotPdf": "Das ist keine PDF-Datei.",
+  "server.calendar.wasteTooLarge": "Die Datei ist zu groß (höchstens 10 MB).",
+  /* calendar: parser checks (the `details[].check` of `calendar_waste_unparseable`) */
+  "server.calendar.wasteCheck.notPdf": "Die Datei ist keine PDF-Datei.",
+  "server.calendar.wasteCheck.encrypted": "Die PDF-Datei ist mit einem Passwort geschützt.",
+  "server.calendar.wasteCheck.pages": "Die PDF-Datei hat zu viele Seiten für einen Abfallkalender.",
+  "server.calendar.wasteCheck.timeout": "Das Lesen der PDF-Datei hat zu lange gedauert.",
+  "server.calendar.wasteCheck.year": "Das Jahr des Abfallkalenders ist nicht eindeutig zu erkennen.",
+  "server.calendar.wasteCheck.months": "Im Abfallkalender fehlt mindestens ein Monat.",
+  "server.calendar.wasteCheck.consensus": "Der Abfallkalender enthält widersprüchliche Angaben für einen Tag.",
+  "server.calendar.wasteCheck.values": "Der Abfallkalender enthält eine Tour außerhalb von 1 bis 9.",
+  "server.calendar.wasteCheck.tourCount": "Für mindestens eine Tour sind zu wenige Abfuhrtermine eingetragen.",
+  "server.calendar.wasteCheck.sundays": "Der Abfallkalender enthält Abfuhrtermine an Sonn- oder Feiertagen.",
+  "server.calendar.wasteCheck.noTourDates": "Für diese Tour enthält der Abfallkalender keine Termine.",
+  /* calendar: validation (P6, P13, P15) */
+  "server.calendar.invalidDate": "Bitte gib ein gültiges Datum im Format JJJJ-MM-TT an.",
+  "server.calendar.invalidTime": "Bitte gib eine Uhrzeit im Format HH:MM an.",
+  "server.calendar.rangeOrder": "Das Ende darf nicht vor dem Beginn liegen.",
+  "server.calendar.endBeforeStart": "Das Ende muss nach dem Beginn liegen.",
+  "server.calendar.timeRequired": "Bitte gib eine Uhrzeit an.",
+  "server.calendar.allDayNoTime": "Ein ganztägiger Eintrag hat keine Uhrzeit.",
+  "server.calendar.taskSingleDay": "Eine Aufgabe beginnt und endet am selben Tag.",
+  "server.calendar.untilBeforeStart": "Das Ende der Wiederholung darf nicht vor dem ersten Termin liegen.",
+  "server.calendar.weekdaysOnlyWeekly": "Wochentage gibt es nur bei einer wöchentlichen Wiederholung.",
+  "server.calendar.duplicateIds": "Jede Person darf nur einmal vorkommen.",
+  "server.calendar.memberNotInHousehold": "Diese Person ist kein Mitglied des Haushalts.",
+  "server.calendar.attendeesNotOnTasks": "Eine Aufgabe hat Zuständige, keine Teilnehmenden.",
+  "server.calendar.assigneesOnlyTasks": "Zuständige gibt es nur bei Aufgaben.",
+  "server.calendar.fixedNeedsOne": "Wähle genau eine zuständige Person.",
+  "server.calendar.rotateNeedsTwo": "Zum Abwechseln braucht es mindestens zwei Personen.",
+  "server.calendar.assigneesForNone": "Ohne Zuständigkeit wählst du keine Personen aus.",
+  "server.calendar.carNeedsResource": "Wähle ein Auto.",
+  "server.calendar.carNeedsOnePerson": "Wähle die Person, die das Auto braucht.",
+  "server.calendar.resourceOnlyCars": "Nur eine Autobuchung hat ein Auto.",
+  "server.calendar.resourceArchived": "Dieses Auto ist archiviert.",
+
+  /* calendar: api-core additions (M8) */
+
+  /* ------------------------------------------------------------------------- */
+  /* Lane boundary (plan m8 P21): api-core adds keys under its anchor above,   */
+  /* api-waste under its anchor below; neither edits the other's region.       */
+  /* ------------------------------------------------------------------------- */
+
+  /* calendar: api-waste additions (M8) */
 } as const satisfies NamespaceCatalog<"server">;
 
 export type ServerCatalog = typeof serverDe;

@@ -151,6 +151,22 @@ export const ERROR_CODES = [
   "finance_participant_in_use",
   /** Finance (toon-finance, SPEC D13): a seated participant with ledger entries cannot leave the household. */
   "member_has_ledger",
+  /** Calendar (M8, P11): the car is booked by someone else then; `details` lists up to 10 `CalendarCarConflict`s. 409. */
+  "calendar_car_conflict",
+  /** Calendar (P13): bookings still reference the car; archive it instead. 409. */
+  "calendar_resource_in_use",
+  /** Calendar (P8): an imported waste entry is changed through its import (only notes and assignees may change). 409. */
+  "calendar_entry_imported",
+  /** Calendar (P12): only a task occurrence can be marked done. 409. */
+  "calendar_not_a_task",
+  /** Calendar (P4): the read range exceeds 400 days, or an entry expands to more than 2000 occurrences. 422, path `to`. */
+  "calendar_range_too_large",
+  /** Calendar (P17): the flyer URL is not https or its host (or a redirect hop's) is not the provider's. 400. */
+  "calendar_waste_source_refused",
+  /** Calendar (P17): fetching the flyer failed; `details: [{ reason }]` (network, status, redirects, timeout, tooLarge). 502. */
+  "calendar_waste_fetch_failed",
+  /** Calendar (P18, P19): the PDF is not a flyer the parser understands; `details: [{ check, … }]` names the failed check. 422. */
+  "calendar_waste_unparseable",
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
 

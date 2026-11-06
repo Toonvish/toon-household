@@ -14,7 +14,7 @@ import { parse, safeParse } from "./support/schema.ts";
 
 describe("module registry", () => {
   test("MODULE_IDS lists the modules in display order", () => {
-    expect([...MODULE_IDS]).toEqual(["recipe", "finance"]);
+    expect([...MODULE_IDS]).toEqual(["recipe", "finance", "calendar"]);
   });
 
   test("isModuleId accepts known ids and rejects others", () => {
