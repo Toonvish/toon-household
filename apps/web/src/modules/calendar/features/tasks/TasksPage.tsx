@@ -52,8 +52,8 @@ export function TasksPage() {
             />
           )}
         </div>
+        {/* Design §4.4's order (Offen, Wiederkehrend, Müllabfuhr) also when the columns stack on a phone. */}
         <div className="flex min-w-0 flex-col gap-6">
-          <WasteSummaryCard householdId={householdId} today={today} />
           {series.isPending ? (
             <Skeleton lines={4} />
           ) : series.isError ? (
@@ -61,6 +61,7 @@ export function TasksPage() {
           ) : (
             <TaskSeries entries={series.data.items} members={seriesMembers} today={today} />
           )}
+          <WasteSummaryCard householdId={householdId} today={today} />
         </div>
       </div>
     </div>
