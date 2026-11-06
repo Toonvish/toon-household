@@ -101,6 +101,7 @@ export function OccurrenceDetailPage() {
     });
   }
 
+  // Below `lg` the icon alone: "Bearbeiten" beside the two chips cut the household name to "Fa…" at 390 (M8 UI check).
   const editLink = (
     <AppLink
       to="/calendar/entries/$entryId/edit"
@@ -108,7 +109,7 @@ export function OccurrenceDetailPage() {
       className={buttonClasses({ variant: "secondary", size: "sm" })}
     >
       <Pencil aria-hidden="true" className="size-4" />
-      {t("calendar.common.edit")}
+      <span className="max-lg:sr-only">{t("calendar.common.edit")}</span>
     </AppLink>
   );
 

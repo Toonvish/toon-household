@@ -34,7 +34,8 @@ export function WastePage() {
 
   const action = (
     // The phone header row holds the household chip, the module chip and this ONE action: a short label, the full
-    // one as the accessible name (a long label squeezed the household chip at 390, M8-T19).
+    // one as the accessible name (a long label squeezed the household chip at 390, M8-T19), and below `lg` the icon
+    // alone (even "Importieren" cut "Familie" to its initial at 390, M8 UI check).
     <Button
       size="sm"
       leftIcon={<Upload className="size-4" />}
@@ -43,7 +44,7 @@ export function WastePage() {
       aria-label={t("calendar.waste.import.open")}
       onClick={() => setImportOpen(true)}
     >
-      {t("calendar.waste.import.action")}
+      <span className="max-lg:sr-only">{t("calendar.waste.import.action")}</span>
     </Button>
   );
 

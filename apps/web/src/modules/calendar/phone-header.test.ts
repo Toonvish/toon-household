@@ -65,3 +65,14 @@ describe("calendar header actions fit the phone header row (M8-T19)", () => {
     expect(read("features/waste/WastePage.tsx")).toContain('t("calendar.waste.import.action")');
   });
 });
+
+describe("long header actions show their icon alone on phones (M8 UI check)", () => {
+  // "Bearbeiten" and "Importieren" beside the household and module chips cut "Familie" to "Fa…" / "F…" at 390;
+  // below `lg` their label is screen-reader text only (it stays the accessible name), from `lg` it shows.
+  test.each([
+    ["features/entries/OccurrenceDetailPage.tsx", 'calendar.common.edit'],
+    ["features/waste/WastePage.tsx", 'calendar.waste.import.action'],
+  ])("%s wraps %s in max-lg:sr-only", (file, key) => {
+    expect(read(file)).toContain(`<span className="max-lg:sr-only">{t("${key}")}</span>`);
+  });
+});
