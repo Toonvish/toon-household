@@ -25,6 +25,7 @@ import {
   type ShoppingCatalogPageQuery,
 } from "./api";
 import { runPromise } from "@/lib/runtime";
+import { startOfLocalDayIso } from "@/modules/recipe/lib/bought-today";
 
 export * from "@/lib/queries";
 
@@ -189,7 +190,9 @@ export const cardsQuery = () =>
 export const shoppingListsQuery = (householdId: string) =>
   queryOptions({
     queryKey: queryKeys.shoppingLists(householdId),
-    queryFn: ({ signal }) => runPromise(RecipeApi.fetchShoppingLists(householdId), { signal }),
+    // `since` = local midnight, so `boughtCount` is "heute gekauft" (docs/API.md `?since`).
+    queryFn: ({ signal }) =>
+      runPromise(RecipeApi.fetchShoppingLists(householdId, { since: startOfLocalDayIso() }), { signal }),
     staleTime: STALE_TIME.list,
   });
 

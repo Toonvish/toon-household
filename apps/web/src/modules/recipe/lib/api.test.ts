@@ -20,6 +20,7 @@ import {
   fetchShoppingBoughtHistory,
   fetchShoppingCatalogPage,
   fetchShoppingList,
+  fetchShoppingLists,
   fetchTags,
   importFromText,
   RecipeApi,
@@ -122,6 +123,13 @@ describe("one path per resource family (byte for byte)", () => {
     await importFromText(H, { text: "Suppe" } as never);
     expect(pathOf()).toBe(`/api/households/${H}/recipe/imports/text`);
     expect(calls[0]?.method).toBe("POST");
+  });
+
+  test("shopping: the list index sends `since` only when given", async () => {
+    await fetchShoppingLists(H);
+    await fetchShoppingLists(H, { since: "2026-11-05T23:00:00.000Z" });
+    expect(pathOf(0)).toBe(`/api/households/${H}/recipe/shopping-lists`);
+    expect(pathOf(1)).toBe(`/api/households/${H}/recipe/shopping-lists?since=2026-11-05T23%3A00%3A00.000Z`);
   });
 
   test("shopping: list, items, check, catalog page and bought history", async () => {

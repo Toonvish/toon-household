@@ -56,6 +56,7 @@ import { useActiveHousehold, useEmailVerificationBlock, useSession } from "@/lib
 import { useIsWideViewport } from "@/lib/viewport";
 import { AppLink, shareOrCopy, useRouteParam } from "@/modules/recipe/features/recipes";
 import { CardsCard } from "@/modules/recipe/features/cards/components/CardsCard";
+import { boughtToday } from "@/modules/recipe/lib/bought-today";
 import { AddItemBar } from "./components/AddItemBar";
 import { BoughtSection } from "./components/BoughtSection";
 import { EditItemDialog } from "./components/EditItemDialog";
@@ -126,7 +127,9 @@ export default function ShoppingListDetailPage() {
 
   const detail = list.data;
   const items = detail?.items ?? [];
-  const bought = detail?.bought ?? [];
+  // The payload's `bought` is everything past the watermark, possibly several days;
+  // "Heute gekauft" shows today's only (older rows live in the history).
+  const bought = useMemo(() => boughtToday(detail?.bought ?? []), [detail?.bought]);
   const sortedItems = useMemo(() => sortItems(items, sort), [items, sort]);
   const detailsItem = items.find((item) => item.id === detailsId) ?? null;
 

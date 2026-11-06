@@ -411,8 +411,16 @@ export const RecipeApi = {
 
   /* shopping lists */
 
-  fetchShoppingLists: (householdId: string, options?: RequestOptions) =>
-    getJson(ShoppingListListResponseSchema, shoppingBase(householdId), options),
+  /**
+   * `since` is the caller's local midnight as an instant (docs/API.md): it narrows each list's
+   * `boughtCount` to "heute gekauft". Without it the server counts every row past the watermark.
+   */
+  fetchShoppingLists: (householdId: string, query: { since?: string } = {}, options?: RequestOptions) =>
+    getJson(
+      ShoppingListListResponseSchema,
+      `${shoppingBase(householdId)}${queryString({ since: query.since })}`,
+      options,
+    ),
 
   createShoppingList: (householdId: string, body: CreateShoppingListRequest, options?: RequestOptions) =>
     sendJson("POST", ShoppingListResponseSchema, shoppingBase(householdId), body, options),
@@ -971,9 +979,10 @@ export function deleteImportDraft(
 
 export function fetchShoppingLists(
   householdId: string,
+  query: { since?: string } = {},
   options?: RequestOptions,
 ): Promise<ShoppingListListResponse> {
-  return runPromise(RecipeApi.fetchShoppingLists(householdId, options), options);
+  return runPromise(RecipeApi.fetchShoppingLists(householdId, query, options), options);
 }
 
 export function createShoppingList(
