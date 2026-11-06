@@ -128,10 +128,10 @@ changed vs plan"): `docs/plans/m0-scaffold.md`, `docs/plans/m1-core.md`, `docs/p
 `docs/plans/m8-calendar-module.md`. Three modules are built (`API_MODULES` and `WEB_MODULES` are `[recipe, finance, calendar]`,
 `/api/health` reports `modules: ["recipe","finance","calendar"]`).
 
-Gates: `bun run typecheck` OK; `bun test` 15682 pass, 1 skip (the snapshot sweep's `describe.skipIf`), 0 fail in 216 files (78.79 s; the final count of M8,
-`docs/plans/m8-calendar-module.md` section 9.3; E8's was 15236 in 183 files, and 11357 of the cases are the golden parity cases of
+Gates: `bun run typecheck` OK; `bun test` 15695 pass, 1 skip (the snapshot sweep's `describe.skipIf`), 0 fail in 216 files (75.82 s; the final count of M8
+after its review fixes, `docs/plans/m8-calendar-module.md` section 10.1; E8's was 15236 in 183 files, and 11357 of the cases are the golden parity cases of
 `packages/shared/test/parity/`); `bun run i18n:check` exits 1 by design with 148 classified false positives (`docs/open-work.md` O-5; none in
-the calendar); the gzipped web JS is 462.66 kB in 101 chunks (M8; 419.99 kB at E6, unchanged by E7 and E8); `git status --porcelain repos/` is empty.
+the calendar); the gzipped web JS is 462.95 kB in 101 chunks (M8; 419.99 kB at E6, unchanged by E7 and E8); `git status --porcelain repos/` is empty.
 
 ## Layout (as built)
 

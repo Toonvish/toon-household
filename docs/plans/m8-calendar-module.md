@@ -872,3 +872,49 @@ And beyond section 7:
   (`apps/web/src/components/layout/ModuleSwitcher.tsx`, `apps/web/src/components/layout/module-switcher-items.ts`), a consequence of
   the third module that ADR 0016 did not foresee.
 - **Deferred** (to `docs/open-work.md`): design §7 as X-8 to X-13, the next year's flyer as X-14, the hook's waste re-deal as O-12.
+
+### 10.1 Fixes after the integration review (2026-11-06)
+
+A second review of the merged tree (on `5fb6356c5`) reported seven findings. Each was checked in the code. All seven were real and
+all are fixed, each in its own `M8-fix:` commit with a regression test where one fits:
+
+1. **The car conflict horizon was anchored at the series start** (P11 as written): editing a weekly booking that started over a year
+   ago was checked only against past dates. Create and PATCH now take an optional `today` (the client's date, context, never stored;
+   `CreateCalendarEntryRequestSchema` / `UpdateCalendarEntryRequestSchema`). A recurring candidate is checked over
+   `[max(startDate, today), +366 days]`, while a single booking is still checked over its own days. The web sends `today` with every
+   car booking (`withSaveContext` in `apps/web/src/modules/calendar/features/entries/lib/form.ts`). Tests:
+   `apps/api/test/calendar-car-conflicts.test.ts` "the client's today anchors a recurring booking's horizon", the schema cases and
+   `form.test.ts`. Commit `3d338b4d1`. **This deviates from P11's text**, and the deviation is recorded in `docs/modules/calendar.md`
+   section 3 and in `docs/API.md`.
+2. **A skipped car booking still showed the car as taken** on the Today card and the desktop Autos card. Both now read
+   `carBookingsOn` / `carBookingsFrom` (`apps/web/src/modules/calendar/lib/group.ts`), which leave skipped occurrences out, as the
+   conflict check does. Tested in `group.test.ts`. Commits `8dac925ba` and `05ce3776a` (the second fixes a type error that the first
+   committed).
+3. **An imported pickup accepted `assigneeMode: "rotate"`**, which always resolved to its first person. PATCH now answers `422` at
+   `assigneeMode` with the new server key `server.calendar.wasteNoRotation`, which is new German in the admitted `server.calendar.`
+   namespace. The edit form of an imported pickup offers only Niemand and Eine Person (`SINGLE_ASSIGNEE_MODES`), and a pickup stored
+   with a rotation earlier opens as its first person. Tests: `calendar-entries.test.ts` and `form.test.ts`. Commit `039160519`.
+4. **The waste rotation restarted every January** (P15's day index was built per import), and **a re-import of a year dropped the
+   pickups' notes and hand-set assignees** (P20 carried only the marks). The day index now runs over every import of the household,
+   in `putSettings` and in the import alike, and an import deals only its own entries. The re-import carries `notes`, plus an assignee
+   that names a person other than the rule's pick, by `(category, date)`. A hand-set "nobody" looks the same as a pickup left
+   unassigned after a member left (O-12), so it is dealt again. The import dialog's replace hint says what stays. Tests:
+   `calendar-waste-service.test.ts`, three new cases. All three fail on the previous service. Commit `608fac80e` (one commit: both
+   fixes rewrite the same `assignEntries` and import path).
+5. **The seed's synthetic import carried the seed year but could hold the next year's dates.** It now writes one `demo-seed` import
+   per calendar year that its dates touch, and skips a year that already has an import. Test: `calendar-seed.test.ts`, a December
+   seed and a December seed beside a real import. Commit `c8093c7be`.
+6. **Aufgaben rendered Müllabfuhr before Wiederkehrend.** The order is now design §4.4's in both layouts. Commits `e5d670d88` and
+   `6a2e5d1ce`; the second rewrites the new code comment in English so the leftover-German scan stays at 148. No test pins JSX order.
+   The M8-T19 screenshots of Aufgaben in `docs/plans/screenshots/m8/` show the old order.
+
+**Gates after the fixes** (typecheck, test and build on `e5d670d88`, each in the background with a log that ends in `exit=$?`; the
+i18n scan rerun on `6a2e5d1ce`):
+
+- `bun run typecheck`: OK, exit 0.
+- `bun test`: **15695 pass, 1 skip, 0 fail in 216 files** (75.82 s; 13 more than 9.3).
+- `bun run i18n:check`: parity `OK`. The leftover-German scan reports 148 hits and exits 1 by design, as at the baseline, with no hit
+  in a calendar file. The run on `e5d670d88` had 149, and the extra hit was the new German code comment that `6a2e5d1ce` rewrote.
+- `bun run build`: exit 0, 101 chunks, 462.95 kB of gzipped JS (summed from the build log).
+- `git status --porcelain repos/`: empty.
+
