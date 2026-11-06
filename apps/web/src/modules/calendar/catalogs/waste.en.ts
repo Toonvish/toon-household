@@ -32,6 +32,7 @@ export const calendarWasteEn: LocaleCatalog<CalendarWasteCatalog> = {
     "Import the City of Hattingen's waste calendar: pick your district, done. The pickup dates then show up in the calendar.",
 
   "calendar.waste.import.open": "Import waste calendar",
+  "calendar.waste.import.action": "Import",
   "calendar.waste.import.title": "Import waste calendar",
   "calendar.waste.import.source": "Source",
   "calendar.waste.import.sourceUrl": "City website",

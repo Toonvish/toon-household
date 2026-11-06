@@ -35,6 +35,7 @@ export const calendarWasteDe = {
     "Importiere den Abfallkalender der Stadt Hattingen: Bezirk wählen, fertig. Die Abholtermine stehen dann im Kalender.",
 
   "calendar.waste.import.open": "Abfallkalender importieren",
+  "calendar.waste.import.action": "Importieren",
   "calendar.waste.import.title": "Abfallkalender importieren",
   "calendar.waste.import.source": "Quelle",
   "calendar.waste.import.sourceUrl": "Website der Stadt",

@@ -50,3 +50,18 @@ describe("calendar phone header row", () => {
     }
   });
 });
+
+describe("calendar header actions fit the phone header row (M8-T19)", () => {
+  test("every header action label is short in both locales", async () => {
+    const { calendarDe, calendarEn } = await import("./catalogs/index.ts");
+    // The phone row also carries the household and module chips; "Abfallkalender importieren" squeezed them at 390.
+    for (const key of ["calendar.common.new", "calendar.waste.import.action"] as const) {
+      for (const catalog of [calendarDe, calendarEn]) {
+        const value = (catalog as Record<string, unknown>)[key];
+        expect(typeof value, key).toBe("string");
+        expect((value as string).length, `${key}: ${value as string}`).toBeLessThanOrEqual(12);
+      }
+    }
+    expect(read("features/waste/WastePage.tsx")).toContain('t("calendar.waste.import.action")');
+  });
+});

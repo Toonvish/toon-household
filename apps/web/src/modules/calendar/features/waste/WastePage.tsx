@@ -33,8 +33,17 @@ export function WastePage() {
   }, [settings]);
 
   const action = (
-    <Button size="sm" leftIcon={<Upload className="size-4" />} disabled={!canMutate} title={reason} onClick={() => setImportOpen(true)}>
-      {t("calendar.waste.import.open")}
+    // The phone header row holds the household chip, the module chip and this ONE action: a short label, the full
+    // one as the accessible name (a long label squeezed the household chip at 390, M8-T19).
+    <Button
+      size="sm"
+      leftIcon={<Upload className="size-4" />}
+      disabled={!canMutate}
+      title={reason ?? t("calendar.waste.import.open")}
+      aria-label={t("calendar.waste.import.open")}
+      onClick={() => setImportOpen(true)}
+    >
+      {t("calendar.waste.import.action")}
     </Button>
   );
 
