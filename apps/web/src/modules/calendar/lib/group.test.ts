@@ -145,7 +145,7 @@ describe("car bookings", () => {
   const CAR = "44444444-4444-4444-8444-444444444444";
   const OTHER = "55555555-5555-4555-8555-555555555555";
   const ROBIN = "66666666-6666-4666-8666-666666666666";
-  const booking = (date: string, fields: Partial<CalendarOccurrence> = {}) =>
+  const booking = (date: string, fields: Partial<CalendarOccurrence> & { key?: string } = {}) =>
     occ({ date, kind: "car", allDay: false, startTime: "08:00", endTime: "17:00", resourceId: CAR, memberIds: [ROBIN], ...fields });
 
   test("a skipped booking holds nothing: the car is free today (P11)", () => {
