@@ -15,8 +15,8 @@
  * goes through the CURRENT executor of `Database`, so the claim, the row and the tag sync of `createTransaction` run in
  * ONE `database.transaction` and stay atomic (`finance-file-db.test.ts` (c)). Refusals are the API error family (same
  * status, code, text and details as before); timestamps come from the module clock `financeTimeMillis`. `otherShareOf`
- * stays a pure export. The Promise bridges at the end keep the old `(db, …)` signatures for the routes, the seed and
- * the accrual service until they move.
+ * stays a pure export. The routes, the seed and the accrual service call the service directly; the Promise bridges that
+ * once ended this file are gone (E8, ADR 0014 "Status after E8").
  */
 import {
   type CreateTransactionRequest,

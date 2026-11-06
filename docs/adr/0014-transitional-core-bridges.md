@@ -224,7 +224,9 @@ Two doors are not verbatim copies of a removed `src` function. The legacy **`Api
 `isApiError(x)` in the tests. **`nowMs` moved as a door** (P1, `apps/api/test/support/bridges/finance-clock.ts`): it is `Effect.runSync(financeTimeMillis)`, the same
 value as the old function (the `setClockForTest` override when one is set, else the `Clock`, which is `Date.now()`), so
 `apps/api/test/finance-clock.test.ts` and `apps/api/test/support/finance-harness.ts` keep their assertions and rule (11)'s `nowMs(` allow list
-is empty. The `import-order-effect` entry of the deleted `apps/api/src/modules/finance/bridge.ts` was replaced by `apps/api/src/modules/finance/http.ts`,
+is empty. Four module-private helpers are exported from `src` only so a door can reach them, and their doc comments say so: `checkIn`
+(`apps/api/src/core/services/auth/rateLimit.ts`, the `rate-limit.ts` door), `plain` and `makeMailer` (`apps/api/src/core/services/mail/index.ts`, the
+`mail.ts` door) and `guardNow` (`apps/api/src/modules/recipe/services/import/url/fetch.ts`, the `recipe-fetch.ts` door); they are not unused. The `import-order-effect` entry of the deleted `apps/api/src/modules/finance/bridge.ts` was replaced by `apps/api/src/modules/finance/http.ts`,
 so the entry count did not drop.
 
 **The test seams stay in `src`, named as seams (P2).** `setMailer`, `getMailer`, `isMailerOverridden` and `isMailConfigured`

@@ -1,4 +1,4 @@
-/** Finance transactions (`/summary` is registered BEFORE `/:transactionId`, otherwise the literal path would be captured as an id.); served at /api/households/:householdId/finance/transactions (docs/API.md "Finance module"). */
+/** Finance transactions (`/summary` beside `/:transactionId`: the router matches by specificity, so the literal path is never captured as an id); served at /api/households/:householdId/finance/transactions (docs/API.md "Finance module"). */
 import { Schema } from "effect";
 import { HttpApi, HttpApiEndpoint, HttpApiGroup } from "effect/http-api";
 import { chain, householdModuleApi, RequireVerifiedEmail } from "../../../http/middleware.ts";

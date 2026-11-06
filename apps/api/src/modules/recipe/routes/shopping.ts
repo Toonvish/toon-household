@@ -1,14 +1,12 @@
 /**
  * Shopping lists ("Einkaufslisten").
  *
- * Mounted at /api/households/:householdId/recipe/shopping-lists (see modules/recipe/routes/index.ts), BEFORE the
- * catch-all recipes router — same reason imports is mounted before it.
+ * Served at /api/households/:householdId/recipe/shopping-lists (see modules/recipe/routes/index.ts).
  *
- * **`GET /bought` is registered BEFORE `GET /:listId`** — the pre-E7 Hono
- * router matched in registration order, so a static `/bought` declared after the dynamic
- * `/:listId` would be read as a request for the list whose id is the literal
- * string "bought". Same trap as `/invites/:token` before `/:householdId` in
- * core/routes/households.ts.
+ * `GET /bought` and `GET /:listId` need no order: the HttpApi router matches by specificity, so the static
+ * `/bought` is never read as the list whose id is the literal string "bought" (the pre-E7 Hono router matched in
+ * registration order and needed `/bought` declared first; the same went for `/invites/:token` beside
+ * `/:householdId` in core/routes/households.ts).
  *
  * Auth: the module chain (modules/mount.ts) runs `requireSession()` + `requireHouseholdRole("member")` +
  * `requireModule("recipe")` as router-level middleware, so no handler checks membership itself.

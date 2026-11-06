@@ -7,8 +7,9 @@
  * prefix, and `householdsHandlers` (end of file) provides the four handler layers
  * (invites.ts, members.ts, modules.ts and this file's `householdGroupHandlers`).
  *
- * Registration order is load-bearing (D8): the invite-token routes (`/invites/:token`,
- * `/invites/accept`) come FIRST, otherwise `/:householdId` would capture "invites".
+ * The invite-token routes (`/invites/:token`, `/invites/accept`) sit beside `/:householdId` without an
+ * order: the HttpApi router matches by specificity, so `/:householdId` never captures "invites" (the
+ * pre-E7 Hono router matched in registration order and needed them declared first; D8).
  *
  * Membership is verified exclusively by `requireHouseholdRole(...)`
  * (src/middleware/household.ts) — there is not a single inline membership check here.

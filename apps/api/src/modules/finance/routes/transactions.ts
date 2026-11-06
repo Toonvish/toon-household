@@ -1,7 +1,7 @@
 /**
- * Mounted at /api/households/:householdId/finance/transactions (see src/index.ts).
- * `/summary` is registered BEFORE `/:transactionId`, otherwise the literal
- * path would be captured as an id.
+ * Served at /api/households/:householdId/finance/transactions (see modules/finance/routes/index.ts).
+ * `/summary` and `/:transactionId` need no order: the HttpApi router matches by specificity, so the
+ * literal path is never captured as an id (the pre-E7 Hono router needed `/summary` declared first).
  *
  * `kind` travels on the wire; `kindToStorage(kind, viewerId, otherId)` runs
  * SERVER-SIDE against the session's viewer, never a client-picked payer —

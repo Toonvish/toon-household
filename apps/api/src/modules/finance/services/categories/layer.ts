@@ -7,8 +7,7 @@
  * (`apps/api/src/modules/finance/layer.ts`) and the core under it.
  *
  * Import cycle (CLAUDE.md "API import cycle"): a hoisted function only; nothing runs at import, and the services are
- * read inside the function body (the service files import the bridge runner, which imports `layer.ts`, which imports
- * this file).
+ * read inside the function body (`apps/api/src/modules/finance/layer.ts` imports this file).
  */
 import { Layer } from "effect";
 import { FinanceMutationClaims } from "../ledger/idempotency.ts";

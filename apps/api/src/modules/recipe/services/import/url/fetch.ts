@@ -96,7 +96,7 @@ export function setImportGuardForTests(options: ImportGuardSeam | null): void {
   guardSeam = options;
 }
 
-/** The guard for one call: the base (escape hatch, resolver, `skipDns`) plus the seam's allow list and resolver. */
+/** The guard for one call: the base (escape hatch, resolver, `skipDns`) plus the seam's allow list and resolver. Exported for the test door `apps/api/test/support/bridges/recipe-fetch.ts`. */
 export function guardNow(base: SsrfGuard): SsrfGuard {
   if (guardSeam === null) return base;
   const hosts = (guardSeam.allowHosts ?? []).map((host) => host.toLowerCase());
