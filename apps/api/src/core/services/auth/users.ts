@@ -5,9 +5,10 @@
  * and the row -> `User` DTO mapping used by every auth response.
  *
  * The `Users` service (docs/EFFECT.md E7; plan `docs/plans/e2-api-core-services.md` P2, P7) reads the current
- * executor of `Database` on every call, so a bridge's `db` and an open transaction reach it; timestamps come from
+ * executor of `Database` on every call, so a test door's `db` and an open transaction reach it; timestamps come from
  * the `Clock`. `userDto` and `accountEmail` are service-free Effects (they read no database); a placeholder row
- * fails them with `Unauthorized`. Only one Promise bridge survives (`claimPlaceholderUser`; `scripts/reset-password.ts` yields the service since E5). The pure helpers (`isPlaceholderUser`,
+ * fails them with `Unauthorized`. The tests' Promise door `claimPlaceholderUser` lives in
+ * `apps/api/test/support/bridges/users.ts` (plan e8 P1). The pure helpers (`isPlaceholderUser`,
  * `isUniqueViolation`, `displayNameFromEmail`, `DEFAULT_HOUSEHOLD_NAME`) stay plain.
  */
 import type { User } from "@toon/shared";
@@ -19,9 +20,7 @@ import { Conflict, type DatabaseError, NotFound, Unauthorized } from "../../../l
 import { toIso, toIsoOrNull } from "../../../lib/http.ts";
 import { signUploadUrl } from "../../../lib/uploadUrls.ts";
 import type { HookError } from "../../../modules/types.ts";
-import { runtime } from "../../../runtime.ts";
 import { HouseholdModules } from "../households/modules.ts";
-import type { DbLike } from "../households/support.ts";
 
 /** Default name of the household created for a brand-new account. */
 export const DEFAULT_HOUSEHOLD_NAME = "Meine Rezepte";
@@ -367,13 +366,4 @@ export function displayNameFromEmail(email: string): string {
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ")
     .slice(0, 80);
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/** Callers: `apps/api/test/placeholders.test.ts` (pinned: the two-claim race). Promise. */
-export function claimPlaceholderUser(database: DbLike, userId: string, input: ClaimPlaceholderInput): Promise<void> {
-  return runtime.runPromise(
-    Users.use((service) => service.claimPlaceholderUser(userId, input)).pipe(Database.withExecutor(database)),
-  );
 }

@@ -141,7 +141,7 @@ export interface ApiModule<Services = never> {
    */
   onMemberRemoving?(householdId: string, userId: string): Effect.Effect<void, HookError, DatabaseService>;
   /**
-   * Runs after every `migrate()` inside `runMigrations` (db/migrate.ts), on the database just
+   * Runs after every `migrate()` inside `migrateDatabase` (db/migrate.ts), on the database just
    * migrated (the current executor). For data fixes a SQL migration cannot express —
    * recipe's fold backfill (plan M2 decision 4). MUST be idempotent and cheap on an
    * up-to-date database, and must not open a transaction.

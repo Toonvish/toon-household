@@ -1,11 +1,11 @@
 /**
  * The recipe module's post-migration step (plan M2 decision 5): toon-recipe's
  * `backfillFoldedColumns` from `apps/api/src/db/migrate.ts`, moved here verbatim.
- * `runMigrations` (db/migrate.ts) calls it through the manifest's `afterMigrate`
+ * `migrateDatabase` (db/migrate.ts) calls it through the manifest's `afterMigrate`
  * hook after every `migrate()`, so the core never names it.
  *
  * An Effect since E3 (docs/EFFECT.md E7; plan `docs/plans/e3-recipe-services.md` P5): `foldBackfill()`
- * runs on the current executor of `Database` (the database `runMigrations` just migrated). The Promise
+ * runs on the current executor of `Database` (the database `migrateDatabase` just migrated). The Promise
  * bridge `backfillFoldedColumns` is gone since E5 (plan `docs/plans/e5-scripts.md` P9, P11): the legacy
  * migration (`scripts/legacy/recipe.ts`) provides `Database.layerFromExecutor(ctx.target.db)` itself.
  *
@@ -42,7 +42,7 @@ import { recipeIngredients, recipes } from "../../db/schema.ts";
  * DELIBERATELY NOT IN A TRANSACTION. libSQL 0.17.4 discarded a `file::memory:`
  * database when a transaction commits (0.18.0 no longer does; the guard stays,
  * see `withTransaction` in
- * core/services/households/support.ts), and this runs inside `runMigrations`, which every
+ * core/services/households/support.ts), and this runs inside `migrateDatabase`, which every
  * integration test calls against exactly such a database. It does not need one
  * anyway: each row is independent and an interrupted run simply finds the rest of
  * the work still waiting for it next time.

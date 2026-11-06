@@ -6,10 +6,11 @@
  * fine for a self-hosted family app; a multi-instance deployment would move the
  * bucket into the DB or Redis.
  *
- * The `RateLimiter` service (docs/EFFECT.md E7; plan e2 P9) and the two synchronous bridges
- * (`checkRateLimit`, `resetRateLimits`, see the end of the file) share ONE module-level store. The core is
- * service-free: `checkIn` reads only the `Clock`, `enforceIn` takes `enabled` as a plain value and stays
- * module-private (plan e3 P20: the enabled path is `RateLimiter.layer` over a production `AppConfig`).
+ * The `RateLimiter` service (docs/EFFECT.md E7; plan e2 P9), the test seam `resetRateLimits` (see the end of the
+ * file) and the tests' synchronous door over the exported `checkIn` (`apps/api/test/support/bridges/rate-limit.ts`,
+ * plan e8 P1) share ONE module-level store. The core is service-free: `checkIn` reads only the
+ * `Clock`, `enforceIn` takes `enabled` as a plain value and stays module-private (plan e3 P20: the enabled path is
+ * `RateLimiter.layer` over a production `AppConfig`).
  */
 import { Clock, Context, Effect, Layer } from "effect";
 import { AppConfig } from "../../../config.ts";
@@ -150,7 +151,7 @@ const enforceIn = Effect.fnUntraced(function* (
 
 /**
  * The rate limiter as a service (plan e2 P9). `enforce` is on unless `NODE_ENV=test` (the `AppConfig` captured at
- * build); `check` and `reset` act on the same store as the bridges.
+ * build); `check` and `reset` act on the same store as the test seam.
  */
 export class RateLimiter extends Context.Service<
   RateLimiter,
@@ -179,8 +180,7 @@ export class RateLimiter extends Context.Service<
 /**
  * The address a rate-limit bucket is keyed on, from the request's headers (`header(name)`, a lower-case name) and the
  * peer address off the socket (`socketAddress`, undefined when there is none, e.g. in tests). Pure; the Effect
- * `clientIp` of `apps/api/src/http/request.ts` (plan `docs/plans/e7-http-api.md` P4) and the Hono `clientIp(c)` of
- * the section at the end of this file both call it.
+ * `clientIp` of `apps/api/src/http/request.ts` (plan `docs/plans/e7-http-api.md` P4) calls it.
  *
  * FORWARDING HEADERS ARE ONLY BELIEVED WHEN `TRUST_PROXY=1`. They are attacker
  * controlled on a directly exposed server, and this used to trust them
@@ -216,16 +216,16 @@ export function clientIpFrom(source: {
   return address && address.length > 0 ? address : "unknown";
 }
 
-/* legacy bridges: the two the tests keep (plan e3 P20; E8 removes them) */
+/*
+ * test seams: module-level state that the one runtime's services read at call time; the tests drive the app through
+ * the in-memory handler on that same runtime (one process, one database, ADR 0009), so a test layer cannot reach it
+ * (plan e8 P2)
+ */
 
-// Both stay SYNCHRONOUS with their old return types (plan e2 P1, P9) and run a service-free effect with `Effect.runSync`.
-
-/** Callers: `apps/api/test/auth.test.ts` (rate-limit block, pinned), `apps/api/test/rate-limiter.test.ts`. */
-export function checkRateLimit(key: string, rule: RateLimitRule): RateLimitResult {
-  return Effect.runSync(checkIn(key, rule));
-}
-
-/** Callers: `apps/api/test/{auth,modules,finance-module,rate-limiter}.test.ts` (the tests' door into the live store). */
+/**
+ * Drops one bucket, or every bucket. SYNCHRONOUS (plan e2 P1, P9). Callers: `apps/api/test/{auth,modules,
+ * finance-module,rate-limiter,bridges-core}.test.ts` (the tests' door into the live store).
+ */
 export function resetRateLimits(key?: string): void {
   resetBuckets(key);
 }
