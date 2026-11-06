@@ -1,7 +1,7 @@
 # effect-services: Context.Service, Layer, ManagedRuntime, memo map, Scope (Effect 4.0.5)
 
 Project-local distillation of the vendored source (`repos/effect/`), for an implementer in this repo (Bun 1.4,
-`bun test`, Hono until E7, drizzle + `@libsql/client`, TanStack Query on the web). Every name below was grepped
+`bun test`, `effect/http-api` on `BunHttpServer`, drizzle + `@libsql/client`, TanStack Query on the web). Every name below was grepped
 in `repos/effect/packages/effect/src` or `repos/effect/packages/platform/bun/src`. Where a signature matters,
 look it up there, not in memory: memory is Effect v3. Spec: `docs/EFFECT.md` E5, E7, E10.
 
@@ -107,22 +107,21 @@ Source: `Effect.ts` `provide` (options `{ local?: boolean }`); `repos/effect/mig
 Reading a service: `yield* Service` (explicit dependency, preferred) or `Service.use((s) => s.method(x))` /
 `Service.useSync((s) => s.field)`.
 
-### 3.2 One ManagedRuntime for non-Effect code (Hono handlers, scripts, web `queryFn`s)
+### 3.2 One ManagedRuntime for non-Effect code (a callback API, a test, web `queryFn`s)
 
 ```ts
 export const appMemoMap = Layer.makeMemoMapUnsafe()
 export const runtime = ManagedRuntime.make(TodoRepo.layer, { memoMap: appMemoMap })
 
-app.get("/todos", async (context) => {
-  const todos = await runtime.runPromise(TodoRepo.use((repo) => repo.getAll))
-  return context.json(todos)
-})
+async function loadTodos() {
+  return await runtime.runPromise(TodoRepo.use((repo) => repo.getAll))
+}
 
 const shutdown = () => { void runtime.dispose() }
 process.once("SIGINT", shutdown)
 process.once("SIGTERM", shutdown)
 ```
-Source: `repos/effect/ai-docs/src/04_integration/10_managed-runtime.ts`. The runner family on the runtime
+Source: `repos/effect/ai-docs/src/04_integration/10_managed-runtime.ts` (its handler framework is not this repo's: the server here is `effect/http-api`, so the runtime is run only at the edges listed in section 7). The runner family on the runtime
 (`ManagedRuntime.ts`): `runPromise`, `runPromiseExit`, `runSync`, `runSyncExit`, `runFork`, `runCallback`,
 `dispose()`, `disposeEffect`, `context()`; `ManagedRuntime.isManagedRuntime(x)` is the guard. The layer is built
 lazily on the first run and the context cached; `ManagedRuntime.make` takes a `Layer<R, ER, never>` (every
@@ -182,8 +181,8 @@ Sources: `repos/effect/migration/services.md`, `layer-memoization.md`, `scope.md
 - **Share the memo map.** A `ManagedRuntime` made without `memoMap` gets its own; pass `appMemoMap` when scripts,
   tests and the server runtime must share layers (`10_managed-runtime.ts`).
 - **Dispose the runtime** on SIGTERM/SIGINT: that closes the layer scope (libsql client, background forks); it cannot
-  be reused after disposal. Keep the signal handlers in one place (today `apps/api/src/index.ts` calls each module's
-  `shutdown`; E7 turns those into finalizers).
+  be reused after disposal. Keep the signal handlers in one place (today `apps/api/src/index.ts` runs each module's
+  `shutdown` effect, then disposes the runtime).
 - **No module-scope runs.** Layers are values; do not call
   `runtime.run*` or read the module registry at import time (CLAUDE.md "API import cycle"). A manifest may hold a
   `layer` value, never a core middleware call.
@@ -199,132 +198,51 @@ Sources: `repos/effect/migration/services.md`, `layer-memoization.md`, `scope.md
 
 ## 7. In this repo
 
-Where it will be applied:
+Where it lives:
+- `apps/api/src/runtime.ts`: `AppLayer` (`Layer.suspend` over the hoisted `appLayer()`: the module layers over the core services over
+  the infrastructure, each step a `Layer.provideMerge`), `appMemoMap` and the ONE `ManagedRuntime.make(AppLayer, { memoMap })`,
+  disposed by `apps/api/src/index.ts` on SIGTERM/SIGINT after the modules' `shutdown` effects.
+- `apps/api/src/core/services/layer.ts`: `coreServicesLayer()` and `baseServicesLayer()` (hoisted functions, siblings nested), with
+  `apps/api/src/core/services/auth/layer.ts` and `apps/api/src/core/services/households/layer.ts`.
+- `apps/api/src/infra.ts` (`infraLayer()`: config, database, mailer, thumbnails, uploads, rate limiter, verified-email),
+  `apps/api/src/config.ts` (`AppConfig`), `apps/api/src/db/database.ts` (`Database`).
+- A module's layer: `apps/api/src/modules/recipe/layer.ts` (`recipeLayer()`) and `apps/api/src/modules/finance/layer.ts`
+  (`financeLayer()`, `withFinanceServices`), each area a hoisted function in `services/<area>/layer.ts`; the manifest holds
+  `layer: Layer.suspend(recipeLayer)` / `Layer.suspend(financeLayer)` (`apps/api/src/modules/recipe/index.ts`,
+  `apps/api/src/modules/finance/index.ts`), typed `ApiModule<RecipeServices>` / `ApiModule<FinanceServices>` (`apps/api/src/modules/types.ts`).
+- The scripts: `apps/api/scripts/support/main.ts` (`runScript`, `makeScriptTeardown`, `ScriptExit`) and
+  `apps/api/scripts/legacy/service.ts` (`LegacyMigration`).
+- The web: `apps/web/src/lib/runtime.ts` (`WebLayer`, `runPromise(effect, { signal })`) with `ApiClient` in
+  `apps/web/src/lib/api-client.ts`.
+- Tests: `apps/api/test/support/effect.ts` (`runTest`, `itEffect`, `withMailer`) and `apps/api/test/runtime.test.ts`
+  (the throwaway-runtime proof); see `effect-testing.md`.
 
-- `apps/api/src/config.ts` (`AppConfig`), `apps/api/src/db/database.ts` (`Database`: scoped layer, D7 pragmas, closed by
-  the runtime scope; the drizzle TYPE `Database` / `DrizzleDatabase` stays in `apps/api/src/db/client.ts`), `apps/api/src/core/services/**` and `apps/api/src/modules/<id>/services/**` (one
-  `Context.Service` class with a static `layer` per service), `apps/api/src/runtime.ts` (`AppLayer` via
-  `Layer.mergeAll` / `Layer.provideMerge`, ONE `ManagedRuntime.make(AppLayer, { memoMap })`, disposed from the
-  SIGTERM/SIGINT handlers), the module manifests (`layer` field), `apps/api/scripts/*.ts` (`BunRuntime.runMain`), and
-  `apps/api/test/support/effect.ts` (`runTest` = `Effect.provide` of the test `AppLayer`, `Layer.mock` for fakes).
-- `apps/web/src/lib/runtime.ts`: the web's single `ManagedRuntime` behind `queryFn` / `mutationFn` (E11; BUILT at E6): `WebLayer` is
-  `Layer.suspend` over a hoisted function (`ApiClient.layer` `Layer.provideMerge`d over the `FetchHttpClient` transport), nothing runs at
-  module scope (the file sits in the import cycle `api-client` -> `i18n/store` -> `api` -> `runtime`), the runtime is never disposed (it
-  lives as long as the page), and `runPromise(effect, { signal })` is the only entry web code uses (`ApiClient`, a `Context.Service` in
-  `apps/web/src/lib/api-client.ts`, has a static `layer` that yields `HttpClient.HttpClient` inside its generator). The same TDZ rule as
-  the API's: a static `layer` reads no imported binding but `effect` exports and its own class.
-- In this repo (since E0-T05; E2 widened `AppLayer` to the core services, see "As built (E2)"): `apps/api/src/runtime.ts` exports `AppLayer` (`Layer.empty` at E0), `appMemoMap` and the one `runtime`; `apps/api/src/core/health.ts` `healthResponse` is the
-  first effect run through it (`GET /api/health`), and the SIGTERM/SIGINT handler of `apps/api/src/index.ts` awaits
-  `runtime.dispose()` after the modules' `shutdown()`. A run after `dispose` rejects with the plain string
-  `"ManagedRuntime disposed"` (the squashed `Effect.die` defect, not an `Error`); `apps/api/test/runtime.test.ts`
-  pins it on a throwaway runtime and never disposes the shared one.
+Rules served: **E7** (every service is a `Context.Service` class with a static `layer`, one `ManagedRuntime` per process, run at the
+edges only), **E5** (`Database` owns the client and the runtime scope closes it) and E12 (`Context.Service` + static `layer`,
+`Effect.fn("Service.method")`, `Effect.catchTag(s)`), pinned by `apps/api/test/effect-idioms.test.ts`.
 
-Rule it serves: **E7**, "Every service module is a `Context.Service` class with a static `layer`, one
-`ManagedRuntime` per process, handlers call `runtime.runPromise(...)` until E7 replaces Hono", with **E5** (the
-`Database` service owns the client and is closed by the runtime's scope) and E12 (`Context.Service` + static `layer`,
-`Effect.fn("Service.method")`, `Effect.catchTag(s)`).
-
-**As built (E1):** E1 adds no service, on purpose: decoding is pure and synchronous, so `apps/api/src/lib/validate.ts` is plain
-functions, not a `Context.Service`. What the milestone pins for later is the type `Decodable = Schema.Decoder<unknown, never>`
-(the `never` is the schema's decoding-services requirement): every wire schema of `@toon/shared` is service-free, so a
-handler can decode without a layer, and a schema that needs a service fails to typecheck at `validate(...)` instead of at
-run time. `validate.ts` imports only `hono/validator`, `effect` and `@toon/shared` (CLAUDE.md "API import cycle": it runs at
-route definition); when E7 replaces Hono the decoding moves into `HttpApi` payload schemas and the helper goes.
-
-**As built (E2, E2-T03):** the composition and the `Database` service.
-- `apps/api/src/runtime.ts`: `AppLayer = Layer.suspend(appLayer)` over a HOISTED `function appLayer()` returning
-  `Layer.mergeAll(coreServicesLayer()).pipe(Layer.provideMerge(infraLayer()))`, annotated
-  `Layer.Layer<AppServices, AppLayerError, never>`: a requirement left open by a wrong nesting is a `tsc` error in
-  `runtime.ts` (`Type 'Layer<Database, DatabaseError, AppConfig>' is not assignable to type 'Layer<AppServices,
-  DatabaseError, never>'`), not a surprise in `ManagedRuntime.make`. The module scope reads only `Layer` and
-  `ManagedRuntime`; `Layer.suspend` defers `appLayer()` to the first run, so the file can sit anywhere in the import
-  cycle. `apps/api/src/infra.ts` (`infraLayer()`), `apps/api/src/core/services/layer.ts` (`coreServicesLayer()`,
-  `baseServicesLayer()`), `apps/api/src/core/services/auth/layer.ts` and `apps/api/src/core/services/households/layer.ts`
-  export hoisted functions only. Siblings that depend on each other never share one `Layer.mergeAll` (it feeds no
-  member into another); the dependent goes in an outer step and `Layer.provideMerge(inner)` satisfies it.
-- `Database` (`apps/api/src/db/database.ts`): `use(f)` (`Effect.tryPromise`, rejection → `DatabaseError`),
-  `transaction(effect)`, `executor`, plus `drizzle`, `client`, `url`, `transactionsSupported`. The current executor
-  is `CurrentExecutor = Context.Reference<{ executor, open } | undefined>(id, { defaultValue: () => undefined })`,
-  read on every call (`CurrentExecutor.useSync(...)`; a `Context.Reference` needs no provider). `transaction` reads
-  the fiber's context (`Effect.context<R>()`), opens drizzle's `root.transaction(async (tx) => …)` inside
-  `Effect.promise((signal) => …)`, and runs the effect in it with
-  `Effect.runPromiseExitWith(Context.add(context, CurrentExecutor, { executor: tx, open: true }))(effect, { signal })`;
-  a failed `Exit` throws a private sentinel (drizzle rolls back) and is re-raised with `Effect.failCause(exit.cause)`,
-  so the caller sees the same error object (a defect stays a defect). `Database.withExecutor(db)(effect)` is
-  `Effect.provideService(effect, CurrentExecutor, { executor: db, open: false })`.
-- A static `layer` reads its dependencies INSIDE the generator (`const config = yield* AppConfig`), never in the
-  initializer: `static readonly layer = Layer.effect(this, Effect.gen(function* () { … }))`. A `Context.Service`
-  class is itself an `Effect` of its shape (`Context.Key extends Effect`): `Effect.flatMap(Database, (db) => …)` and
-  `runtime.runPromise(Database)` work, and `typeof Database === "function"`, so tell an Effect from a thunk with
-  `Effect.isEffect`, never `typeof`.
-- Scoped resources: `Database.layer` is `Effect.acquireRelease(awaitPragmas, () => config.isTest ? Effect.void :
-  close + Console.log("[db] database closed"))`; `Database.layerFromUrl` acquires `createDatabase(...)` itself and
-  closes it on release. The memo map is ref-counted (`Layer.ts` `makeMemoMapEntry`): an entry is built once per memo
-  map while observed and released when its last observer's scope closes, so `Effect.provide(Database.layerFromUrl(u))`
-  closes the client at the end of that run.
-
-**As built (E2, integration):** the bridges and the cycle, recorded once the last core caller moved.
-- A legacy bridge is a plain exported function in a marked section at the END of its service's file, with the old name, the old
-  `db` first argument (`Database.withExecutor(db)`) and the old calling convention as an explicit return type: Promise →
-  `runtime.runPromise(Service.use(...).pipe(Database.withExecutor(db)))`, synchronous → `Effect.runSync` over a service-free effect,
-  fire-and-forget → `runtime.runFork(... Effect.ignoreCause)`. `apps/api/src/core/services/auth/index.ts` (the old barrel) was
-  deleted with the last bridge nobody used; what survives is listed in `docs/plans/e2-api-core-services.md` section 9.2.
-- A middleware factory that a router calls at module scope (`requireHouseholdRole("admin")`) is a hoisted `function` whose body reads no
-  imported binding; the returned handler reads `runtime` and the services on a request. The same rule keeps `runtime.ts` importable from
-  anywhere in the import cycle: its module scope reads only `Layer` and `ManagedRuntime`.
-- A pure helper that sits in a service's file (`mailDeliveryOf`, `redactAddress`, `generateInviteToken`, `INVITE_TTL_MS`) is not a bridge
-  and never goes away; say so in a comment above it so a later prune does not delete it.
-
-**In this repo (E2 example):** `apps/api/src/core/services/auth/passwords.ts`, the smallest complete service: a `Context.Service` class
-with its shape spelled out, a static `layer` whose methods are `Effect.fn("Service.method")`, a catch-all as an extra `Effect.fn` argument
-(never `.pipe` on the function), and `Passwords.of({ … })` at the end:
+The smallest complete service is `apps/api/src/core/services/auth/passwords.ts`: a `Context.Service` class with its shape spelled
+out, a static `layer` whose methods are `Effect.fn("Service.method")`, a catch-all given as an extra `Effect.fn` argument (never
+`.pipe` on the function), and `Passwords.of({ … })` at the end. A static `layer` reads no imported binding but `effect` exports and
+its own class; its dependencies are `yield*`ed inside the generator (the API import cycle, CLAUDE.md "One composition point"):
 ```ts
-export class Passwords extends Context.Service<Passwords, {
-  readonly hashPassword: (password: string) => Effect.Effect<string>;
-  readonly verifyPassword: (password: string, hash: string | null | undefined) => Effect.Effect<boolean>;
-  readonly fakeVerifyPassword: (password: string) => Effect.Effect<void>;
-}>()("toon/api/core/services/auth/passwords/Passwords") {
-  static readonly layer = Layer.effect(this, Effect.gen(function* () {
-    const verifyPassword = Effect.fn("Passwords.verifyPassword")(
-      function* (password: string, hash: string | null | undefined) { /* Effect.tryPromise over Bun.password.verify */ },
-      Effect.catchCause(() => Effect.succeed(false)), // a malformed hash is `false`, never a 500
-    );
-    /* hashPassword, fakeVerifyPassword */
-    return Passwords.of({ hashPassword, verifyPassword, fakeVerifyPassword });
-  }));
-}
+      const verifyPassword = Effect.fn("Passwords.verifyPassword")(
+        function* (password: string, hash: string | null | undefined) {
+          const target = hash && hash.length > 0 ? hash : DUMMY_PASSWORD_HASH;
+          // `tryPromise` also catches a synchronous throw of the thunk (src/internal/effect.ts `tryPromise`).
+          const matches = yield* Effect.tryPromise({
+            try: () => Bun.password.verify(password, target, "argon2id"),
+            catch: (cause): unknown => cause,
+          });
+          return matches && target !== DUMMY_PASSWORD_HASH;
+        },
+        // Malformed/legacy hash in the DB must never surface as a 500: the WHOLE cause is caught (plan e2 P2).
+        Effect.catchCause(() => Effect.succeed(false)),
+      );
 ```
 
-**As built (E3, E3-T01):** a module's own layer, nested over the core (plan `docs/plans/e3-recipe-services.md` P3, P4).
-- The contract is generic: `ApiModule<Services = never>` with `layer?: Layer.Layer<Services, never, ModuleRequirements>` and
-  `ModuleRequirements = InfraServices | CoreServices` (`apps/api/src/modules/types.ts`). `Layer`'s `ROut` is CONTRAVARIANT
-  (`Variance<in ROut, out E, out RIn>`, `src/Layer.ts`), so a `Layer<RecipeServices, …>` IS a `Layer<never, …>`: the registry
-  lists every manifest as a plain `ApiModule`, and the guard sits where the concrete type is written,
-  `export const recipeModule: ApiModule<RecipeServices> = { …, layer: Layer.suspend(recipeLayer) }`. Tried in E3-T01: a
-  service of `RecipeServices` missing from the composition is `Type 'Layer<never, never, never>' is not assignable to type
-  'Layer<ImportCapabilities, never, ModuleRequirements>'` at that line; a requirement outside `ModuleRequirements` is `Type
-  'AppConfig | Stranger' is not assignable to type 'ModuleRequirements'` there.
-- `apps/api/src/runtime.ts` nests the modules OVER the core: `Layer.mergeAll(Layer.empty, ...moduleLayers()).pipe(
-  Layer.provideMerge(coreServicesLayer()), Layer.provideMerge(infraLayer()))`. `Layer.mergeAll` takes a NON-EMPTY tuple
-  (`[Layer<never, any, any>, ...Array<…>]`), hence the leading `Layer.empty` when the module list is spread in.
-  `moduleLayers()` returns `ModuleLayer<ModuleServices>[]` with the one cast of the composition (the registry knows which
-  module brings which services); `AppServices = InfraServices | CoreServices | ModuleServices`.
-- `apps/api/src/modules/recipe/layer.ts` `recipeLayer()` nests the areas by dependency (plan e3 P4), each area a hoisted
-  `export function <area>Layer()` in `services/<area>/layer.ts` beside `export type <Area>Services` (a stub area is
-  `Layer.empty` typed `never`). `Layer.suspend(recipeLayer)` at the manifest's module scope is TDZ-safe because
-  `recipeLayer` is a hoisted function binding and `suspend` calls it only when the runtime builds.
-- A hook that used to be a Promise is an `Effect.fn` over `Database` (`foldBackfill`, `seedRecipeDemo`, the upload
-  references); outside the runtime a hook runs over `Database.layerFromExecutor(executor)` (`runMigrations`;
-  `backfillFoldedColumns` and `runModuleHook` were deleted at E5), and a capability read by `/api/health` is a service-free effect over `AppConfig` (`capabilityFlags`) next to the service
-  (`ImportCapabilities`) whose test seams are read on every call.
-
-**As built (E4):** the finance module's composition (plan `docs/plans/e4-finance-services.md` P2, P4). Twelve `Context.Service` classes
-(`FinanceParticipants`, `FinanceSettings`, `FinanceCategories`, `FinanceTags`, `FinanceMutationClaims`, `FinanceBalance`,
-`FinanceTransactions`, `FinanceSummary`, `FinanceSettlements`, `FinancePlan`, `FinanceAccrual`, `FinanceSetup`), one per file, ids
-`"toon/api/modules/finance/<path without .ts>/<Name>"`, method names the old function names minus the leading `db`. The areas nest by
-dependency in `apps/api/src/modules/finance/layer.ts` (a sibling in `Layer.mergeAll` never feeds its neighbour, so an area that needs
-another sits in an outer `Layer.provideMerge` step):
-
+The composition nests siblings explicitly: `Layer.mergeAll` feeds no member into another, so a service that needs a service of the same
+step goes in an outer `Layer.provideMerge`. `apps/api/src/modules/finance/layer.ts`:
 ```ts
 export function financeLayer() {
   return Layer.mergeAll(setupLayer(), planLayer()).pipe(
@@ -333,13 +251,15 @@ export function financeLayer() {
   );
 }
 ```
+What is left open is `Database | AppConfig` (`ModuleRequirements`, `apps/api/src/modules/types.ts`). `Layer`'s `ROut` is
+contravariant, so a `Layer<FinanceServices, …>` IS a `Layer<never, …>`: the registry lists every manifest as a plain `ApiModule`, and
+the guard sits where the concrete type is written (`export const financeModule: ApiModule<FinanceServices>`). `Layer.mergeAll`
+takes a non-empty tuple, hence the leading `Layer.empty` in `apps/api/src/runtime.ts` when the module list is spread in.
 
-What is left open is `Database | AppConfig` (both `ModuleRequirements`). The manifest is `ApiModule<FinanceServices>` with `layer:
-Layer.suspend(financeLayer)`. The hooks, the bridges and the scheduler run outside the runtime too and must reach the CURRENT `Database`
-(a test's private one), so they build the services themselves. The pitfall: a plain `Effect.provide(layer)` inside the runtime takes a CHILD
-of the runtime's memo map (`Layer.buildWithScope`, `CurrentMemoMap.forkOrCreate`) and reuses the leaf layers the `AppLayer` already
-memoized, bound to the runtime's `Database`. `{ local: true }` gives a fresh memo map:
-
+A module hook (`start`, `afterMigrate`, `seedDemo`, `onEnable`, ...) is typed over `Database` only (SPEC §2) and may run inside the
+core's open transaction, so finance builds its services over the CURRENT `Database` of the calling fiber. A plain `Effect.provide(layer)`
+takes a CHILD of the runtime's memo map and reuses the leaf layers the `AppLayer` already memoized, bound to the runtime's
+database; `{ local: true }` gives a fresh memo map (sound because no finance service holds state):
 ```ts
 export function withFinanceServices<A, E>(
   effect: Effect.Effect<A, E, FinanceServices | DatabaseService>,
@@ -347,38 +267,31 @@ export function withFinanceServices<A, E>(
   return effect.pipe(Effect.provide(financeStandaloneLayer(), { local: true }));
 }
 ```
+`apps/api/test/finance-services-local.test.ts` proves a private database is reached through it.
 
-(`financeStandaloneLayer()` is `financeLayer()` with `AppConfig.layer` provided.) This is only sound because no finance service holds state;
-the one piece of process state, the tick fiber, lives in `scheduler.ts`, which is not a service. `apps/api/test/finance-services-local.test.ts`
-proves a private database is reached through `withFinanceServices(effect).pipe(Effect.provide(Database.layerFrom(created)))`.
+The scripts: `runScript(program)` (`apps/api/scripts/support/main.ts`) is `BunRuntime.runMain` with a teardown that makes a numeric
+success the exit code, a failure its `[Runtime.errorExitCode]` (1 without one), an interruption 130, and always ends the process
+after the program's scope closed:
+```ts
+export function runScript<E>(program: Effect.Effect<number | void, E, never>): void {
+  BunRuntime.runMain(program, { teardown: makeScriptTeardown((code) => process.exit(code)) });
+}
+```
+The program provides its layer INSIDE itself (`program.pipe(Effect.provide(AppLayer))`), never after `runScript`, or `Database.layer`'s
+release would run after the teardown. A service call is a v4 call: `const accrual = yield* FinanceAccrual; yield* accrual.runCatchUp(…)`,
+or `FinanceAccrual.use((accrual) => …)` for one call; a `Context.Service` class has no static accessors.
 
-**As built (E5):** the scripts' composition (plan `docs/plans/e5-scripts.md` P1, P2, P9, P10, P18).
+**Where the Promise and synchronous doors live (E8).** `src` has no function whose only job is to be called from a non-Effect
+caller (the "legacy bridges" sections of E2 to E5 are gone). Each pinned test that still calls a Promise or synchronous shape
+(`runMigrations`, `createSession`, `runFinanceBridge`, `runLegacyMigration`, `nowMs`, ...) imports it from the one file of
+`apps/api/test/support/bridges/` that mirrors its source module (`finance-bridge.ts`, `migrate.ts`, `sessions.ts`, `legacy-run.ts`,
+`finance-clock.ts`, ...), with the same name, signature and calling convention. A door is test support: never imported from
+`apps/api/src`, `apps/api/scripts` or `apps/web`. The old core barrel of the auth services was deleted with the last bridge that
+used it.
 
-- **One runner.** `apps/api/scripts/support/main.ts` imports only `effect` and `@effect/platform-bun`. `runScript(program)` is
-  `BunRuntime.runMain(program, { teardown: makeScriptTeardown((code) => process.exit(code)) })`; the teardown is
-  `Runtime.defaultTeardown(exit, (code) => { const final = Exit.isSuccess(exit) && Predicate.isNumber(exit.value) ? exit.value : code;
-  onExit(final); exitProcess(final); })`, so a numeric success is the exit code, a failure is the error's `[Runtime.errorExitCode]` (1
-  without one), an interruption 130, and the process always ends after the program's scope closed. The program provides its layer
-  INSIDE itself (`program.pipe(Effect.provide(AppLayer))`), never after `runScript`, or `Database.layer`'s release would run after the
-  teardown. A script ends its own refusal with `return yield* new ScriptExit({ code })` (its `[Runtime.errorReported]` is `false`).
-- **A layer reached by a dynamic import.** Where a script may not load the database before a pre-step, the layer comes from inside the
-  generator: `const { AppLayer } = yield* Effect.promise(() => import("../src/runtime.ts")); yield* inner.pipe(Effect.provide(AppLayer))`;
-  a service class used only as a type is `import type`, its value is imported the same way.
-- **v4 service calls (P18).** A `Context.Service` class has no static accessors in `effect@4.0.5`. Yield the service once and call its
-  method, or use `use` for one call; no task adds a static method to get the v3 shape back (`bash docs/plans/e5-verify.sh statics`):
-
-  ```ts
-  const accrual = yield* FinanceAccrual;
-  const result = yield* accrual.runCatchUp(householdId, options);
-  // one call: yield* FinanceAccrual.use((accrual) => accrual.runCatchUp(householdId, options))
-  ```
-
-- **A service built from explicit values.** `LegacyMigration` (`apps/api/scripts/legacy/service.ts`) is a service whose static `layer` is
-  `Layer.sync(this, () => LegacyMigration.of({ open, knownLegacyIds, run }))`: the thunk reads the step functions only when the layer is built,
-  so class evaluation reads no imported binding (the import cycle rule of the `AppLayer`). `open` is `Effect.acquireRelease(openLegacyEffect(…),
-  (legacy) => Effect.sync(() => legacy.client.close()))`, scoped to the caller. The steps stay `Effect.fn` functions over an explicit
-  `MigrationContext`; they never yield `Database` from the ambient context, a step that needs a service builds it over the target it was
-  handed (`withFinanceServices(effect).pipe(Effect.provide(Database.layerFromExecutor(ctx.target.db)))`).
-- **Promise doors.** `runLegacy` (`apps/api/scripts/legacy/io.ts`) is `Effect.runPromise` that rejects with a `DatabaseError`'s raw `cause` and with
-  anything else as the squashed value; the five legacy Promise bridges and `runMigrations(database?)` over `migrateDatabase` return it
-  unawaited and live in an end-of-file `legacy bridges` section until E8.
+**Test seams that stay in `src` (E7, ADR 0014).** `setMailer`, `getMailer`, `isMailerOverridden`, `resetRateLimits`,
+`setVerifiedEmailRequired`, `setImportDbForTests`, `setImportGuardForTests`, `setRemoteImageDownloaderForTests` and `setClockForTest`
+mutate module-level state that the services of the ONE runtime read at call time. The tests drive the app through the in-memory
+handler on that same runtime (one process, one database, ADR 0009), so a test layer cannot reach them; a seam is the smallest
+correct mechanism. They keep their names, are plain synchronous functions called outside any effect, and a seam whose
+test guard is `NODE_ENV=test` fails loudly in production.

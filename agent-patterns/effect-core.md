@@ -16,7 +16,7 @@ import { Cause, Effect, Exit, Option, Predicate, Result, Schema } from "effect"
 
 - One package, `effect`, with flat module paths (`effect`, `effect/http`, ...). No `@effect/platform`, no
   `effect/unstable/*`. The Bun entry point is `import { BunRuntime } from "@effect/platform-bun"`
-  (`packages/platform/bun/src/BunRuntime.ts`, `runMain`).
+  (`repos/effect/packages/platform/bun/src/BunRuntime.ts`, `runMain`).
 - Type extractors: `Effect.Success<T>`, `Effect.Error<T>`, `Effect.Services<T>` (`Effect.ts`). The generator return
   annotation is `Effect.fn.Return<A, E, R>` (`Effect.gen.Return` exists too).
 
@@ -198,122 +198,107 @@ per-symbol list in `migration/v3-to-v4.md`.)
 
 ## 7. In this repo
 
-- Applied first in `apps/api/src/runtime.ts` and `apps/api/src/lib/errors.ts` (E0, E2), then every
-  `apps/api/src/core/services/**` and `apps/api/src/modules/<id>/services/**` function (E2 to E4), the
-  `apps/api/scripts/*.ts` programs (E5) and `apps/web/src/lib/runtime.ts` (E6).
-- Rules served: E12 (`Effect.gen` inline, `Effect.fn("Service.method")` / `Effect.fnUntraced`, `return yield*`,
-  `Effect.catchTag(s)` instead of `instanceof`, Predicate instead of hand-written guards), pinned by
-  `apps/api/test/effect-idioms.test.ts`; and E6 (typed `Schema.TaggedError` failures, defects logged and answered
-  as `500 internal_error`).
+Where it lives:
+- `apps/api/src/runtime.ts`: the ONE `ManagedRuntime` of the API (`AppLayer`, `appMemoMap`, `runtime`), built lazily.
+- `apps/api/src/index.ts`: the process, one of the few places that run an effect (boot, bounded shutdown, `runtime.dispose()`).
+- `apps/api/src/core/health.ts`: the first Effect code of the repo, a plain `Effect.gen` constant served by `SystemApi`.
+- `apps/api/src/core/services/**` and `apps/api/src/modules/<id>/services/**`: every service method is `Effect.fn("Service.method")` or `Effect.fnUntraced`.
+- `apps/api/src/core/routes/*.ts` and `apps/api/src/modules/<id>/routes/*.ts`: the handlers, one `Effect.fn` each inside an `HttpApiBuilder.group` layer.
+- `apps/api/scripts/*.ts` with `apps/api/scripts/support/main.ts`: the scripts as Effect programs (`runScript`, `BunRuntime.runMain`).
+- `apps/web/src/lib/runtime.ts`: the web's one runtime.
+- `apps/api/test/support/bridges/`: the Promise and synchronous "doors" the pinned tests use (below); they are test support, never application code.
 
-**As built (E0):** `apps/api/src/core/health.ts` is the first Effect code of the repo: `healthResponse` is a plain
-`Effect.gen(function* () { ... })` constant (no service dependency yet, so no `Effect.fn`), it reads the module
-registry and the feature flags INSIDE the generator (never at module scope, the API import cycle) and takes its time
-from `DateTime.formatIso(yield* DateTime.now)`. `DateTime.formatIso` is `Date#toISOString` of the UTC instant
-(`repos/effect/packages/effect/src/DateTime.ts`, `Internal.formatIso`), so moving from `new Date().toISOString()` kept
-the wire format. The route is `c.json(await runtime.runPromise(healthResponse))` in `apps/api/src/index.ts`; the
-`async` shutdown handler there is plain `await`, since only `runtime.dispose()` is Effect-owned at E0.
+Rules served: E12 (`Effect.gen` inline, `Effect.fn("Service.method")` / `Effect.fnUntraced`, `return yield*` when raising,
+`Effect.catchTag(s)` instead of `instanceof`, Predicate instead of hand-written guards), pinned by
+`apps/api/test/effect-idioms.test.ts` (rules (15) to (21)); and E6 (typed `Schema.TaggedError` failures, defects logged and
+answered as `500 internal_error`). An effect runs only at an edge: the server fiber, the boot and shutdown, the in-memory test
+handler, the config validation at import and the scripts' runner; rule (20) lists the exceptions with a reason each.
 
-**As built (E1):** E1 runs no `Effect` in the API; the core value it uses is `Option` / `Result`, because a decode at an edge
-that ignores or inspects its failure is synchronous. `apps/api/src/lib/oauth.ts` builds the decoder once with
+The runtime is the composition and nothing else (`apps/api/src/runtime.ts`). `Layer.suspend` over a hoisted function keeps the
+build lazy (the API import cycle), and the `never` requirement in the annotation makes a service left unprovided a `tsc` error:
+```ts
+function appLayer(): Layer.Layer<AppServices, AppLayerError, never> {
+  return Layer.mergeAll(Layer.empty, ...moduleLayers()).pipe(
+    Layer.provideMerge(coreServicesLayer()),
+    Layer.provideMerge(infraLayer()),
+  );
+}
+
+export const AppLayer: Layer.Layer<AppServices, AppLayerError, never> = Layer.suspend(appLayer);
+
+export const appMemoMap = Layer.makeMemoMapUnsafe();
+
+export const runtime = ManagedRuntime.make(AppLayer, { memoMap: appMemoMap });
+```
+
+A route is one `Effect.fn` handler of a `HttpApiBuilder.group` layer (`apps/api/src/core/routes/members.ts`): the service and the
+request context are `yield*`s, a refusal is a returned tagged error and nothing throws:
+```ts
+export const membersHandlers = HttpApiBuilder.group(HouseholdsApi, "members", (handlers) =>
+  handlers
+    /** GET /api/households/:householdId/members */
+    .handle(
+      "getByHouseholdIdMembers",
+      Effect.fn("members.getByHouseholdIdMembers")(function* () {
+        const households = yield* Households;
+        const membership = yield* CurrentMembership;
+        return json({ items: yield* households.listMembers(membership.householdId) });
+      }),
+      UNINTERRUPTIBLE,
+    )
+```
+
+A decode at an edge that ignores or inspects its failure is synchronous: `apps/api/src/lib/oauth.ts` builds the decoder once with
 `Schema.decodeUnknownOption(...)` and unwraps it with `Option.getOrUndefined` (a provider payload that is not that shape is
 `undefined`, never a throw):
 ```ts
 const decodeGoogleClaims = Schema.decodeUnknownOption(GoogleClaimsSchema);
+
+/** The provider payloads, parsed once at the edge: the value, or `undefined` when it is not that shape. */
 export function parseGoogleClaims(raw: unknown): typeof GoogleClaimsSchema.Type | undefined {
   return Option.getOrUndefined(decodeGoogleClaims(raw));
 }
 ```
-`apps/api/src/modules/recipe/services/import/drafts.ts` does the same with `Option.getOrElse(decodeOption(Schema, row), () => fallback)`.
-The web, which has no throw-and-catch boundary, uses `Schema.decodeUnknownResult` and `Result.isSuccess`
-(`apps/web/src/lib/validation.ts`: `decoded.success` on the happy arm, `decoded.failure.issue` on the other). A
-`Result` has `success` / `failure`, not v3's `right` / `left`. `Effect` itself is touched only where a schema API asks for
-one (`Schema.withDecodingDefault(Effect.succeed("member" as const))`, a default is an `Effect`).
+The web has no throw-and-catch boundary and uses `Schema.decodeUnknownResult` (`apps/web/src/lib/validation.ts`); a `Result` has
+`success` / `failure`, not v3's `right` / `left`.
 
-**As built (E2):** the runtime is no longer empty. `apps/api/src/runtime.ts` is `ManagedRuntime.make(AppLayer, { memoMap })` with
-`AppLayer = Layer.suspend(appLayer)` (`Layer.Layer<AppServices, AppLayerError, never>`); every Hono handler of the core routes was
-`(c) => runtime.runPromise(Effect.gen(function* () { … }))` (E7 replaced Hono; the handlers below are `HttpApiBuilder.group` handlers),
-and a refusal is `return yield* new <TaggedError>(…)`, which `runPromise` rejected with as the squashed error itself, so
-`onErrorHandler` rendered it as before. What the integration found about the edge helpers:
-- `Effect.runSync(effect)` is the right bridge for a SYNCHRONOUS legacy export over a service-free effect (the `Clock` is a default
-  service, so `Clock.currentTimeMillis` works); it THROWS the tagged error itself (`Cause.squash`) and cannot run anything asynchronous.
-  Every such bridge carries an explicit return type copied from the old signature, so `tsc` refuses one that became a `Promise`.
-- A middleware does its effect work as ONE `await runtime.runPromise(...)` before `await next()`; never call `next()` inside an effect.
-- A fire-and-forget export runs `runtime.runFork(effect.pipe(Effect.ignoreCause))` and returns `void` (`warmThumbnail`).
-- A `Context.Service` class is itself an `Effect` of its shape, so `runtime.runPromise(Passwords.use((p) => p.hashPassword(x)))` is the
-  one-liner a bridge needs; the fewer places that read a service class at module scope the fewer TDZ crashes (`effect-services.md`).
-
-**In this repo (E7 example):** `apps/api/src/core/routes/members.ts`, a route is one `Effect.fn` handler of a `HttpApiBuilder.group` layer; the
-service and the request context are `yield*`s, a body is decoded by `jsonBody`, a refusal is a returned tagged error, and nothing throws (the
-E2 form was `router.get(…, (c) => runtime.runPromise(Effect.gen(…)))` on a Hono router):
+A resource wait is a scoped acquire that stays interruptible (`apps/api/src/modules/recipe/services/ocr/index.ts`; the bracketing
+`acquireUseRelease` runs its acquire uninterruptibly in v4, so a queued waiter could never be cancelled):
 ```ts
-export const membersHandlers = HttpApiBuilder.group(HouseholdsApi, "members", (handlers) =>
-  handlers.handle(
-    "getByHouseholdIdMembers",
-    Effect.fn("members.getByHouseholdIdMembers")(function* () {
-      const households = yield* Households;
-      const membership = yield* CurrentMembership;
-      return json({ items: yield* households.listMembers(membership.householdId) });
-    }),
-    UNINTERRUPTIBLE,
-  ),
-);
+      const withOcrSlot = <A, E>(effect: Effect.Effect<A, E>, waitMs: number = OCR_SLOT_WAIT_MS) =>
+        Effect.scoped(
+          Effect.andThen(
+            Effect.acquireRelease(acquireSlot(waitMs, limit), () => Effect.sync(releaseSlot), { interruptible: true }),
+            effect,
+          ),
+        );
 ```
 
-**As built (E3):** a recipe route is one `runtime.runPromise` over the services; a service method is `Effect.fn("Service.method")` and a
-resource wait is a scoped acquire that stays interruptible. From `apps/api/src/modules/recipe/services/ocr/index.ts` (the OCR slot gate; the
-bracketing `acquireUseRelease` runs its acquire uninterruptibly in v4, so a queued waiter could never be cancelled):
-
+A middleware is an `HttpApiMiddleware` layer; the finance participant gate (`apps/api/src/modules/finance/middleware.ts`) is the gate
+as ONE `Effect.fn`, the refusal raised with `return yield*`:
 ```ts
-const withOcrSlot = <A, E>(effect: Effect.Effect<A, E>, waitMs: number = OCR_SLOT_WAIT_MS) =>
-  Effect.scoped(
-    Effect.andThen(
-      Effect.acquireRelease(acquireSlot(waitMs, limit), () => Effect.sync(releaseSlot), { interruptible: true }),
-      effect,
-    ),
-  );
-const withOcrTimeout = <A, E>(effect: Effect.Effect<A, E>, timeoutMs: number = OCR_TIMEOUT_MS, text: ErrorText = "server.ocr.recognitionTimedOut") =>
-  Effect.timeoutOrElse(effect, {
-    duration: timeoutMs,
-    orElse: () => Effect.fail(new ApiFailure({ status: 504, code: "ocr_failed", text, details: { timeoutMs } })),
-  });
-```
-
-A write that must be idempotent claims inside the SAME transaction as the write it guards (`services/shopping/items.service.ts`):
-`yield* database.transaction(Effect.gen(function* () { if (!(yield* mutations.claimMutation(listId, input.mutationId))) return; yield* withDatabase(applyAdditions(...)); }))`,
-then the ledger prune runs after it. A cycle between two services (`ShoppingItems` and `ShoppingBought`) is broken by exported
-`Effect.fnUntraced` helpers over `Database`, never by two services needing each other. Each service reads the dependencies it needs inside its own
-generator; the areas nest in `apps/api/src/modules/recipe/layer.ts` with `Layer.provideMerge` (a sibling in `Layer.mergeAll` would not feed its neighbour).
-
-**As built (E4):** a finance route and the participant gate are one `runtime.runPromise` over the services, like recipe's. The gate
-(`apps/api/src/modules/finance/middleware.ts`) is a hoisted function declaration (the import cycle) that does its service and database work
-as ONE `await runtime.runPromise(...)` BEFORE `await next()`; `next()` is never called inside an effect, and the refusal is a family
-failure raised with `return yield*`:
-
-```ts
-const checkFinanceParticipant = Effect.fn("FinanceParticipant.check")(function* (c: AppContext) {
-  const membership = yield* currentMembership(c);
+const checkFinanceParticipant = Effect.fn("FinanceParticipant.check")(function* (membership: Membership) {
   const participants = yield* FinanceParticipants;
   const slot = yield* participants.participantSlotOf(membership.householdId, membership.userId);
   if (slot === null) return yield* notParticipant();
-  return { householdId: membership.householdId, userId: membership.userId, memberSlot: slot };
-});
-
-export function requireFinanceParticipant(): MiddlewareHandler<AppEnv> {
-  return async (c, next) => {
-    const participant = await runtime.runPromise(checkFinanceParticipant(c));
-    c.set("financeParticipant", participant);
-    await next();
+  const context: FinanceParticipantContext = {
+    householdId: membership.householdId,
+    userId: membership.userId,
+    memberSlot: slot,
   };
-}
+  return context;
+});
 ```
 
-A bridge outside the runtime never imports `runtime.ts`; it runs the effect on the executor it is handed and maps the rejection once
-(`apps/api/src/modules/finance/bridge.ts`):
-
+**The doors (E8).** `src` has no Promise or synchronous twin of an Effect function. The pinned tests that still call a Promise
+shape (`runMigrations`, `createSession`, `runFinanceBridge`, `runLegacyMigration`, the synchronous `checkRateLimit` and `nowMs`, ...)
+import it from one file under `apps/api/test/support/bridges/` that mirrors one source module, with the same name, signature and calling
+convention (Promise stays Promise, synchronous stays synchronous, the rejection value unchanged). A door outside the runtime
+never imports `runtime.ts`. `apps/api/test/support/bridges/finance-bridge.ts` builds the finance services over the executor it is
+handed and maps the rejection once:
 ```ts
 export function runFinanceBridge<A, E>(
-  effect: Effect.Effect<A, E, FinanceServices | DatabaseService>,
+  effect: Effect.Effect<A, E, FinanceServices | Database>,
   executor: DbExecutor,
 ): Promise<A> {
   return Effect.runPromise(withFinanceServices(effect).pipe(Effect.provide(Database.layerFromExecutor(executor)))).then(
@@ -322,7 +307,6 @@ export function runFinanceBridge<A, E>(
   );
 }
 ```
-
-`startAccrualSchedule` (`services/plan/scheduler.ts`) is an `Effect.fn` that awaits the boot catch-up and then forks the tick with
-`Effect.forkDetach`; the module-level `tickFiber` holds the fiber because a lifecycle is not a dependency (see effect-datetime-clock.md
-"As built (E4-T06)"). The synchronous `requireFinanceParticipantContext` bridge is `Effect.runSync` over a service-free effect.
+A new test never needs a door: it runs the service with `runTest` of `apps/api/test/support/effect.ts` (`effect-testing.md`). The
+module-level test seams that stay in `src` (`setMailer`, `resetRateLimits`, `setClockForTest`, ...) are listed in
+`effect-services.md` section 7.

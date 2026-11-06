@@ -19,13 +19,13 @@ import { Config, ConfigProvider, Effect, Layer, Option, Redacted, Schema } from 
 
 - Everything is in the `effect` barrel; there is no `@effect/platform` and no `effect/unstable/*` path.
   `ConfigProvider.fromDotEnv` and `fromDir` need `FileSystem` / `Path` in the context (`BunServices.layer` from
-  `@effect/platform-bun`, `packages/platform/bun/src/BunServices.ts`).
+  `@effect/platform-bun`, `repos/effect/packages/platform/bun/src/BunServices.ts`).
 - A `Config<T>` IS an `Effect<T, Config.ConfigError>`: yield it in `Effect.gen` and it reads the current
   `ConfigProvider` from the context (`ConfigProvider.ConfigProvider`, a `Context.Reference` whose default is
   `fromEnv()`, so it needs no provision). `Config.isConfig` is the guard. `Config.ConfigError` is a class
   (`_tag = "ConfigError"`) with a `cause: ConfigProvider.SourceError | Schema.SchemaError`.
 
-## 2. Constructors and the call shapes this repo will use
+## 2. Constructors and the call shapes
 
 Primitive constructors take the key name: `Config.String`, `NonEmptyString`, `Number`, `Finite`, `Int`, `Boolean`,
 `Port` (1-65535), `URL`, `Date`, `Duration`, `ByteSize`, `LogLevel`, `Redacted`, `Literal(v, name)`,
@@ -160,7 +160,7 @@ every `ConfigError`, and the fallback's result replaces the original failure.
 - Defects are not config errors: `Config.orElse` never sees a defect or an interruption.
 - A startup configuration failure is fatal: keep `Config.ConfigError` in the `E` of the layer so it reaches
   `ManagedRuntime` / `BunRuntime.runMain` (exit code non-zero), or turn it into a defect with `Effect.orDie`
-  where a boot must stop with one readable message. Never swallow it into a default (this repo's `env.ts`
+  where a boot must stop with one readable message. Never swallow it into a default (this repo's `resolveProcessEnv` in `apps/api/src/config.ts`
   fails fast with the full list of bad variables).
 - A failure message is built from the path and the schema issue; the secret value of a `Config.Redacted` never
   appears in it (the wrapper prints `<redacted>`).
@@ -194,7 +194,7 @@ every `ConfigError`, and the fallback's result replaces the original failure.
   argument of `Config.schema`, never to `parse`.
 - Literal EMPTY strings count as MISSING for `fromEnv`, `fromUnknown`, `fromDotEnv*` and `fromDir` (an empty
   file is missing too). `FOO=` therefore takes the `withDefault`. Pass `{ preserveEmptyStrings: true }` where an
-  empty value must be kept as a value. Compare with this repo's `env.ts`, which treats some empty values on its own.
+  empty value must be kept as a value. Compare with this repo's `apps/api/src/config.ts`, which treats blank values on its own (`rawEnv`).
 - `Config.schema` rejects opaque encodings (`Schema.Any`, `Unknown`, `ObjectKeyword`, `Json`) at construction
   time. For JSON in one variable use `Schema.fromJsonString(Schema.Json)`. A plain `Schema.Array` / `Schema.Record`
   accepts structural provider input only: separated strings (`"a,b,c"`) need `Config.Array` / `Config.Record`.
@@ -217,53 +217,70 @@ every `ConfigError`, and the fallback's result replaces the original failure.
 
 ## 7. In this repo
 
-- `apps/api/src/env.ts` (today a `Schema` struct, `parseEnv(source)` plus the eager `env`, with its own dotenv
-  loader for the root `.env` / `.env.local`) becomes the `AppConfig` service of E2 (`apps/api/src/config.ts` in
-  `docs/EFFECT.md` §3): a `Context.Service` with a static `layer` built from the `Config` shapes above
-  (`Config.all` with per-child `withDefault`, `Config.Redacted("SESSION_SECRET")`, `Config.Boolean` for the
-  flags, `Config.Array(Schema.String, "WEB_ORIGIN")` for the comma list, `Config.Port` / `Config.Int` for numbers),
-  plus a constructor from explicit values (`ConfigProvider.fromUnknown(values)` through `ConfigProvider.layer`) so
-  `apps/api/scripts/migrate-legacy.ts` keeps its import-order rule and tests build a config without
-  `process.env`. `apps/api/test/support/effect.ts` (E9) installs the test provider with `ConfigProvider.layer`.
-- The dotenv rules (existing `process.env` always wins, `.env` then `.env.local`, none under `NODE_ENV=test`) go
-  into one provider chain: `ConfigProvider.orElse(fromEnv(), fromDotEnvContents(text))` keeps "process env wins";
-  keep the temp-DB rule of ADR 0009 as an explicit `withDefault` branch, not a hidden global.
-- `apps/api/src/core/health.ts`, `apps/api/scripts/{seed,migrate,migrate-legacy}.ts` read `process.env` directly
-  today; at E2 / E5 they take values from `AppConfig`.
-- Rule served: E7 (`AppConfig` is one of the cross-cutting services, built with `Config`, keeping eager
-  validation, the dotenv rules and the test temp-DB rule); a bad configuration stays fatal at boot, as today.
+Where it lives:
+- `apps/api/src/config.ts`: `AppConfig`, the validated environment as a service (`Context.Service<AppConfig, Env>`), with `AppConfig.config`
+  (a `Config.Config<Env>` that only READS the variables), `AppConfig.layer` (the process value, `resolveProcessEnv()`, resolved once per
+  process) and `AppConfig.layerFrom(values)` (explicit raw values, no `process.env`, no dotenv, no test rules); `configErrorLines`, `parseEnv`,
+  `REPO_ROOT`. Importing the file has no side effect; only the first resolution does.
+- `apps/api/src/env.ts`: re-exports `env` (`resolveProcessEnv()` at import), `parseEnv`, `REPO_ROOT` for the synchronous readers (the tests
+  mutate `env` fields as seams) and the pinned import order of `apps/api/scripts/migrate-legacy.ts`; the client of
+  `apps/api/src/db/client.ts` stays created at import (plan e8 P3). `AppConfig.layer` and `env` are the SAME object.
+- `apps/api/src/infra.ts` provides `AppConfig.layer` to the infrastructure; services read it inside their generators
+  (`const config = yield* AppConfig`).
+- Tests: `apps/api/test/config.test.ts` and `apps/api/test/env-parse.test.ts` (every `parseEnv` line pinned).
 
-**As built (E2, plan `docs/plans/e2-api-core-services.md` P5, task E2-T02).** The sketch above (`Config.all` of
-typed constructors, `Config.Redacted`, a dotenv provider chain) was NOT what parity allowed; what `apps/api/src/config.ts`
-does instead, and why:
+Rule served: E7 (`AppConfig` is a cross-cutting service built with `Config`, keeping eager validation, the dotenv rules and the test temp-DB
+rule of ADR 0009); a bad configuration stays fatal at boot (`resolveProcessEnv` prints the block and exits 1).
 
-- The variable schema stays ONE `Schema` struct (`EnvFields` piped into the derived `EnvValue` with the six cross-field
-  checks), decoded with `ALL_ISSUES`. `Config.schema` stops at the first issue and the typed constructors word their
-  own messages, and `apps/api/test/env-parse.test.ts` pins every line, so `Config` only READS:
-  `AppConfig.config = Config.all(EffectRecord.fromIterableWith(keys, (k) => [k, Config.option(Config.String(k))]))`
-  over the struct's own keys, `Config.map(EffectRecord.getSomes)` (an absent variable is left out of the map, exactly
-  like an unset one), then `Config.mapEffect` running `Schema.decodeUnknownEffect(EnvSchema, ALL_ISSUES)` with
-  `Effect.mapError((e) => new Config.ConfigError(e))`. `configErrorLines(error)` formats a `ConfigError` exactly like
-  `parseEnv` (one `  - KEY: message` line per issue, `(env)` for a cross-field rule); `Config.ConfigError` is a plain
-  class with `_tag = "ConfigError"` and `cause: SourceError | SchemaError` (`Schema.isSchemaError(error.cause)`).
-- Explicit values go through `ConfigProvider.fromUnknown(values, { preserveEmptyStrings: true })`: without the flag
-  `""` would be MISSING (§6) and `WEB_ORIGIN=""` would take the default instead of failing like `parseEnv`.
-  `fromUnknown` reads `KEY_WITH_UNDERSCORES` as one flat key; `fromEnv` / `fromEnvRecord` would split it on `_`.
-- `AppConfig extends Context.Service<AppConfig, Env>()("toon/api/config/AppConfig")` with `static config`,
-  `static layer = Layer.sync(AppConfig, resolveProcessEnv)` and `static layerFrom(values)` =
-  `Layer.effect(AppConfig, AppConfig.config.parse(provider))` (a `Layer<AppConfig, Config.ConfigError>`). A static
-  initializer may name the class itself (as in LLMS.md's `Database.layer`).
-- The process value is a memoized plain function, not a provider chain: `resolveProcessEnv()` loads the root `.env` /
-  `.env.local` with the old hand-written loader (process env wins, nothing under `NODE_ENV=test`; its quoting and
-  `#` rules are not `fromDotEnvContents`'), drops blank values, applies the ADR 0009 test rules (temp DB,
-  placeholder secret), runs `Effect.runSyncExit(AppConfig.config.parse(fromUnknown(raw)))` and on failure prints the
-  old block and `process.exit(1)`. It is memoized because `apps/api/src/env.ts` (`export const env =
-  resolveProcessEnv()`) and every `AppConfig.layer` build must see the SAME object (tests mutate `env` fields as
-  seams) and one temp test DB per process. Importing `config.ts` has no side effect; only the first resolution does.
-- Tests: `Effect.runSyncExit(Effect.provide(Effect.gen(function* () { return yield* AppConfig }), layer))`; a
-  `Config` is an `Effect`, so `Effect.provide(AppConfig.config, ConfigProvider.layer(provider))` reads an installed
-  provider (`apps/api/test/config.test.ts`).
+The sketch "`Config.all` of typed constructors, `Config.Redacted`, a dotenv provider chain" was NOT what behaviour parity allowed. The variable
+schema stays ONE `Schema` struct (`EnvFields`, with the cross-field checks), decoded with `ALL_ISSUES` (every issue collected): `Config.schema`
+stops at the first issue and the typed constructors word their own messages, and `apps/api/test/env-parse.test.ts` pins every line. So `Config`
+only READS: every key of the struct as `Config.option(Config.String(key))`, the absent ones dropped, then one `Config.mapEffect` running the
+schema decode, with the schema failure wrapped in `Config.ConfigError` (a plain class, `_tag = "ConfigError"`, `cause: SourceError | SchemaError`).
+`apps/api/src/config.ts`:
+```ts
+const envConfig: Config.Config<Env> = Config.all(
+  EffectRecord.fromIterableWith(ENV_KEYS, (key) => [key, Config.option(Config.String(key))] as const),
+).pipe(
+  Config.map(EffectRecord.getSomes),
+  Config.mapEffect((raw) => decodeEnvEffect(raw).pipe(Effect.mapError((error) => new Config.ConfigError(error)))),
+);
+```
+The service has the process layer and an explicit-values constructor. `ConfigProvider.fromUnknown(values, { preserveEmptyStrings: true })`:
+without the flag `""` would be MISSING (section 6) and `WEB_ORIGIN=""` would take the default instead of failing; `fromUnknown` reads
+`KEY_WITH_UNDERSCORES` as one flat key, where `fromEnv` would split it on `_`.
+```ts
+export class AppConfig extends Context.Service<AppConfig, Env>()("toon/api/config/AppConfig") {
+  /** The configuration read from the current `ConfigProvider`; fails with a `Config.ConfigError`. */
+  static readonly config: Config.Config<Env> = envConfig;
 
-**In this repo (E2 example):** `apps/api/test/config.test.ts` reads the config the way the layer does, against an explicit provider:
-`Effect.runSyncExit(Effect.provide(Effect.gen(function* () { return yield* AppConfig }), AppConfig.layerFrom(values)))`; a bad value is a
-`Config.ConfigError` whose `configErrorLines` are the lines `apps/api/test/env-parse.test.ts` pins.
+  /** The process value (`resolveProcessEnv`): the same object as `env`, one temp test DB per process. */
+  static readonly layer: Layer.Layer<AppConfig> = Layer.sync(AppConfig, resolveProcessEnv);
+
+  static layerFrom(values: Readonly<Record<string, string | undefined>>): Layer.Layer<AppConfig, Config.ConfigError> {
+    return Layer.effect(
+      AppConfig,
+      envConfig.parse(ConfigProvider.fromUnknown(values, { preserveEmptyStrings: true })),
+    );
+  }
+}
+```
+The process value is a memoized plain function, not a provider chain: `resolveProcessEnv()` loads the root `.env` / `.env.local` with a hand-written
+loader (process env wins, nothing under `NODE_ENV=test`; its quoting and `#` rules are not `fromDotEnvContents`'), drops blank values, applies the ADR 0009
+test rules (temp DB, placeholder secret), parses with `Effect.runSyncExit(envConfig.parse(provider))` and on failure prints the block and
+`process.exit(1)`. It is memoized because `env` and every `AppConfig.layer` build must see the SAME object. Rule (20) of
+`apps/api/test/effect-idioms.test.ts` allow-lists this one `Effect.runSyncExit`, the eager validation at import.
+
+A test reads the config the way the layer does, against an explicit provider (`apps/api/test/config.test.ts`); a bad value is a
+`Config.ConfigError` whose `configErrorLines` are the lines `apps/api/test/env-parse.test.ts` pins:
+```ts
+const readConfig = Effect.gen(function* () {
+  return yield* AppConfig;
+});
+
+function fromLayer(layer: Layer.Layer<AppConfig, Config.ConfigError>): Exit.Exit<Env, Config.ConfigError> {
+  return Effect.runSyncExit(Effect.provide(readConfig, layer));
+}
+```
+A script that must not touch the process environment before its redirect (`apps/api/scripts/migrate-legacy.ts`) never imports `env.ts` or
+`config.ts`'s process value: it resolves `DATABASE_URL` and `UPLOAD_DIR` itself (CLAUDE.md "The CLI never imports `src/env.ts`").
