@@ -51,7 +51,7 @@ interface Transport {
 }
 
 /** A transport that ignores the time: console, Resend, a `setMailer` fake. */
-function plain(transport: Mailer): Transport {
+export function plain(transport: Mailer): Transport {
   return { name: transport.name, send: (message) => transport.send(message) };
 }
 
@@ -107,7 +107,7 @@ export class MailerService extends Context.Service<
 }
 
 /** The `Mailer` service over `base`; a `setMailer` override is consulted at send time, so it wins over `base`. */
-function makeMailer(base: Transport): MailerService["Service"] {
+export function makeMailer(base: Transport): MailerService["Service"] {
   const active = (): Transport => (overridden && mailer !== null ? plain(mailer) : base);
 
   const send = Effect.fn("Mailer.send")(function* (message: MailMessage) {
