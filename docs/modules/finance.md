@@ -91,9 +91,8 @@ request and response shapes is the finance section of `docs/API.md`.
 `apps/api/src/modules/finance/http.ts`) is implemented by `RequireFinanceParticipantLayer` (`apps/api/src/modules/finance/middleware.ts`):
 the gate asks `FinanceParticipants.participantSlotOf` for the membership `RequireHouseholdMember` provided, refuses with the family's
 `ApiFailure` (`403 finance_not_participant`) and provides the seat as `CurrentFinanceParticipant`, which the handlers yield; the
-core's request services stay module-free. The Hono middleware `requireFinanceParticipant()` and its `ContextVariableMap`
-augmentation sit in the file's Hono section until E7-T12 deletes it; the synchronous `requireFinanceParticipantContext` there survives
-as a bridge for `apps/api/test/finance-participants.test.ts`, see below. The
+core's request services stay module-free. The pre-E7 Hono middleware `requireFinanceParticipant()` and the synchronous
+`requireFinanceParticipantContext` bridge are gone (E7 deleted them). The
 services mirror F's `services/` one to one under `apps/api/src/modules/finance/services/{ledger,categories,tags,plan}/`, plus
 `participants/`, `settings/` and `setup/` (replacing F's `households/` services) and `support.ts` (`escapeLikePattern`, the `DbLike` /
 `Tx` types; the Promise helper `withTransaction` went with `apps/api/scripts/finance-import-xlsx.ts` at E5, whose write path now runs inside
@@ -119,18 +118,20 @@ code is an `ApiFailure`, F gotcha 48). The manifest is an `ApiModule<FinanceServ
 `apps/api/src/modules/finance/services/plan/scheduler.ts` is not a service: it holds the process's one tick fiber
 (`startAccrualSchedule`, `stopAccrualSchedule`). The area composition functions are `services/*/layer.ts`.
 
-**Legacy bridges (until E8).** Three Promise or synchronous bridges survive E5 with the OLD name and signature for the pinned tests, every
-Promise one through `runFinanceBridge` (`apps/api/test/support/bridges/finance-bridge.ts`, moved there at E8, plan e8 P1), which provides `Database.layerFromExecutor(executor)`
-itself, builds the services over that executor and never imports `apps/api/src/runtime.ts`: `assignParticipants` and
-`updateParticipantDisplayName` (`participants.service.ts`; `apps/api/test/finance-module.test.ts`), and the synchronous
-`requireFinanceParticipantContext` (`middleware.ts`; `apps/api/test/finance-participants.test.ts`). A bridge rejects with a
-`DatabaseError`'s `cause` (the raw driver error the old function threw) and with a family refusal unchanged. E5 deleted the six that
-scripts called: `runCatchUp`, `getBalance`, `slot1UserId`, `requireOtherMemberId`, `categoryIdBySlug`, `syncTransactionTags`, and the
-`withTransaction` helper. The scripts reach the services as v4 service values: `apps/api/scripts/plan-run.ts` yields `FinanceAccrual` and calls
+**Doors and seams (E8, plan e8 P1, P2; ADR 0014 "Status after E8").** No bridge is left in `src`. The Promise forms the pinned tests
+still call keep their OLD names and signatures as test-support doors in `apps/api/test/support/bridges/`:
+`assignParticipants` and `updateParticipantDisplayName` (`finance-participants.ts`; `apps/api/test/finance-module.test.ts`),
+`runFinanceBridge` (`finance-bridge.ts`, which provides `Database.layerFromExecutor(executor)` itself, builds the services over that
+executor and never imports `apps/api/src/runtime.ts`; it rejects with a `DatabaseError`'s `cause`, the raw driver error the old function
+threw, and with a family refusal unchanged) and the synchronous `nowMs` (`finance-clock.ts`, over `financeTimeMillis`, for
+`apps/api/test/support/finance-harness.ts` and `apps/api/test/finance-clock.test.ts`). The service methods themselves
+(`FinanceParticipants.assignParticipants`, `updateParticipantDisplayName`) are Effects. The one seam that stays in `src` is
+`setClockForTest` (`lib/clock.ts`), named as a seam. E5 deleted the six bridges that scripts called: `runCatchUp`, `getBalance`,
+`slot1UserId`, `requireOtherMemberId`, `categoryIdBySlug`, `syncTransactionTags`, and the `withTransaction` helper; E7 deleted
+`requireFinanceParticipantContext`. The scripts reach the services as v4 service values: `apps/api/scripts/plan-run.ts` yields `FinanceAccrual` and calls
 `runCatchUp` per household on the `AppLayer`; `apps/api/scripts/finance-import-xlsx.ts` loads `FinanceParticipants`, `FinanceCategories`
 and `FinanceTags` dynamically on its write path only (a `--dry-run` never opens the database) and runs inside `Database.transaction`;
-`apps/api/scripts/legacy/balance.ts` runs `FinanceBalance` over the migration's explicit target with `withFinanceServices`. ADR 0014
-("Status after E5's integration") lists the survivors with their removal milestone.
+`apps/api/scripts/legacy/balance.ts` runs `FinanceBalance` over the migration's explicit target with `withFinanceServices`.
 
 Finance error codes (all in the core `ERROR_CODES` of `packages/shared/src/core/schemas/common.ts`, wire contract, never
 renamed): from F `transaction_amount_zero`, `transaction_generated`, `balance_stale`, `settlement_amount_invalid`,
@@ -151,12 +152,12 @@ renamed): from F `transaction_amount_zero`, `transaction_generated`, `balance_st
 
 Every hook is an Effect over `Database` only (the contract of `docs/SPEC.md` section 2), so each manifest entry wraps its program in
 `withFinanceServices` (`apps/api/src/modules/finance/layer.ts`): the finance services are built over the CURRENT `Database` of the
-calling fiber (the core's open transaction for a hook) with a local memo map, which keeps the hooks, the bridges and the scheduler
+calling fiber (the core's open transaction for a hook) with a local memo map, which keeps the hooks, the doors and the scheduler
 off the runtime's memoized copies and lets them run outside the runtime on a bare executor (`Database.layerFromExecutor`, `apps/api/scripts/seed.ts`). The module
 has no `uploadReferences`, `afterMigrate` or `healthFeatures`.
 
-The module clock is `apps/api/src/modules/finance/lib/clock.ts` (`financeTimeMillis`, `setClockForTest`, the synchronous
-`nowMs()` for the test harness); see section 4a.
+The module clock is `apps/api/src/modules/finance/lib/clock.ts` (`financeTimeMillis`, `setClockForTest`); the synchronous `nowMs()` for
+the test harness is the door `apps/api/test/support/bridges/finance-clock.ts` (E8); see section 4a.
 
 ### 1.5 Shared package
 
@@ -280,7 +281,7 @@ arithmetic handles it, but no UI entry point creates it.
 `viewerBalanceCents`; **the UI never shows a raw sign**: it renders the viewer's projection through one of three catalog keys
 (`finance.balance.owesYou` "{name} schuldet dir {amount}", `finance.balance.youOwe` "Du schuldest {name} {amount}",
 `finance.balance.settled` "Ausgeglichen"), three keys and not three hard-wired sentences. `GET .../finance/balance` also returns a
-breakdown (`splitOwnCents`, `splitOtherCents`, `forOtherCents`, `settledCents`) so the screen can say why the number is what
+breakdown (`splitOtherCents`, `forOtherCents`, `settledCents`, `transactionCount`) so the screen can say why the number is what
 it is.
 
 **`SETTLEMENT` and `OTHER_ONLY` are arithmetically identical and differ only in reporting** (ledger-spec §2.3; F gotcha 40):
@@ -520,7 +521,7 @@ pointer to this section for the leaving rule and the greps.
   and the schedule goes on. Every finance timestamp and the plan's `start_period` come from the module clock
   `apps/api/src/modules/finance/lib/clock.ts`: the Effect `financeTimeMillis` (the `setClockForTest` override, else the fiber's
   `Clock`, read on every run), never `Date.now()` and never a core helper (the core `nowMs` is deleted; idioms rule (11)). The
-  synchronous `nowMs()` survives for the harness. toon-finance's plan tests pin the clock before creating the household and expect
+  synchronous `nowMs()` of the harness is a test-support door (`apps/api/test/support/bridges/finance-clock.ts`, E8) over `financeTimeMillis`. toon-finance's plan tests pin the clock before creating the household and expect
   the plan to start in that period: a test that does hands it back with `setClockForTest(null)` in `afterAll` (F gotcha 4: never
   `mock.module`); a test of the scheduler advances a `TestClock` instead (`apps/api/test/finance-scheduler.test.ts`: no
   `interval` run before +6 h, the next period booked at +6 h, the boot catch-up books the two fixture rows of 51400 ct at the M6

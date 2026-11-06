@@ -184,3 +184,69 @@ in `apps/api/scripts/legacy/` or `apps/api/scripts/finance-import/`, no `runModu
 `client.ts` until E8 decides whether to create the client inside `Database.layer`; `docs/EFFECT.md` E5's sentence says so in this commit.
 Consequence for operators: every script on the `AppLayer` ends with one added English line, `[db] database closed` (`Database.layer`'s release),
 and a SIGINT or SIGTERM interrupts the program, runs its finalizers and exits 130 where the old scripts died at once.
+
+## Status after E8 (2026-11-06)
+
+E8 (harden, `docs/plans/e8-harden.md` P1 to P4) closes this ADR: no transitional bridge is left in `apps/api/src` or `apps/api/scripts`, and
+what remains is named for what it is. The "Decision" above, the E2 to E5 status sections and the survivors table of "Status after E5's
+integration" are the history of how the tree got here; this section is the state.
+
+**The 19 doors live in `apps/api/test/support/bridges/`.** Every test-only Promise or synchronous form that the tests still call moved out of
+`src` with its NAME, SIGNATURE and CALLING CONVENTION (a Promise stays a Promise, a synchronous form stays synchronous, the rejection value is
+unchanged), one file per source module it mirrors; a door file imports only that module and what the old bridge body imported, never the other
+way round (no file under `apps/api/src`, `apps/api/scripts`, `apps/web/src` or `packages` imports a door; the idioms test's rule (20) and the plan's
+`no-bridges` check pin it), and the tests changed their import specifiers only. `src` keeps the Effect forms.
+
+| Door (file under `apps/api/test/support/bridges/`) | Exports | Mirrors |
+| --- | --- | --- |
+| `migrate.ts` | `runMigrations` (Promise over `migrateDatabase`) | `apps/api/src/db/migrate.ts` |
+| `api-error.ts` | the legacy `ApiError` class with its ten static helpers | `apps/api/src/lib/errors.ts` |
+| `sessions.ts` | `createSession` | `apps/api/src/core/services/auth/sessions.ts` |
+| `users.ts` | `claimPlaceholderUser` | `apps/api/src/core/services/auth/users.ts` |
+| `rate-limit.ts` | `checkRateLimit` (synchronous) | `apps/api/src/core/services/auth/rateLimit.ts` |
+| `mail.ts` | `trySendMail` | `apps/api/src/core/services/mail/index.ts` |
+| `recipe-drafts.ts` | `createDraft` | `apps/api/src/modules/recipe/services/import/drafts.ts` |
+| `recipe-ocr.ts` | `importFromText` (synchronous) | `apps/api/src/modules/recipe/services/import/ocr/index.ts` |
+| `recipe-fetch.ts` | `fetchHtml` | `apps/api/src/modules/recipe/services/import/url/fetch.ts` |
+| `recipe-ssrf.ts` | `assertPublicUrl` | `apps/api/src/modules/recipe/services/import/url/ssrf.ts` |
+| `finance-bridge.ts` | `runFinanceBridge` | the deleted `apps/api/src/modules/finance/bridge.ts` (its runner; it still imports no `runtime.ts`) |
+| `finance-participants.ts` | `assignParticipants`, `updateParticipantDisplayName` | `apps/api/src/modules/finance/services/participants/participants.service.ts` |
+| `legacy-io.ts` | `runLegacy` | `apps/api/scripts/legacy/io.ts` |
+| `legacy-run.ts` | `runLegacyMigration` | `apps/api/scripts/legacy/run.ts` |
+| `legacy-users.ts` | `migrateUsers` | `apps/api/scripts/legacy/users.ts` |
+| `legacy-households.ts` | `migrateHouseholds` | `apps/api/scripts/legacy/households.ts` |
+| `legacy-recipe.ts` | `migrateRecipe` | `apps/api/scripts/legacy/recipe.ts` |
+| `legacy-sources.ts` | `openLegacy` | `apps/api/scripts/legacy/sources.ts` |
+| `finance-clock.ts` | `nowMs` (synchronous, over `financeTimeMillis`) | `apps/api/src/modules/finance/lib/clock.ts` |
+
+Two doors are not verbatim copies of a removed `src` function. The legacy **`ApiError` class moved** (P4): `isApiError`, `toApiError`,
+`errorBody`, the boundary and every member of the tagged family stay in `apps/api/src/lib/errors.ts`, and `x instanceof ApiError` still means
+`isApiError(x)` in the tests. **`nowMs` moved as a door** (P1, `apps/api/test/support/bridges/finance-clock.ts`): it is `Effect.runSync(financeTimeMillis)`, the same
+value as the old function (the `setClockForTest` override when one is set, else the `Clock`, which is `Date.now()`), so
+`apps/api/test/finance-clock.test.ts` and `apps/api/test/support/finance-harness.ts` keep their assertions and rule (11)'s `nowMs(` allow list
+is empty. The `import-order-effect` entry of the deleted `apps/api/src/modules/finance/bridge.ts` was replaced by `apps/api/src/modules/finance/http.ts`,
+so the entry count did not drop.
+
+**The test seams stay in `src`, named as seams (P2).** `setMailer`, `getMailer`, `isMailerOverridden` and `isMailConfigured`
+(`apps/api/src/core/services/mail/index.ts`), `resetRateLimits` (`apps/api/src/core/services/auth/rateLimit.ts`), `setVerifiedEmailRequired`
+(`apps/api/src/core/services/auth/verifiedEmail.ts`), `setImportDbForTests` (`apps/api/src/modules/recipe/services/import/db.ts`),
+`setImportGuardForTests` (`apps/api/src/modules/recipe/services/import/url/fetch.ts`), `setRemoteImageDownloaderForTests`
+(`apps/api/src/modules/recipe/services/recipes/remoteImage.ts`) and `setClockForTest` (`apps/api/src/modules/finance/lib/clock.ts`) mutate
+module-level state that the services of the ONE runtime read at call time. The tests drive the app through the in-memory handler on that same
+runtime in one process on one database (ADR 0009), so a test layer cannot reach them; a seam is the smallest correct mechanism. This amends the
+Decision's last bullet ("They go when E9's test support replaces each with a layer … at the latest in E8") and `docs/EFFECT.md` E7's
+"each removed by the milestone that moves its last caller": they are not transitional. Their section headers in `rateLimit.ts` and
+`mail/index.ts` read `test seams: …` with the reason, and the three recipe `…ForTests` seams throw outside `NODE_ENV=test`.
+
+**The import-time client and `env.ts` stay (P3).** The first Decision bullet's "after E5 the instance is created by the layer alone" and "Status
+after E5's integration" left it to E8 whether `Database.layer` creates the client. It does not: `apps/api/src/db/client.ts` keeps creating the
+process-wide `client` / `db` / `dbReady` at import and `apps/api/src/env.ts` keeps re-exporting the resolved `env`, because the tests' shared `db` (ADR
+0009), the pinned import order of `apps/api/scripts/migrate-legacy.ts` (`apps/api/test/legacy-cli.test.ts`, `apps/api/test/import-order.test.ts`) and 23
+synchronous `env` readers depend on them, and moving the creation into the layer would change that contract for no observable gain. The
+`Database` service owns the client's LIFETIME (acquire awaits the pragmas, release closes it and logs `[db] database closed`, never under
+`NODE_ENV=test`), which is what E5 needed. `docs/EFFECT.md` E5's sentence and §3.2 say so, and `docs/open-work.md` O-7 records the decision.
+
+**Closed.** The Promise module contract (`PromiseApiModule`, `fromPromiseModule`, `runModuleHook`) went at E4 and E5, the core `requireUser`,
+`requireMembership` and the finance `requireFinanceParticipantContext` at E7 (Hono), and with E8 no `legacy bridges:` section is left in `apps/api/src`
+or `apps/api/scripts`. The doors are test helpers, not application code, and carry no owner milestone; the seams are permanent. A new
+transitional bridge would need a new ADR. This ADR is closed: its last status is this one.

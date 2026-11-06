@@ -376,7 +376,7 @@ counts. Such an account gets **`403 email_unverified`** on:
   is content),
 - `POST` and `DELETE /api/households/:householdId/modules/:moduleId` (a household-wide settings write),
 - every write of the modules' routers that the module section marks `+verified` (recipe: all writes;
-  finance: every ledger write, behind `requireFinanceParticipant`).
+  finance: every ledger write, behind `RequireFinanceParticipant`).
 
 Everything else is unchanged, and deliberately so:
 
@@ -1149,7 +1149,7 @@ Auth column vocabulary of this section: `household:member+module:finance`, plus 
 
 ### Conventions
 
-- **Money is integer cents** (`…Cents`, signed `CentsSchema`), never a float or a decimal string. Formatting happens at the edge of the web app's render tree. The only forbidden transaction amount is `0` (`422 transaction_amount_zero`, thrown by the service because a Zod refinement could only ever surface as `validation_failed`); negative amounts are refunds and corrections and keep their sign. Fixed-cost items, incomes and settlement amounts must be greater than 0.
+- **Money is integer cents** (`…Cents`, signed `CentsSchema`), never a float or a decimal string. Formatting happens at the edge of the web app's render tree. The only forbidden transaction amount is `0` (`422 transaction_amount_zero`, thrown by the service because a schema check could only ever surface as `validation_failed`); negative amounts are refunds and corrections and keep their sign. Fixed-cost items, incomes and settlement amounts must be greater than 0.
 - **Periods** are `YYYY-MM` text between `2000-01` and `2100-12` (`PeriodSchema`). `from` and `to` filters accept either an ISO date or time or a period; a bound that is neither is `422 validation_failed` with a detail on `from` or `to`. A period `to` is inclusive of the whole month. Timestamps are ISO-8601 on the wire and integer unix milliseconds in SQLite; every finance timestamp comes from the module clock (`apps/api/src/modules/finance/lib/clock.ts`).
 - **Lists** are `{ items, total, limit, offset }` with `FinancePaginationQuery`: `limit` default 50, 1 to 200; `offset` default 0. `GET …/categories`, `…/tags` and `…/balance/history` are bare `{ items }`.
 - **Booleans in a query string** (`includeAggregates`, `includeHidden`) accept `true`, `false`, `1` and `0`; any other value is `422`. `includeAggregates` defaults to `true`; `false` hides the rows tagged `sammelbuchung` (the one imported lump-sum row), which the balance and the lists include by default.
@@ -1172,7 +1172,7 @@ A household has any number of core members; finance seats exactly **two** of the
 Notes
 
 - **`GET`** answers `{ items, viewerSlot }`: one `FinanceParticipantResponse` per seat ordered by slot (`userId`, `memberSlot`, `displayName`, `name`, `email`, `hasAccount`, `joinedAt`; `email` is `null` and `hasAccount` is `false` for a placeholder) and the caller's own seat. **`viewerSlot` is `null` for a household member without a seat**, and this is the only finance route such a member reaches (every other route is `403 finance_not_participant`). The web app caches it so a cold offline start knows the viewer's slot.
-- **`PUT`** replaces the two seats and answers the new list. The rules live in the service (`assignParticipants`, `apps/api/src/modules/finance/services/participants/participants.service.ts`), not in Zod, because a Zod refinement cannot carry its own error code. The body is exactly two entries `{ userId, memberSlot }`:
+- **`PUT`** replaces the two seats and answers the new list. The rules live in the service (`assignParticipants`, `apps/api/src/modules/finance/services/participants/participants.service.ts`), not in the schema, because a schema check cannot carry its own error code. The body is exactly two entries `{ userId, memberSlot }`:
   - slots exactly {1, 2}, two different users, else **`422 finance_participants_required`** (`server.finance.participantsRequired`); both users must be members of the household, else the same code with `server.finance.participantNotMember`;
   - a **placeholder may hold slot 2 only**: a placeholder in slot 1 is `422 validation_failed` with a detail on `participants.<index>.userId` and `server.finance.placeholderSlotOne` ("Eine Person ohne Konto kann nur Platz 2 belegen.");
   - a user who **leaves the budget** (seated before, absent after) while the household has **any** `finance_transactions` row, or an income naming them, is **`409 finance_participant_in_use`** and nothing is written (ADR 0004). Any row blocks it, not only rows naming the outgoing user, because every two-person row involves both slots: a replacement would silently inherit the outgoing user's share of every row and of the balance. Swapping the same two users between slots is allowed (nobody leaves; every projection is computed at read time). A concurrent assignment that wins the slot's unique index answers the same `409`, never a 500;

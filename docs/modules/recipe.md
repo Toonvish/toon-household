@@ -74,7 +74,8 @@ modules. Method names are the old exported function names without the leading `d
 `routes/*.ts` yields them inside its `Effect.fn` (until E7 it was `(c) => runtime.runPromise(Effect.gen(...))` on Hono). The manifest is an `ApiModule<RecipeServices>`
 (no longer behind `fromPromiseModule`); its `layer` is `Layer.suspend(recipeLayer)` (`apps/api/src/modules/recipe/layer.ts`),
 the areas nested by dependency (`plan` over `shopping` over `recipes` over `import` + `cards` over `url` import over `ocr`),
-merged by the runtime into the one `AppLayer`.
+merged by the runtime into the one `AppLayer`. Each area has its own `layer.ts`:
+`apps/api/src/modules/recipe/services/{ocr,import,import/url,recipes,shopping,plan,cards}/layer.ts` (the checked list is the 22 classes below).
 
 | Area (`services/…`) | Services (file) |
 | --- | --- |
@@ -88,10 +89,12 @@ merged by the runtime into the one `AppLayer`.
 
 Time comes from the `Clock`, the database through `Database.use` / `Database.transaction`, refusals are the tagged family
 of `apps/api/src/lib/errors.ts`; no recipe file names `ApiError`, calls `nowMs(` or `withTransaction(` (rule (11) and the
-acceptance grep). The Promise bridges that survive E5 are exactly `createDraft(db, input)` (`import/drafts.ts`) and the
-synchronous `importFromText` (`import/ocr/index.ts`), `fetchHtml` (`import/url/fetch.ts`) and `assertPublicUrl`
-(`import/url/ssrf.ts`), the last four for the pinned tests of `apps/api/test/import/` (E8); ADR 0014 lists them with
-the core's. E5 deleted `backfillFoldedColumns` and `localizeImageUrl` with their last callers, the two scripts
+acceptance grep). No Promise bridge is left in `src`: the Promise and synchronous
+forms the pinned tests of `apps/api/test/import/` call (`createDraft(db, input)`, the synchronous `importFromText`, `fetchHtml`,
+`assertPublicUrl`) are the doors `apps/api/test/support/bridges/recipe-drafts.ts`, `recipe-ocr.ts`, `recipe-fetch.ts` and `recipe-ssrf.ts`
+(E8, plan e8 P1; ADR 0014 "Status after E8"), over the Effect forms of the services. What stays in `src` are the three
+`…ForTests` seams (`setImportDbForTests`, `setImportGuardForTests`, `setRemoteImageDownloaderForTests`), named as seams (plan e8 P2).
+E5 deleted `backfillFoldedColumns` and `localizeImageUrl` with their last callers, the two scripts
 `apps/api/scripts/legacy/recipe.ts` and `apps/api/scripts/localize-images.ts`, which now run `foldBackfill` over
 `Database.layerFromExecutor(ctx.target.db)` and yield the `RemoteImages` service on the `AppLayer`.
 
