@@ -1,5 +1,7 @@
 # E8 — harden (plan)
 
+**Status: DONE (2026-11-06), integrated by E8-T12; integration record in section 9, deviations in section 10.** Base commit `4bc9512fc`. No new ADR: every deviation sits inside ADR 0014's scope ("Status after E8").
+
 E8 is the last milestone of the Effect migration (`docs/EFFECT.md` §4 E8). It changes how the code is written and how it is
 documented, never what it does: every `docs/API.md` row, every German string, every table and migration, every pinned output line
 and every assertion of the 15191-test suite survive (E3). Its job, in the words of §4: the review findings of E0 to E7 closed,
