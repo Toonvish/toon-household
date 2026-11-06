@@ -3,7 +3,7 @@
  *
  * The wire formats (`toIso`, `toIsoOrNull`, `parseCsvParam`) are shared by every route. The response helpers of the
  * Effect HTTP layer are `json`, `created`, `noContent`, `redirect`, `fromWeb` of `apps/api/src/http/response.ts` (plan
- * `docs/plans/e7-http-api.md` P10); the Hono ones below stay until E7-T12 deletes the section.
+ * `docs/plans/e7-http-api.md` P10); the pre-E7 Hono helpers that stood here are deleted.
  */
 
 /** Unix ms -> ISO string, the wire format for every timestamp. */

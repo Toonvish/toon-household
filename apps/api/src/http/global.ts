@@ -1,12 +1,12 @@
 /**
- * The global HTTP layer (docs/EFFECT.md E8; plan `docs/plans/e7-http-api.md` P11, deviation D6): what Hono ran around
+ * The global HTTP layer (docs/EFFECT.md E8; plan `docs/plans/e7-http-api.md` P11, deviation D6): what the pre-E7 Hono app ran around
  * every router, as router middleware, plus the fallback route.
  *
  * `globalHttpLayer()` is ONE `Layer.effectDiscard(Effect.gen(...))`: it prepares what the middlewares need (the CSP
  * with the hashes of the built `index.html`, read once here, and the CORS origins) and THEN registers the four with
  * `router.addGlobalMiddleware`, one after the other in this one generator. The first registered is the OUTERMOST
- * (`HttpRouter.asHttpEffect` reverses the set before wrapping), so the order is Hono's `use` order:
- *   1. the request log (off under `NODE_ENV=test`, like Hono's `logger()`),
+ * (`HttpRouter.asHttpEffect` reverses the set before wrapping), so the order is the `use` order of the pre-E7 Hono app:
+ *   1. the request log (off under `NODE_ENV=test`, like the pre-E7 Hono `logger()`),
  *   2. the security headers (a pre-response handler: every response, preflight and error bodies included),
  *   3. CORS for `/api/*` (the preflight `204` and the headers of every other `/api/*` response),
  *   4. the origin guard for `/api/*` (`403` before routing).
@@ -21,7 +21,7 @@
  * once, lowest specificity; never `/*`, which `HttpRouter` would also register as the bare `""`), added once per
  * EXPLICIT method `GET`, `POST`, `PUT`, `PATCH`, `DELETE` and `OPTIONS`, never `HEAD` and never the method `*`: a
  * `*`-method route enters the `HEAD` tree and would shadow the router's `HEAD` to `GET` fallback, so `HEAD /` must reach
- * the `GET` fallback and serve the shell without a body, as Hono's `GET` route did.
+ * the `GET` fallback and serve the shell without a body, as the pre-E7 Hono `GET` route did.
  *
  * Hoisted functions that read `env` and the services only when called (CLAUDE.md "API import cycle"); both take
  * options so a test can point them at a throwaway `dist` directory or other origins.

@@ -1,7 +1,7 @@
 /**
- * The request log, Hono `logger()`'s two lines as an Effect global middleware (docs/EFFECT.md E8; plan
+ * The request log, the two lines of the pre-E7 Hono `logger()` as an Effect global middleware (docs/EFFECT.md E8; plan
  * `docs/plans/e7-http-api.md` P11.1): `<-- METHOD path` when a request arrives and `--> METHOD path STATUS TIME` when
- * its response is known, the format and the colouring of `hono/dist/middleware/logger/index.js`. Two differences,
+ * its response is known, the format and the colouring of pre-E7 `hono/dist/middleware/logger/index.js`. Two differences,
  * both deliberate: the path is the PATHNAME only, never the query (a signed upload URL carries `sig`), and the time
  * comes from the `Clock`. Off under `NODE_ENV=test` (the caller decides: `http/global.ts`); Effect's own
  * `HttpMiddleware.logger` is off everywhere (`disableLogger: true`).
@@ -11,13 +11,13 @@ import { HttpServerRequest } from "effect/http";
 import type { GlobalMiddleware } from "../http/global.ts";
 import { pathOf } from "../http/request.ts";
 
-/** Hono's `humanize(time(start))`: milliseconds under a second, else whole seconds, thousands separated by commas. */
+/** The pre-E7 Hono `humanize(time(start))`: milliseconds under a second, else whole seconds, thousands separated by commas. */
 export function elapsedLabel(deltaMs: number): string {
   const label = deltaMs < 1000 ? `${deltaMs}ms` : `${Math.round(deltaMs / 1000)}s`;
   return label.replace(/(\d)(?=(\d\d\d)+(?!\d))/g, "$1,");
 }
 
-/** Hono's `colorStatus`: ANSI colours unless `NO_COLOR` is set. */
+/** The pre-E7 Hono `colorStatus`: ANSI colours unless `NO_COLOR` is set. */
 export function colorStatus(status: number, colorEnabled: boolean): string {
   if (!colorEnabled) return `${status}`;
   switch ((status / 100) | 0) {

@@ -11,9 +11,8 @@
  * - `toon_oauth_intent` "link" when the flow attaches a provider to the account
  *                       that is already signed in (instead of logging someone in)
  *
- * The names, TTLs and attribute values above the Hono section are what both writers read: the Effect cookies of
- * `apps/api/src/http/cookies.ts` (plan `docs/plans/e7-http-api.md` P8) and the Hono setters and getters of the section
- * at the end of this file (until E7-T12 deletes it).
+ * The names, TTLs and attribute values above are what the Effect cookies of `apps/api/src/http/cookies.ts` (plan
+ * `docs/plans/e7-http-api.md` P8) read; the pre-E7 Hono setters and getters that shared them are gone.
  */
 import { env } from "../env.ts";
 

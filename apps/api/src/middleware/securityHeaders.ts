@@ -2,7 +2,7 @@
  * Browser hardening headers for every response the API emits: JSON, `/uploads`
  * and, in the single-origin container, the PWA it serves itself
  * (middleware/staticWeb.ts). toon-finance gotcha 67 (1715207), H-adapted per plan m3b
- * decision 16. Built on Hono's `secureHeaders`; the choices that differ from its
+ * decision 16. Built on the `secureHeaders` of pre-E7 Hono; the choices that differ from its
  * defaults, each for a reason:
  *
  *   - NO `Strict-Transport-Security`. TLS is terminated by the stack's own Caddy (docker/Caddyfile, SPEC D11), which
@@ -36,7 +36,7 @@
  *     CSP for an absolute API URL. Dev is unaffected: Vite serves `index.html` there.
  *   - `frame-ancestors 'none'` + `X-Frame-Options: DENY`: nothing here is meant to be
  *     embedded, and a framed ledger is a clickjacking target.
- *   - `Cross-Origin-Resource-Policy: same-site` instead of Hono's `same-origin` (H): the
+ *   - `Cross-Origin-Resource-Policy: same-site` instead of the pre-E7 Hono `same-origin` (H): the
  *     dev setup loads `<img src="http://localhost:3001/uploads/…">` from the Vite origin
  *     `:5173` (`PUBLIC_API_URL` in .env.example), a no-cors request that `same-origin`
  *     would block. Same-site still keeps every foreign site out, and uploads are signed
@@ -76,7 +76,7 @@ export function scriptHashesFor(webDistDir: string | null): string[] {
   return inlineScriptHashes(readFileSync(indexPath, "utf8"));
 }
 
-/** The Content-Security-Policy directives, in the order and spelling Hono's `secureHeaders` serialised them. */
+/** The Content-Security-Policy directives, in the order and spelling the pre-E7 Hono `secureHeaders` serialised them. */
 function contentSecurityPolicy(scriptHashes: readonly string[]): string {
   const directives: ReadonlyArray<readonly [string, ReadonlyArray<string>]> = [
     ["default-src", ["'self'"]],
@@ -98,7 +98,7 @@ function contentSecurityPolicy(scriptHashes: readonly string[]): string {
 }
 
 /**
- * The literal header set Hono's `secureHeaders` produced with this file's options (captured in
+ * The literal header set the pre-E7 Hono `secureHeaders` produced with this file's options (captured in
  * `apps/api/test/http-contract.test.ts` row 2): the CSP built from the hashes of the built `index.html`, and the
  * defaults of `secureHeaders` that stayed on. No `Strict-Transport-Security`, no `Permissions-Policy`, no
  * `X-Powered-By`. Read once when the global layer is built (`http/global.ts`).

@@ -4,8 +4,8 @@
  * The middlewares of `apps/api/src/http/middleware.ts` provide them to every handler behind them, which reads them with
  * `yield*`: `CurrentUser` and `CurrentSession` (from `RequireSession`), `MaybeSession` (from `OptionalSession`: the
  * user and the session id when a valid cookie came, both `undefined` otherwise), `CurrentMembership` (from
- * `RequireHouseholdMember` / `RequireHouseholdAdmin` / `RequireHouseholdOwner`). They replace the Hono context
- * variables `user`, `sessionId` and `membership` of `apps/api/src/lib/types.ts`.
+ * `RequireHouseholdMember` / `RequireHouseholdAdmin` / `RequireHouseholdOwner`). They replace the context
+ * variables `user`, `sessionId` and `membership` of the pre-E7 Hono app.
  *
  * A LEAF (CLAUDE.md "API import cycle", plan P15): this file imports `effect` and the types of `@toon/shared` only, so
  * every `*.api.ts`, every middleware and every handler may import it at module scope.

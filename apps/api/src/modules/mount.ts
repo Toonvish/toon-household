@@ -18,7 +18,7 @@
  *   bug fails the first build (a test, the boot), never a request in production.
  * - It registers each API with `HttpApiBuilder.layer(api)` over the module's `handlers` (one layer for every group of
  *   the module; `HttpApiBuilder.layer` dies when a group has no handler).
- * - It registers ONE raw catch-all per household module on `/api/households/:householdId/<id>/*`, the way Hono's
+ * - It registers ONE raw catch-all per household module on `/api/households/:householdId/<id>/*`, the way the pre-E7 Hono
  *   `use(\`${base}/*\`)` ran the chain for every path below the prefix: the same boundary → session → member → module
  *   checks, then the route-unknown `404` (`server.error.routeUnknown`). So an unknown path below a module still
  *   answers 401 without a cookie, 403 for a non-member, 404 `module_disabled` with the module off. Two rules from the
@@ -27,7 +27,7 @@
  *     second registration of one method and path throws `Method '…' already declared` (FindMyWay);
  *   - `HttpRouter.add` once per EXPLICIT method `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`, never `HEAD` and
  *     never `"*"`: a `"*"` route enters the `HEAD` tree too, so `HEAD …/recipe/shopping-lists` would hit the catch-all
- *     instead of falling back to the `GET` tree and the real route, as Hono served `HEAD` through the `GET` handler.
+ *     instead of falling back to the `GET` tree and the real route, as pre-E7 Hono served `HEAD` through the `GET` handler.
  *   A route the module defines wins over the catch-all by specificity (static and parametric before wildcard).
  *
  * What `moduleRoutesLayer` needs besides the router (the core middleware implementations of `httpMiddlewareLayer()`,

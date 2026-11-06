@@ -16,7 +16,7 @@
  *    `BunHttpServer.layerHttpServices`, never `Layer.provide`: a service a handler yields must be in the OUTPUT for
  *    `toWebHandler` to drop it from the per-request requirements. The caller's layer brings the middleware layers it
  *    needs (`appRoutesLayer()` and `testHttpApp` do);
- * 4. `request(input, init?)` resolves a relative path against `http://localhost`, as Hono's `app.request` did.
+ * 4. `request(input, init?)` resolves a relative path against `http://localhost`, as the pre-E7 Hono `app.request` did.
  */
 import { Effect, Layer, type Scope } from "effect";
 import type { HttpRouter } from "effect/http";
@@ -24,7 +24,7 @@ import { HttpRouter as Router } from "effect/http";
 import * as BunHttpServer from "@effect/platform-bun/BunHttpServer";
 import { type AppServices, AppLayer, appMemoMap, runtime } from "../runtime.ts";
 
-/** What `inMemoryHandler` serves: `app.request` (Hono's call shape) and a plain `fetch`. */
+/** What `inMemoryHandler` serves: `app.request` (the call shape of pre-E7 Hono) and a plain `fetch`. */
 export interface InMemoryApp {
   readonly request: (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
   readonly fetch: (request: Request) => Promise<Response>;
@@ -45,7 +45,7 @@ type Allowed<A> =
   | HttpRouter.Request<"Error", unknown>
   | HttpRouter.Request<"GlobalError", unknown>;
 
-/** `Hono#request`'s URL rule: an absolute `http(s)` URL as is, anything else below `http://localhost`. */
+/** The URL rule of the pre-E7 `Hono#request`: an absolute `http(s)` URL as is, anything else below `http://localhost`. */
 function toRequest(input: string | URL | Request, init?: RequestInit): Request {
   if (input instanceof Request) return init ? new Request(input, init) : input;
   const url = input.toString();

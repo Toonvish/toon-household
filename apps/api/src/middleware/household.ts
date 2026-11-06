@@ -1,16 +1,14 @@
 /**
  * Household authorisation middleware — the ONLY place that decides whether the
- * session user may touch a household's data. Routers apply it once:
- *
- *   exampleRoutes.use("*", requireSession(), requireHouseholdRole("member"));
- *   householdRoutes.delete("/:householdId", requireHouseholdRole("owner"), handler);
+ * session user may touch a household's data. An API applies it once, through `householdModuleApi` (a module's groups)
+ * or `chain(...)` (an endpoint of the core: `RequireHouseholdAdmin`, `RequireHouseholdOwner`).
  *
  * Semantics (docs/API.md):
  *   no session                -> 401 unauthorized
  *   unknown household/invite  -> 404 not_found   (never leaks that it exists)
  *   not a member              -> 403 forbidden
  *   role too low              -> 403 forbidden
- *   ok                        -> c.set("membership", { householdId, userId, role })
+ *   ok                        -> `CurrentMembership` { householdId, userId, role } for the handlers behind it
  *
  * The household id normally comes from the `:householdId` path param. For routes
  * that address an invite directly (`/invites/:inviteId`) the household is
@@ -26,12 +24,9 @@
  * The Effect HTTP layer (docs/EFFECT.md E8; plan `docs/plans/e7-http-api.md` P5): `RequireHouseholdMemberLayer`,
  * `RequireHouseholdAdminLayer` and `RequireHouseholdOwnerLayer` implement the tags of `apps/api/src/http/middleware.ts`
  * (the household from the route's `:householdId`, else its `:inviteId`; they require `CurrentUser` and provide
- * `CurrentMembership`). The Hono section at the end (until E7-T12 deletes it) keeps `requireHouseholdRole` and its
- * aliases: since E2-T12 the lookups are effects over `Database`, run as ONE `runtime.runPromise` before `next()` (plan
- * e2 P12); a refusal fails the effect with the tagged error (same texts, same statuses), which reaches
- * `onErrorHandler` as the rejection. Every exported factory is a hoisted function declaration that reads no
- * imported binding until a request arrives (the routers call them at module scope, inside the import cycle). Both
- * sides share `resolveHouseholdId`, `resolveMembership` and `authorize`.
+ * `CurrentMembership`). The three layers share `resolveHouseholdId`, `resolveMembership` and `authorize`, effects over
+ * `Database`; a refusal fails the effect with the tagged error, which `ApiErrorBoundary` renders. The pre-E7 Hono
+ * middleware `requireHouseholdRole(role)` ran the same lookups once through the runtime before `next()` (plan e2 P12).
  */
 import type { HouseholdRole } from "@toon/shared";
 import { roleAtLeast } from "@toon/shared";
@@ -64,7 +59,7 @@ export interface HouseholdRoleOptions {
   via?: ResourceParam;
 }
 
-/** Reads one route param of the request (`c.req.param(name)` on the Hono side, the route's params in Effect). */
+/** Reads one route param of the request (the pre-E7 Hono `c.req.param(name)`, the route's params in Effect). */
 export type RouteParam = (name: string) => string | undefined;
 
 /** Looks up the owning household of a resource id, or null when it does not exist. */
@@ -188,7 +183,7 @@ const householdMiddleware = Effect.fnUntraced(function* (
   });
 });
 
-/** `RequireHouseholdMember` (P5): `requireHouseholdRole("member")`. */
+/** `RequireHouseholdMember` (P5): the pre-E7 `requireHouseholdRole("member")`. */
 export const RequireHouseholdMemberLayer = Layer.effect(
   RequireHouseholdMember,
   Effect.gen(function* () {
@@ -196,7 +191,7 @@ export const RequireHouseholdMemberLayer = Layer.effect(
   }),
 );
 
-/** `RequireHouseholdAdmin` (P5): `requireHouseholdRole("admin")`. */
+/** `RequireHouseholdAdmin` (P5): the pre-E7 `requireHouseholdRole("admin")`. */
 export const RequireHouseholdAdminLayer = Layer.effect(
   RequireHouseholdAdmin,
   Effect.gen(function* () {
@@ -204,7 +199,7 @@ export const RequireHouseholdAdminLayer = Layer.effect(
   }),
 );
 
-/** `RequireHouseholdOwner` (P5): `requireHouseholdRole("owner")`. */
+/** `RequireHouseholdOwner` (P5): the pre-E7 `requireHouseholdRole("owner")`. */
 export const RequireHouseholdOwnerLayer = Layer.effect(
   RequireHouseholdOwner,
   Effect.gen(function* () {

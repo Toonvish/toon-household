@@ -1,9 +1,9 @@
 /**
  * The HTTP server (docs/EFFECT.md E7, E8; plan `docs/plans/e7-http-api.md` P12, P21; E7-T11): `BunHttpServer` serves
- * `appRoutesLayer()` (`./app.ts`) where Bun's auto-serve of the Hono app's default export stood.
+ * `appRoutesLayer()` (`./app.ts`) where Bun's auto-serve of the default export of the pre-E7 Hono app stood.
  *
  * `appServer(routes)` is `HttpRouter.serve(routes, { disableLogger: true, disableListenLog: true })`: Effect's own
- * request logger stays off (the request log is the global middleware of `./global.ts`, Hono `logger()`'s lines) and so
+ * request logger stays off (the request log is the global middleware of `./global.ts`, the lines of the pre-E7 Hono `logger()`) and so
  * does its "Listening on" line (`src/index.ts` prints the one boot line it always printed). `serve` builds the routes
  * on a fork of the current memo map, so on the one `runtime` the `AppLayer` services are the runtime's own and the
  * router is the server's alone. What the routes require besides `HttpServer` and the platform services (`AppLayer`'s

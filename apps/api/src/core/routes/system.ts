@@ -1,6 +1,6 @@
 /**
  * The system routes' handlers (docs/EFFECT.md E7, E8; plan `docs/plans/e7-http-api.md` P1, P2, Table M system row):
- * `GET /api/health` and `GET /uploads/:filename`, line for line what `src/index.ts` served inline before E7-T10.
+ * `GET /api/health` and `GET /uploads/:filename`, line for line what the pre-E7 `src/index.ts` served inline.
  * Definitions in system.api.ts; `systemHandlers` holds both groups.
  *
  * Health: the payload is `healthResponse` (`src/core/health.ts`) as JSON, computed by `runtime.runPromise(healthResponse)`
@@ -10,7 +10,7 @@
  * when the owning row was serialised (see lib/uploadUrls.ts for the scheme and for why a cookie check cannot work here
  * — a cross-origin `<img>` sends no credentials). An unsigned, forged or expired request is a 404, exactly like a
  * missing file, so this route never confirms that a given UUID exists. Every refusal is the JSON route-unknown `404`
- * Hono's `c.notFound()` answered (`server.error.routeUnknown` naming method and path).
+ * the pre-E7 Hono `c.notFound()` answered (`server.error.routeUnknown` naming method and path).
  *
  * Import SOURCE scans are not reachable here at all: nothing mints a signature for them, and they are served by the
  * membership-checked `GET /api/households/:householdId/recipe/imports/:draftId/source` (M2).
@@ -21,7 +21,7 @@
  * service, services/media/thumbnails.ts).
  *
  * `src/http/app.ts` serves `SystemApi` with `systemHandlers` (E7-T11), first among the APIs, where the two inline routes
- * stood in the Hono app.
+ * stood in the pre-E7 Hono app.
  */
 import { existsSync } from "node:fs";
 import { join, normalize } from "node:path";

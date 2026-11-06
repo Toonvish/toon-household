@@ -10,10 +10,8 @@
  *   implements the tag `RequireModule` of `apps/api/src/http/middleware.ts`. The module id comes from the `ModuleId`
  *   annotation `householdModuleApi` puts on every group of a module API (`moduleIdOf(group)`), never from the URL;
  *   `householdModuleApi` attaches the chain, so a module API never attaches this itself.
- * - The Hono section at the end (until E7-T12 deletes it): `requireModule(id)`; `mountModules()` (modules/mount.ts)
- *   applies the chain, so a module router never mounts this itself.
- *
- * Both sides share `checkModuleEnabled`.
+ * - `checkModuleEnabled` is the gate as one effect (the pre-E7 Hono `requireModule(id)` ran it through `mountModules()`
+ *   of `apps/api/src/modules/mount.ts`).
  */
 import type { ModuleId } from "@toon/shared";
 import { and, eq } from "drizzle-orm";

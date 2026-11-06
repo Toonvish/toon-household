@@ -17,7 +17,7 @@
  * Every list is computed in a hoisted function and read by the manifest lazily (a getter, `Layer.suspend`), never at
  * module scope: the manifest is evaluated inside the API's import cycle, where these route files may not be. The
  * router matches by specificity, not registration order, so toon-recipe's mount order (imports, shopping lists and
- * plan BEFORE the recipe routes, whose `/:recipeId` paths would have shadowed them in Hono) no longer matters; the APIs
+ * plan BEFORE the recipe routes, whose `/:recipeId` paths would have shadowed them in pre-E7 Hono) no longer matters; the APIs
  * are listed in that order all the same.
  */
 import { Layer } from "effect";

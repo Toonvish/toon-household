@@ -11,7 +11,7 @@
  *   `ApiErrorBoundary` (outermost on every API) renders each of them; HttpApi's own error encoder is never reached.
  * - Order (P6, verified in `repos/effect/packages/effect/src/http-api/HttpApiBuilder.ts` `applyMiddleware`: `for (const
  *   key of endpoint.middlewares) handler = apply(handler)`): the middleware attached FIRST is the INNERMOST, the one
- *   attached LAST runs FIRST. `chain(A, B, C)` takes the middlewares in EXECUTION order, as a Hono route listed them,
+ *   attached LAST runs FIRST. `chain(A, B, C)` takes the middlewares in EXECUTION order, as a route of the pre-E7 Hono app listed them,
  *   and attaches them reversed, so `A` runs first. It works on an endpoint, a group and an API alike
  *   (`.pipe(chain(...))`). Endpoint chains are attached when the endpoint is defined, the group chain after the group's
  *   `.add(...)`, the API chain last (by `householdModuleApi` / `coreApi` / `userModuleApi`), so a module write runs
@@ -21,20 +21,20 @@
  * `@toon/shared`, `./context.ts` (types) and `../lib/errors.ts` (which imports neither the runtime nor a service), so every
  * `*.api.ts` imports it at module scope.
  *
- * Table R amendments (plan section 2.2; the plan file is untracked until E7-T13, so every deviation from the names
- * and call shapes of P4 to P10 is recorded HERE, and every rewrite task reads this list together with Table R):
+ * Table R amendments (plan section 2.2 of `docs/plans/e7-http-api.md`): the deviations from the names and call shapes of
+ * P4 to P10 that the E7 tasks recorded, kept here beside the vocabulary they describe:
  * - E7-T02: none. Notes for the users of the vocabulary: `rawJsonOrDie`, `queryRecord`, `rawText`, `webRequest`,
  *   `clientIp`, `requestLocale` (`apps/api/src/http/request.ts`) and `readSessionCookie`, `clearSessionCookie`,
  *   `readOAuthCookies`, `clearOAuthCookies` (`apps/api/src/http/cookies.ts`) are Effect VALUES (`yield* rawText`);
  *   `jsonBody`, `queryParams`, `queryParam`, `header`, `rawJsonOr`, `setSessionCookie`, `setOAuthCookies` are functions
  *   returning one. A cookie is keyed by its name on the Effect response: setting the same cookie twice in one request
- *   (a stale-cookie clear, then a new session) sends ONE `Set-Cookie` with the last value, where Hono appended two
+ *   (a stale-cookie clear, then a new session) sends ONE `Set-Cookie` with the last value, where the pre-E7 Hono appended two
  *   headers (a browser ends in the same state). `householdModuleApi` takes the `@toon/shared` `ModuleId` union as its id.
  * - E7-T03: none. Notes: the implementations are `RequireSessionLayer`, `OptionalSessionLayer`,
  *   `RequireHouseholdMemberLayer` / `AdminLayer` / `OwnerLayer`, `RequireModuleLayer`, `RequireVerifiedEmailLayer`
  *   (`apps/api/src/middleware/*.ts`), merged with `ApiErrorBoundaryLayer` by `httpMiddlewareLayer()`
- *   (`apps/api/src/http/middleware-layer.ts`); `effectBridge(api, handlers, mountedAt)` (the bridge, deleted by E7-T11)
- *   provides them itself, so a route file passes only its handler layer. `RequireModule` reads the group's `ModuleId`
+ *   (`apps/api/src/http/middleware-layer.ts`), which `appRoutesLayer()` provides, so a route file passes only its
+ *   handler layer. `RequireModule` reads the group's `ModuleId`
  *   and treats a group without one as a defect: attach it through `householdModuleApi` only. The household tags
  *   resolve the household from `:householdId`, else `:inviteId` (no `via` option on the Effect side).
  */
@@ -60,43 +60,43 @@ export class ApiErrorBoundary extends HttpApiMiddleware.Service<ApiErrorBoundary
   error: BoundaryFailure,
 }) {}
 
-/** `requireSession()`: 401 `unauthorized` without a valid `toon_session` cookie; provides the user and the session id. */
+/** `RequireSession` (the pre-E7 `requireSession()`): 401 `unauthorized` without a valid `toon_session` cookie; provides the user and the session id. */
 export class RequireSession extends HttpApiMiddleware.Service<
   RequireSession,
   { provides: CurrentUser | CurrentSession }
 >()("toon/api/http/RequireSession", { error: BoundaryFailure }) {}
 
-/** `optionalSession()`: never refuses; provides the user and the session id when a valid cookie came. */
+/** `OptionalSession` (the pre-E7 `optionalSession()`): never refuses; provides the user and the session id when a valid cookie came. */
 export class OptionalSession extends HttpApiMiddleware.Service<OptionalSession, { provides: MaybeSession }>()(
   "toon/api/http/OptionalSession",
   { error: BoundaryFailure },
 ) {}
 
-/** `requireHouseholdRole("member")`: the household of `:householdId` (404, 403 `noAccess`); provides the membership. */
+/** `RequireHouseholdMember` (the pre-E7 `requireHouseholdRole("member")`): the household of `:householdId` (404, 403 `noAccess`); provides the membership. */
 export class RequireHouseholdMember extends HttpApiMiddleware.Service<
   RequireHouseholdMember,
   { requires: CurrentUser; provides: CurrentMembership }
 >()("toon/api/http/RequireHouseholdMember", { error: BoundaryFailure }) {}
 
-/** `requireHouseholdRole("admin")`: as `RequireHouseholdMember`, and 403 `adminOnly` below admin. */
+/** `RequireHouseholdAdmin` (the pre-E7 `requireHouseholdRole("admin")`): as `RequireHouseholdMember`, and 403 `adminOnly` below admin. */
 export class RequireHouseholdAdmin extends HttpApiMiddleware.Service<
   RequireHouseholdAdmin,
   { requires: CurrentUser; provides: CurrentMembership }
 >()("toon/api/http/RequireHouseholdAdmin", { error: BoundaryFailure }) {}
 
-/** `requireHouseholdRole("owner")`: as `RequireHouseholdMember`, and 403 `ownerOnly` below owner. */
+/** `RequireHouseholdOwner` (the pre-E7 `requireHouseholdRole("owner")`): as `RequireHouseholdMember`, and 403 `ownerOnly` below owner. */
 export class RequireHouseholdOwner extends HttpApiMiddleware.Service<
   RequireHouseholdOwner,
   { requires: CurrentUser; provides: CurrentMembership }
 >()("toon/api/http/RequireHouseholdOwner", { error: BoundaryFailure }) {}
 
-/** `requireModule(id)`: 404 `module_disabled` unless the household has the module of the group's `ModuleId`. */
+/** `RequireModule` (the pre-E7 `requireModule(id)`): 404 `module_disabled` unless the household has the module of the group's `ModuleId`. */
 export class RequireModule extends HttpApiMiddleware.Service<RequireModule, { requires: CurrentMembership }>()(
   "toon/api/http/RequireModule",
   { error: BoundaryFailure },
 ) {}
 
-/** `requireVerifiedEmail()`: 403 `email_unverified` for every method but GET, HEAD, OPTIONS while the gate is on. */
+/** `RequireVerifiedEmail` (the pre-E7 `requireVerifiedEmail()`): 403 `email_unverified` for every method but GET, HEAD, OPTIONS while the gate is on. */
 export class RequireVerifiedEmail extends HttpApiMiddleware.Service<RequireVerifiedEmail, { requires: CurrentUser }>()(
   "toon/api/http/RequireVerifiedEmail",
   { error: BoundaryFailure },
@@ -113,7 +113,7 @@ export function moduleIdOf(group: HttpApiGroup.Top): SharedModuleId | undefined 
   return Context.getOrUndefined(group.annotations, ModuleId);
 }
 
-/** The third argument of `handlers.handle(...)` for every handler (P9): Hono never interrupted a handler. */
+/** The third argument of `handlers.handle(...)` for every handler (P9): the pre-E7 Hono never interrupted a handler. */
 export const UNINTERRUPTIBLE = { uninterruptible: true } as const;
 
 /** A middleware tag as `.middleware(...)` takes it. */
@@ -178,7 +178,7 @@ export function coreApi<Id extends string, Groups extends HttpApiGroup.Constrain
 /**
  * A module's household API (P14): every group annotated with `ModuleId` = `id`, every path prefixed with
  * `/api/households/:householdId/<id>`, and the module chain outermost: boundary → session → member → module, as
- * Hono's `mountModules` ran `requireSession()` → `requireHouseholdRole("member")` → `requireModule(id)`.
+ * the pre-E7 Hono `mountModules` ran `requireSession()` → `requireHouseholdRole("member")` → `requireModule(id)`.
  */
 export function householdModuleApi<
   const Mod extends SharedModuleId,

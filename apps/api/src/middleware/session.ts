@@ -10,13 +10,10 @@
  *   `CurrentUser` and `CurrentSession`) and `OptionalSession` (never refuses; provides `MaybeSession`) of
  *   `apps/api/src/http/middleware.ts`. The cookie writes go through `apps/api/src/http/cookies.ts`, i.e. pre-response
  *   handlers, so a cleared stale cookie reaches the 401 too.
- * - The Hono section at the end (until E7-T12 deletes it): `requireSession` / `optionalSession`, which can be used
- *   either as a factory or directly as a handler (`router.use("*", requireSession())`, `router.use("*",
- *   requireSession)`, `router.get("/x", requireSession(), handler)`), put the user into the Hono context. The session
- *   lookup is ONE effect run through the runtime before `next()` (plan e2 P12): `next()` is never called inside an
- *   effect, and a refusal fails the effect with `Unauthorized`, which reaches `onErrorHandler` as the rejection.
+ * - Both layers share `lookupSession` (the cookie value to absent / stale / live). The session lookup is ONE effect per
+ *   request (the pre-E7 Hono middlewares ran it once through the runtime before `next()`, plan e2 P12).
  *
- * Both sides share `lookupSession` (the cookie value to absent / stale / live). Import cycle (CLAUDE.md "API import
+ * Import cycle (CLAUDE.md "API import
  * cycle"): the module scope reads only `effect` exports and the leaf tags; the services are yielded at layer build or
  * per request.
  */
@@ -50,8 +47,8 @@ export const lookupSession = Effect.fn("Session.lookup")(function* (
 
 /**
  * The session of the request in the Effect layer: the user and the session id, or `undefined`. The cookie writes
- * happen on the response (a stale cookie is cleared, a renewed session re-sets it), in the order the Hono side
- * wrote them on `c`.
+ * happen on the response (a stale cookie is cleared, a renewed session re-sets it), in the order the pre-E7 Hono
+ * middleware wrote them on `c`.
  */
 const loadSession = Effect.fn("Session.load")(function* () {
   const lookup = yield* lookupSession(yield* readSessionCookie);

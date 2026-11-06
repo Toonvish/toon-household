@@ -4,13 +4,13 @@
  * Names, TTLs and attribute values come from `apps/api/src/lib/cookies.ts` (`SESSION_COOKIE`, the OAuth cookie names,
  * `OAUTH_COOKIE_TTL_SECONDS`, `baseCookieOptions`): `Path=/`, `HttpOnly`, `SameSite=Lax`, `Secure` only in production,
  * `Max-Age` in SECONDS (`Duration.seconds(n)`: a bare number would be milliseconds). Deleting writes the empty value
- * with `Max-Age=0` and NO `Expires` (never `expireCookie`), as Hono's `deleteCookie` did. Values are
+ * with `Max-Age=0` and NO `Expires` (never `expireCookie`), as the pre-E7 Hono `deleteCookie` did. Values are
  * `encodeURIComponent`-encoded on the way out and decoded by `request.cookies` on the way in.
  *
  * A setter registers a pre-response handler (`HttpEffect.appendPreResponseHandler`), applied to the FINAL response,
- * success or failure: a cookie a middleware sets reaches an error response too, as Hono's `c.header` did (the
+ * success or failure: a cookie a middleware sets reaches an error response too, as the pre-E7 Hono `c.header` did (the
  * stale-cookie `401`). On the Effect response a cookie is keyed by its name, so setting one twice in a request sends the
- * last value once (Hono appended two `Set-Cookie` headers; the browser ends in the same state).
+ * last value once (pre-E7 Hono appended two `Set-Cookie` headers; the browser ends in the same state).
  */
 import { Clock, Duration, Effect } from "effect";
 import { HttpEffect, HttpServerRequest, HttpServerResponse } from "effect/http";

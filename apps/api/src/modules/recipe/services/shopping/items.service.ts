@@ -393,7 +393,7 @@ export class ShoppingItems extends Context.Service<
      * is appended to `recipe_shopping_bought_items` — the "Bought today" section and the
      * history panel read that log, never a flag on this table (see the header).
      *
-     * `boughtBy` is the checking user (the route passes `requireUser(c).id`) — recorded
+     * `boughtBy` is the checking user (the route passes the `CurrentUser` id) — recorded
      * on the log row, never on the item, which has no such column.
      *
      * ## Exactly-once, with and without a `mutationId`
