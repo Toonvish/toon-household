@@ -8,9 +8,11 @@
  * - tasks "Blumen gießen" (every 3 days from today, rotating demo user -> Robin -> Kim) and "Bad putzen" (weekly
  *   Saturday, fixed Kim);
  * - a SYNTHETIC waste schedule, never data copied from the flyer: provider `hattingen`, tour 4, `source "upload"`,
- *   `source_name "demo-seed"`, the year of the seed date, over the current and the next 8 weeks: Restmüll and Gelber
- *   Sack fortnightly (Monday), Biotonne weekly (Thursday), Papier every 4 weeks (Friday); the settings row with no
- *   assignee. The rows are written directly (no PDF, no waste service).
+ *   `source_name "demo-seed"`, over the current and the next 8 weeks: Restmüll and Gelber Sack fortnightly (Monday),
+ *   Biotonne weekly (Thursday), Papier every 4 weeks (Friday); ONE import per calendar year the dates touch (a seed in
+ *   December writes this year's and next year's, so a later real import of either year replaces exactly its own
+ *   pickups), a year that already has an import skipped; the settings row with no assignee. The rows are written
+ *   directly (no PDF, no waste service).
  *
  * Idempotent by its marker, the household's car named "Familienauto" (present = done). People by e-mail among the
  * household's members (`robin@toon.local`, `kim@toon.local`, both created by finance's seed earlier in module order); a
@@ -91,7 +93,6 @@ export const seedCalendarDemo = Effect.fn("calendar.seedDemo")(function* (contex
 
   const now = yield* Clock.currentTimeMillis;
   const today = DateTime.formatIsoDate(DateTime.makeZonedUnsafe(yield* DateTime.now, { timeZone: "Europe/Berlin" }));
-  const year = Number(today.slice(0, 4));
 
   const carId = crypto.randomUUID();
   const entries: Array<NewCalendarEntryRow> = [];
@@ -159,24 +160,30 @@ export const seedCalendarDemo = Effect.fn("calendar.seedDemo")(function* (contex
   const flowers = entries.find((entry) => entry.title === "Blumen gießen")!;
   if (members.filter((member) => member.entryId === flowers.id).length < 2) flowers.assigneeMode = "fixed";
 
-  // A real import of this year wins (one import per household, provider and year): then no synthetic one.
-  const existingImport = yield* database.use((db) =>
+  // One synthetic import per year the pickups touch (one import per household, provider and year); a year that already
+  // has an import (a real one) keeps it and gets no synthetic pickups.
+  const byYear = new Map<number, Array<[WasteCategory, string]>>();
+  for (const pickup of syntheticWastePickups(today)) {
+    const pickupYear = Number(pickup[1].slice(0, 4));
+    byYear.set(pickupYear, [...(byYear.get(pickupYear) ?? []), pickup]);
+  }
+  const taken = yield* database.use((db) =>
     db
-      .select({ id: calendarWasteImports.id })
+      .select({ year: calendarWasteImports.year })
       .from(calendarWasteImports)
       .where(
         and(
           eq(calendarWasteImports.householdId, householdId),
           eq(calendarWasteImports.provider, "hattingen"),
-          eq(calendarWasteImports.year, year),
+          inArray(calendarWasteImports.year, [...byYear.keys()]),
         ),
-      )
-      .limit(1),
+      ),
   );
-  const importId = crypto.randomUUID();
-  const pickups = existingImport.length > 0 ? [] : syntheticWastePickups(today);
-  for (const [category, date] of pickups) {
-    entries.push({
+  for (const row of taken) byYear.delete(row.year);
+  const wasteImports = [...byYear].map(([year, pickups]) => ({ id: crypto.randomUUID(), year, pickups }));
+  const pickupCount = wasteImports.reduce((sum, item) => sum + item.pickups.length, 0);
+  const wasteEntries: Array<NewCalendarEntryRow> = wasteImports.flatMap((item) =>
+    item.pickups.map(([category, date]) => ({
       id: crypto.randomUUID(),
       householdId,
       kind: "task",
@@ -185,19 +192,19 @@ export const seedCalendarDemo = Effect.fn("calendar.seedDemo")(function* (contex
       startDate: date,
       endDate: date,
       category,
-      wasteImportId: importId,
+      wasteImportId: item.id,
       createdBy: userId,
       createdAt: now,
       updatedAt: now,
-    });
-  }
+    })),
+  );
 
   yield* database.transaction(
     Effect.gen(function* () {
       yield* database.use((db) =>
         db.insert(calendarResources).values({ id: carId, householdId, kind: "car", name: MARKER, archivedAt: null, createdAt: now }),
       );
-      yield* database.use((db) => db.insert(calendarEntries).values(entries.filter((entry) => entry.wasteImportId === undefined)));
+      yield* database.use((db) => db.insert(calendarEntries).values(entries));
       if (members.length > 0) yield* database.use((db) => db.insert(calendarEntryMembers).values(members));
       yield* database.use((db) =>
         db
@@ -205,25 +212,27 @@ export const seedCalendarDemo = Effect.fn("calendar.seedDemo")(function* (contex
           .values({ householdId, provider: "hattingen", tour: 4, sourceUrl: null, assigneeMode: "none", updatedAt: now })
           .onConflictDoNothing(),
       );
-      if (pickups.length === 0) return;
+      if (wasteImports.length === 0) return;
       yield* database.use((db) =>
-        db.insert(calendarWasteImports).values({
-          id: importId,
-          householdId,
-          provider: "hattingen",
-          year,
-          tour: 4,
-          source: "upload",
-          sourceName: "demo-seed",
-          entryCount: pickups.length,
-          importedAt: now,
-          importedBy: userId,
-        }),
+        db.insert(calendarWasteImports).values(
+          wasteImports.map((item) => ({
+            id: item.id,
+            householdId,
+            provider: "hattingen",
+            year: item.year,
+            tour: 4,
+            source: "upload",
+            sourceName: "demo-seed",
+            entryCount: item.pickups.length,
+            importedAt: now,
+            importedBy: userId,
+          })),
+        ),
       );
-      yield* database.use((db) => db.insert(calendarEntries).values(entries.filter((entry) => entry.wasteImportId === importId)));
+      yield* database.use((db) => db.insert(calendarEntries).values(wasteEntries));
     }),
   );
   yield* Console.log(
-    `[seed] calendar: car "${MARKER}", ${entries.length - pickups.length} entries, ${pickups.length} waste pickups (tour 4)`,
+    `[seed] calendar: car "${MARKER}", ${entries.length} entries, ${pickupCount} waste pickups (tour 4)`,
   );
 });

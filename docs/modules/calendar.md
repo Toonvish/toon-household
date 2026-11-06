@@ -227,9 +227,10 @@ rule (`apps/web/vite.config.ts`, ADR 0011 order).
 Robin's weekly booking (Thursday 08:00-17:00); events "Elternabend" (everybody, next Tuesday 19:30), "Zahnarzt" (Robin,
 in two days 10:30), "Kim: Fußballtraining" (weekly Wednesday 17:00-18:30); tasks "Blumen gießen" (every 3 days,
 rotating demo → Robin → Kim) and "Bad putzen" (weekly Saturday, fixed Kim); a waste settings row (Hattingen, tour 4, no
-assignee) and a SYNTHETIC tour-4 import of the seed year (`source_name "demo-seed"`, the current and next 8 weeks:
-Restmüll and Gelber Sack fortnightly, Biotonne weekly, Papier every 4 weeks; never data copied from the flyer), skipped
-when a real import of that year exists. The marker is the household's car named "Familienauto". The seed does NOT
+assignee) and a SYNTHETIC tour-4 schedule (`source_name "demo-seed"`, the current and next 8 weeks: Restmüll and
+Gelber Sack fortnightly, Biotonne weekly, Papier every 4 weeks; never data copied from the flyer), written as ONE import
+per calendar year its dates touch (a seed in December writes two, so a later real import of either year replaces only
+its own pickups), a year that already has an import skipped. The marker is the household's car named "Familienauto". The seed does NOT
 enable the module: log in as `demo@toon.local` and press "Aktivieren" on the Kalender card on Home.
 
 ### 1.9 The waste import (Stadt Hattingen flyer)

@@ -34,13 +34,18 @@ const robin = crypto.randomUUID();
 const kim = crypto.randomUUID();
 const householdId = crypto.randomUUID();
 const lonelyHousehold = crypto.randomUUID();
+const decemberHousehold = crypto.randomUUID();
+const realImportHousehold = crypto.randomUUID();
 // 2027-01-06 23:30 UTC is 2027-01-07 00:30 in Berlin, a Thursday.
 const PINNED = Date.UTC(2027, 0, 6, 23, 30);
 
-function seed(home: string) {
+// 2026-12-10 12:00 UTC: a Thursday in December; the 9 weeks from that Monday run into February 2027.
+const DECEMBER = Date.UTC(2026, 11, 10, 12, 0);
+
+function seed(home: string, at: number = PINNED) {
   return runTest(
     Effect.gen(function* () {
-      yield* TestClock.setTime(PINNED);
+      yield* TestClock.setTime(at);
       yield* seedCalendarDemo({ householdId: home, userId: demo, demoPassword: "demo1234" });
     }).pipe(Effect.provide(Database.layerFrom(created))),
     { clock: "test" },
@@ -72,13 +77,15 @@ beforeAll(async () => {
   await created.db.insert(households).values([
     { id: householdId, name: "Familie", createdBy: demo },
     { id: lonelyHousehold, name: "Allein", createdBy: demo },
+    { id: decemberHousehold, name: "Dezember", createdBy: demo },
+    { id: realImportHousehold, name: "Echter Import", createdBy: demo },
   ]);
   for (const userId of [demo, robin, kim]) {
     await created.db.insert(householdMembers).values({ id: crypto.randomUUID(), householdId, userId, role: "member", createdAt: 1 });
   }
-  await created.db
-    .insert(householdMembers)
-    .values({ id: crypto.randomUUID(), householdId: lonelyHousehold, userId: demo, role: "owner", createdAt: 1 });
+  for (const home of [lonelyHousehold, decemberHousehold, realImportHousehold]) {
+    await created.db.insert(householdMembers).values({ id: crypto.randomUUID(), householdId: home, userId: demo, role: "owner", createdAt: 1 });
+  }
 });
 
 afterAll(() => {
@@ -177,5 +184,55 @@ describe("seedCalendarDemo", () => {
     const members = await created.db.select().from(calendarEntryMembers);
     const named = new Set(members.filter((row) => rows.some((entry) => entry.id === row.entryId)).map((row) => row.userId));
     expect([...named]).toEqual([demo]);
+  });
+
+  test("a seed in December writes one synthetic import per year, each holding only its own year's dates", async () => {
+    await seed(decemberHousehold, DECEMBER);
+    const imports = await created.db
+      .select()
+      .from(calendarWasteImports)
+      .where(eq(calendarWasteImports.householdId, decemberHousehold))
+      .orderBy(asc(calendarWasteImports.year));
+    expect(imports.map((row) => [row.year, row.sourceName])).toEqual([
+      [2026, "demo-seed"],
+      [2027, "demo-seed"],
+    ]);
+    let total = 0;
+    for (const item of imports) {
+      const dates = (await created.db.select().from(calendarEntries).where(eq(calendarEntries.wasteImportId, item.id))).map(
+        (row) => row.startDate,
+      );
+      expect(dates.length).toBe(item.entryCount);
+      expect(dates.every((date) => date.startsWith(`${item.year}-`))).toBe(true);
+      total += dates.length;
+    }
+    expect(total).toBe(21);
+  });
+
+  test("a year that already has an import gets no synthetic pickups; the other year still does", async () => {
+    const real = crypto.randomUUID();
+    await created.db.insert(calendarWasteImports).values({
+      id: real,
+      householdId: realImportHousehold,
+      provider: "hattingen",
+      year: 2027,
+      tour: 4,
+      source: "upload",
+      sourceName: "AbfallFlyer 2027.pdf",
+      entryCount: 0,
+      importedAt: 1,
+      importedBy: demo,
+    });
+    await seed(realImportHousehold, DECEMBER);
+    const imports = await created.db
+      .select()
+      .from(calendarWasteImports)
+      .where(eq(calendarWasteImports.householdId, realImportHousehold))
+      .orderBy(asc(calendarWasteImports.year));
+    expect(imports.map((row) => [row.year, row.sourceName])).toEqual([
+      [2026, "demo-seed"],
+      [2027, "AbfallFlyer 2027.pdf"],
+    ]);
+    expect((await created.db.select().from(calendarEntries).where(eq(calendarEntries.wasteImportId, real))).length).toBe(0);
   });
 });
