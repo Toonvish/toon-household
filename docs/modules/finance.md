@@ -120,7 +120,7 @@ code is an `ApiFailure`, F gotcha 48). The manifest is an `ApiModule<FinanceServ
 (`startAccrualSchedule`, `stopAccrualSchedule`). The area composition functions are `services/*/layer.ts`.
 
 **Legacy bridges (until E8).** Three Promise or synchronous bridges survive E5 with the OLD name and signature for the pinned tests, every
-Promise one through `runFinanceBridge` (`apps/api/src/modules/finance/bridge.ts`), which provides `Database.layerFromExecutor(executor)`
+Promise one through `runFinanceBridge` (`apps/api/test/support/bridges/finance-bridge.ts`, moved there at E8, plan e8 P1), which provides `Database.layerFromExecutor(executor)`
 itself, builds the services over that executor and never imports `apps/api/src/runtime.ts`: `assignParticipants` and
 `updateParticipantDisplayName` (`participants.service.ts`; `apps/api/test/finance-module.test.ts`), and the synchronous
 `requireFinanceParticipantContext` (`middleware.ts`; `apps/api/test/finance-participants.test.ts`). A bridge rejects with a

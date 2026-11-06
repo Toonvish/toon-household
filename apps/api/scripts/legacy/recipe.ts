@@ -20,7 +20,7 @@
  *
  * No module-scope code beyond imports and constants (decision 5); the target comes from the
  * context, never from the shared `db`. An Effect since E5 (docs/EFFECT.md E7, E10; plan
- * `docs/plans/e5-scripts.md` P9): `migrateRecipeEffect`, with the Promise bridge `migrateRecipe` at the end.
+ * `docs/plans/e5-scripts.md` P9): `migrateRecipeEffect`.
  */
 import { foldText } from "@toon/shared";
 import { Effect, Predicate } from "effect";
@@ -50,7 +50,6 @@ import { Database } from "../../src/db/database.ts";
 import type { DatabaseError } from "../../src/lib/errors.ts";
 import { foldBackfill } from "../../src/modules/recipe/migrate.ts";
 import { normalizeStoredUploadUrl } from "../../src/lib/uploadUrls.ts";
-import { runLegacy } from "./io.ts";
 
 function str(value: unknown): string {
   return String(value ?? "");
@@ -377,13 +376,3 @@ export const migrateRecipeEffect = Effect.fn("legacy.migrateRecipe")(function* (
   }
   return { backfilled };
 });
-
-/* legacy bridges: the pinned legacy-cli and legacy-placeholders tests and legacy-harness.ts; E8 removes them */
-
-/**
- * The Promise form of {@link migrateRecipeEffect}. Callers: `apps/api/test/legacy-cli.test.ts` (pinned),
- * `apps/api/test/legacy-recipe.test.ts`.
- */
-export function migrateRecipe(ctx: MigrationContext): Promise<{ backfilled: number }> {
-  return runLegacy(migrateRecipeEffect(ctx));
-}

@@ -13,7 +13,7 @@
  * has no business seeing this server's trace ids.
  *
  * `fetchHtmlWith` and `fetchImageWith` are service-free (they take the client and the guard); `ImportHttp` binds them to
- * the layer's client and the configuration, and the Promise entry point `fetchHtml` (the pinned `ssrf.test.ts`) runs the same core outside the runtime.
+ * the layer's client and the configuration.
  */
 import { Context, Effect, Layer, Predicate, Stream } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest, type HttpClientError, type HttpClientResponse } from "effect/http";
@@ -26,7 +26,6 @@ import {
   type SsrfError,
   type SsrfGuard,
   checkPublicUrl,
-  entryGuard,
 } from "./ssrf.ts";
 
 /** A real, current desktop Chrome UA — anything exotic gets 403 on chefkoch. */
@@ -407,26 +406,4 @@ export class ImportHttp extends Context.Service<
       return ImportHttp.of({ fetchHtml, fetchImage });
     }),
   ).pipe(Layer.provide(FetchHttpClient.layer));
-}
-
-/* ------------------------------------------------------------------------------------------------------------------ *
- * legacy bridge: the pinned-test entry point of this file after E3 (plan e3 P1); E8 removes it
- * ------------------------------------------------------------------------------------------------------------------ */
-
-/**
- * Fetches a public web page as HTML outside the runtime, on the same core as `ImportHttp.fetchHtml`
- * (`fetchHtmlWith`). Callers: `apps/api/test/import/ssrf.test.ts` (pinned; stays to E8).
- *
- * @throws ApiFailure 400 `fetch_failed` (the failure itself, `instanceof ApiError`) for SSRF violations, network
- *   errors, timeouts, non-2xx responses, redirect loops and non-HTML content types.
- */
-export function fetchHtml(rawUrl: string, options: FetchHtmlOptions = {}): Promise<FetchedHtml> {
-  const program = Effect.gen(function* () {
-    const client = yield* HttpClient.HttpClient;
-    return yield* fetchHtmlWith(client, guardNow(entryGuard(options)), rawUrl, options);
-  }).pipe(
-    Effect.provide(FetchHttpClient.layer),
-    Effect.provideService(FetchHttpClient.Fetch, options.fetchImpl ?? globalThis.fetch),
-  );
-  return Effect.runPromise(program);
 }

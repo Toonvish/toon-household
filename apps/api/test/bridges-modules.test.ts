@@ -1,12 +1,12 @@
 /**
- * The module and script test doors of `apps/api/test/support/bridges/` against the src bridges they were copied from
- * (docs/EFFECT.md E7, E9; plan `docs/plans/e8-harden.md` P1, P8, E8-T01): the recipe doors (`recipe-drafts`,
+ * The module and script test doors of `apps/api/test/support/bridges/` against the `Effect` forms they wrap
+ * (docs/EFFECT.md E7, E9; plan `docs/plans/e8-harden.md` P1, P8, E8-T01, E8-T06): the recipe doors (`recipe-drafts`,
  * `recipe-ocr`, `recipe-fetch`, `recipe-ssrf`), the finance doors (`finance-bridge`, `finance-participants`,
  * `finance-clock`) and the legacy doors (`legacy-io`, `legacy-run`, `legacy-users`, `legacy-households`,
- * `legacy-recipe`, `legacy-sources`). One case per door: the door and its src bridge get the same input and must give
- * the same outcome (the resolved value, or the rejected error's `_tag`, `code` and identity rule). Every src bridge is
- * imported ALIASED (`bridge…`), so the import rewrite of E8-T04 never touches this file; E8-T06 rewrites it to compare
- * each door with its Effect form instead (case count kept).
+ * `legacy-recipe`, `legacy-sources`). One case per door: the door and the Effect form it wraps get the same input and
+ * must give the same outcome (the resolved value, or the failure's `_tag`, `code` and identity rule; a door rejects
+ * with the failure itself, a `DatabaseError` with its `cause`). The src bridges these doors were copied from are gone
+ * (E8-T06); the Effect forms run through `Effect.runPromise` / `Effect.runSync` and `Effect.flip` for a failure.
  *
  * Isolation (ADR 0009: one process, one shared database): nothing here touches the shared database. The draft and
  * finance cases run on a temp file database of their own; the legacy cases on the legacy harness's temp databases
@@ -19,29 +19,26 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Client } from "@libsql/client";
 import { Effect } from "effect";
-import { migrateHouseholds as bridgeMigrateHouseholds } from "../scripts/legacy/households.ts";
-import { runLegacy as bridgeRunLegacy } from "../scripts/legacy/io.ts";
+import { FetchHttpClient, HttpClient } from "effect/http";
+import { migrateHouseholdsEffect } from "../scripts/legacy/households.ts";
 import { MappingError } from "../scripts/legacy/mapping.ts";
-import { migrateRecipe as bridgeMigrateRecipe } from "../scripts/legacy/recipe.ts";
-import { runLegacyMigration as bridgeRunLegacyMigration } from "../scripts/legacy/run.ts";
-import { openLegacy as bridgeOpenLegacy } from "../scripts/legacy/sources.ts";
+import { migrateRecipeEffect } from "../scripts/legacy/recipe.ts";
+import { type RunOptions, runLegacyMigrationEffect } from "../scripts/legacy/run.ts";
+import { openLegacyEffect } from "../scripts/legacy/sources.ts";
 import type { LegacyDb, Report } from "../scripts/legacy/types.ts";
-import { migrateUsers as bridgeMigrateUsers } from "../scripts/legacy/users.ts";
+import { migrateUsersEffect } from "../scripts/legacy/users.ts";
 import { createDatabase } from "../src/db/client.ts";
-import { runMigrations as bridgeRunMigrations } from "./support/bridges/migrate.ts";
+import { Database } from "../src/db/database.ts";
 import { householdMembers, households, users } from "../src/db/schema.ts";
-import { DatabaseError, NotFound, isApiError } from "../src/lib/errors.ts";
-import { runFinanceBridge as bridgeRunFinanceBridge } from "../src/modules/finance/bridge.ts";
-import { nowMs as bridgeNowMs, setClockForTest } from "../src/modules/finance/lib/clock.ts";
-import {
-  assignParticipants as bridgeAssignParticipants,
-  FinanceParticipants,
-  updateParticipantDisplayName as bridgeUpdateParticipantDisplayName,
-} from "../src/modules/finance/services/participants/participants.service.ts";
-import { createDraft as bridgeCreateDraft } from "../src/modules/recipe/services/import/drafts.ts";
-import { importFromText as bridgeImportFromText } from "../src/modules/recipe/services/import/ocr/index.ts";
-import { fetchHtml as bridgeFetchHtml } from "../src/modules/recipe/services/import/url/fetch.ts";
-import { assertPublicUrl as bridgeAssertPublicUrl, SsrfError } from "../src/modules/recipe/services/import/url/ssrf.ts";
+import { DatabaseError, NotFound, isApiError, isDatabaseError } from "../src/lib/errors.ts";
+import { type FinanceServices, withFinanceServices } from "../src/modules/finance/layer.ts";
+import { financeTimeMillis, setClockForTest } from "../src/modules/finance/lib/clock.ts";
+import { FinanceParticipants } from "../src/modules/finance/services/participants/participants.service.ts";
+import { type CreateDraftInput, ImportDrafts } from "../src/modules/recipe/services/import/drafts.ts";
+import { importFromTextEffect } from "../src/modules/recipe/services/import/ocr/index.ts";
+import { fetchHtmlWith, guardNow, type FetchHtmlOptions } from "../src/modules/recipe/services/import/url/fetch.ts";
+import { type AssertPublicUrlOptions, SsrfError, checkPublicUrl, entryGuard } from "../src/modules/recipe/services/import/url/ssrf.ts";
+import { runtime } from "../src/runtime.ts";
 import { FIXTURE_DIR } from "./support/legacy-harness.ts";
 import { countRows, createLegacyRun, type LegacyRun } from "./support/legacy-harness.ts";
 import { createResolver, createScriptedFetch } from "./import/helpers.ts";
@@ -54,6 +51,7 @@ import { migrateRecipe } from "./support/bridges/legacy-recipe.ts";
 import { runLegacyMigration } from "./support/bridges/legacy-run.ts";
 import { openLegacy } from "./support/bridges/legacy-sources.ts";
 import { migrateUsers } from "./support/bridges/legacy-users.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import { createDraft } from "./support/bridges/recipe-drafts.ts";
 import { fetchHtml } from "./support/bridges/recipe-fetch.ts";
 import { importFromText } from "./support/bridges/recipe-ocr.ts";
@@ -79,6 +77,32 @@ function thrown(f: () => unknown): unknown {
   throw new Error("expected a throw");
 }
 
+/** The failure of `effect` as a value (fails the test when it succeeds). */
+function failureOf<A, E>(effect: Effect.Effect<A, E>): Promise<E> {
+  return Effect.runPromise(Effect.flip(effect));
+}
+
+/** What a door rejects with for a failure: the failure itself, a `DatabaseError` as its raw `cause`. */
+function rejectionOf(failure: unknown): unknown {
+  return isDatabaseError(failure) ? failure.cause : failure;
+}
+
+/** The effect form of `fetchHtml` (`apps/api/test/support/bridges/recipe-fetch.ts`): the core `fetchHtmlWith` on a scripted `fetch`. */
+function fetchHtmlProgram(rawUrl: string, options: FetchHtmlOptions = {}) {
+  return Effect.gen(function* () {
+    const client = yield* HttpClient.HttpClient;
+    return yield* fetchHtmlWith(client, guardNow(entryGuard(options)), rawUrl, options);
+  }).pipe(
+    Effect.provide(FetchHttpClient.layer),
+    Effect.provideService(FetchHttpClient.Fetch, options.fetchImpl ?? globalThis.fetch),
+  );
+}
+
+/** The effect form of `runFinanceBridge`: the finance services over the scratch database's executor. */
+function financeProgram<A, E>(effect: Effect.Effect<A, E, FinanceServices | Database>) {
+  return withFinanceServices(effect).pipe(Effect.provide(Database.layerFromExecutor(scratch.db)));
+}
+
 function tagOf(u: unknown): unknown {
   return (u as { _tag?: unknown })._tag;
 }
@@ -94,7 +118,7 @@ const legacyClients: LegacyDb[] = [];
 
 beforeAll(async () => {
   await scratch.ready;
-  await bridgeRunMigrations(scratch.db);
+  await runMigrations(scratch.db);
 });
 
 afterEach(() => {
@@ -130,16 +154,20 @@ async function seedHousehold(): Promise<{ householdId: string; a: string; b: str
   return { householdId, a: ids[0], b: ids[1] };
 }
 
-describe("the recipe test doors match their src bridges", () => {
+describe("the recipe test doors match their Effect forms", () => {
   test("createDraft: both store the same draft on the given database", async () => {
     const { householdId, a } = await seedHousehold();
-    const parsed = bridgeImportFromText("200 g Mehl\n1 Ei\n\nVerrühren und ausbacken.", { title: "Pfannkuchen" }).parsed;
-    const input = { householdId, createdBy: a, sourceType: "manual" as const, parsed, rawText: "200 g Mehl" };
+    const parsed = Effect.runSync(
+      importFromTextEffect("200 g Mehl\n1 Ei\n\nVerrühren und ausbacken.", { title: "Pfannkuchen" }),
+    ).parsed;
+    const input: CreateDraftInput = { householdId, createdBy: a, sourceType: "manual" as const, parsed, rawText: "200 g Mehl" };
     const fromDoor = await createDraft(scratch.db, input);
-    const fromBridge = await bridgeCreateDraft(scratch.db, input);
+    const fromEffect = await runtime.runPromise(
+      ImportDrafts.use((s) => s.createDraft(input)).pipe(Database.withExecutor(scratch.db)),
+    );
     const stable = (draft: typeof fromDoor) => ({ ...draft, id: "", createdAt: "", updatedAt: "" });
-    expect(stable(fromDoor)).toEqual(stable(fromBridge));
-    expect(fromDoor.id).not.toBe(fromBridge.id);
+    expect(stable(fromDoor)).toEqual(stable(fromEffect));
+    expect(fromDoor.id).not.toBe(fromEffect.id);
     expect(fromDoor.parsed.title).toBe("Pfannkuchen");
     expect(fromDoor.householdId).toBe(householdId);
   });
@@ -147,17 +175,17 @@ describe("the recipe test doors match their src bridges", () => {
   test("importFromText: synchronous, the same payload, and the same synchronous 400 for an empty text", () => {
     const text = "Pfannkuchen\n\n200 g Mehl\n1 Ei\n300 ml Milch\n\nAlles verrühren und ausbacken.";
     const fromDoor = importFromText(text, { title: "Pfannkuchen" });
-    const fromBridge = bridgeImportFromText(text, { title: "Pfannkuchen" });
-    expect(fromDoor.parsed).toEqual(fromBridge.parsed);
-    expect(fromDoor.rawText).toBe(fromBridge.rawText);
-    expect(Object.keys(fromDoor.sourceMeta).sort()).toEqual(Object.keys(fromBridge.sourceMeta).sort());
-    expect(importFromText(text).parsed).toEqual(bridgeImportFromText(text).parsed);
+    const fromEffect = Effect.runSync(importFromTextEffect(text, { title: "Pfannkuchen" }));
+    expect(fromDoor.parsed).toEqual(fromEffect.parsed);
+    expect(fromDoor.rawText).toBe(fromEffect.rawText);
+    expect(Object.keys(fromDoor.sourceMeta).sort()).toEqual(Object.keys(fromEffect.sourceMeta).sort());
+    expect(importFromText(text).parsed).toEqual(Effect.runSync(importFromTextEffect(text)).parsed);
 
     const doorError = thrown(() => importFromText("   "));
-    const bridgeError = thrown(() => bridgeImportFromText("   "));
-    expect(tagOf(doorError)).toBe(tagOf(bridgeError));
+    const effectError = Effect.runSync(Effect.flip(importFromTextEffect("   ")));
+    expect(tagOf(doorError)).toBe(tagOf(effectError));
     expect(tagOf(doorError)).toBe("BadRequest");
-    expect(codeOf(doorError)).toBe(codeOf(bridgeError));
+    expect(codeOf(doorError)).toBe(codeOf(effectError));
     expect(isApiError(doorError)).toBe(true);
   });
 
@@ -169,115 +197,117 @@ describe("the recipe test doors match their src bridges", () => {
       "https://ok.example/r": { body: page },
     };
     const doorFetch = createScriptedFetch(routes);
-    const bridgeFetch = createScriptedFetch(routes);
+    const effectFetch = createScriptedFetch(routes);
     const fromDoor = await fetchHtml("https://ok.example/start", { fetchImpl: doorFetch.fetch, resolve });
-    const fromBridge = await bridgeFetchHtml("https://ok.example/start", { fetchImpl: bridgeFetch.fetch, resolve });
-    expect(fromDoor).toEqual(fromBridge);
+    const fromEffect = await Effect.runPromise(
+      fetchHtmlProgram("https://ok.example/start", { fetchImpl: effectFetch.fetch, resolve }),
+    );
+    expect(fromDoor).toEqual(fromEffect);
     expect(fromDoor.url).toBe("https://ok.example/r");
-    expect(doorFetch.requests).toEqual(bridgeFetch.requests);
+    expect(doorFetch.requests).toEqual(effectFetch.requests);
 
     const doorRefusal = await rejection(fetchHtml("http://127.0.0.1:9999/secret", { fetchImpl: doorFetch.fetch, resolve }));
-    const bridgeRefusal = await rejection(
-      bridgeFetchHtml("http://127.0.0.1:9999/secret", { fetchImpl: bridgeFetch.fetch, resolve }),
+    const effectRefusal = await failureOf(
+      fetchHtmlProgram("http://127.0.0.1:9999/secret", { fetchImpl: effectFetch.fetch, resolve }),
     );
-    expect(tagOf(doorRefusal)).toBe(tagOf(bridgeRefusal));
-    expect(codeOf(doorRefusal)).toBe(codeOf(bridgeRefusal));
+    expect(tagOf(doorRefusal)).toBe(tagOf(effectRefusal));
+    expect(codeOf(doorRefusal)).toBe(codeOf(effectRefusal));
     expect(codeOf(doorRefusal)).toBe("fetch_failed");
-    expect((doorRefusal as { details?: unknown }).details).toEqual((bridgeRefusal as { details?: unknown }).details);
-    expect(doorFetch.requests).toEqual(bridgeFetch.requests);
+    expect((doorRefusal as { details?: unknown }).details).toEqual((effectRefusal as { details?: unknown }).details);
+    expect(doorFetch.requests).toEqual(effectFetch.requests);
   });
 
   test("assertPublicUrl: the same parsed URL, and the same SsrfError for a private address", async () => {
     const resolve = createResolver();
+    const check = (url: string, options: AssertPublicUrlOptions) => checkPublicUrl(url, entryGuard(options));
     const fromDoor = await assertPublicUrl("https://whatever.example/x", { skipDns: true });
-    const fromBridge = await bridgeAssertPublicUrl("https://whatever.example/x", { skipDns: true });
-    expect(fromDoor.href).toBe(fromBridge.href);
+    const fromEffect = await Effect.runPromise(check("https://whatever.example/x", { skipDns: true }));
+    expect(fromDoor.href).toBe(fromEffect.href);
     expect((await assertPublicUrl("https://ok.example/r", { resolve })).href).toBe(
-      (await bridgeAssertPublicUrl("https://ok.example/r", { resolve })).href,
+      (await Effect.runPromise(check("https://ok.example/r", { resolve }))).href,
     );
 
     const privateResolve = createResolver({ "intern.example": "10.0.0.5" });
     for (const url of ["http://169.254.169.254/latest", "https://intern.example/"]) {
       const doorError = await rejection(assertPublicUrl(url, { resolve: privateResolve }));
-      const bridgeError = await rejection(bridgeAssertPublicUrl(url, { resolve: privateResolve }));
+      const effectError = await failureOf(check(url, { resolve: privateResolve }));
       expect(doorError).toBeInstanceOf(SsrfError);
-      expect(bridgeError).toBeInstanceOf(SsrfError);
-      expect((doorError as SsrfError).reason).toBe((bridgeError as SsrfError).reason);
-      expect(tagOf(doorError)).toBe(tagOf(bridgeError));
+      expect(effectError).toBeInstanceOf(SsrfError);
+      expect((doorError as SsrfError).reason).toBe((effectError as SsrfError).reason);
+      expect(tagOf(doorError)).toBe(tagOf(effectError));
     }
   });
 });
 
-describe("the finance test doors match their src bridges", () => {
+describe("the finance test doors match their Effect forms", () => {
   test("runFinanceBridge: the same value on the given executor; a refusal as itself, a DatabaseError as its cause", async () => {
     const { householdId, a } = await seedHousehold();
     const slot = FinanceParticipants.use((service) => service.participantSlotOf(householdId, a));
-    expect(await runFinanceBridge(slot, scratch.db)).toBe(await bridgeRunFinanceBridge(slot, scratch.db));
+    expect(await runFinanceBridge(slot, scratch.db)).toBe(await Effect.runPromise(financeProgram(slot)));
     expect(await runFinanceBridge(Effect.succeed(42), scratch.db)).toBe(42);
-    expect(await bridgeRunFinanceBridge(Effect.succeed(42), scratch.db)).toBe(42);
+    expect(await Effect.runPromise(financeProgram(Effect.succeed(42)))).toBe(42);
 
     const refusal = new NotFound();
     expect(await rejection(runFinanceBridge(Effect.fail(refusal), scratch.db))).toBe(refusal);
-    expect(await rejection(bridgeRunFinanceBridge(Effect.fail(refusal), scratch.db))).toBe(refusal);
+    expect(await failureOf(financeProgram(Effect.fail(refusal)))).toBe(refusal);
 
     const cause = new Error("disk I/O error");
     const failure = Effect.fail(new DatabaseError({ cause }));
     expect(await rejection(runFinanceBridge(failure, scratch.db))).toBe(cause);
-    expect(await rejection(bridgeRunFinanceBridge(failure, scratch.db))).toBe(cause);
+    expect(rejectionOf(await failureOf(financeProgram(failure)))).toBe(cause);
   });
 
   test("assignParticipants and updateParticipantDisplayName: the same seats, the same renamed participant, the same refusals", async () => {
     const doorHousehold = await seedHousehold();
-    const bridgeHousehold = await seedHousehold();
+    const effectHousehold = await seedHousehold();
     const seats = (h: { a: string; b: string }) => [
       { userId: h.a, memberSlot: 1 },
       { userId: h.b, memberSlot: 2 },
     ];
+    const assign = (householdId: string, assignment: ReadonlyArray<{ userId: string; memberSlot: number }>) =>
+      financeProgram(FinanceParticipants.use((service) => service.assignParticipants(householdId, assignment)));
+    const rename = (householdId: string, userId: string, displayName: string) =>
+      financeProgram(FinanceParticipants.use((service) => service.updateParticipantDisplayName(householdId, userId, displayName)));
     expect(await assignParticipants(scratch.db, doorHousehold.householdId, seats(doorHousehold))).toBeUndefined();
-    expect(await bridgeAssignParticipants(scratch.db, bridgeHousehold.householdId, seats(bridgeHousehold))).toBeUndefined();
+    expect(await Effect.runPromise(assign(effectHousehold.householdId, seats(effectHousehold)))).toBeUndefined();
 
     const renamedByDoor = await updateParticipantDisplayName(scratch.db, doorHousehold.householdId, doorHousehold.b, "Bee");
-    const renamedByBridge = await bridgeUpdateParticipantDisplayName(
-      scratch.db,
-      bridgeHousehold.householdId,
-      bridgeHousehold.b,
-      "Bee",
-    );
+    const renamedByEffect = await Effect.runPromise(rename(effectHousehold.householdId, effectHousehold.b, "Bee"));
     const stable = (participant: typeof renamedByDoor) => ({ ...participant, userId: "", joinedAt: "", email: "" });
-    expect(stable(renamedByDoor)).toEqual(stable(renamedByBridge));
+    expect(stable(renamedByDoor)).toEqual(stable(renamedByEffect));
     expect(renamedByDoor.displayName).toBe("Bee");
     expect(renamedByDoor.memberSlot).toBe(2);
 
     // one seat only: the same 422
     const lone = [{ userId: doorHousehold.a, memberSlot: 1 }];
     const doorRefusal = await rejection(assignParticipants(scratch.db, doorHousehold.householdId, lone));
-    const bridgeRefusal = await rejection(bridgeAssignParticipants(scratch.db, doorHousehold.householdId, lone));
-    expect(tagOf(doorRefusal)).toBe(tagOf(bridgeRefusal));
-    expect(codeOf(doorRefusal)).toBe(codeOf(bridgeRefusal));
+    const effectRefusal = await failureOf(assign(doorHousehold.householdId, lone));
+    expect(tagOf(doorRefusal)).toBe(tagOf(effectRefusal));
+    expect(codeOf(doorRefusal)).toBe(codeOf(effectRefusal));
     expect(codeOf(doorRefusal)).toBe("finance_participants_required");
 
     // a stranger: the same 404
     const stranger = crypto.randomUUID();
     const doorMissing = await rejection(updateParticipantDisplayName(scratch.db, doorHousehold.householdId, stranger, "X"));
-    const bridgeMissing = await rejection(
-      bridgeUpdateParticipantDisplayName(scratch.db, doorHousehold.householdId, stranger, "X"),
-    );
-    expect(tagOf(doorMissing)).toBe(tagOf(bridgeMissing));
+    const effectMissing = await failureOf(rename(doorHousehold.householdId, stranger, "X"));
+    expect(tagOf(doorMissing)).toBe(tagOf(effectMissing));
     expect(tagOf(doorMissing)).toBe("NotFound");
   });
 
-  test("nowMs: the pinned override, and the real clock once released", () => {
+  test("nowMs: the pinned override, and the real clock once released", async () => {
     const pinned = Date.UTC(2026, 0, 15, 11, 0, 0);
     setClockForTest(pinned);
     expect(nowMs()).toBe(pinned);
-    expect(bridgeNowMs()).toBe(pinned);
+    expect(Effect.runSync(financeTimeMillis)).toBe(pinned);
+    expect(await Effect.runPromise(financeTimeMillis)).toBe(pinned);
 
     setClockForTest(null);
     const before = Date.now();
     const fromDoor = nowMs();
-    const fromBridge = bridgeNowMs();
+    const fromEffect = Effect.runSync(financeTimeMillis);
+    const fromEffectAsync = await Effect.runPromise(financeTimeMillis);
     const after = Date.now();
-    for (const value of [fromDoor, fromBridge]) {
+    for (const value of [fromDoor, fromEffect, fromEffectAsync]) {
       expect(value).toBeGreaterThanOrEqual(before);
       expect(value).toBeLessThanOrEqual(after);
     }
@@ -309,25 +339,25 @@ function stableReport(report: Report) {
   };
 }
 
-describe("the legacy test doors match their src bridges", () => {
+describe("the legacy test doors match their Effect forms", () => {
   let doorRun: LegacyRun;
-  let bridgeRun: LegacyRun;
+  let effectRun: LegacyRun;
 
   beforeAll(async () => {
     doorRun = await createLegacyRun({ mode: "apply" });
-    bridgeRun = await createLegacyRun({ mode: "apply" });
-    legacyRuns.push(doorRun, bridgeRun);
+    effectRun = await createLegacyRun({ mode: "apply" });
+    legacyRuns.push(doorRun, effectRun);
   });
 
   test("runLegacy: the same value; a tagged error as itself, a DatabaseError as its cause", async () => {
-    expect(await runLegacy(Effect.succeed(7))).toBe(await bridgeRunLegacy(Effect.succeed(7)));
+    expect(await runLegacy(Effect.succeed(7))).toBe(await Effect.runPromise(Effect.succeed(7)));
     const mapping = new MappingError({ message: "bad mapping" });
     expect(await rejection(runLegacy(Effect.fail(mapping)))).toBe(mapping);
-    expect(await rejection(bridgeRunLegacy(Effect.fail(mapping)))).toBe(mapping);
+    expect(await failureOf(Effect.fail(mapping))).toBe(mapping);
     const cause = new Error("SQLITE_BUSY");
     const failure = Effect.fail(new DatabaseError({ cause }));
     expect(await rejection(runLegacy(failure))).toBe(cause);
-    expect(await rejection(bridgeRunLegacy(failure))).toBe(cause);
+    expect(rejectionOf(await failureOf(failure))).toBe(cause);
   });
 
   test("openLegacy: the same snapshot of the same input, and the same refusal of a missing file", async () => {
@@ -335,55 +365,55 @@ describe("the legacy test doors match their src bridges", () => {
     const input = join(dir, "recipe.db");
     cpSync(join(FIXTURE_DIR, "recipe.db"), input);
     mkdirSync(join(dir, "door"));
-    mkdirSync(join(dir, "bridge"));
+    mkdirSync(join(dir, "effect"));
     const fromDoor = await openLegacy("recipe", input, join(dir, "door"));
     legacyClients.push(fromDoor);
-    const fromBridge = await bridgeOpenLegacy("recipe", input, join(dir, "bridge"));
-    legacyClients.push(fromBridge);
-    expect(fromDoor.source).toBe(fromBridge.source);
-    expect(fromDoor.originalPath).toBe(fromBridge.originalPath);
-    expect(await targetCounts(fromDoor.client)).toEqual(await targetCounts(fromBridge.client));
+    const fromEffect = await Effect.runPromise(openLegacyEffect("recipe", input, join(dir, "effect")));
+    legacyClients.push(fromEffect);
+    expect(fromDoor.source).toBe(fromEffect.source);
+    expect(fromDoor.originalPath).toBe(fromEffect.originalPath);
+    expect(await targetCounts(fromDoor.client)).toEqual(await targetCounts(fromEffect.client));
 
     const missing = join(dir, "absent.db");
     const doorError = await rejection(openLegacy("recipe", missing, join(dir, "door")));
-    const bridgeError = await rejection(bridgeOpenLegacy("recipe", missing, join(dir, "bridge")));
-    expect(tagOf(doorError)).toBe(tagOf(bridgeError));
+    const effectError = await failureOf(openLegacyEffect("recipe", missing, join(dir, "effect")));
+    expect(tagOf(doorError)).toBe(tagOf(effectError));
     expect(tagOf(doorError)).toBe("LegacyInputError");
-    expect((doorError as Error).message).toBe((bridgeError as Error).message);
+    expect((doorError as Error).message).toBe((effectError as Error).message);
   });
 
   test("migrateUsers: the same users in the target and the same report", async () => {
     expect(await migrateUsers(doorRun.ctx)).toBeUndefined();
-    expect(await bridgeMigrateUsers(bridgeRun.ctx)).toBeUndefined();
-    expect(await targetCounts(doorRun.target.client)).toEqual(await targetCounts(bridgeRun.target.client));
-    expect(doorRun.ctx.ids.users.recipe.size).toBe(bridgeRun.ctx.ids.users.recipe.size);
-    expect(doorRun.ctx.ids.users.finance.size).toBe(bridgeRun.ctx.ids.users.finance.size);
-    expect(stableReport(doorRun.ctx.report)).toEqual(stableReport(bridgeRun.ctx.report));
+    expect(await Effect.runPromise(migrateUsersEffect(effectRun.ctx))).toBeUndefined();
+    expect(await targetCounts(doorRun.target.client)).toEqual(await targetCounts(effectRun.target.client));
+    expect(doorRun.ctx.ids.users.recipe.size).toBe(effectRun.ctx.ids.users.recipe.size);
+    expect(doorRun.ctx.ids.users.finance.size).toBe(effectRun.ctx.ids.users.finance.size);
+    expect(stableReport(doorRun.ctx.report)).toEqual(stableReport(effectRun.ctx.report));
     expect(doorRun.ctx.report.errors).toEqual([]);
   });
 
   test("migrateHouseholds: the same households in the target and the same report", async () => {
     expect(await migrateHouseholds(doorRun.ctx)).toBeUndefined();
-    expect(await bridgeMigrateHouseholds(bridgeRun.ctx)).toBeUndefined();
-    expect(await targetCounts(doorRun.target.client)).toEqual(await targetCounts(bridgeRun.target.client));
-    expect(doorRun.ctx.ids.households.recipe.size).toBe(bridgeRun.ctx.ids.households.recipe.size);
-    expect(stableReport(doorRun.ctx.report)).toEqual(stableReport(bridgeRun.ctx.report));
+    expect(await Effect.runPromise(migrateHouseholdsEffect(effectRun.ctx))).toBeUndefined();
+    expect(await targetCounts(doorRun.target.client)).toEqual(await targetCounts(effectRun.target.client));
+    expect(doorRun.ctx.ids.households.recipe.size).toBe(effectRun.ctx.ids.households.recipe.size);
+    expect(stableReport(doorRun.ctx.report)).toEqual(stableReport(effectRun.ctx.report));
     expect(doorRun.ctx.report.errors).toEqual([]);
   });
 
   test("migrateRecipe: the same backfill count, the same recipe rows and the same report", async () => {
     const fromDoor = await migrateRecipe(doorRun.ctx);
-    const fromBridge = await bridgeMigrateRecipe(bridgeRun.ctx);
-    expect(fromDoor).toEqual(fromBridge);
-    expect(await targetCounts(doorRun.target.client)).toEqual(await targetCounts(bridgeRun.target.client));
-    expect(stableReport(doorRun.ctx.report)).toEqual(stableReport(bridgeRun.ctx.report));
+    const fromEffect = await Effect.runPromise(migrateRecipeEffect(effectRun.ctx));
+    expect(fromDoor).toEqual(fromEffect);
+    expect(await targetCounts(doorRun.target.client)).toEqual(await targetCounts(effectRun.target.client));
+    expect(stableReport(doorRun.ctx.report)).toEqual(stableReport(effectRun.ctx.report));
   });
 
   test("runLegacyMigration: the same dry-run report on the same inputs", async () => {
     const doorPass = await createLegacyRun();
-    const bridgePass = await createLegacyRun();
-    legacyRuns.push(doorPass, bridgePass);
-    const options = (run: LegacyRun) => ({
+    const effectPass = await createLegacyRun();
+    legacyRuns.push(doorPass, effectPass);
+    const options = (run: LegacyRun): RunOptions => ({
       mode: "dry-run" as const,
       recipe: run.ctx.recipe,
       finance: run.ctx.finance,
@@ -391,8 +421,8 @@ describe("the legacy test doors match their src bridges", () => {
       uploads: run.ctx.uploads,
     });
     const fromDoor = await runLegacyMigration(options(doorPass));
-    const fromBridge = await bridgeRunLegacyMigration(options(bridgePass));
-    expect(stableReport(fromDoor)).toEqual(stableReport(fromBridge));
+    const fromEffect = await Effect.runPromise(runLegacyMigrationEffect(options(effectPass)));
+    expect(stableReport(fromDoor)).toEqual(stableReport(fromEffect));
     expect(fromDoor.errors).toEqual([]);
     expect(fromDoor.inputs.map((input) => input.source)).toEqual(["recipe", "finance"]);
   });

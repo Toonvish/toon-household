@@ -12,9 +12,9 @@
  * the runtime nests the module over the core and the infrastructure (`src/runtime.ts`), and the manifest exports it
  * as `layer: Layer.suspend(financeLayer)`.
  *
- * The hooks, the bridges (`./bridge.ts`) and the scheduler do NOT use the runtime's copy: they run OUTSIDE the
- * runtime too (`Database.layerFromExecutor` in `scripts/seed.ts`, `runMigrations`, the scripts), where nothing but `Database`
- * exists. `withFinanceServices(effect)` builds the services over the CURRENT `Database` of the calling fiber with a
+ * The hooks and the scheduler do NOT use the runtime's copy: they run OUTSIDE the
+ * runtime too (`Database.layerFromExecutor` in `scripts/seed.ts`, `migrateDatabase`, the scripts and the test door
+ * `runFinanceBridge` of `apps/api/test/support/bridges/finance-bridge.ts`), where nothing but `Database` exists. `withFinanceServices(effect)` builds the services over the CURRENT `Database` of the calling fiber with a
  * fresh memo map (`{ local: true }`): a plain `Effect.provide(layer)` would take a child of the runtime's memo map
  * (`Layer.buildWithScope`, `CurrentMemoMap.forkOrCreate`) and reuse the leaf layers the `AppLayer` memoized, bound
  * to the runtime's `Database`, so a test's private database (`Database.layerFrom(…)`, `Database.withExecutor(db)`)
@@ -47,13 +47,13 @@ export function financeLayer() {
   );
 }
 
-/** The same services with `AppConfig` provided: what a hook or a bridge needs besides `Database`. */
+/** The same services with `AppConfig` provided: what a hook or a test door needs besides `Database`. */
 export function financeStandaloneLayer() {
   return financeLayer().pipe(Layer.provide(AppConfig.layer));
 }
 
 /**
- * Runs `effect` with the finance services built over the CURRENT `Database` (hooks, bridges, the scheduler), with a fresh
+ * Runs `effect` with the finance services built over the CURRENT `Database` (hooks, the test doors, the scheduler), with a fresh
  * memo map (`local: true`), so a copy memoized by the runtime's `AppLayer` is never reused.
  */
 export function withFinanceServices<A, E>(

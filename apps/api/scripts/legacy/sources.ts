@@ -16,7 +16,7 @@
  * On Effect (docs/EFFECT.md E6, E7, E10; plan `docs/plans/e5-scripts.md` P5, P9): `openLegacyEffect` and `readAll`
  * are Effects over the client they are handed (libSQL calls through `legacyTry`, `./io.ts`); `snapshotDatabase`
  * stays pure and is called through the lift `liftTagged`, so its `LegacyInputError` is a typed failure.
- * `openLegacy` is the Promise bridge the pinned tests and `legacy-harness.ts` call (end of file).
+ * The Promise form `openLegacy` is the test door `apps/api/test/support/bridges/legacy-sources.ts` (plan e8 P1).
  *
  * No module-scope code beyond imports and constants (decision 5: the CLI imports this file
  * dynamically, after its `DATABASE_URL` redirect).
@@ -26,7 +26,7 @@ import { resolve } from "node:path";
 import { type Client, createClient, type InArgs } from "@libsql/client";
 import { Effect, Predicate, Schema } from "effect";
 import type { DatabaseError } from "../../src/lib/errors.ts";
-import { legacyTry, liftTagged, runLegacy } from "./io.ts";
+import { legacyTry, liftTagged } from "./io.ts";
 import type { LegacyDb, LegacySource, Row } from "./types.ts";
 
 /** The drizzle journal each source must be at (plan m5 §1.2: count, last `when`, last tag). */
@@ -160,14 +160,3 @@ export const readAll = Effect.fnUntraced(function* (
     return out;
   });
 });
-
-/* legacy bridges: the pinned legacy-cli and legacy-placeholders tests and legacy-harness.ts; E8 removes them */
-
-/**
- * The Promise form of {@link openLegacyEffect}. Callers: `apps/api/scripts/migrate-legacy.ts` (until E5-T08),
- * `apps/api/test/support/legacy-harness.ts`, `apps/api/test/legacy-cli.test.ts`, `apps/api/test/legacy-placeholders.test.ts`,
- * `apps/api/test/legacy-users.test.ts`, `apps/api/test/legacy-households.test.ts`, `apps/api/test/legacy-framework.test.ts`.
- */
-export function openLegacy(source: LegacySource, path: string, scratchDir: string): Promise<LegacyDb> {
-  return runLegacy(openLegacyEffect(source, path, scratchDir));
-}

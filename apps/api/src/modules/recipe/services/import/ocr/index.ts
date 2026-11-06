@@ -83,7 +83,7 @@ export interface TextPasteOptions {
 
 /**
  * Pasted text -> draft payload, as a service-free effect: no OCR, no I/O, no service. NOT pure (the duration reads the
- * `Clock`), and it stays reachable synchronously through the pinned-test bridge `importFromText` at the end of the file. The steps
+ * `Clock`). The steps
  * run in today's order: clamp the trimmed text, refuse an empty one, parse, and only then read the clock twice.
  */
 export const importFromTextEffect = Effect.fnUntraced(function* (
@@ -233,15 +233,4 @@ export class OcrImporter extends Context.Service<
       return OcrImporter.of({ importFromImage, importFromPdf, importFromText: importFromTextEffect });
     }),
   );
-}
-
-/* legacy bridge: the one survivor of this file after E3 (plan e3 P1) */
-
-/**
- * Pasted text -> draft payload. SYNCHRONOUS and throwing the `400` refusal itself (an `ApiError` instance) for an empty
- * text (plan e3 P11): `Effect.runSync` over the service-free {@link importFromTextEffect}, whose clock is the default
- * one. Callers: `apps/api/test/import/ocr-disabled.test.ts` (pinned, E8) and `apps/api/test/import/ocr-segment.test.ts`.
- */
-export function importFromText(rawText: string, options: TextPasteOptions = {}): TextImportResult {
-  return Effect.runSync(importFromTextEffect(rawText, options));
 }

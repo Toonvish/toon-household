@@ -267,8 +267,8 @@ Package names are `@toon/shared`, `@toon/api`, `@toon/web`; the root is `toon-ho
   `apps/api/src/modules/finance/services/{participants,categories,ledger,plan,setup}/layer.ts`, the `Context.Service` classes
   `FinanceParticipants`, `FinanceSettings`, `FinanceCategories`, `FinanceTags`, `FinanceMutationClaims`, `FinanceBalance`,
   `FinanceTransactions`, `FinanceSummary`, `FinanceSettlements`, `FinancePlan`, `FinanceAccrual`, `FinanceSetup` (the table with files
-  is `docs/modules/finance.md` section 1.3); `apps/api/src/modules/finance/bridge.ts` (`runFinanceBridge`, the runner of the finance
-  Promise bridges), `apps/api/src/modules/finance/lib/clock.ts` (`financeTimeMillis`, `setClockForTest`),
+  is `docs/modules/finance.md` section 1.3); `apps/api/test/support/bridges/finance-bridge.ts` (`runFinanceBridge`, the runner of the finance
+  Promise bridges, moved there at E8, plan e8 P1), `apps/api/src/modules/finance/lib/clock.ts` (`financeTimeMillis`, `setClockForTest`),
   `apps/api/src/modules/finance/services/plan/scheduler.ts` (`startAccrualSchedule`, `stopAccrualSchedule`; not a service) and
   `apps/api/src/modules/finance/middleware.ts` (the participant gate on the runtime); the pure helpers (`defaults.ts`,
   `period-scan.ts`, `dateRange.ts`, `aggregateExclusion.ts`, `support.ts`) stay plain modules. Tests added by E4:
@@ -463,7 +463,7 @@ ones; the module gotchas are indexed below and live in the module docs.
   scripts' library the five Promise bridges `runLegacyMigration`, `migrateUsers`, `migrateHouseholds`, `migrateRecipe`, `openLegacy`
   (each next to an `…Effect` form, over `runLegacy` in `apps/api/scripts/legacy/io.ts`) and the Promise door `runMigrations(database?)` of
   `migrateDatabase`; listed with callers in ADR 0014 "Status after E5's integration". **A finance Promise
-  bridge never imports `runtime.ts`:** it runs `runFinanceBridge(effect, executor)` (`apps/api/src/modules/finance/bridge.ts`), which
+  bridge never imports `runtime.ts`:** it runs `runFinanceBridge(effect, executor)` (`apps/api/test/support/bridges/finance-bridge.ts`, moved there at E8, plan e8 P1), which
   builds the services over the executor it is handed and provides `Database.layerFromExecutor(executor)` itself (E5-T09; `runModuleHook` is gone);
   the scripts no longer need it (`apps/api/scripts/legacy/balance.ts` builds `FinanceBalance` over the migration's explicit target with
   `withFinanceServices`, `finance-import-xlsx.ts` calls the services inside `Database.transaction`); it rejects with a
@@ -551,7 +551,7 @@ ones; the module gotchas are indexed below and live in the module docs.
   database, and a test's private `Database.layerFrom(…)` would silently never be reached (`apps/api/test/finance-services-local.test.ts`
   proves it; the finance services hold no state, so the copies cannot disagree). Outside the runtime (`runMigrations`, the
   finance bridges) a hook runs with `Database.layerFromExecutor(executor)` provided (`Effect.runPromise`; every finance bridge through
-  `runFinanceBridge`, `apps/api/src/modules/finance/bridge.ts`; `runMigrations(database?)` over `migrateDatabase`), never importing
+  `runFinanceBridge`, `apps/api/test/support/bridges/finance-bridge.ts`, moved there at E8, plan e8 P1; `runMigrations(database?)` over `migrateDatabase`), never importing
   `runtime.ts`, so `db/migrate.ts` keeps `migrate-legacy.ts`'s import-order rule; the scripts run their hooks on the `AppLayer` (`seed`'s
   `seedDemo`, the `UploadReferences` service for `uploads:gc`); `runModuleHook` and its file are deleted (E5-T09). `API_MODULES` in
   `apps/api/src/modules/index.ts` is a lazy array (a `Proxy` over the manifests, built on first access) so a manifest imported FIRST
