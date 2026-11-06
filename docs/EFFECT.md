@@ -182,6 +182,10 @@ in `docs/adr/`, the ADR edits this text in the same commit.
   hold only the Effect forms (no `legacy bridges:` section is left; rule (20) and the plan's `no-bridges` check pin it).
   The test seams stay in `src` as named seams (P2); the process-wide client of `apps/api/src/db/client.ts` and
   `apps/api/src/env.ts` stay (P3); the idioms test has every E12 rule grep can see on, rules (1) to (21).
+  **Final gates (E8-T12, `docs/plans/e8-harden.md` section 9):** `bun test` 15236 pass, 1 skip, 0 fail in 183 files (E7: 15191 in 181), typecheck
+  and frozen install green, `i18n:check` parity OK with the same 148 classified hits as at E7, the gzipped bundle 419.99 kB (unchanged), the idioms
+  test 66 cases green, `docs/API.md` rows and `apps/web` untouched, a SIGTERM stops the server in 12 ms idle and 5.03 s with an upload in flight
+  (exit 0, three log lines), the local stack test with a fresh image passes.
 
 ## 2. How an agent learns Effect here
 
