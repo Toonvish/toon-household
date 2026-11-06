@@ -25,7 +25,7 @@ import {
   emptyParsedRecipe,
 } from "@toon/shared";
 import { and, count, desc, eq } from "drizzle-orm";
-import { Clock, Context, Effect, Layer, Option } from "effect";
+import { Clock, Context, Effect, Layer, Option, Predicate } from "effect";
 import { Database } from "../../../../db/database.ts";
 import { type ImportDraftRow, importDrafts } from "../../../../db/schema.ts";
 import { NotFound } from "../../../../lib/errors.ts";
@@ -221,7 +221,7 @@ export class ImportDrafts extends Context.Service<
 /** Stored upload filename of a draft, if it had one. */
 export function storedFilenameOf(row: ImportDraftRow): string | undefined {
   const meta = row.sourceMeta;
-  if (meta === null || typeof meta !== "object") return undefined;
+  if (!Predicate.isObjectOrArray(meta)) return undefined;
   const storedPath = (meta as ImportSourceMeta).storedPath;
   return typeof storedPath === "string" && storedPath.length > 0 ? storedPath : undefined;
 }
