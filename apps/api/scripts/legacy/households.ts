@@ -30,7 +30,7 @@
  * from the context and never uses the shared `db`.
  *
  * On Effect (docs/EFFECT.md E7, E10; plan `docs/plans/e5-scripts.md` P5, P9): `migrateHouseholdsEffect` is
- * the step, `migrateHouseholds` its Promise bridge. The two pure throwers of `mapping.ts`
+ * the step. The two pure throwers of `mapping.ts`
  * (`validateMappingOverride`, `proposeHouseholdMapping`) are called through `liftTagged`, so their
  * `MappingError` is a typed failure (the CLI's exit 2), never a defect (exit 1).
  */
@@ -67,7 +67,7 @@ import {
 import type { DatabaseError } from "../../src/lib/errors.ts";
 import { normalizeStoredUploadUrl } from "../../src/lib/uploadUrls.ts";
 import type { HouseholdDecision, LegacySource, MigrationContext, Row, TableCount } from "./types.ts";
-import { legacyTry, liftTagged, runLegacy } from "./io.ts";
+import { legacyTry, liftTagged } from "./io.ts";
 
 /** Prefix of a member id whose user the users step did not migrate: matches no group. */
 const UNMAPPED = "unmapped:";
@@ -679,14 +679,3 @@ export const migrateHouseholdsEffect = Effect.fn("legacy.migrateHouseholds")(fun
     });
   }
 });
-
-/* legacy bridges: the pinned legacy-cli and legacy-placeholders tests and legacy-harness.ts; E8 removes them */
-
-/**
- * The Promise form of {@link migrateHouseholdsEffect}; a `MappingError` rejects as that object (`exitCode` 2).
- * Callers: `apps/api/test/legacy-cli.test.ts`, `apps/api/test/legacy-households.test.ts`,
- * `apps/api/test/legacy-recipe.test.ts`, `apps/api/test/legacy-finance.test.ts`, `apps/api/test/finance-scheduler.test.ts`.
- */
-export function migrateHouseholds(ctx: MigrationContext): Promise<void> {
-  return runLegacy(migrateHouseholdsEffect(ctx));
-}

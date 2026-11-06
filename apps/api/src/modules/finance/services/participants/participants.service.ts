@@ -12,8 +12,7 @@
  * AS A SERVICE (docs/EFFECT.md E7, E12; plan `docs/plans/e4-finance-services.md` P1, P2, P6, P7, P10). `FinanceParticipants`
  * keeps every old function name with the leading `db` parameter dropped; it reads the current executor of `Database` on
  * every call, takes every timestamp from the module clock (`financeTimeMillis`: the `setClockForTest` override, else the
- * `Clock`), and refuses with the API error family (same status, code, text and details as before). The two Promise bridges at
- * the end keep the old `(db, …)` signatures for the pinned `finance-module.test.ts` (E8 removes them).
+ * `Clock`), and refuses with the API error family (same status, code, text and details as before).
  */
 import type { FinanceParticipantResponse } from "@toon/shared";
 import { DEFAULT_LOCALE, serverText } from "@toon/shared";
@@ -25,7 +24,6 @@ import { isPlaceholderUser, isUniqueViolation } from "../../../../core/services/
 import { ApiFailure, Conflict, Forbidden, Internal, NotFound, ValidationFailed } from "../../../../lib/errors.ts";
 import type { DatabaseError } from "../../../../lib/errors.ts";
 import { toIso } from "../../../../lib/http.ts";
-import { runFinanceBridge } from "../../bridge.ts";
 import { financeTimeMillis } from "../../lib/clock.ts";
 import {
   financeFixedCostPlans,
@@ -33,7 +31,6 @@ import {
   financeParticipants,
   financeTransactions,
 } from "../../schema.ts";
-import type { DbLike } from "../support.ts";
 
 /** One seat of an assignment: who sits in which slot. */
 export interface ParticipantAssignmentEntry {
@@ -507,29 +504,5 @@ export class FinanceParticipants extends Context.Service<
         renamePlaceholderParticipant,
       });
     }),
-  );
-}
-
-/* legacy bridges: only the survivors of plan e4 P1 (callers listed; E8 removes them with the pinned tests) */
-
-/** Callers: `apps/api/test/finance-module.test.ts` (pinned, E8). */
-export function assignParticipants(
-  db: DbLike,
-  householdId: string,
-  assignment: readonly ParticipantAssignmentEntry[],
-): Promise<void> {
-  return runFinanceBridge(FinanceParticipants.use((service) => service.assignParticipants(householdId, assignment)), db);
-}
-
-/** Callers: `apps/api/test/finance-module.test.ts` (pinned, E8). */
-export function updateParticipantDisplayName(
-  db: DbLike,
-  householdId: string,
-  userId: string,
-  displayName: string,
-): Promise<FinanceParticipantResponse> {
-  return runFinanceBridge(
-    FinanceParticipants.use((service) => service.updateParticipantDisplayName(householdId, userId, displayName)),
-    db,
   );
 }

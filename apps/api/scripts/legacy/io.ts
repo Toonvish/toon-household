@@ -6,10 +6,8 @@
  *   synchronous throw of the thunk) becomes `DatabaseError({ cause })` with the RAW driver error as `cause`, so a
  *   step that recovers (the per-row retry of `writeEntries`, the schema gate's read) records exactly the text the
  *   old `catch (error)` saw, and one that does not lets it propagate.
- * - `runLegacy(effect)`: the Promise door of the library (the kept Promise bridges, the tests, and, until E5-T07,
- *   the interim calls of the steps not converted yet). The rejection is mapped once: a `DatabaseError` rejects with
- *   its `cause` (what the old Promise function rejected with), anything else with the squashed value unchanged (a
- *   `MappingError` or `LegacyInputError` is that object: `exitCode` 2 and `instanceof` hold).
+ * - The Promise door `runLegacy(effect)` the tests use is `apps/api/test/support/bridges/legacy-io.ts` (moved there at E8,
+ *   plan e8 P1); the library itself has none.
  * - `liftTagged(tags, f)`: the one lift of a PURE function that throws one of the library's tagged errors
  *   synchronously (`snapshotDatabase`, the statement builders, `validateMappingOverride`, …). Inside Effect code a
  *   bare `throw` is a defect that `Effect.catchTag(s)` never sees (CLAUDE.md "Catch-all stays catch-all"), so the
@@ -20,7 +18,7 @@
  * CLAUDE.md "The CLI never imports `src/env.ts`, and its import order is load-bearing"). Never `src/runtime.ts`.
  */
 import { Effect, Predicate } from "effect";
-import { DatabaseError, isDatabaseError } from "../../src/lib/errors.ts";
+import { DatabaseError } from "../../src/lib/errors.ts";
 import type { CopyProgrammingError } from "./copy.ts";
 import type { MappingError } from "./mapping.ts";
 import type { LegacyInputError } from "./sources.ts";
@@ -34,16 +32,6 @@ export type LegacyTag = LegacyTaggedError["_tag"];
 /** A libSQL (or any Promise) call of the library: a rejection is `DatabaseError` with the raw error as `cause`. */
 export function legacyTry<A>(f: () => PromiseLike<A>): Effect.Effect<A, DatabaseError> {
   return Effect.tryPromise({ try: () => f(), catch: (cause) => new DatabaseError({ cause }) });
-}
-
-/**
- * Runs a library effect as a Promise. A `DatabaseError` rejects with its `cause`, anything else (a tagged error of
- * the library, a defect) with the squashed value unchanged.
- */
-export function runLegacy<A, E>(effect: Effect.Effect<A, E>): Promise<A> {
-  return Effect.runPromise(effect).then(undefined, (error: unknown) =>
-    Promise.reject(isDatabaseError(error) ? error.cause : error),
-  );
 }
 
 /**

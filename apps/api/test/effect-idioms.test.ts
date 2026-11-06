@@ -415,9 +415,9 @@ const CORE_FILES = API_SRC_FILES.filter(
     rel(f).startsWith("apps/api/src/modules/recipe/") ||
     rel(f).startsWith("apps/api/src/modules/finance/"),
 );
-const ALLOW_NOW_MS: PathAllow = {
-  "apps/api/src/modules/finance/lib/clock.ts": "the definition of the finance module clock's synchronous nowMs(), kept for the test harness",
-};
+// Empty since E8-T06: the finance clock's synchronous `nowMs()` is deleted (its test door is
+// `apps/api/test/support/bridges/finance-clock.ts`, plan e8 P1), so no `nowMs(` line is left under the core or the modules.
+const ALLOW_NOW_MS: PathAllow = {};
 
 describe("(11) no Date.now() / new Date( in services, no nowMs( in the core or the modules (E7, E12)", () => {
   test("no `Date.now(` / `new Date(` in a services/ directory outside the pinned allow list", () => {

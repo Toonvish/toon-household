@@ -34,9 +34,9 @@
  * from the context and never uses the shared `db`.
  *
  * On Effect (docs/EFFECT.md E7, E10; plan `docs/plans/e5-scripts.md` P9): `migrateUsersEffect` is the
- * step, `migrateUsers` its Promise bridge. Every database call goes through `legacyTry` / `readAll` /
+ * step. Every database call goes through `legacyTry` / `readAll` /
  * `loadAll` / `copyTable` / `writeEntries`, so a driver failure is a `DatabaseError` that propagates
- * (the bridge rejects with the raw driver error, as before); this file recovers from nothing
+ * (the test door `migrateUsers` of `apps/api/test/support/bridges/legacy-users.ts` rejects with the raw driver error, as before); this file recovers from nothing
  * (`legacy-users.test.ts` reads its text).
  */
 import { Effect } from "effect";
@@ -47,7 +47,7 @@ import { emailVerificationTokens, oauthAccounts, passwordResetTokens, users } fr
 import type { DatabaseError } from "../../src/lib/errors.ts";
 import { normalizeStoredUploadUrl } from "../../src/lib/uploadUrls.ts";
 import type { LegacySource, MigrationContext, Row, TableCount, UserCollision } from "./types.ts";
-import { legacyTry, runLegacy } from "./io.ts";
+import { legacyTry } from "./io.ts";
 
 /** The note of a collision whose recipe account has no password (decision 9). */
 export const OAUTH_ONLY_NOTE = "finance password not carried (recipe account is OAuth-only; use password reset)";
@@ -466,14 +466,3 @@ export const migrateUsersEffect = Effect.fn("legacy.migrateUsers")(function* (
   );
   report.notMigrated.push(...notMigrated);
 });
-
-/* legacy bridges: the pinned legacy-cli and legacy-placeholders tests and legacy-harness.ts; E8 removes them */
-
-/**
- * The Promise form of {@link migrateUsersEffect}. Callers: `apps/api/test/legacy-cli.test.ts`,
- * `apps/api/test/legacy-users.test.ts`, `apps/api/test/legacy-households.test.ts`, `apps/api/test/legacy-recipe.test.ts`,
- * `apps/api/test/legacy-finance.test.ts`, `apps/api/test/finance-scheduler.test.ts`.
- */
-export function migrateUsers(ctx: MigrationContext): Promise<void> {
-  return runLegacy(migrateUsersEffect(ctx));
-}

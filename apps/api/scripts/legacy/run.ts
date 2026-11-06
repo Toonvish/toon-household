@@ -10,8 +10,7 @@
  * dynamically, after its `DATABASE_URL` redirect).
  *
  * An Effect since E5 (docs/EFFECT.md E7, E10; plan `docs/plans/e5-scripts.md` P9, P10):
- * `runLegacyMigrationEffect` and `knownLegacyIds`, the Promise bridge `runLegacyMigration` at the end,
- * and `runLegacy` re-exported for the CLI. A bad `mapping` is validated through `liftTagged`, so its
+ * `runLegacyMigrationEffect` and `knownLegacyIds`. A bad `mapping` is validated through `liftTagged`, so its
  * `MappingError` is a TYPED failure (the CLI's exit 2), never a defect.
  */
 import { Effect } from "effect";
@@ -36,9 +35,7 @@ import type {
 import { migrateUploads } from "./uploads.ts";
 import { migrateUsersEffect } from "./users.ts";
 import { CHUNK_SIZE, type CopyProgrammingError } from "./copy.ts";
-import { legacyTry, liftTagged, runLegacy } from "./io.ts";
-
-export { runLegacy } from "./io.ts";
+import { legacyTry, liftTagged } from "./io.ts";
 
 export interface RunOptions {
   mode: Mode;
@@ -141,14 +138,3 @@ export const runLegacyMigrationEffect = Effect.fn("legacy.runLegacyMigration")(f
   yield* verifyBalances(ctx);
   return report;
 });
-
-/* legacy bridges: the pinned legacy-cli and legacy-placeholders tests and legacy-harness.ts; E8 removes them */
-
-/**
- * The Promise form of {@link runLegacyMigrationEffect}; a `MappingError` rejects as that object (`exitCode` 2).
- * Callers: `apps/api/scripts/migrate-legacy.ts` (until E5-T08), `apps/api/test/legacy-cli.test.ts`,
- * `apps/api/test/legacy-placeholders.test.ts`.
- */
-export function runLegacyMigration(options: RunOptions): Promise<Report> {
-  return runLegacy(runLegacyMigrationEffect(options));
-}

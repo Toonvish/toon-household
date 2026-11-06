@@ -12,7 +12,8 @@
  * (`financeTimeMillis`, so a `TestClock` drives the stamps), and a refusal is a member of the API error family. The
  * catch-all of the booking transaction stays a catch-all: `Effect.catchCause` sees a typed failure, a defect and a
  * rejection alike (CLAUDE.md "Catch-all stays catch-all"). `apps/api/scripts/plan-run.ts` yields the service;
- * `finance-security.test.ts` calls it through a local helper over `runFinanceBridge` (plan e5 P11).
+ * `finance-security.test.ts` calls it through a local helper over the test door `runFinanceBridge`
+ * (`apps/api/test/support/bridges/finance-bridge.ts`, plan e5 P11, plan e8 P1).
  */
 import type { RecalculatePlanResponse, RunPlanResponse, TransactionResponse } from "@toon/shared";
 import { comparePeriods, computePlanForPeriod, currentPeriod, periodStartMs, periodsInclusive, serverText } from "@toon/shared";

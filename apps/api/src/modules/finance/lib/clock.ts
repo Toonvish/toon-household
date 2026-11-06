@@ -9,8 +9,9 @@
  * Since E4 (docs/EFFECT.md E7, E12; plan `docs/plans/e4-finance-services.md` P6) the services read
  * {@link financeTimeMillis}, an Effect: the `setClockForTest` override when one is set, else the fiber's
  * `Clock`, so a `TestClock` drives every row stamp, the catch-up and the scheduler. It reads the time on
- * every run (never captured at layer build). The synchronous `nowMs()` stays for the test harness
- * (`apps/api/test/support/finance-harness.ts`) and the callers not converted yet.
+ * every run (never captured at layer build). The synchronous read the test harness
+ * (`apps/api/test/support/finance-harness.ts`) wants is the door `nowMs` of `apps/api/test/support/bridges/finance-clock.ts`
+ * (moved there at E8, plan e8 P1), over {@link financeTimeMillis}.
  *
  * A setter seam, not `mock.module`: this file's own discipline is that
  * whichever test calls `setClockForTest` restores it (`setClockForTest(null)`)
@@ -22,11 +23,6 @@
 import { Clock, Effect } from "effect";
 
 let override: number | null = null;
-
-/** Current unix ms — the synchronous read of the module clock (the override, else `Date.now()`). */
-export function nowMs(): number {
-  return override ?? Date.now();
-}
 
 /** Current unix ms as an Effect: the `setClockForTest` override, else the fiber's `Clock` (P6). */
 export const financeTimeMillis: Effect.Effect<number> = Effect.suspend(() =>

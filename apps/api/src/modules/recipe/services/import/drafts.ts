@@ -13,7 +13,6 @@
  * current executor of `Database` on every call (the import routes hand in the pinned tests' file DB with
  * `withImportDb`, P6), takes its timestamps from the `Clock` and refuses with the tagged family.
  * `toDraftWire` and `storedFilenameOf` stay pure exports.
- * The one Promise bridge at the end of the file, `createDraft(db, input)`, serves the pinned `ocr-disabled.test.ts`.
  */
 import {
   type ImportDraft,
@@ -27,12 +26,10 @@ import {
 } from "@toon/shared";
 import { and, count, desc, eq } from "drizzle-orm";
 import { Clock, Context, Effect, Layer, Option } from "effect";
-import type { Database as DrizzleDatabase } from "../../../../db/client.ts";
 import { Database } from "../../../../db/database.ts";
 import { type ImportDraftRow, importDrafts } from "../../../../db/schema.ts";
 import { NotFound } from "../../../../lib/errors.ts";
 import type { DatabaseError } from "../../../../lib/errors.ts";
-import { runtime } from "../../../../runtime.ts";
 import { decodeOption } from "../../../../lib/validate.ts";
 import { toIso } from "../../../../lib/http.ts";
 import { normalizeStoredUploadUrl, signUploadUrl } from "../../../../lib/uploadUrls.ts";
@@ -227,14 +224,4 @@ export function storedFilenameOf(row: ImportDraftRow): string | undefined {
   if (meta === null || typeof meta !== "object") return undefined;
   const storedPath = (meta as ImportSourceMeta).storedPath;
   return typeof storedPath === "string" && storedPath.length > 0 ? storedPath : undefined;
-}
-
-/* legacy bridge: the one survivor of this file after E3 (plan e3 P1) */
-
-/**
- * Honours `db` with `Database.withExecutor(db)`; a failure rejects with the tagged error itself. Callers:
- * `apps/api/test/import/ocr-disabled.test.ts` (pinned; E8). Promise.
- */
-export function createDraft(db: DrizzleDatabase, input: CreateDraftInput): Promise<ImportDraft> {
-  return runtime.runPromise(ImportDrafts.use((s) => s.createDraft(input)).pipe(Database.withExecutor(db)));
 }

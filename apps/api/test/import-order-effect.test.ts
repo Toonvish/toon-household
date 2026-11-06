@@ -11,7 +11,8 @@
  * `./src/db/migrate.ts` (the module adapter's slot until E5-T09 deleted it; it holds `migrateDatabase`) and `./src/core/services/media/references.ts` (`UploadReferences`), E2-T12 the middlewares, the core routes and the services they reach,
  * E3-T01 the recipe module's composition (`./src/modules/recipe/layer.ts`) and `./src/modules/recipe/migrate.ts`,
  * E3-T13 three recipe service files (`recipes.service.ts`, `import/url/fetch.ts`, `ocr/index.ts`; never the route files),
- * E4-T01 the finance module's composition (`./src/modules/finance/layer.ts`), its bridge runner (`bridge.ts`) and its
+ * E4-T01 the finance module's composition (`./src/modules/finance/layer.ts`), its bridge runner (`bridge.ts`, deleted by
+ * E8-T06 with the test doors moving to `apps/api/test/support/bridges/`; replaced by the leaf `http.ts`, plan e8 P8) and its
  * clock (`lib/clock.ts`),
  * E4-T09 the finance middleware, `setup.ts`, `seed.ts` and the converted service files (probed one by one in a fresh
  * process; the eight finance route files die when imported first, the E3 shape, and are NOT entries: they join
@@ -74,10 +75,11 @@ describe("import order does not matter for the Effect composition", () => {
     "./src/modules/recipe/services/recipes/recipes.service.ts",
     "./src/modules/recipe/services/import/url/fetch.ts",
     "./src/modules/recipe/services/ocr/index.ts",
-    // E4-T01: the finance module's composition (hoisted area functions, `withFinanceServices`), the bridge runner
-    // every finance Promise bridge goes through, and the module clock (`financeTimeMillis`; plan e4 P13)
+    // E4-T01: the finance module's composition (hoisted area functions, `withFinanceServices`), the leaf of the
+    // participant gate (`http.ts`, which took the slot of the deleted bridge runner at E8-T06, plan e8 P8) and the
+    // module clock (`financeTimeMillis`; plan e4 P13)
     "./src/modules/finance/layer.ts",
-    "./src/modules/finance/bridge.ts",
+    "./src/modules/finance/http.ts",
     "./src/modules/finance/lib/clock.ts",
     // E4-T09: the finance middleware, the setup and seed files and every converted service file load first and
     // build the `AppLayer` (plan e4 P13). The route files are NOT entries (see the header).

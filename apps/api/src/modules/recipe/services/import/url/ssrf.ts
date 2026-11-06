@@ -4,7 +4,7 @@
  * The user controls the URL we fetch, so the API must never be turned into a
  * proxy into the private network (cloud metadata endpoints, internal admin
  * panels, `file://`, …). Every candidate URL — the original one AND every
- * redirect Location — goes through `checkPublicUrl()` (a service-free Effect; `assertPublicUrl()` is its Promise form).
+ * redirect Location — goes through `checkPublicUrl()` (a service-free Effect).
  *
  * Two layers:
  *   1. syntactic — scheme allow-list, hostname deny-list, literal IP checks,
@@ -27,7 +27,7 @@ const SsrfText = Schema.declare<ErrorText>((u): u is ErrorText => Predicate.isSt
 /**
  * The guard refused a URL (`reason` is the stable machine token, `text` the catalog message). A tagged error OUTSIDE the
  * API family (docs/EFFECT.md E6; plan `docs/plans/e3-recipe-services.md` P8): `ImportHttp` maps it once to a 400
- * `fetch_failed` with `details: { reason }`; `assertPublicUrl` rejects with it as is.
+ * `fetch_failed` with `details: { reason }`; the guard's own effect fails with it as is.
  */
 export class SsrfError extends Schema.TaggedError<SsrfError>()("SsrfError", {
   reason: Schema.String,
@@ -366,7 +366,7 @@ export const checkPublicUrl = Effect.fnUntraced(function* (input: string, guard:
   return url;
 });
 
-/** The guard of the Promise entry points (outside the runtime, so `env`): the configured escape hatch, no allow list. */
+/** The guard of the entry points outside the runtime (so `env`): the configured escape hatch, no allow list (the test doors of `apps/api/test/support/bridges/` use it). */
 export function entryGuard(options: AssertPublicUrlOptions): SsrfGuard {
   return {
     allowPrivateHosts: env.allowPrivateImportHosts,
@@ -374,14 +374,4 @@ export function entryGuard(options: AssertPublicUrlOptions): SsrfGuard {
     ...(options.resolve === undefined ? {} : { resolve: options.resolve }),
     ...(options.skipDns === undefined ? {} : { skipDns: options.skipDns }),
   };
-}
-
-/**
- * Promise entry point of `checkPublicUrl` (the pinned `ssrf.test.ts`): runs it outside the
- * runtime, so it reads `env.allowPrivateImportHosts` itself.
- *
- * Rejects with the `SsrfError` itself; resolves with the parsed URL when it is safe to fetch.
- */
-export function assertPublicUrl(input: string, options: AssertPublicUrlOptions = {}): Promise<URL> {
-  return Effect.runPromise(checkPublicUrl(input, entryGuard(options)));
 }
