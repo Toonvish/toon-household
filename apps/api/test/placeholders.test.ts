@@ -13,11 +13,11 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { serverText, type ServerKey } from "@toon/shared";
 import { and, eq } from "drizzle-orm";
 import { db } from "../src/db/client.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import { householdInvites, householdMembers, sessions, users } from "../src/db/schema.ts";
-import { claimPlaceholderUser } from "../src/core/services/auth/users.ts";
+import { claimPlaceholderUser } from "./support/bridges/users.ts";
 import { type MailMessage, type Mailer, setMailer } from "../src/core/services/mail/index.ts";
-import { ApiError } from "../src/lib/errors.ts";
+import { ApiError } from "./support/bridges/api-error.ts";
 
 await runMigrations(db);
 

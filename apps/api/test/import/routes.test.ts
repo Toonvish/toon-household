@@ -24,9 +24,9 @@ import { join } from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import type { CommitImportDraftResponse, ImportDraft, ImportDraftListResponse, ImportDraftResponse } from "@toon/shared";
 import { eq } from "drizzle-orm";
-import { createSession } from "../../src/core/services/auth/sessions.ts";
+import { createSession } from "../support/bridges/sessions.ts";
 import { createDatabase, db as sharedDb } from "../../src/db/client.ts";
-import { runMigrations } from "../../src/db/migrate.ts";
+import { runMigrations } from "../support/bridges/migrate.ts";
 import {
   collections,
   householdMembers,

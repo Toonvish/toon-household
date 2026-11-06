@@ -21,7 +21,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { eq } from "drizzle-orm";
 import { Clock, Effect } from "effect";
 import { db } from "../src/db/client.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import { users } from "../src/db/schema.ts";
 import { app } from "../src/index.ts";
 import { SESSION_COOKIE } from "../src/lib/cookies.ts";

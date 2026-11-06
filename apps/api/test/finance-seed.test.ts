@@ -20,7 +20,7 @@ import type { Effect } from "effect";
 import { HouseholdModules } from "../src/core/services/households/modules.ts";
 import { createDatabase, db } from "../src/db/client.ts";
 import { Database } from "../src/db/database.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import { householdMembers, households, users } from "../src/db/schema.ts";
 import {
   financeFixedCostItems,

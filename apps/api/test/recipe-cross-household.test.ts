@@ -28,7 +28,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "../src/db/client.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import {
   cards,
   collections,

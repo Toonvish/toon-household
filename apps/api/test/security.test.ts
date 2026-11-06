@@ -22,7 +22,7 @@ import { createClient } from "@libsql/client";
 import { Effect } from "effect";
 import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/http-api";
 import { db } from "../src/db/client.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import { env } from "../src/env.ts";
 import { coreApi, UNINTERRUPTIBLE } from "../src/http/middleware.ts";
 import { clientIp } from "../src/http/request.ts";

@@ -16,9 +16,9 @@ import {
   INVITE_RULE,
   LOGIN_RULE,
   RateLimiter,
-  checkRateLimit,
   resetRateLimits,
 } from "../src/core/services/auth/rateLimit.ts";
+import { checkRateLimit } from "./support/bridges/rate-limit.ts";
 import { type BoundaryFailure, coreApi, UNINTERRUPTIBLE } from "../src/http/middleware.ts";
 import { json } from "../src/http/response.ts";
 import { isApiError } from "../src/lib/errors.ts";

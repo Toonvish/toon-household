@@ -6,16 +6,16 @@
  * DNS lookup in this file is for "localhost", which resolves from /etc/hosts.
  */
 import { describe, expect, test } from "bun:test";
-import { ApiError } from "../../src/lib/errors.ts";
-import { fetchHtml } from "../../src/modules/recipe/services/import/url/fetch.ts";
+import { ApiError } from "../support/bridges/api-error.ts";
+import { fetchHtml } from "../support/bridges/recipe-fetch.ts";
 import {
   SsrfError,
-  assertPublicUrl,
   isBlockedHostname,
   isPrivateAddress,
   isPrivateIpv4,
   isPrivateIpv6,
 } from "../../src/modules/recipe/services/import/url/ssrf.ts";
+import { assertPublicUrl } from "../support/bridges/recipe-ssrf.ts";
 import { createResolver, createScriptedFetch, expectApiError } from "./helpers.ts";
 
 const publicResolver = createResolver();

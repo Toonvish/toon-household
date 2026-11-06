@@ -10,7 +10,7 @@ import { HealthResponseSchema } from "@toon/shared";
 import { afterAll, describe, expect, test } from "bun:test";
 import { Schema } from "effect";
 import { createDatabase } from "../src/db/client.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import {
   householdInvites,
   householdMembers,
@@ -21,7 +21,7 @@ import {
 } from "../src/db/schema.ts";
 import { env } from "../src/env.ts";
 import { app } from "../src/index.ts";
-import { ApiError } from "../src/lib/errors.ts";
+import { ApiError } from "./support/bridges/api-error.ts";
 
 const { client, db } = createDatabase({ url: "file::memory:" });
 await runMigrations(db);

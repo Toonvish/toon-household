@@ -13,13 +13,13 @@ import { describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { Clock, Effect } from "effect";
 import { db } from "../src/db/client.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import { type UserRow, householdInvites, householdMembers, households, users } from "../src/db/schema.ts";
 import { Users, isPlaceholderUser } from "../src/core/services/auth/users.ts";
 import { Households } from "../src/core/services/households/households.service.ts";
 import { HouseholdInvites } from "../src/core/services/households/invites.service.ts";
 import { toHouseholdInvite } from "../src/core/services/households/mappers.ts";
-import { ApiError } from "../src/lib/errors.ts";
+import { ApiError } from "./support/bridges/api-error.ts";
 import { runTest } from "./support/effect.ts";
 
 await runMigrations(db);

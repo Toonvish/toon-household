@@ -16,7 +16,7 @@ import { eq } from "drizzle-orm";
 import { Effect } from "effect";
 import { Database } from "../../src/db/database.ts";
 import { createDatabase } from "../../src/db/client.ts";
-import { runMigrations } from "../../src/db/migrate.ts";
+import { runMigrations } from "../support/bridges/migrate.ts";
 import {
   collectionRecipes,
   collections,
@@ -30,7 +30,7 @@ import {
   tags,
   users,
 } from "../../src/db/schema.ts";
-import { ApiError } from "../../src/lib/errors.ts";
+import { ApiError } from "../support/bridges/api-error.ts";
 import { type CommitDraftInput, ImportCommit } from "../../src/modules/recipe/services/import/commit.ts";
 import {
   type CreateDraftInput,

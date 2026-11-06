@@ -13,7 +13,7 @@ import { eq } from "drizzle-orm";
 import { Effect } from "effect";
 import { FetchHttpClient } from "effect/http";
 import { db } from "../src/db/client.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import { collections, importDrafts, recipes, sessions, users } from "../src/db/schema.ts";
 import { env } from "../src/env.ts";
 import { app } from "../src/index.ts";

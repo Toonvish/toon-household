@@ -15,7 +15,7 @@ import { join, resolve } from "node:path";
 import { createClient } from "@libsql/client";
 import { Exit, Runtime } from "effect";
 import { createDatabase } from "../src/db/client.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import { isDatabaseError } from "../src/lib/errors.ts";
 import { makeScriptTeardown, ScriptExit } from "../scripts/support/main.ts";
 

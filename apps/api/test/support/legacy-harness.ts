@@ -14,9 +14,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Client } from "@libsql/client";
 import { createDatabase } from "../../src/db/client.ts";
-import { runMigrations } from "../../src/db/migrate.ts";
+import { runMigrations } from "./bridges/migrate.ts";
 import { createReport } from "../../scripts/legacy/report.ts";
-import { openLegacy } from "../../scripts/legacy/sources.ts";
+import { openLegacy } from "./bridges/legacy-sources.ts";
 import type { MappingOverride, MigrationContext, Mode, TargetDb } from "../../scripts/legacy/types.ts";
 
 /** The committed fixtures (recipe.db, finance.db, uploads/). */

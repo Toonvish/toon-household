@@ -21,7 +21,7 @@ import { FOLD_PAIRS, foldText } from "@toon/shared";
 import { describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "../src/db/client.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import { foldBackfill } from "../src/modules/recipe/migrate.ts";
 import {
   householdModules,

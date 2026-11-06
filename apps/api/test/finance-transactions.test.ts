@@ -8,7 +8,7 @@ import { describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "../src/db/client.ts";
 import { financeTransactions as transactions } from "../src/modules/finance/schema.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import { body, call, createHousehold, createSoloFinanceHousehold, createUser, joinAsSecondMember, type TestUser } from "./support/finance-harness.ts";
 
 await runMigrations(db);

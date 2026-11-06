@@ -18,7 +18,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { type Client, createClient } from "@libsql/client";
 import { users } from "../src/db/schema.ts";
 import { createDatabase } from "../src/db/client.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import {
   CHUNK_SIZE,
   CopyProgrammingError,
@@ -39,9 +39,10 @@ import {
   reportToJson,
   totalWritten,
 } from "../scripts/legacy/report.ts";
-import { LEGACY_SCHEMAS, LegacyInputError, openLegacy, readAll, snapshotDatabase } from "../scripts/legacy/sources.ts";
+import { LEGACY_SCHEMAS, LegacyInputError, readAll, snapshotDatabase } from "../scripts/legacy/sources.ts";
+import { openLegacy } from "./support/bridges/legacy-sources.ts";
 import type { LegacyDb, MigrationContext, Report, Row, TableCount } from "../scripts/legacy/types.ts";
-import { runLegacy } from "../scripts/legacy/io.ts";
+import { runLegacy } from "./support/bridges/legacy-io.ts";
 
 const root = mkdtempSync(join(tmpdir(), "toon-legacy-framework-"));
 const openClients: Client[] = [];

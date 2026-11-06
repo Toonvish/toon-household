@@ -19,11 +19,11 @@ import { withFinanceServices } from "../src/modules/finance/layer.ts";
 import { FinanceBalance } from "../src/modules/finance/services/ledger/balance.service.ts";
 import { verifyBalances as verifyBalancesEffect } from "../scripts/legacy/balance.ts";
 import { migrateFinance as migrateFinanceEffect } from "../scripts/legacy/finance.ts";
-import { migrateHouseholds } from "../scripts/legacy/households.ts";
-import { runLegacy } from "../scripts/legacy/io.ts";
+import { migrateHouseholds } from "./support/bridges/legacy-households.ts";
+import { runLegacy } from "./support/bridges/legacy-io.ts";
 import { exitCodeFor } from "../scripts/legacy/report.ts";
 import type { MigrationContext } from "../scripts/legacy/types.ts";
-import { migrateUsers } from "../scripts/legacy/users.ts";
+import { migrateUsers } from "./support/bridges/legacy-users.ts";
 import { EXPECTED, FINANCE_HOUSEHOLDS, FINANCE_USERS, FH4_INCOMES } from "./fixtures/legacy/facts.ts";
 import { countRows, createLegacyRun, type LegacyRun } from "./support/legacy-harness.ts";
 

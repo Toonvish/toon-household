@@ -12,7 +12,7 @@ import { Effect } from "effect";
 import { filenameOf, UploadReferences } from "../src/core/services/media/references.ts";
 import { createDatabase } from "../src/db/client.ts";
 import { Database } from "../src/db/database.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import {
   collections,
   households,

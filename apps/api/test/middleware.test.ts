@@ -15,10 +15,10 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { Effect, Layer, Schema } from "effect";
 import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/http-api";
-import { createSession } from "../src/core/services/auth/sessions.ts";
+import { createSession } from "./support/bridges/sessions.ts";
 import { setVerifiedEmailRequired } from "../src/core/services/auth/verifiedEmail.ts";
 import { db } from "../src/db/client.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import { householdMembers, householdModules, households, sessions, users } from "../src/db/schema.ts";
 import { CurrentMembership, CurrentSession, CurrentUser, MaybeSession } from "../src/http/context.ts";
 import {

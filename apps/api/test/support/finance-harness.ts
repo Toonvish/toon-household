@@ -20,7 +20,7 @@
  */
 import { db } from "../../src/db/client.ts";
 import { householdModules, sessions, users } from "../../src/db/schema.ts";
-import { nowMs } from "../../src/modules/finance/lib/clock.ts";
+import { nowMs } from "./bridges/finance-clock.ts";
 import { financeParticipants } from "../../src/modules/finance/schema.ts";
 import { FinanceParticipants } from "../../src/modules/finance/services/participants/participants.service.ts";
 import { FinanceSetup } from "../../src/modules/finance/setup.ts";

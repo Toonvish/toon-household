@@ -32,7 +32,7 @@ import { resetRateLimits } from "../src/core/services/auth/rateLimit.ts";
 import { setVerifiedEmailRequired } from "../src/core/services/auth/verifiedEmail.ts";
 import { HouseholdModules } from "../src/core/services/households/modules.ts";
 import { db } from "../src/db/client.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import { financeParticipants, householdMembers, householdModules, users } from "../src/db/schema.ts";
 import { CurrentMembership } from "../src/http/context.ts";
 import {
@@ -47,7 +47,7 @@ import { httpMiddlewareLayer } from "../src/http/middleware-layer.ts";
 import { json } from "../src/http/response.ts";
 import { app } from "../src/index.ts";
 import { SESSION_COOKIE } from "../src/lib/cookies.ts";
-import { ApiError } from "../src/lib/errors.ts";
+import { ApiError } from "./support/bridges/api-error.ts";
 import { API_MODULES } from "../src/modules/index.ts";
 import { moduleRoutesLayer } from "../src/modules/mount.ts";
 import type { ApiModule } from "../src/modules/types.ts";

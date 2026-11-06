@@ -16,7 +16,7 @@
 import { describe, expect, test } from "bun:test";
 import { and, eq } from "drizzle-orm";
 import { db } from "../src/db/client.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import { mealPlanEntries, recipeCookLog, recipes, sessions, users } from "../src/db/schema.ts";
 import { app } from "../src/index.ts";
 import { explain } from "./support/explain.ts";

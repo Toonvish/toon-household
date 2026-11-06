@@ -11,7 +11,8 @@ import { describe, expect, test } from "bun:test";
 import { Cause, Effect, Exit } from "effect";
 import { DatabaseError, isDatabaseError } from "../src/lib/errors.ts";
 import { CopyProgrammingError } from "../scripts/legacy/copy.ts";
-import { legacyTry, liftTagged, runLegacy } from "../scripts/legacy/io.ts";
+import { legacyTry, liftTagged } from "../scripts/legacy/io.ts";
+import { runLegacy } from "./support/bridges/legacy-io.ts";
 import { MappingError, validateMappingOverride } from "../scripts/legacy/mapping.ts";
 import { LegacyInputError, snapshotDatabase } from "../scripts/legacy/sources.ts";
 

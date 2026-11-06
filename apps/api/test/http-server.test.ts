@@ -19,7 +19,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { Context, Effect, Exit, Layer, Scope } from "effect";
 import { HttpRouter, HttpServer, HttpServerResponse } from "effect/http";
 import { db } from "../src/db/client.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import { appRoutesLayer } from "../src/http/app.ts";
 import { clientIp } from "../src/http/request.ts";
 import { appServer } from "../src/http/server.ts";

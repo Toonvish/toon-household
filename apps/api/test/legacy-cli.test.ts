@@ -16,14 +16,14 @@ import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFile
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createClient } from "@libsql/client";
-import { migrateHouseholds } from "../scripts/legacy/households.ts";
-import { migrateRecipe } from "../scripts/legacy/recipe.ts";
+import { migrateHouseholds } from "./support/bridges/legacy-households.ts";
+import { migrateRecipe } from "./support/bridges/legacy-recipe.ts";
 import { exitCodeFor, totalWritten } from "../scripts/legacy/report.ts";
-import { runLegacyMigration } from "../scripts/legacy/run.ts";
-import { migrateUsers } from "../scripts/legacy/users.ts";
+import { runLegacyMigration } from "./support/bridges/legacy-run.ts";
+import { migrateUsers } from "./support/bridges/legacy-users.ts";
 import { CliUsageError, resolveCliEnv } from "../scripts/migrate-legacy.ts";
 import { EXPECTED, FH6_CLAIM_INVITE, FINANCE_HOUSEHOLDS, FINANCE_USERS, GROUPS } from "./fixtures/legacy/facts.ts";
-import { openLegacy } from "../scripts/legacy/sources.ts";
+import { openLegacy } from "./support/bridges/legacy-sources.ts";
 import { countRows, createLegacyRun, FIXTURE_DIR, type LegacyRun, sha256File } from "./support/legacy-harness.ts";
 
 const REPO_ROOT = resolve(import.meta.dir, "../../..");

@@ -46,7 +46,7 @@ import type { XlsxCell } from "../scripts/finance-import/xlsx-reader.ts";
 import { readWorkbook } from "../scripts/finance-import/xlsx-reader.ts";
 import { buildImport, seedFixedCostPlan, writeImportRecords } from "../scripts/finance-import-xlsx.ts";
 import { db } from "../src/db/client.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import {
   financeFixedCostItems as fixedCostItems,
   financeFixedCostPlans as fixedCostPlans,

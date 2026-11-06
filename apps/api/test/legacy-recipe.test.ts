@@ -22,14 +22,14 @@ import type { DrizzleDatabase } from "../src/db/client.ts";
 import { Database } from "../src/db/database.ts";
 import { env } from "../src/env.ts";
 import { foldBackfill } from "../src/modules/recipe/migrate.ts";
-import { migrateHouseholds } from "../scripts/legacy/households.ts";
-import { migrateRecipe } from "../scripts/legacy/recipe.ts";
+import { migrateHouseholds } from "./support/bridges/legacy-households.ts";
+import { migrateRecipe } from "./support/bridges/legacy-recipe.ts";
 import { readAll } from "../scripts/legacy/sources.ts";
 import { migrateUploads as migrateUploadsEffect } from "../scripts/legacy/uploads.ts";
 import type { MigrationContext, UploadSummary } from "../scripts/legacy/types.ts";
-import { migrateUsers } from "../scripts/legacy/users.ts";
+import { migrateUsers } from "./support/bridges/legacy-users.ts";
 import { countRows, createLegacyRun, type LegacyRun } from "./support/legacy-harness.ts";
-import { runLegacy } from "../scripts/legacy/io.ts";
+import { runLegacy } from "./support/bridges/legacy-io.ts";
 
 /** The recipe fold backfill on `database` (the old Promise bridge's shape; plan e5 P11): the step's own layer. */
 function backfillFoldedColumns(database: DrizzleDatabase): Promise<number> {

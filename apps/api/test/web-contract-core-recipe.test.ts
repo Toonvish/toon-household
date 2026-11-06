@@ -77,7 +77,7 @@ import {
 import { setVerifiedEmailRequired } from "../src/core/services/auth/verifiedEmail.ts";
 import { ConsoleMailer, setMailer } from "../src/core/services/mail/index.ts";
 import { db } from "../src/db/client.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import { env } from "../src/env.ts";
 import { app } from "../src/index.ts";
 import { removeUpload } from "./support/files.ts";

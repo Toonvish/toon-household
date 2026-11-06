@@ -22,10 +22,12 @@ import { Effect } from "effect";
 import { TestClock } from "effect/testing";
 import { type CreatedDatabase, createDatabase } from "../src/db/client.ts";
 import { Database } from "../src/db/database.ts";
-import { ApiError, DatabaseError, NotFound } from "../src/lib/errors.ts";
-import { runFinanceBridge } from "../src/modules/finance/bridge.ts";
+import { DatabaseError, NotFound } from "../src/lib/errors.ts";
+import { ApiError } from "./support/bridges/api-error.ts";
+import { runFinanceBridge } from "./support/bridges/finance-bridge.ts";
 import { withFinanceServices } from "../src/modules/finance/layer.ts";
-import { financeTimeMillis, nowMs, setClockForTest } from "../src/modules/finance/lib/clock.ts";
+import { financeTimeMillis, setClockForTest } from "../src/modules/finance/lib/clock.ts";
+import { nowMs } from "./support/bridges/finance-clock.ts";
 import { runTest } from "./support/effect.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "toon-household-finance-clock-"));

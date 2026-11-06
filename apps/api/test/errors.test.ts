@@ -12,7 +12,6 @@ import { afterEach, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { Effect, Schema } from "effect";
 import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/http-api";
 import {
-  ApiError,
   type ApiErrorFamily,
   ApiFailure,
   BadRequest,
@@ -31,12 +30,13 @@ import {
   isApiError,
   toApiError,
 } from "../src/lib/errors.ts";
+import { ApiError } from "./support/bridges/api-error.ts";
 import { fallbackRoutesLayer } from "../src/http/global.ts";
 import { coreApi, UNINTERRUPTIBLE } from "../src/http/middleware.ts";
 import { jsonBody } from "../src/http/request.ts";
 import { json } from "../src/http/response.ts";
 import { db } from "../src/db/client.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import { app } from "../src/index.ts";
 import { decode } from "../src/lib/validate.ts";
 import { createPlainHousehold, createUser } from "./support/finance-harness.ts";

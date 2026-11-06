@@ -39,7 +39,7 @@ import {
   TransactionSummaryResponseSchema,
 } from "@toon/shared";
 import { db } from "../src/db/client.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import { setClockForTest } from "../src/modules/finance/lib/clock.ts";
 import {
   addPlaceholder,

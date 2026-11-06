@@ -21,9 +21,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { HealthResponse, ImportDraftResponse } from "@toon/shared";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createSession } from "../../src/core/services/auth/sessions.ts";
+import { createSession } from "../support/bridges/sessions.ts";
 import { createDatabase, db as sharedDb } from "../../src/db/client.ts";
-import { runMigrations } from "../../src/db/migrate.ts";
+import { runMigrations } from "../support/bridges/migrate.ts";
 import { householdMembers, householdModules, households, users } from "../../src/db/schema.ts";
 import { app } from "../../src/index.ts";
 import { SESSION_COOKIE } from "../../src/lib/cookies.ts";
@@ -34,8 +34,8 @@ import {
   setPdfImportEnabled,
 } from "../../src/modules/recipe/services/import/capabilities.ts";
 import { setImportDbForTests } from "../../src/modules/recipe/services/import/db.ts";
-import { createDraft } from "../../src/modules/recipe/services/import/drafts.ts";
-import { importFromText } from "../../src/modules/recipe/services/import/ocr/index.ts";
+import { createDraft } from "../support/bridges/recipe-drafts.ts";
+import { importFromText } from "../support/bridges/recipe-ocr.ts";
 
 const tempDir = mkdtempSync(join(tmpdir(), "toon-ocr-disabled-"));
 const { client, db } = createDatabase({ url: `file:${join(tempDir, "disabled.db")}` });

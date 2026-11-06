@@ -23,9 +23,9 @@ import {
   passwordResetMail,
   redactAddress,
   setMailer,
-  trySendMail,
   verifyEmailMail,
 } from "../src/core/services/mail/index.ts";
+import { trySendMail } from "./support/bridges/mail.ts";
 import type { MailMessage, Mailer } from "../src/core/services/mail/index.ts";
 import { recordingMailer, runTest, withMailer } from "./support/effect.ts";
 
@@ -104,7 +104,7 @@ describe("trySendMail", () => {
       expect(result).toEqual({ delivered: false, transport: "throwing", error: "sofort kaputt" });
       expect(logged).toHaveBeenCalledWith("[mail] Sending to m***@b.de failed (throwing): sofort kaputt");
 
-      // The Promise bridge (its one caller is this test, E8 removes it) has the same contract.
+      // The Promise door (its one caller is this test; moved to test/support/bridges/mail.ts at E8, plan e8 P1) has the same contract.
       setMailer(new ThrowingMailer());
       expect(await trySendMail({ to: "a@b.de", subject: "Hallo", text: "Text" })).toEqual({
         delivered: false,

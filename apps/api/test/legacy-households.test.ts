@@ -13,7 +13,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { createClient, type InStatement } from "@libsql/client";
-import { openLegacy } from "../scripts/legacy/sources.ts";
+import { openLegacy } from "./support/bridges/legacy-sources.ts";
 import {
   EXPECTED,
   FINANCE_HOUSEHOLDS,
@@ -22,11 +22,12 @@ import {
   GROUPS,
   RECIPE_USERS,
 } from "./fixtures/legacy/facts.ts";
-import { migrateHouseholds, NO_ACCOUNT_MEMBERS_NOTE, SOLO_SEAT_NOTE } from "../scripts/legacy/households.ts";
+import { NO_ACCOUNT_MEMBERS_NOTE, SOLO_SEAT_NOTE } from "../scripts/legacy/households.ts";
+import { migrateHouseholds } from "./support/bridges/legacy-households.ts";
 import { MappingError } from "../scripts/legacy/mapping.ts";
 import { createReport, exitCodeFor, totalWritten } from "../scripts/legacy/report.ts";
 import type { MappingOverride } from "../scripts/legacy/types.ts";
-import { migrateUsers } from "../scripts/legacy/users.ts";
+import { migrateUsers } from "./support/bridges/legacy-users.ts";
 import { countRows, createLegacyRun, type LegacyRun } from "./support/legacy-harness.ts";
 
 const runs: LegacyRun[] = [];

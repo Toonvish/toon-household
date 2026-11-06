@@ -7,7 +7,7 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ApiError } from "../../src/lib/errors.ts";
+import { ApiError } from "../support/bridges/api-error.ts";
 import type { OcrEngine, OcrOptions, OcrResult } from "../../src/modules/recipe/services/ocr/types.ts";
 
 /**

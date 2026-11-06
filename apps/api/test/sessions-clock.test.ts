@@ -15,7 +15,7 @@ import { Sessions } from "../src/core/services/auth/sessions.ts";
 import { spendableToken } from "../src/core/services/auth/tokens.ts";
 import { Users } from "../src/core/services/auth/users.ts";
 import { db } from "../src/db/client.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import { sessions } from "../src/db/schema.ts";
 import { SESSION_TTL_MS } from "../src/lib/cookies.ts";
 import { BadRequest } from "../src/lib/errors.ts";

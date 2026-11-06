@@ -14,7 +14,7 @@ import { Effect, Layer, Schema } from "effect";
 import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/http-api";
 import { setVerifiedEmailRequired } from "../src/core/services/auth/verifiedEmail.ts";
 import { db } from "../src/db/client.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import { householdMembers, users } from "../src/db/schema.ts";
 import { httpMiddlewareLayer } from "../src/http/middleware-layer.ts";
 import { chain, householdModuleApi, UNINTERRUPTIBLE } from "../src/http/middleware.ts";

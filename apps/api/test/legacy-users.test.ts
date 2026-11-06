@@ -12,11 +12,12 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { createClient, type InStatement } from "@libsql/client";
-import { openLegacy } from "../scripts/legacy/sources.ts";
+import { openLegacy } from "./support/bridges/legacy-sources.ts";
 import { EXPECTED, FINANCE_USERS, RECIPE_USERS, UPLOADS } from "./fixtures/legacy/facts.ts";
 import { renderReport } from "../scripts/legacy/report.ts";
 import { exitCodeFor, createReport } from "../scripts/legacy/report.ts";
-import { migrateUsers, OAUTH_ONLY_NOTE } from "../scripts/legacy/users.ts";
+import { OAUTH_ONLY_NOTE } from "../scripts/legacy/users.ts";
+import { migrateUsers } from "./support/bridges/legacy-users.ts";
 import { countRows, createLegacyRun, type LegacyRun } from "./support/legacy-harness.ts";
 
 const runs: LegacyRun[] = [];

@@ -78,11 +78,11 @@ import {
 import { Sessions } from "../src/core/services/auth/sessions.ts";
 import { setVerifiedEmailRequired } from "../src/core/services/auth/verifiedEmail.ts";
 import { client as sharedClient, db as sharedDb } from "../src/db/client.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import { app } from "../src/index.ts";
 import { exitCodeFor } from "../scripts/legacy/report.ts";
-import { runLegacyMigration } from "../scripts/legacy/run.ts";
-import { openLegacy } from "../scripts/legacy/sources.ts";
+import { runLegacyMigration } from "./support/bridges/legacy-run.ts";
+import { openLegacy } from "./support/bridges/legacy-sources.ts";
 import type { LegacyDb, Report } from "../scripts/legacy/types.ts";
 import { FINANCE_HOUSEHOLDS, FINANCE_USERS, GROUPS, RECIPE_USERS } from "./fixtures/legacy/facts.ts";
 import { countRows, FIXTURE_DIR } from "./support/legacy-harness.ts";

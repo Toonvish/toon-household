@@ -10,7 +10,7 @@ import { and, eq } from "drizzle-orm";
 import { Effect, Layer, Schema } from "effect";
 import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/http-api";
 import { db } from "../src/db/client.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import { householdInvites, householdMembers, oauthAccounts, sessions, users } from "../src/db/schema.ts";
 import { app } from "../src/index.ts";
 import { SESSION_COOKIE, SESSION_TTL_MS } from "../src/lib/cookies.ts";
@@ -25,7 +25,7 @@ import {
   UNINTERRUPTIBLE,
 } from "../src/http/middleware.ts";
 import { json } from "../src/http/response.ts";
-import { ApiError } from "../src/lib/errors.ts";
+import { ApiError } from "./support/bridges/api-error.ts";
 import {
   RequireHouseholdAdminLayer,
   RequireHouseholdMemberLayer,
@@ -36,7 +36,8 @@ import { RequireSessionLayer } from "../src/middleware/session.ts";
 import { AuthInvites, generateInviteToken } from "../src/core/services/auth/invites.ts";
 import { OAuthAccounts } from "../src/core/services/auth/oauthAccounts.ts";
 import { Passwords } from "../src/core/services/auth/passwords.ts";
-import { LOGIN_RULE, checkRateLimit, resetRateLimits } from "../src/core/services/auth/rateLimit.ts";
+import { LOGIN_RULE, resetRateLimits } from "../src/core/services/auth/rateLimit.ts";
+import { checkRateLimit } from "./support/bridges/rate-limit.ts";
 import { sessionHandle } from "../src/core/services/auth/sessions.ts";
 import { type CreateUserInput, Users } from "../src/core/services/auth/users.ts";
 import { runTest } from "./support/effect.ts";

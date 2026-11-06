@@ -13,9 +13,9 @@ import {
   ImportHttp,
   type FetchImageOptions,
   type FetchLimits,
-  fetchHtml,
   setImportGuardForTests,
 } from "../../src/modules/recipe/services/import/url/fetch.ts";
+import { fetchHtml } from "../support/bridges/recipe-fetch.ts";
 import { runTest } from "../support/effect.ts";
 import { createResolver, createScriptedFetch } from "./helpers.ts";
 

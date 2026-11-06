@@ -14,7 +14,7 @@ import { Effect } from "effect";
 import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/http-api";
 import { oauthCallbackFlow, oauthCallbackRecovery } from "../src/core/routes/auth.ts";
 import { db } from "../src/db/client.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import { clearOAuthCookies, readOAuthCookies } from "../src/http/cookies.ts";
 import { chain, coreApi, OptionalSession, UNINTERRUPTIBLE } from "../src/http/middleware.ts";
 import { ApiFailure, Conflict, DatabaseError } from "../src/lib/errors.ts";

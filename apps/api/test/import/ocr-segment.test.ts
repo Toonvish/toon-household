@@ -12,13 +12,13 @@
  */
 import { afterEach, describe, expect, test } from "bun:test";
 import { Effect, Fiber } from "effect";
-import { ApiError } from "../../src/lib/errors.ts";
+import { ApiError } from "../support/bridges/api-error.ts";
 import {
   type ImageImportOptions,
   OcrImporter,
   type PdfImportOptions,
-  importFromText,
 } from "../../src/modules/recipe/services/import/ocr/index.ts";
+import { importFromText } from "../support/bridges/recipe-ocr.ts";
 import {
   repairIngredientLine,
   repairOcrText,

@@ -13,10 +13,10 @@ import { and, eq } from "drizzle-orm";
 import { isUniqueViolation } from "../src/core/services/auth/users.ts";
 import { resetRateLimits } from "../src/core/services/auth/rateLimit.ts";
 import { client, db } from "../src/db/client.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import { householdMembers, householdModules, households } from "../src/db/schema.ts";
 import { app } from "../src/index.ts";
-import { ApiError } from "../src/lib/errors.ts";
+import { ApiError } from "./support/bridges/api-error.ts";
 import { API_MODULES } from "../src/modules/index.ts";
 import { financeModule } from "../src/modules/finance/index.ts";
 import { setClockForTest } from "../src/modules/finance/lib/clock.ts";
@@ -32,7 +32,7 @@ import {
   assignParticipants,
   type ParticipantAssignmentEntry,
   updateParticipantDisplayName,
-} from "../src/modules/finance/services/participants/participants.service.ts";
+} from "./support/bridges/finance-participants.ts";
 import {
   addMember,
   body,

@@ -11,10 +11,10 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "../src/db/client.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import { setClockForTest } from "../src/modules/finance/lib/clock.ts";
 import { financeAccrualRuns, financeFixedCostPlans, financeTransactions } from "../src/modules/finance/schema.ts";
-import { runFinanceBridge } from "../src/modules/finance/bridge.ts";
+import { runFinanceBridge } from "./support/bridges/finance-bridge.ts";
 import {
   FinanceAccrual,
   type RunCatchUpOptions,

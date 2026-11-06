@@ -31,7 +31,7 @@ import { eq } from "drizzle-orm";
 import { Effect } from "effect";
 import { TestClock } from "effect/testing";
 import { db } from "../src/db/client.ts";
-import { runMigrations } from "../src/db/migrate.ts";
+import { runMigrations } from "./support/bridges/migrate.ts";
 import { financeMutationClaims as mutationClaims, financeTransactions as transactions } from "../src/modules/finance/schema.ts";
 import {
   checkOwnClaim,
