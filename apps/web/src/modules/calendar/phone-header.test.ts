@@ -1,0 +1,52 @@
+/**
+ * Every calendar screen renders the shell's `PhoneHeaderRow` (ADR 0010: no global top bar), directly or through
+ * `CalendarPageHeader`, and the manifest's static graph stays shell-free (CLAUDE.md "A module owns its layout
+ * route and its static import graph stays shell-free"). There is no DOM in `bun test`, so this reads the sources;
+ * the screen list comes from `routes.tsx` itself, so a new screen is covered without editing here.
+ */
+import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+const dir = import.meta.dir;
+const read = (rel: string) => readFileSync(join(dir, rel), "utf8");
+
+const routeSource = read("routes.tsx");
+const screens = [...routeSource.matchAll(/import\(\s*"(\.\/features\/[^"]+)"\s*\)/g)].map((m) => `${m[1]}.tsx`);
+
+describe("calendar phone header row", () => {
+  test("routes.tsx lazy-loads the eight screens of plan m8 section 5.5", () => {
+    expect([...screens].sort()).toEqual(
+      [
+        "./features/agenda/AgendaPage.tsx",
+        "./features/month/MonthPage.tsx",
+        "./features/tasks/TasksPage.tsx",
+        "./features/entries/NewEntryPage.tsx",
+        "./features/entries/OccurrenceDetailPage.tsx",
+        "./features/entries/EditEntryPage.tsx",
+        "./features/cars/CarsPage.tsx",
+        "./features/waste/WastePage.tsx",
+      ].sort(),
+    );
+  });
+
+  for (const screen of screens) {
+    test(`${screen} renders <CalendarPageHeader> or <PhoneHeaderRow>`, () => {
+      expect(read(screen)).toMatch(/<(CalendarPageHeader|PhoneHeaderRow)[\s/>]/);
+    });
+  }
+
+  test("CalendarPageHeader renders the row with its one action", () => {
+    expect(read("components/CalendarPageHeader.tsx")).toMatch(/<PhoneHeaderRow action=\{actions\} \/>/);
+  });
+
+  test("the manifest's static graph never reaches the shell, the registry or the page header", () => {
+    for (const file of ["index.ts", "routes.tsx", "HomeCard.tsx", "catalogs/index.ts"]) {
+      const source = read(file);
+      expect(source).not.toMatch(/from "@\/components\/layout/);
+      expect(source).not.toMatch(/from "@\/modules"/);
+      expect(source).not.toMatch(/from "[^"]*use-nav-items"/);
+      expect(source).not.toMatch(/from "[^"]*CalendarPageHeader"/);
+    }
+  });
+});
