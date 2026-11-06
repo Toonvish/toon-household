@@ -7,7 +7,7 @@ import { useActiveHousehold } from "@/lib/session";
 // The registry, read at RENDER time only (CLAUDE.md "No module-level constants over
 // WEB_MODULES"). `module-switcher-items.ts` stays pure and takes it as a parameter.
 import { WEB_MODULES } from "@/modules";
-import { activeSwitcherItem, moduleSwitcherItems, type ModuleSwitcherItem } from "./module-switcher-items";
+import { activeSwitcherItem, moduleSwitcherItems, switcherColumns, type ModuleSwitcherItem } from "./module-switcher-items";
 import { linkTo } from "./nav-items";
 
 export interface ModuleSwitcherProps {
@@ -41,7 +41,11 @@ export function ModuleSwitcher({ variant, className }: ModuleSwitcherProps) {
     <div
       role="group"
       aria-label={t("home.moduleSwitcher.label")}
-      className={cn("flex gap-0.5 rounded-control bg-surface-2 p-0.5", className)}
+      className={cn(
+        switcherColumns(items.length) === "row" ? "flex" : "grid grid-cols-2",
+        "gap-0.5 rounded-control bg-surface-2 p-0.5",
+        className,
+      )}
     >
       {items.map((item) => {
         const isActive = item.to === active.to;

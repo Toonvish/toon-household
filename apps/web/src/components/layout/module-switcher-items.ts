@@ -48,3 +48,12 @@ export function activeSwitcherItem(
   );
   return moduleItem ?? items.find((item) => item.to === "/");
 }
+
+/**
+ * How the sidebar's segmented switcher lays out `count` items (Home plus the enabled modules) in the 236px sidebar:
+ * one row up to three, two columns from four on. With the calendar (ADR 0016, M8-T19) Home · Rezepte · Finanzen ·
+ * Kalender in one row truncated every module label to "Reze…", "Fina…", "Kale…".
+ */
+export function switcherColumns(count: number): "row" | "two" {
+  return count <= 3 ? "row" : "two";
+}

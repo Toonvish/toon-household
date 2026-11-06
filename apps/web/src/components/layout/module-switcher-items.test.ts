@@ -6,7 +6,7 @@ import { describe, expect, test } from "bun:test";
 import { createRootRoute } from "@tanstack/react-router";
 import { BookOpen, House, Receipt } from "lucide-react";
 import type { WebModule } from "@/modules/types";
-import { activeSwitcherItem, moduleSwitcherItems } from "./module-switcher-items";
+import { activeSwitcherItem, moduleSwitcherItems, switcherColumns } from "./module-switcher-items";
 
 /** A stand-in for a module's layout route (`WebModule.route`); these rules never read it. */
 const fakeRoute = createRootRoute();
@@ -84,5 +84,12 @@ describe("activeSwitcherItem", () => {
 
   test("no entries — nothing is active", () => {
     expect(activeSwitcherItem([], "/recipe")).toBeUndefined();
+  });
+});
+
+describe("switcherColumns (the sidebar's segmented switcher, M8-T19)", () => {
+  test("one row up to three items, two columns from four (Home and three modules)", () => {
+    expect([1, 2, 3].map(switcherColumns)).toEqual(["row", "row", "row"]);
+    expect([4, 5].map(switcherColumns)).toEqual(["two", "two"]);
   });
 });
