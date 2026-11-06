@@ -832,6 +832,65 @@ checks OK:
 Screenshots (after the fixes): `docs/plans/screenshots/m8/` (21 files: every screen at both widths, Home at both, the conflict notice,
 the waste preview, Aufgaben after the import).
 
+### 9.7 UI check (2026-11-06, after the fixes of 10.1)
+
+The headless pass again, with both colour schemes, every kind of the Neu form and the user's flows end to end. Playwright 1.64.1
+installed with `bun add` in a scratch directory outside the repo (the log ends `exit=0`); a fresh scratch DB
+(`NODE_ENV=development DATABASE_URL=file:<scratch>/m8ui.db SESSION_SECRET=<32 hex> bun run seed`, exit 0); `bun run build`; the API with
+`WEB_DIST_DIR=./apps/web/dist`, `WEB_ORIGIN=http://localhost:3001,http://127.0.0.1:3001`, stopped by its pid at the end. One login
+through `fetch("/api/auth/login")` saved as `storageState`; contexts with `locale: "de-DE"`, `timezoneId: "Europe/Berlin"` and
+`colorScheme` light or dark; 390x844 with `isMobile`, `hasTouch`, or 1440x900. "Kalender" was enabled with Home's "Aktivieren"
+(the seed does not enable it). The final run, on a fresh seed after the two fixes below, has 152 checks OK and none failed:
+
+- **Ten screens x two widths x two schemes**: Home, `/calendar`, `/calendar/month`, `/calendar/tasks`, `/calendar/new?kind=event`,
+  `?kind=task`, `?kind=car`, an occurrence detail, `/calendar/cars`, `/calendar/waste`, and in a second short run the edit screen
+  `/calendar/entries/<id>/edit` (4 more checks, 0 console errors). Each has `scrollWidth <= clientWidth`
+  (390/390; 1425/1440, the `scrollbar-gutter` of CLAUDE.md "Headless runs") and no element right of `innerWidth + 0.5`. Each has one
+  `header[data-app-shell]`, visible at 390 and `lg:hidden` at 1440, where the sidebar `aside[data-app-shell]` is visible. The tab bar
+  `nav.fixed` reads Übersicht · Monat · Aufgaben · Profil on every calendar screen, and Start · Rezepte · Finanzen · Kalender · Profil
+  on Home. The body background is `rgb(250, 245, 238)` in light and `rgb(23, 18, 15)` in dark (`THEME_COLORS`).
+- **Waste import** (phone): on `/calendar/waste`, "Importieren", then "PDF hochladen" with the committed
+  `apps/api/test/fixtures/calendar/hattingen-abfall-2027.pdf` (hattingen.de was not fetched), then Bezirk 4 and "Vorschau". The preview
+  "Abfallkalender 2027, Bezirk 4" lists Restmüll 26, Gelber Sack 26, Biotonne 27, Papiertonne 14 and Tannenbaum 1 Termine,
+  "Zusammen 94 Abholungen.", and the grouped hint for the hidden copy (9.4). "Importieren" stored the 2027 import. The API has
+  2027-01-04 Biotonne + Papiertonne + Tannenbaum and 2027-01-08 Restmüll + Gelber Sack. `/calendar/month?month=2027-01&day=…` shows
+  "Januar 2027" and lists those types for both days at both widths. Aufgaben lists the next pickups, and its Müllabfuhr card adds
+  "Tannenbaum Mo 04.01.2027".
+- **Done toggle**: the first checkbox on Aufgaben went open → done → open.
+- **Event for one person**: "Zahnarzt Robin", 15:30-16:15, only the chip Robin. It is saved with one attendee, and the detail opens
+  with "Für: Robin".
+- **Car conflict**: "Baumarkt", 09:00-10:00, on the day of Robin's weekly booking (Do 12.11., 08:00-17:00), for Kim. The notice
+  "Das Auto ist schon gebucht" reads "Familienauto ist am Do 12.11., 08:00–17:00 bei Robin.", and "Trotzdem buchen" saved the booking.
+- **Rotating task**: "Blumen gießen Balkon", weekly, Abwechselnd, Kim then Demo Koch. It is saved as `rotate` with two people. The
+  preview and Aufgaben deal Fr 06.11. to Kim and Fr 13.11. to Demo Koch, and the Wiederkehrend card shows "1. Kim · 2. Demo Koch".
+- **Console**: no error in any screen or scheme. The one error of the run is the expected `409` of the conflicting booking. The CSP
+  check at the second origin `http://127.0.0.1:3001` (its own login) loaded Home, six calendar screens and January 2027: 0 console
+  errors, and the service worker registered.
+
+Two defects were found in the screenshots and fixed in the module's web code (each commit was gated with `bun run typecheck` OK,
+`bun test apps/web` 711 pass, 0 fail in 63 files, including the design-system test, and `bun run build` exit 0 with 101 JS chunks and
+462.94 kB gzipped):
+
+1. `74620f7f4`: at 390 the header action "Bearbeiten" (occurrence detail) cut the household chip to "Fa…", and "Importieren"
+   (Müllabfuhr, already shortened at M8-T19) cut it to "F…". Below `lg` both now show the icon alone. The label is `max-lg:sr-only`, so
+   it stays the accessible name, and it shows from `lg`. Pinned in `apps/web/src/modules/calendar/phone-header.test.ts`.
+2. `b8f3ad76e`: in the month's day list at 390, "Biotonne · Papiertonne · Tannenbaum" wraps to three lines, and its three waste dots
+   were centred beside the block. In `apps/web/src/modules/calendar/components/OccurrenceRow.tsx` the title line is now `items-start`,
+   and every group of marks (dots, car icon, repeat icon, skipped badge) is one line box high (`h-lh`), so the marks sit on the
+   title's first line. No test pins this layout (there is no DOM in `bun test`).
+
+Seen and left as they are: the native date and time inputs render `mm/dd/yyyy` and `AM/PM`. Headless Chromium formats them by
+its own UI language, not by the context locale, and the app does not render them. The member colours of two fresh seeds differed
+(Robin colour 2 and Kim 3, then the reverse): `colorIndex` follows the member order, and the seed writes both memberships in the
+same instant. In a full-page capture the fixed tab bar and the sticky sidebar or submit bar sit in mid-page; that is how
+Playwright stitches a full page, not a layout defect.
+
+Screenshots: `docs/plans/screenshots/m8/` (60 files). They replace the 21 files of 9.6, which are in git history at `5128b8097`; those
+showed Aufgaben in the order before 10.1's fix 6. The set holds `<screen>-<390|1440>-<light|dark>.png` for the ten screens and `edit`, and the
+flows in light: the import dialog, the preview, Müllabfuhr after the import, January 2027 on the 4th and the 8th at both widths, Aufgaben
+after the import and with a task ticked, the filled event form and its detail, the car conflict, the rotating task form and its detail,
+and Aufgaben after the flows.
+
 ## 10. What changed vs plan
 
 The expected deviations of section 7, as they happened:
