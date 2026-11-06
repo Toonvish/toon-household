@@ -4,8 +4,8 @@
  * Mounted at /api/households/:householdId/recipe/shopping-lists (see modules/recipe/routes/index.ts), BEFORE the
  * catch-all recipes router — same reason imports is mounted before it.
  *
- * **`GET /bought` is registered BEFORE `GET /:listId`** — Hono matches in
- * registration order, so a static `/bought` declared after the dynamic
+ * **`GET /bought` is registered BEFORE `GET /:listId`** — the pre-E7 Hono
+ * router matched in registration order, so a static `/bought` declared after the dynamic
  * `/:listId` would be read as a request for the list whose id is the literal
  * string "bought". Same trap as `/invites/:token` before `/:householdId` in
  * core/routes/households.ts.
@@ -24,7 +24,7 @@
  *
  * Endpoint contract: docs/API.md ("Shopping lists").
  */
-import { Effect, Option } from "effect";
+import { Clock, Effect, Option } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 import {
   AddRecipeToShoppingListRequestSchema,
@@ -58,13 +58,12 @@ import { RecipeShoppingApi } from "./shopping.api.ts";
  * `from-plan`, which is a screen's own deliberate request). Clamped to
  * `[now - 7d, now]` so a wrong device clock cannot produce a nonsense count.
  */
-function parseSinceQuery(raw: string | undefined): number | undefined {
+function parseSinceQuery(raw: string | undefined, now: number): number | undefined {
   if (!raw) return undefined;
   const parsed = decodeOption(IsoDateSchema, raw);
   if (Option.isNone(parsed)) return undefined;
   const value = Date.parse(parsed.value);
   if (Number.isNaN(value)) return undefined;
-  const now = Date.now();
   const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
   return Math.min(Math.max(value, now - sevenDaysMs), now);
 }
@@ -84,7 +83,7 @@ export const shoppingHandlers = HttpApiBuilder.group(RecipeShoppingApi, "recipe.
       Effect.fn("recipe.shopping.get")(function* () {
         const listService = yield* ShoppingLists;
         const membership = yield* CurrentMembership;
-        const since = parseSinceQuery(yield* queryParam("since"));
+        const since = parseSinceQuery(yield* queryParam("since"), yield* Clock.currentTimeMillis);
         return json({ items: yield* listService.listShoppingLists(membership.householdId, since) });
       }),
       UNINTERRUPTIBLE,

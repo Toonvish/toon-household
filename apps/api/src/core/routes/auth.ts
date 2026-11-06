@@ -718,7 +718,7 @@ export const authHandlers = HttpApiBuilder.group(AuthApi, "auth", (handlers) =>
         const provider = yield* readProvider(params.provider);
         yield* providers.requireProviderConfigured(provider);
 
-        const start = createAuthorization(provider);
+        const start = yield* createAuthorization(provider);
         const next = safeNextPath(yield* queryParam("next")) ?? "/settings";
         yield* setOAuthCookies({
           state: start.state,
@@ -765,7 +765,7 @@ export const authHandlers = HttpApiBuilder.group(AuthApi, "auth", (handlers) =>
           return redirect(webUrl("/login", { error: "oauth_not_configured" }));
         }
 
-        const start = createAuthorization(provider);
+        const start = yield* createAuthorization(provider);
         const next = safeNextPath(yield* queryParam("next"));
         yield* setOAuthCookies({ state: start.state, codeVerifier: start.codeVerifier, next });
 

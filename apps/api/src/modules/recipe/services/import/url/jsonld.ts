@@ -15,6 +15,7 @@
  *
  * Nothing here throws: a broken block is skipped, not fatal.
  */
+import { Predicate } from "effect";
 import { type ElementNode, parseHtml, queryAll, textOf } from "../html/parse.ts";
 
 /** A JSON-LD node — deliberately loose, callers narrow with the helpers below. */
@@ -152,7 +153,7 @@ export function extractJsonLd(source: string | ElementNode): unknown[] {
 }
 
 function isObject(value: unknown): value is JsonLdNode {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return Predicate.isObject(value);
 }
 
 /** Reads `@type` as a lowercase string list, whatever shape it has. */
