@@ -8,16 +8,20 @@
  *   `body.today` gets its assignee again.
  * - `preview(householdId, userId, source)`: the flyer (fetched from a URL or uploaded) parsed for the tour; NOTHING written.
  * - `importFlyer(householdId, userId, source)` (P20): the same parse, then ONE `Database.transaction`: upsert the settings
- *   (provider, tour, `source_url` for a URL; mode and assignees kept, default `none`), remember the occurrence states of
- *   the household's import of `(provider, year)` by `(category, date)`, delete that import (its entries cascade), insert
- *   the new import and one entry per `(category, date)` (`kind task`, all-day, `title NULL`, `category`,
- *   `category_detail`, `waste_import_id`), and re-insert the remembered states whose `(category, date)` still exists.
+ *   (provider, tour, `source_url` for a URL; mode and assignees kept, default `none`), remember what the members wrote on
+ *   the household's import of `(provider, year)` by `(category, date)` (the occurrence states, the notes, and an
+ *   assignee set by hand: a person other than the rule's pick), delete that import (its entries cascade), insert the new
+ *   import and one entry per `(category, date)` (`kind task`, all-day, `title NULL`, `category`, `category_detail`,
+ *   `waste_import_id`) with its assignee under the rule, and put back what was remembered for every `(category, date)`
+ *   that still exists.
  * - `removeImport(householdId, importId)`: `404 not_found` for another household's import; its entries go with it.
  *
  * ASSIGNEES PER PICKUP DAY (P15): a waste entry is a single all-day task, so a rotation over single entries would always
- * pick its first person. The pickup days of an import, sorted ascending, go round the settings' list (day `k` ->
- * `assigneeIds[k mod n]`; every type of one day to the same person) and each entry stores `assignee_mode "fixed"` with
- * that one id, or `"none"`; the settings keep the mode and the ordered list.
+ * pick its first person. The pickup days of ALL the household's imports together, sorted ascending, go round the
+ * settings' list (day `k` -> `assigneeIds[k mod n]`; every type of one day to the same person), so the rotation runs on
+ * across New Year from one year's import into the next; each entry stores `assignee_mode "fixed"` with that one id, or
+ * `"none"`; the settings keep the mode and the ordered list. An import deals only its own entries (another year's
+ * import keeps its people; a save of the settings re-deals every import from the client's `today`).
  *
  * Preview and import share a per-user rate limit (`RateLimiter`, key `calendar-waste`, 30 per hour; off under test).
  * Time comes from the `Clock` (read in the method, never captured at build). The service writes its entries with its
@@ -98,7 +102,7 @@ export function assigneeForDay(mode: AssigneeMode, ids: ReadonlyArray<string>, k
   return ids[k % ids.length] ?? null;
 }
 
-/** P15: the index of each pickup day of an import (its distinct dates, ascending). */
+/** P15: the index of each pickup day (the distinct dates of every import of the household, ascending). */
 function dayIndex(dates: Iterable<string>): Map<string, number> {
   const sorted = [...new Set(dates)].sort();
   return new Map(sorted.map((date, index) => [date, index]));
@@ -183,41 +187,39 @@ export class CalendarWaste extends Context.Service<
         } satisfies CalendarWasteSettings;
       });
 
-      /**
-       * Gives the entries of `importIds` dated on or after `from` (all of them when `from` is null) their assignee under
-       * the rule (P15): one `assignee` member row, `assignee_mode` `fixed`, or none and `none`.
-       */
-      const assignEntries = Effect.fn("CalendarWaste.assignEntries")(function* (
-        importIds: ReadonlyArray<string>,
-        mode: AssigneeMode,
-        ids: ReadonlyArray<string>,
-        from: string | null,
-        now: number,
-      ) {
-        if (importIds.length === 0) return;
+      /** The waste entries of the household's imports with their dates, and the day index over all of them (P15). */
+      const householdPickupDays = Effect.fnUntraced(function* (householdId: string) {
         const rows = yield* database.use((db) =>
           db
             .select({ id: calendarEntries.id, importId: calendarEntries.wasteImportId, date: calendarEntries.startDate })
             .from(calendarEntries)
-            .where(inArray(calendarEntries.wasteImportId, [...importIds])),
+            .where(and(eq(calendarEntries.householdId, householdId), isNotNull(calendarEntries.wasteImportId))),
         );
-        const byImport = new Map<string, Array<{ id: string; date: string }>>();
-        for (const row of rows) {
-          if (row.importId === null) continue;
-          const list = byImport.get(row.importId);
-          if (list === undefined) byImport.set(row.importId, [{ id: row.id, date: row.date }]);
-          else list.push({ id: row.id, date: row.date });
-        }
+        return { rows, index: dayIndex(rows.map((row) => row.date)) };
+      });
+
+      /**
+       * Gives the household's waste entries dated on or after `from` (all of them when `from` is null), only those of
+       * `onlyImportId` when it is given, their assignee under the rule (P15): one `assignee` member row, `assignee_mode`
+       * `fixed`, or none and `none`. The day index runs over every import of the household.
+       */
+      const assignEntries = Effect.fn("CalendarWaste.assignEntries")(function* (
+        householdId: string,
+        mode: AssigneeMode,
+        ids: ReadonlyArray<string>,
+        from: string | null,
+        now: number,
+        onlyImportId: string | null,
+      ) {
+        const { rows, index } = yield* householdPickupDays(householdId);
         const assigned = new Map<string, string[]>();
         const unassigned: string[] = [];
-        for (const list of byImport.values()) {
-          const index = dayIndex(list.map((entry) => entry.date));
-          for (const entry of list) {
-            if (from !== null && entry.date < from) continue;
-            const assignee = assigneeForDay(mode, ids, index.get(entry.date)!);
-            if (assignee === null) unassigned.push(entry.id);
-            else assigned.set(assignee, [...(assigned.get(assignee) ?? []), entry.id]);
-          }
+        for (const entry of rows) {
+          if (onlyImportId !== null && entry.importId !== onlyImportId) continue;
+          if (from !== null && entry.date < from) continue;
+          const assignee = assigneeForDay(mode, ids, index.get(entry.date)!);
+          if (assignee === null) unassigned.push(entry.id);
+          else assigned.set(assignee, [...(assigned.get(assignee) ?? []), entry.id]);
         }
         const touched = [...unassigned, ...[...assigned.values()].flat()];
         for (const part of chunks(touched)) {
@@ -280,19 +282,7 @@ export class CalendarWaste extends Context.Service<
                   .values(body.assigneeIds.map((userId, position) => ({ householdId, userId, position }))),
               );
             }
-            const imports = yield* database.use((db) =>
-              db
-                .select({ id: calendarWasteImports.id })
-                .from(calendarWasteImports)
-                .where(eq(calendarWasteImports.householdId, householdId)),
-            );
-            yield* assignEntries(
-              imports.map((row) => row.id),
-              body.assigneeMode,
-              body.assigneeIds,
-              body.today,
-              now,
-            );
+            yield* assignEntries(householdId, body.assigneeMode, body.assigneeIds, body.today, now, null);
             return (yield* readSettings(householdId))!;
           }),
         );
@@ -446,7 +436,38 @@ export class CalendarWaste extends Context.Service<
                 .limit(1),
             );
             const carried = new Map<string, { status: string; doneBy: string | null; updatedAt: number }>();
+            const carriedNotes = new Map<string, string>();
+            const carriedAssignees = new Map<string, string>();
             if (previous !== undefined) {
+              // 2a. Notes and hand-set assignees (P8: a member may change both on a pickup). An assignee counts as set by
+              // hand when it names a person other than the rule's pick for that day; a hand-set "nobody" cannot be told
+              // from a pickup left unassigned (a member who left, O-12) and is dealt again.
+              const { index: oldIndex } = yield* householdPickupDays(householdId);
+              const written = yield* database.use((db) =>
+                db
+                  .select({
+                    category: calendarEntries.category,
+                    date: calendarEntries.startDate,
+                    notes: calendarEntries.notes,
+                    userId: calendarEntryMembers.userId,
+                    position: calendarEntryMembers.position,
+                  })
+                  .from(calendarEntries)
+                  .leftJoin(
+                    calendarEntryMembers,
+                    and(eq(calendarEntryMembers.entryId, calendarEntries.id), eq(calendarEntryMembers.role, "assignee")),
+                  )
+                  .where(eq(calendarEntries.wasteImportId, previous.id))
+                  .orderBy(asc(calendarEntries.id), asc(calendarEntryMembers.position)),
+              );
+              for (const row of written) {
+                const key = `${row.category}|${row.date}`;
+                if (row.notes !== null) carriedNotes.set(key, row.notes);
+                if (row.userId === null || carriedAssignees.has(key)) continue;
+                const rulePick = assigneeForDay(settings.assigneeMode, settings.assigneeIds, oldIndex.get(row.date) ?? 0);
+                // The first assignee row is the person (a pickup stored with a rotation before P15's refusal: its first).
+                if (row.position === 0 && row.userId !== rulePick) carriedAssignees.set(key, row.userId);
+              }
               const states = yield* database.use((db) =>
                 db
                   .select({
@@ -487,47 +508,53 @@ export class CalendarWaste extends Context.Service<
             };
             yield* database.use((db) => db.insert(calendarWasteImports).values(importRow));
 
-            const index = dayIndex(flyer.pickups.map((pickup) => pickup.date));
-            const entries = flyer.pickups.map((pickup) => {
-              const assignee = assigneeForDay(settings.assigneeMode, settings.assigneeIds, index.get(pickup.date)!);
-              return {
-                pickup,
-                assignee,
-                row: {
-                  id: crypto.randomUUID(),
-                  householdId,
-                  kind: "task",
-                  title: null,
-                  notes: null,
-                  location: null,
-                  allDay: true,
-                  startDate: pickup.date,
-                  startTime: null,
-                  endDate: pickup.date,
-                  endTime: null,
-                  repeatFreq: "none",
-                  repeatInterval: 1,
-                  repeatWeekdays: null,
-                  repeatUntil: null,
-                  resourceId: null,
-                  assigneeMode: assignee === null ? "none" : "fixed",
-                  category: pickup.category,
-                  categoryDetail: pickup.detail,
-                  wasteImportId: importId,
-                  createdBy: userId,
-                  createdAt: now,
-                  updatedAt: now,
-                },
-              };
-            });
+            const entries = flyer.pickups.map((pickup) => ({
+              pickup,
+              row: {
+                id: crypto.randomUUID(),
+                householdId,
+                kind: "task",
+                title: null,
+                notes: carriedNotes.get(`${pickup.category}|${pickup.date}`) ?? null,
+                location: null,
+                allDay: true,
+                startDate: pickup.date,
+                startTime: null,
+                endDate: pickup.date,
+                endTime: null,
+                repeatFreq: "none",
+                repeatInterval: 1,
+                repeatWeekdays: null,
+                repeatUntil: null,
+                resourceId: null,
+                assigneeMode: "none",
+                category: pickup.category,
+                categoryDetail: pickup.detail,
+                wasteImportId: importId,
+                createdBy: userId,
+                createdAt: now,
+                updatedAt: now,
+              },
+            }));
             for (const part of chunks(entries)) {
               yield* database.use((db) => db.insert(calendarEntries).values(part.map((entry) => entry.row)));
             }
-            const memberRows = entries.flatMap((entry) =>
-              entry.assignee === null ? [] : [{ entryId: entry.row.id, userId: entry.assignee, role: "assignee", position: 0 }],
-            );
-            for (const part of chunks(memberRows)) {
-              yield* database.use((db) => db.insert(calendarEntryMembers).values(part));
+            // The assignees under the rule, the day index over every import of the household (P15), then the hand-set ones.
+            yield* assignEntries(householdId, settings.assigneeMode, settings.assigneeIds, null, now, importId);
+            for (const entry of entries) {
+              const userId = carriedAssignees.get(`${entry.pickup.category}|${entry.pickup.date}`);
+              if (userId === undefined) continue;
+              yield* database.use((db) =>
+                db
+                  .delete(calendarEntryMembers)
+                  .where(and(eq(calendarEntryMembers.entryId, entry.row.id), eq(calendarEntryMembers.role, "assignee"))),
+              );
+              yield* database.use((db) =>
+                db.update(calendarEntries).set({ assigneeMode: "fixed" }).where(eq(calendarEntries.id, entry.row.id)),
+              );
+              yield* database.use((db) =>
+                db.insert(calendarEntryMembers).values({ entryId: entry.row.id, userId, role: "assignee", position: 0 }),
+              );
             }
 
             // 5. The carried states whose (category, date) still exists.

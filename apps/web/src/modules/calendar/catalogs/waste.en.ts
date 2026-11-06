@@ -53,7 +53,8 @@ export const calendarWasteEn: LocaleCatalog<CalendarWasteCatalog> = {
   "calendar.waste.import.warningDates": "Concerns: {dates}",
   "calendar.waste.import.warningCode.hiddenCopyDiffers":
     "The PDF holds an older version under the visible calendar that differs on some days. The import takes what the flyer shows.",
-  "calendar.waste.import.replaceHint": "Importing the same year again replaces the old import. Ticked dates stay ticked.",
+  "calendar.waste.import.replaceHint":
+    "Importing the same year again replaces the old import. Ticked dates, notes and people chosen by hand stay.",
   "calendar.waste.import.run": "Import",
   "calendar.waste.import.done": { one: "Imported: 1 pickup.", other: "Imported: {count} pickups." },
 

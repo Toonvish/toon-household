@@ -17,6 +17,7 @@ import { db } from "../src/db/client.ts";
 import { migrateDatabase } from "../src/db/migrate.ts";
 import { calendarEntries, calendarEntryMembers, calendarOccurrenceStates, calendarWasteImports } from "../src/db/schema.ts";
 import { makeTestWasteFlyerFetch, setWasteFlyerFetchForTests } from "../src/modules/calendar/services/waste/fetch.ts";
+import { CalendarEntries } from "../src/modules/calendar/services/entries/entries.service.ts";
 import { CalendarWaste, type WasteSource, assigneeForDay } from "../src/modules/calendar/services/waste/waste.service.ts";
 import { type TestUser, addMember, addPlaceholder, createCalendarHousehold, createUser } from "./support/calendar-harness.ts";
 import { runTest } from "./support/effect.ts";
@@ -269,6 +270,138 @@ describe("CalendarWaste.overview and removeImport (P16)", () => {
       const overview = await runTest(waste.use((service) => service.overview(householdId, "2027-01-01")));
       expect(overview.imports).toEqual([]);
       expect(overview.next).toEqual([]);
+    },
+    SLOW,
+  );
+});
+
+/** A synthetic import of `year` with one Restmüll entry per date, written directly (another year's flyer). */
+async function insertImport(home: string, userId: string, year: number, dates: ReadonlyArray<string>): Promise<string> {
+  const importId = crypto.randomUUID();
+  await db.insert(calendarWasteImports).values({
+    id: importId,
+    householdId: home,
+    provider: "hattingen",
+    year,
+    tour: 4,
+    source: "upload",
+    sourceName: `synthetic-${year}.pdf`,
+    entryCount: dates.length,
+    importedAt: 1,
+    importedBy: userId,
+  });
+  await db.insert(calendarEntries).values(
+    dates.map((date) => ({
+      id: crypto.randomUUID(),
+      householdId: home,
+      kind: "task",
+      title: null,
+      allDay: true,
+      startDate: date,
+      endDate: date,
+      category: "waste_rest",
+      wasteImportId: importId,
+      createdAt: 1,
+      updatedAt: 1,
+    })),
+  );
+  return importId;
+}
+
+const pickupDays = (assigned: Map<string, string | null>) => [...new Set([...assigned.keys()].map((key) => key.split("|")[1]!))].sort();
+
+describe("the rotation runs on across the household's imports (P15)", () => {
+  test(
+    "putSettings deals one rotation over every year: the next year's first day follows the last day of this one",
+    async () => {
+      const home = await createCalendarHousehold(owner, "Waste rotation years");
+      await addMember(owner, home, robin);
+      const kim = await addPlaceholder(owner, home, "Kim");
+      const result = await importFlyer(home, owner.id);
+      const next = await insertImport(home, owner.id, 2028, ["2028-01-04", "2028-01-07", "2028-01-11"]);
+      await runTest(
+        waste.use((service) =>
+          service.putSettings(home, { provider: "hattingen", tour: 4, assigneeMode: "rotate", assigneeIds: [robin.id, kim], today: "2026-12-01" }),
+        ),
+      );
+      const days2027 = pickupDays(await assigneesOf(result.import.id));
+      const people = [robin.id, kim];
+      const last2027 = (await assigneesOf(result.import.id)).get(`waste_rest|${days2027.at(-1)}`) ?? null;
+      const assigned2028 = await assigneesOf(next);
+      expect(["2028-01-04", "2028-01-07", "2028-01-11"].map((date) => assigned2028.get(`waste_rest|${date}`))).toEqual([
+        people[days2027.length % 2],
+        people[(days2027.length + 1) % 2],
+        people[(days2027.length + 2) % 2],
+      ]);
+      // Never the same person twice in a row across New Year.
+      expect(assigned2028.get("waste_rest|2028-01-04")).not.toBe(last2027);
+    },
+    SLOW,
+  );
+
+  test(
+    "an import continues the rotation after the household's earlier import",
+    async () => {
+      const home = await createCalendarHousehold(owner, "Waste rotation import");
+      await addMember(owner, home, robin);
+      const kim = await addPlaceholder(owner, home, "Kim");
+      await insertImport(home, owner.id, 2026, ["2026-12-21", "2026-12-28", "2026-12-30"]);
+      await runTest(
+        waste.use((service) =>
+          service.putSettings(home, { provider: "hattingen", tour: 4, assigneeMode: "rotate", assigneeIds: [robin.id, kim], today: "2026-12-01" }),
+        ),
+      );
+      const result = await importFlyer(home, owner.id);
+      const assigned = await assigneesOf(result.import.id);
+      // Three 2026 days come first: 2027's first pickup day is day 3 of the rotation, Kim's.
+      expect(pickupDays(assigned)[0]).toBe("2027-01-04");
+      expect(assigned.get("waste_bio|2027-01-04")).toBe(kim);
+      expect(assigned.get("waste_tree|2027-01-04")).toBe(kim);
+      expect(assigned.get("waste_rest|2027-01-08")).toBe(robin.id);
+    },
+    SLOW,
+  );
+});
+
+describe("a re-import keeps what the members wrote on a pickup (P8, P20)", () => {
+  test(
+    "notes and a hand-set assignee survive the replacement; the rest is dealt by the rule",
+    async () => {
+      const home = await createCalendarHousehold(owner, "Waste re-import");
+      await addMember(owner, home, robin);
+      const kim = await addPlaceholder(owner, home, "Kim");
+      await runTest(
+        waste.use((service) =>
+          service.putSettings(home, { provider: "hattingen", tour: 4, assigneeMode: "fixed", assigneeIds: [robin.id], today: "2026-12-01" }),
+        ),
+      );
+      const first = await importFlyer(home, owner.id);
+      const rows = await entriesOf(first.import.id);
+      const noted = rows.find((row) => row.startDate === "2027-01-08" && row.category === "waste_rest")!;
+      const handSet = rows.find((row) => row.startDate === "2027-01-04" && row.category === "waste_bio")!;
+      await runTest(
+        CalendarEntries.use((service) => service.update(home, noted.id, { notes: "Tonne steht beim Nachbarn" })),
+      );
+      await runTest(
+        CalendarEntries.use((service) =>
+          service.update(home, handSet.id, { notes: "Kim ist dran", assigneeMode: "fixed", assigneeIds: [kim] }),
+        ),
+      );
+
+      const second = await importFlyer(home, owner.id);
+      const after = await entriesOf(second.import.id);
+      const notes = new Map(after.filter((row) => row.notes !== null).map((row) => [`${row.category}|${row.startDate}`, row.notes]));
+      expect(notes).toEqual(
+        new Map([
+          ["waste_rest|2027-01-08", "Tonne steht beim Nachbarn"],
+          ["waste_bio|2027-01-04", "Kim ist dran"],
+        ]),
+      );
+      const assigned = await assigneesOf(second.import.id);
+      expect(assigned.get("waste_bio|2027-01-04")).toBe(kim);
+      expect(assigned.get("waste_paper|2027-01-04")).toBe(robin.id);
+      expect(assigned.get("waste_rest|2027-01-08")).toBe(robin.id);
+      expect([...assigned.values()].filter((userId) => userId === kim).length).toBe(1);
     },
     SLOW,
   );

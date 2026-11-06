@@ -56,7 +56,8 @@ export const calendarWasteDe = {
   "calendar.waste.import.warningDates": "Betrifft: {dates}",
   "calendar.waste.import.warningCode.hiddenCopyDiffers":
     "Im PDF liegt unter dem sichtbaren Kalender eine ältere Fassung, die an einzelnen Tagen abweicht. Übernommen wird, was im Flyer zu sehen ist.",
-  "calendar.waste.import.replaceHint": "Ein Import desselben Jahres ersetzt den alten. Abgehakte Termine bleiben abgehakt.",
+  "calendar.waste.import.replaceHint":
+    "Ein Import desselben Jahres ersetzt den alten. Abgehakte Termine, Notizen und von Hand gewählte Zuständige bleiben erhalten.",
   "calendar.waste.import.run": "Importieren",
   "calendar.waste.import.done": { one: "Importiert: 1 Abholung.", other: "Importiert: {count} Abholungen." },
 

@@ -319,12 +319,15 @@ reproduces every row; tours per type, an empty type absent):
 
 **Import** (`CalendarWaste.importFlyer`, ONE `Database.transaction`): upsert the settings (provider, tour, `source_url`
 for a URL source; the assignee rule kept, `none` on first use); read the marks of the household's import of
-`(provider, year)` keyed by `(category, date)`; delete that import (its entries cascade); insert the new import and one
-entry per (category, date) of the tour (`kind task`, all-day, `title NULL`, `category`, `category_detail`,
-`waste_import_id`); re-insert the carried marks for the pairs that still exist. **Assignees are resolved per pickup
-DAY** (P15): the import's pickup days ascending, day `k` → `assigneeIds[k mod n]` (every type of one day to the same
-person), stored on each entry as `fixed` with that one id (or `none`); `PUT …/waste/settings` re-runs this for every
-entry dated on or after the body's `today`. Preview and import share the rate limit `calendar-waste` (30 per user and
+`(provider, year)` keyed by `(category, date)`, with each entry's `notes` and an assignee set by hand (a person other
+than the rule's pick for that day); delete that import (its entries cascade); insert the new import and one entry per
+(category, date) of the tour (`kind task`, all-day, `title NULL`, `category`, `category_detail`, `waste_import_id`);
+put back the carried marks, notes and hand-set assignees for the pairs that still exist (a hand-set "nobody" cannot be
+told from a pickup left unassigned, O-12, and is dealt again). **Assignees are resolved per pickup DAY** (P15): the
+pickup days of ALL the household's imports together, ascending, day `k` → `assigneeIds[k mod n]` (every type of one day
+to the same person; the rotation runs on across New Year from one year's import into the next), stored on each entry as
+`fixed` with that one id (or `none`). An import deals only its own entries; `PUT …/waste/settings` re-deals every entry
+of every import dated on or after the body's `today`. Preview and import share the rate limit `calendar-waste` (30 per user and
 hour). An imported entry takes only `notes` and assignee changes; its delete is `409 calendar_entry_imported` (the unit is
 `DELETE …/waste/imports/:importId`).
 
@@ -353,7 +356,10 @@ section 10 has the full list):
   pickup is one occurrence, so a rotation would always pick its first person. Its edit form offers Niemand and Eine
   Person only (`SINGLE_ASSIGNEE_MODES`), and a pickup stored with a rotation before the fix opens as its first person.
 - **P15** Waste assignees are resolved per pickup day at write time and stored as `fixed` (a rotation over single
-  entries would always pick the first person).
+  entries would always pick the first person). The day index runs over every import of the household (M8 review fix:
+  per import, the rotation restarted with the first person each January).
+- **P20** A re-import of a year carries the notes and hand-set assignees by `(category, date)` besides the marks (M8
+  review fix: P8 lets members edit both, and the replacement dropped them).
 - **P22** The golden-coverage test covers the E1 corpus only, with the calendar guard beside it.
 - **Paint order instead of consensus** (M8-T10): the design wanted every copy of a grid to agree; the 2027 flyer's
   hidden January/February copy is an older draft, so the copy drawn last wins and a disagreeing hidden copy is a
