@@ -7,6 +7,7 @@ import {
   groupByDay,
   isCalendarMonth,
   isWeekend,
+  matchesMember,
   monthGridDays,
   occurrencesOn,
   overdueTasks,
@@ -124,5 +125,16 @@ describe("month grid", () => {
     expect(isCalendarMonth(undefined)).toBe(false);
     expect(isWeekend("2026-11-14")).toBe(true);
     expect(isWeekend("2026-11-13")).toBe(false);
+  });
+});
+
+describe("matchesMember (the P10 rule, client side)", () => {
+  test("attendee, assignee, or nobody named", () => {
+    expect(matchesMember({ memberIds: ["a"], assigneeId: null }, "a")).toBe(true);
+    expect(matchesMember({ memberIds: ["b"], assigneeId: null }, "a")).toBe(false);
+    expect(matchesMember({ memberIds: [], assigneeId: "a" }, "a")).toBe(true);
+    expect(matchesMember({ memberIds: [], assigneeId: "b" }, "a")).toBe(false);
+    expect(matchesMember({ memberIds: [], assigneeId: null }, "a")).toBe(true);
+    expect(matchesMember({ memberIds: ["b"], assigneeId: null }, undefined)).toBe(true);
   });
 });

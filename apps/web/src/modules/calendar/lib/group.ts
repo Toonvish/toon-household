@@ -146,3 +146,18 @@ export function monthGridDays(month: string): string[] {
 export function isWeekend(date: string): boolean {
   return calendarWeekday(date) >= 5;
 }
+
+/**
+ * The member filter, client side, with the API's rule (plan m8 P10): an occurrence stays when its attendees
+ * contain the member, when the member is its assignee, or when it names nobody (an event for everybody, an
+ * unassigned task or pickup). `undefined` keeps everything. Filtering the one fetched list (instead of a second
+ * request per chip) keeps the Today card and the agenda on one cache entry, offline too.
+ */
+export function matchesMember(
+  occurrence: Pick<CalendarOccurrence, "memberIds" | "assigneeId">,
+  memberId: string | undefined,
+): boolean {
+  if (memberId === undefined) return true;
+  if (occurrence.memberIds.length === 0 && occurrence.assigneeId === null) return true;
+  return occurrence.memberIds.includes(memberId) || occurrence.assigneeId === memberId;
+}
