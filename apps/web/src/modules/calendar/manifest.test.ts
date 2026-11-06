@@ -77,7 +77,8 @@ describe("calendarModule — navigation (design §4.1, D6)", () => {
   test("outside a module the phone tab bar shows Home · Rezepte · Finanzen · Kalender · Profil (ADR 0016)", async () => {
     const { WEB_MODULES } = await import("@/modules");
     const items = primaryNavItems({ pathname: "/", modules: WEB_MODULES, enabledModuleIds: ["recipe", "finance", "calendar"] });
-    expect(items.map((item) => item.to)).toEqual(["/", "/recipe", "/finance", "/calendar", "/settings"]);
+    const moduleTabs = ["recipe", "finance", "calendar"].map((id) => `/${id}`);
+    expect(items.map((item): string => item.to)).toEqual(["/", ...moduleTabs, "/settings"]);
   });
 
   test("every navigation target of the module is under /calendar", () => {
@@ -139,7 +140,7 @@ const goodDetail: LinkProps["to"] = "/calendar/entries/$entryId/edit";
 // @ts-expect-error unknown route
 const bad: LinkProps["to"] = "/calendar/does-not-exist";
 // @ts-expect-error an unprefixed module path is not a route
-const unprefixed: LinkProps["to"] = "/month";
+const unprefixed: LinkProps["to"] = "/overview";
 void registered;
 void good;
 void goodDetail;
