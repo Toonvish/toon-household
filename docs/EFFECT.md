@@ -57,9 +57,10 @@ in `docs/adr/`, the ADR edits this text in the same commit.
   `TEST_DATABASE_URL=file::memory:`), and is closed by the runtime's scope on shutdown. Raw SQL through
   `@effect/sql-libsql` is a later ADR, not this migration. The process-wide instance is still
   created at import of `apps/api/src/db/client.ts` after E5 (the tests' shared `db` of ADR 0009 and
-  `migrate-legacy.ts`'s load-bearing import order read it) and stays until E8 decides; `Database.layer` owns its
-  lifetime (acquire awaits the pragmas, release closes it, never under `NODE_ENV=test`): ADR 0014 "Status after E5's
-  integration".
+  `migrate-legacy.ts`'s load-bearing import order read it); **E8 decided that the client stays** (plan e8 P3: moving its
+  creation into the layer would change the import-order contract for no observable gain, and 23 synchronous `env` readers
+  depend on `apps/api/src/env.ts`, which stays too). `Database.layer` owns its lifetime (acquire awaits the pragmas,
+  release closes it, never under `NODE_ENV=test`): ADR 0014 "Status after E5's integration" and "Status after E8".
 - **E6 — Errors are tagged, typed and mapped once.** `ApiError` and its static helpers become a family of
   `Schema.TaggedError` classes in `apps/api/src/lib/errors.ts` carrying `status`, `code` and `text` (the
   server-catalog key with values) exactly as today; `toBody(locale)` moves to one `toApiError` /
@@ -74,18 +75,23 @@ in `docs/adr/`, the ADR edits this text in the same commit.
   resend as layers chosen by config), `Uploads` (`UPLOAD_DIR`, signed URLs, thumbnails), `Clock` /
   `DateTime` wherever a service reads the time today (`Date.now()`, `new Date()`), `RateLimiter`,
   `OAuthProviders`. `apps/api/src/runtime.ts` composes `AppLayer` from the core layers and each module's
-  `layer` and builds ONE `ManagedRuntime` at boot (ai-docs `04_integration`, memo map shared); until E7
-  replaces Hono, handlers call `runtime.runPromise(...)`. Module code reaches a core service only through
+  `layer` and builds ONE `ManagedRuntime` at boot (ai-docs `04_integration`, memo map shared); handlers are
+  effects served by the HttpApi server (E8, ADR 0015). Module code reaches a core service only through
   its tag (never through a core module's internals), and the core reaches a module only through
   `apps/api/src/modules/index.ts` (SPEC §2 unchanged). The `ApiModule` hooks (`onHouseholdCreated`,
   `onEnable`, `onMemberRemoving`, `afterMigrate`, `start`, `shutdown`, `seedDemo`, `uploadReferences`)
   become Effects that receive the transaction through the `Database` service's transactional context, and the
   manifest gains `layer: Layer.Layer<…>` for the module's own services; the import-cycle rule of CLAUDE.md
   ("read the registry inside functions") stays binding: layers are values, so a manifest never references a
-  core middleware at module scope. While E2 to E5 convert the core, the modules and the scripts in turn, the
-  converted core keeps legacy bridges with the old signatures, a Promise module contract behind an adapter
-  (`PromiseApiModule`, `fromPromiseModule`, `runModuleHook`) and the test seams `setMailer`,
-  `setVerifiedEmailRequired` and `resetRateLimits`, each removed by the milestone that moves its last caller: ADR 0014.
+  core middleware at module scope. While E2 to E5 converted the core, the modules and the scripts in turn, the
+  converted core kept legacy bridges with the old signatures and a Promise module contract behind an adapter
+  (`PromiseApiModule`, `fromPromiseModule`, `runModuleHook`), each removed by the milestone that moved its last caller
+  (ADR 0014). **E8 (the milestone) amended the rest of that sentence:** the 19 test-only doors left `src` for
+  `apps/api/test/support/bridges/`, and the test seams `setMailer`, `getMailer`, `isMailerOverridden`, `resetRateLimits`,
+  `setVerifiedEmailRequired`, `setImportDbForTests`, `setImportGuardForTests`, `setRemoteImageDownloaderForTests` and
+  `setClockForTest` STAY in `src` as named seams and are not removed "by the milestone that moves their last caller": the tests drive
+  the app through the in-memory handler on the one runtime and the one database (ADR 0009), so a test layer cannot reach the
+  module-level state the services read at call time (plan e8 P2; ADR 0014 "Status after E8").
 - **E8 — Hono goes last, and only when the API is already Effect underneath.** E7 (the milestone) replaces
   `Hono` with `effect/http-api` (`HttpApi`, `HttpApiGroup`, `HttpApiEndpoint`, `HttpApiBuilder`,
   `HttpApiMiddleware`) served by `BunHttpServer` (`@effect/platform-bun`). The observable contract is frozen:
@@ -153,7 +159,29 @@ in `docs/adr/`, the ADR edits this text in the same commit.
   `@effect/schema` or `Context.Tag(`, no import from `repos/`, no `Date.now()` / `new Date()` in
   `apps/api/src/**/services/**` after E2 (allow list: the few places that stamp a DB row and are covered by
   the `Clock` rule's record), no `throw new ApiError` after E2, no `from "hono"` outside the files E7's record
-  names (none after E7). Never relax a rule to get green; a cleanup edits the record in the same commit.
+  names (none after E7). **Rules (15) to (21) (E8, plan e8 P7) switched on every idiom of this list that grep can see:**
+  (15) `Effect.fn` takes a string or template-literal span name as its first argument, `.pipe(` never follows an
+  `Effect.fn(…)(…)` or `Effect.fnUntraced(…)` call, and no function only returns `Effect.gen(`; (16) `yield* new X(` and
+  `yield* Effect.fail(` / `failCause(` / `die(` / `dieMessage(` are written `return yield*`; (17) no `class … extends Error`
+  and no `instanceof …Error` under `apps/api/src` and `apps/api/scripts` (allow list: the pure workbook parser and its pure
+  extraction loop); (18) no `typeof x === "object"` paired with `x !== null` (use `Predicate.isObject`); (19) no
+  `Date.now(` / `new Date()` on the request path (`apps/api/src/http/`, `apps/api/src/middleware/`, every `routes/`);
+  (20) an effect runs only at the edges (`Effect.run…(` and `runtime.run…(` in non-test `apps/api/src` only in six pinned
+  files: the boot and shutdown, the in-memory handler, the eager config validation, the health route pinned by
+  `apps/api/test/runtime.test.ts` (b), the Promise `OcrEngine` contract and `Database.transaction`'s drizzle callback); (21) no
+  Effect 3 API name (`Effect.catchAll(`, `Effect.catchAllCause(`, `Effect.catchSome(`, `Effect.either(`, `Either.`,
+  `FiberRef`, `.annotations(`, `Effect.zipRight(`, `Effect.zipLeft(`, `Schema.decodeUnknown(`). Never relax a rule to get green; a
+  cleanup edits the record in the same commit.
+
+  **As built (E8, plan `docs/plans/e8-harden.md`, ADR 0014 "Status after E8"):** the 19 test-only doors live in
+  `apps/api/test/support/bridges/`, one file per source module, each with its old name, signature and calling convention:
+  `runMigrations`, the legacy `ApiError` class, `createSession`, `claimPlaceholderUser`, `checkRateLimit`, `trySendMail`, the recipe
+  `createDraft`, `importFromText`, `fetchHtml` and `assertPublicUrl`, finance's `assignParticipants` with
+  `updateParticipantDisplayName`, `runFinanceBridge` and `nowMs`, and the `migrate:legacy` Promise forms (`runLegacy`,
+  `runLegacyMigration`, `migrateUsers`, `migrateHouseholds`, `migrateRecipe`, `openLegacy`). `apps/api/src` and `apps/api/scripts`
+  hold only the Effect forms (no `legacy bridges:` section is left; rule (20) and the plan's `no-bridges` check pin it).
+  The test seams stay in `src` as named seams (P2); the process-wide client of `apps/api/src/db/client.ts` and
+  `apps/api/src/env.ts` stay (P3); the idioms test has every E12 rule grep can see on, rules (1) to (21).
 
 ## 2. How an agent learns Effect here
 
@@ -206,46 +234,65 @@ is empty after every task.
 
 ## 3. Target architecture
 
+As built at E8: every path below exists (`apps/api/test/docs-paths.test.ts` checks it, brace groups expanded
+member by member). The milestone that made each piece is in §4 and in `docs/plans/e<N>-<name>.md`.
+
 ### 3.1 `packages/shared`
 
-Unchanged layout; `core/schemas/*.ts` and `modules/<id>/schemas*.ts` hold `Schema` definitions (classes for
-entities where a constructor helps, `Schema.Struct` for bodies and queries), `ERROR_CODES` and `ServerKey`
-unchanged, `toValidationIssues` takes a `Schema` issue instead of a `ZodError` and returns the same items.
-The flat re-export rule, the `Finance…` prefixes and the one-entry rule (`packages/shared/src/index.ts`)
-stay. The i18n runtime and the pure modules (`calendar.ts`, `text.ts`, money, ledger, periods, units,
-ingredients, barcode, qr) stay pure; a function that today throws a typed error (`BarcodeValueError`,
-`QrTooLongError`) may return `Result` instead, with its callers adapted in the same commit.
+The layout is unchanged: `packages/shared/src/index.ts` is the one entry; `packages/shared/src/core/schemas/{common,household,user,auth}.ts`
+and `packages/shared/src/modules/<id>/` (`recipe/schemas/`, `finance/schemas/`) hold `Schema` definitions, with the wire-issue
+vocabulary in `packages/shared/src/core/schemas/checks.ts`. `ERROR_CODES` and `ServerKey` are unchanged and
+`toValidationIssues` (`packages/shared/src/core/i18n/issues.ts`) takes a `Schema` issue instead of a `ZodError` and returns the same
+items (ADR 0013). The flat re-export rule, the `Finance…` prefixes and the one-entry rule stay. The i18n runtime and the pure modules
+(`packages/shared/src/core/calendar.ts`, `packages/shared/src/core/text.ts`, money, ledger, periods, units, ingredients, barcode, qr)
+stay pure.
 
 ### 3.2 `apps/api`
 
 ```
 apps/api/src/
-  runtime.ts                 AppLayer + the ManagedRuntime (one per process); layer builders for scripts and tests
-  config.ts                  AppConfig service (env.ts's rules, Config-based); env.ts re-exports until E7 removes it
-  db/{client,migrate,schema}.ts   Database service and layer (E5); migrate as an Effect; schema unchanged
+  index.ts                   the process: boot, the server fiber, SIGTERM/SIGINT, `export { app }` (the in-memory handler)
+  runtime.ts                 AppLayer + the ManagedRuntime (one per process, the only ManagedRuntime.make)
+  config.ts                  AppConfig service (env.ts's rules, Config-based, eager validation)
+  env.ts                     re-exports the resolved `env`, REPO_ROOT, parseEnv; STAYS (E8 decision P3, ADR 0014)
+  infra.ts                   infraLayer(): config, database, mailer, thumbnails, uploads, rate limiter, verified-email
+  db/{client,database,migrate,schema}.ts
+                             client.ts creates the process-wide client at import and STAYS (P3); database.ts is the
+                             Database service (pragmas, transaction, shutdown); migrate.ts is migrateDatabase as an
+                             Effect; schema.ts (+ schema/core.ts) is unchanged drizzle
   lib/errors.ts              the tagged error family (E6) + the one boundary mapper
-  lib/…                      cookies, uploadUrls, timingSafe… as pure helpers or small services
-  http/*.ts                  E7: the HttpApi vocabulary, the global layer, the in-memory handler, `app.ts`, `server.ts`
-  middleware/*.ts            E7: the `HttpApiMiddleware` implementations (session, household, module, verifiedEmail) and
-                             the global middlewares (originGuard, securityHeaders, cors, requestLog, staticWeb)
-  core/services/<area>/*.ts  Context.Service classes with static layers
-  core/routes/*.ts           E7: `X.api.ts` (HttpApiGroup + HttpApi leaf) and `X.ts` (handlers as a group layer)
-  modules/<id>/{index,schema,routes/,services/,seed}.ts   manifest with `layer`, hooks as Effects
-  modules/{index,types,mount}.ts   registry, the ApiModule contract (E7, E8), the mount chain
+  lib/…                      validate (the one decode path), cookies, uploadUrls, locale, oauth, timingSafe, types, http
+  http/*.ts                  the HttpApi vocabulary (middleware, context, request, response, cookies), the global layer
+                             (global, middleware-layer), the in-memory handler (in-memory), app.ts, server.ts
+  middleware/*.ts            the HttpApiMiddleware implementations (session, household, module, verifiedEmail) and the
+                             global middlewares (originGuard, securityHeaders, cors, requestLog, staticWeb)
+  core/health.ts             healthResponse, the /api/health payload as an Effect
+  core/routes/*.ts           `X.api.ts` (HttpApiGroup + HttpApi leaf) and `X.ts` (handlers as a group layer)
+  core/services/layer.ts     coreServicesLayer(), baseServicesLayer(); with auth/layer.ts and households/layer.ts
+  core/services/<area>/*.ts  Context.Service classes with static layers (auth, households, mail, media)
+  modules/{index,types,mount}.ts   registry, the ApiModule contract (E7, ADR 0015), the mount chain
+  modules/<id>/              index.ts (the manifest with `layer`, hooks as Effects), layer.ts (the module's AppLayer
+                             part), schema.ts, routes/ (`X.api.ts`, `X.ts`, `index.ts`), services/ (one directory per
+                             area with its `layer.ts`), seed.ts; finance adds http.ts (the gate's leaf tag),
+                             middleware.ts (its layer), setup.ts and lib/clock.ts; recipe adds migrate.ts
 ```
 
 ### 3.3 `apps/web`
 
-`apps/web/src/lib/runtime.ts` (ManagedRuntime from a `WebLayer`: `FetchHttpClient` configured with the base
-URL, credentials and the 401 hook), `apps/web/src/lib/api.ts` and `modules/<id>/api.ts` as effects returning
-decoded shared types, `queries.ts` files unchanged in shape (`queryFn: () => runtime.runPromise(api.x())`),
-the persist and offline plumbing untouched, `validation.ts` on `Schema`. Nothing else in the web app imports
-`effect` unless the planner records why (forms stay forms).
+`apps/web/src/lib/runtime.ts` (ManagedRuntime from a `WebLayer`: `FetchHttpClient`, credentials, no trace headers; the one
+`fetch(` of the web app), `apps/web/src/lib/api-client.ts` (the `ApiClient` service, the tagged `ApiError`, the 401 hook),
+`apps/web/src/lib/api.ts` (`getJson`/`sendJson`/…, the `CoreApi` namespace and one Promise facade per endpoint) and
+`apps/web/src/modules/<id>/lib/api.ts` (`RecipeApi`, `FinanceApi`) as effects returning decoded shared types;
+`apps/web/src/lib/queries.ts` and the modules' `lib/queries.ts` call `runPromise(Api.NAME(ARGS), { signal })`; the persist and offline
+plumbing is untouched and `apps/web/src/lib/validation.ts` is on `Schema`. Nothing else in the web app imports `effect`
+(`WEB_EFFECT_ALLOW_LIST`, idioms rule (13)).
 
 ### 3.4 Scripts
 
-Each script is `BunRuntime.runMain(program.pipe(Effect.provide(layer)))`; `migrate-legacy.ts` keeps its
-static-import discipline and builds its layers from the values it resolved itself.
+`apps/api/scripts/support/main.ts` (`runScript`, `makeScriptTeardown`, `ScriptExit`) runs seven of the eight scripts on the one
+`AppLayer` under `BunRuntime.runMain`; `apps/api/scripts/migrate-legacy.ts` keeps its static-import discipline and runs under
+`BunRuntime.runMain` on explicit values it resolved itself, with the `migrate:legacy` library under `apps/api/scripts/legacy/`
+(`io.ts`, `service.ts`) as Effect functions. `apps/api/scripts/finance-import/` stays pure.
 
 ## 4. Milestones
 
