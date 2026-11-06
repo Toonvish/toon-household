@@ -10,6 +10,8 @@
  *   must give its own identifiers a `finance` prefix (`financeTags`, …).
  * - `modules/finance/schema.ts` — the 11 `finance_` tables (M3), TS identifiers
  *   prefixed `finance…` (`financeTransactions`, `financeParticipants`, …).
+ * - `modules/calendar/schema.ts` — the 7 `calendar_` tables (M8, ADR 0016), TS
+ *   identifiers prefixed `calendar…` (`calendarEntries`, `calendarResources`, …).
  *
  * These re-exports are the one place outside `modules/index.ts` where the core names a
  * module path: drizzle needs every table in one schema object.
@@ -17,3 +19,4 @@
 export * from "./schema/core.ts";
 export * from "../modules/recipe/schema.ts";
 export * from "../modules/finance/schema.ts";
+export * from "../modules/calendar/schema.ts";

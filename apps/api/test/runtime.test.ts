@@ -44,7 +44,7 @@ describe("src/runtime.ts", () => {
       expect(body.ok).toBe(true);
       expect(body.status).toBe("ok");
       expect(body.database).toBe("file");
-      expect(body.modules).toEqual(["recipe", "finance"]);
+      expect(body.modules).toEqual(["recipe", "finance", "calendar"]);
       expect(typeof body.features.verifiedEmailRequired).toBe("boolean");
       expect(body.features.ocrImport).toBe(false);
       expect(body.features.pdfImport).toBe(false);

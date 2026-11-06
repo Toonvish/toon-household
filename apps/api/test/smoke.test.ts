@@ -68,7 +68,7 @@ describe("GET /api/health", () => {
     expect(body.status).toBe("ok");
     expect(body.database).toBe("file");
     // The build's modules (SPEC §2): recipe since M2, finance since M3.
-    expect(body.modules).toEqual(["recipe", "finance"]);
+    expect(body.modules).toEqual(["recipe", "finance", "calendar"]);
     // Core's own feature flag, merged ahead of the modules' healthFeatures().
     expect(typeof body.features.verifiedEmailRequired).toBe("boolean");
     // Recipe's two import capability flags, off unless IMPORT_OCR_ENABLED /
@@ -110,10 +110,10 @@ describe("error envelope", () => {
 
 describe("schema + migrations", () => {
   test("migrations create all ten core tables", async () => {
-    // Module tables carry their prefix (SPEC D7); recipe-module.test.ts and
-    // finance-module.test.ts check those.
+    // Module tables carry their prefix (SPEC D7); recipe-module.test.ts,
+    // finance-module.test.ts and calendar-module.test.ts check those.
     const result = await client.execute(
-      "select name from sqlite_master where type = 'table' and name not like 'sqlite_%' and name not like '__drizzle%' and name not like 'recipe\\_%' escape '\\' and name not like 'finance\\_%' escape '\\' order by name",
+      "select name from sqlite_master where type = 'table' and name not like 'sqlite_%' and name not like '__drizzle%' and name not like 'recipe\\_%' escape '\\' and name not like 'finance\\_%' escape '\\' and name not like 'calendar\\_%' escape '\\' order by name",
     );
     expect(result.rows.map((row) => row.name)).toEqual(CORE_TABLES);
   });

@@ -86,7 +86,7 @@ describe("the application through BunHttpServer and a real socket", () => {
     const body = (await response.json()) as { ok: boolean; status: string; modules: string[] };
     expect(body.ok).toBe(true);
     expect(body.status).toBe("ok");
-    expect(body.modules).toEqual(["recipe", "finance"]);
+    expect(body.modules).toEqual(["recipe", "finance", "calendar"]);
   });
 
   test("(b) HEAD /api/health answers 200 with the security headers and an empty body", async () => {

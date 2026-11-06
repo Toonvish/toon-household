@@ -129,7 +129,7 @@ async function insertTransaction(householdId: string, payerId: string): Promise<
 
 describe("manifest", () => {
   test("is registered after recipe and declares its 11 tables", () => {
-    expect(API_MODULES.map((module) => module.id)).toEqual(["recipe", "finance"]);
+    expect(API_MODULES.map((module) => module.id)).toEqual(["recipe", "finance", "calendar"]);
     expect(financeModule.id).toBe("finance");
     expect(financeModule.onHouseholdCreated).toBeDefined();
     expect(financeModule.onEnable).toBeDefined();

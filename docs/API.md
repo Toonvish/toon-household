@@ -1340,3 +1340,45 @@ Eleven tables, all prefixed `finance_` (the drizzle identifiers carry a `finance
 | `finance_accrual_runs` | `id` | The audit trail: `trigger`, `from_period`, `to_period`, `periods_booked`, `periods_skipped`, `booked_cents`, `error`, `started_at`, `finished_at`. Not the idempotency mechanism (that is `external_key`). |
 
 `finance_participants` replaces toon-finance's `household_members` (the two seats were the household there; here a household has any number of core members and finance seats two of them). `users` and `households` are core tables (see "Core tables"). Nothing else in the core knows finance's tables: the core reaches them only through the module's hooks (`onHouseholdCreated`, `onEnable`, `onMemberRemoving`, `start`, `shutdown`, `seedDemo`).
+
+## Calendar module
+
+The household's shared calendar (ADR 0016; the design is `docs/modules/calendar.md`, the build plan `docs/plans/m8-calendar-module.md`): events for everybody or for named members, car bookings with a conflict check, chores with a rotating assignee, and the import of the city's waste collection flyer. Request and response names are exports of `@toon/shared` (`packages/shared/src/modules/calendar/`); every colliding name carries a `Calendar` prefix. Recurrence and the date arithmetic are pure and shared (`packages/shared/src/modules/calendar/recurrence.ts`, `packages/shared/src/modules/calendar/dates.ts`): the web computes the same occurrences the API answers.
+
+### Mount and access
+
+The module's `householdApi` (`apps/api/src/modules/calendar/routes/index.ts`, merging the lists of `apps/api/src/modules/calendar/routes/core.index.ts` and `apps/api/src/modules/calendar/routes/waste.index.ts`) is mounted by `moduleRoutesLayer` at **`/api/households/:householdId/calendar`**, behind the core chain `RequireSession` → `RequireHouseholdMember` → `RequireModule("calendar")` (see "Middleware chain and mount order"). The calendar has no `userApi`: every route is household-scoped. Its groups are `calendar.entries`, `calendar.occurrences`, `calendar.resources` and `calendar.waste`, and every group attaches `chain(RequireVerifiedEmail)`:
+
+- **`403 email_unverified`** for a write from an unconfirmed account on a deployment that gates on it (reads pass; see "Unconfirmed accounts are read-only").
+- **`404 module_disabled`** while the household has not enabled the calendar. `DEFAULT_ENABLED_MODULES` stays `["recipe"]`; an owner or admin enables it with `POST /api/households/:householdId/modules/calendar` and no settings (the module has no `onEnable` and no `onHouseholdCreated`). A disabled calendar keeps its rows.
+- Any member may write (household content); there is no admin-only calendar route.
+
+Conventions of the section:
+
+- **Dates and times are wall-clock text**: `YYYY-MM-DD` (a real date between 1900-01-01 and 2199-12-31, `server.calendar.invalidDate`) and `HH:MM` (`server.calendar.invalidTime`), no time zone. **The server never decides "today"**: every read takes explicit dates from the client. Timestamps (`createdAt`, `updatedAt`, `importedAt`, `archivedAt`) are ISO-8601 on the wire and unix milliseconds from the `Clock` in SQLite. A nullable field is `null`, never absent.
+- **Cross-household guard (SPEC D8).** The household comes from `:householdId` only. An entry, occurrence, car or waste import of another household is `404 not_found`; a member id in a body that is not a member of THIS household is `422 validation_failed` at its path (`attendeeIds.1`) with `server.calendar.memberNotInHousehold`.
+- **Ranges are capped, never truncated.** A read range spans at most 400 days inclusive and one entry at most 2000 occurrences in it, else `422 calendar_range_too_large` (see "Error codes").
+
+Auth column vocabulary of this section: `household:member+module:calendar`, plus `+verified` for a write behind `RequireVerifiedEmail`.
+
+### Entries, occurrences and resources — apps/api/src/modules/calendar/routes/{entries,occurrences,resources}.ts
+
+Written by the lane api-core of M8 (M8-T06), one row per served route.
+
+### Tables (SQLite, `apps/api/src/modules/calendar/schema.ts`)
+
+Seven tables, all prefixed `calendar_` (the drizzle identifiers carry a `calendar` prefix too); the migration is `apps/api/drizzle/0004_calendar.sql`, generated. Every household-scoped table cascades from `households`. Timestamps are integer unix milliseconds stamped by the services from the `Clock` (no column default); dates and times are text with a `glob` CHECK.
+
+| Table | Primary key | Notes |
+| --- | --- | --- |
+| `calendar_entries` | `id` | A series: `kind` (`event`, `task`, `car`), `title` (NULL only with a `category`: CHECK `calendar_entries_title_or_category`), `notes`, `location`, `all_day`, `start_date`, `start_time`, `end_date` (`>= start_date`), `end_time`, `repeat_freq` (`none` … `yearly`), `repeat_interval` (1 to 99), `repeat_weekdays` (`MO,TH`), `repeat_until`, `resource_id` (`no action`: a booked car cannot be deleted, yet a household delete removes both), `assignee_mode` (`none`, `fixed`, `rotate`), `category` (`waste_rest` … `waste_tree`), `category_detail` (`bio_cleaning`), `waste_import_id` (cascade), `created_by` (`set null`). Indexes on `(household_id, start_date)`, `(household_id, repeat_freq)`, `resource_id`, `waste_import_id`. |
+| `calendar_entry_members` | `(entry_id, user_id, role)` | `role` `attendee` or `assignee`, `position` (the rotation order). Both ids cascade. |
+| `calendar_occurrence_states` | `(entry_id, occurrence_date)` | A marked occurrence: `status` `done` or `skipped`, `done_by` (`set null`), `updated_at`. No row is `open`. |
+| `calendar_resources` | `id` | A car (`kind` CHECK `= 'car'`): `name`, `archived_at`, `created_at`. |
+| `calendar_waste_settings` | `household_id` | `provider` (`hattingen`), `tour` (1 to 9), `source_url`, `assignee_mode`, `updated_at`. |
+| `calendar_waste_assignees` | `(household_id, user_id)` | The settings' rotation, `position`; cascades with the settings row and the user. |
+| `calendar_waste_imports` | `id` | `provider`, `year`, `tour`, `source` (`url`, `upload`), `source_name`, `entry_count`, `imported_at`, `imported_by` (`set null`). Unique `(household_id, provider, year)`: a re-import of a year replaces it; its entries cascade. |
+
+### Waste — apps/api/src/modules/calendar/routes/waste.ts
+
+Written by the lane api-waste of M8 (M8-T12), one row per served route.

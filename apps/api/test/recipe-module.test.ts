@@ -99,7 +99,7 @@ async function createHousehold(label: string): Promise<{ userId: string; househo
 describe("manifest", () => {
   test("is registered and declares its 17 prefixed tables", () => {
     // The registry holds both modules since M3; finance-module.test.ts checks its manifest.
-    expect(API_MODULES.map((module) => module.id)).toEqual(["recipe", "finance"]);
+    expect(API_MODULES.map((module) => module.id)).toEqual(["recipe", "finance", "calendar"]);
     expect(recipeModule.id).toBe("recipe");
     expect(recipeModule.householdApi).toBeDefined();
     expect(recipeModule.userApi).toBeDefined();

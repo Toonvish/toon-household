@@ -8,7 +8,7 @@
  *
  *   (a) every served route outside the module prefixes is documented;
  *   (b) every served route under a module prefix is documented once that module id is in
- *       REQUIRED_MODULE_SECTIONS (M7-T04 adds "recipe", M7-T05 adds "finance");
+ *       REQUIRED_MODULE_SECTIONS (M7-T04 adds "recipe", M7-T05 adds "finance", M8-T02 "calendar");
  *   (c) every documented row is served, except DOC_ONLY;
  *   (d) every ERROR_CODES value appears in docs/API.md as an inline-code span;
  *   (e) no row is documented twice.
@@ -30,7 +30,7 @@ import { app } from "../src/index.ts";
 import { createHousehold, createUser } from "./support/finance-harness.ts";
 
 /** Module ids whose routes must all have a row (grows with each module section). */
-const REQUIRED_MODULE_SECTIONS: string[] = ["recipe", "finance"];
+const REQUIRED_MODULE_SECTIONS: string[] = ["recipe", "finance", "calendar"];
 
 /** Rows that document a route `httpApiRoutes()` cannot list (a derived URL of an existing route). */
 const DOC_ONLY = ["GET /uploads/:filename.thumb.webp"];
@@ -39,6 +39,7 @@ const DOC_ONLY = ["GET /uploads/:filename.thumb.webp"];
 const MODULE_PREFIXES: Record<string, string[]> = {
   recipe: ["/api/households/:householdId/recipe", "/api/recipe/"],
   finance: ["/api/households/:householdId/finance"],
+  calendar: ["/api/households/:householdId/calendar"],
 };
 
 const DOC_PATH = join(import.meta.dir, "..", "..", "..", "docs", "API.md");

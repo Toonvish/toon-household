@@ -363,7 +363,7 @@ describe("1 health", () => {
     expect(json.ok).toBe(true);
     expect(json.status).toBe("ok");
     expect(json.database).toBe("file");
-    expect(json.modules).toEqual(["recipe", "finance"]);
+    expect(json.modules).toEqual(["recipe", "finance", "calendar"]);
     expect(Object.keys(json.features)).toEqual(["verifiedEmailRequired", "ocrImport", "pdfImport"]);
   });
 });

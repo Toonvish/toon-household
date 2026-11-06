@@ -282,7 +282,7 @@ describe("afterMigrate through runMigrations", () => {
 
 describe("the registry", () => {
   test("API_MODULES lists the two manifests unwrapped: ids and healthFeatures are theirs", () => {
-    expect(API_MODULES.map((module) => module.id)).toEqual(["recipe", "finance"]);
+    expect(API_MODULES.map((module) => module.id)).toEqual(["recipe", "finance", "calendar"]);
     const [recipe, finance] = API_MODULES;
     // Since E3 recipe implements the Effect contract itself and is listed unwrapped (plan e3 P3).
     expect(recipe).toBe(recipeModule);

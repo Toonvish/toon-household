@@ -19,11 +19,29 @@
  * `docs/open-work.md` O-6, plan e4 P13),
  * E7-T11 the HTTP app (`src/http/app.ts`), the server (`src/http/server.ts`), the leaf middleware vocabulary
  * (`src/http/middleware.ts`) and the two module `routes/index.ts` (plan `docs/plans/e7-http-api.md` P15).
+ * M8-T02 (plan `docs/plans/m8-calendar-module.md` P23) adds the calendar module: its manifest, composition, hooks and
+ * seed by name, and every route file (`src/modules/calendar/routes/*.ts` but the leaf `*.api.ts`) and every service
+ * file (`src/modules/calendar/services/**`) by READING the directories, so the lanes that add files never edit this test.
  */
 import { describe, expect, test } from "bun:test";
-import { resolve } from "node:path";
+import { readdirSync } from "node:fs";
+import { join, relative, resolve } from "node:path";
 
 const API_ROOT = resolve(import.meta.dir, "..");
+
+/** Every `.ts` file under `dir` (relative to the API root, `./`-prefixed), sorted; `keep` filters by file name. */
+function sourceFilesUnder(dir: string, keep: (name: string) => boolean = () => true): string[] {
+  const absolute = join(API_ROOT, dir);
+  return readdirSync(absolute, { withFileTypes: true, recursive: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".ts") && keep(entry.name))
+    .map((entry) => `./${relative(API_ROOT, join(entry.parentPath, entry.name))}`)
+    .sort();
+}
+
+/** The calendar route files (M8, P23): every `*.ts` of `routes/` that is not a leaf `*.api.ts`. */
+const CALENDAR_ROUTE_FILES = sourceFilesUnder("src/modules/calendar/routes", (name) => !name.endsWith(".api.ts"));
+/** The calendar service files (M8): everything under `services/`. */
+const CALENDAR_SERVICE_FILES = sourceFilesUnder("src/modules/calendar/services");
 
 async function importThenBuildInFreshProcess(specifier: string): Promise<{ code: number; stderr: string }> {
   const script = [
@@ -41,6 +59,16 @@ async function importThenBuildInFreshProcess(specifier: string): Promise<{ code:
   const [stderr, code] = await Promise.all([new Response(proc.stderr).text(), proc.exited]);
   return { code, stderr };
 }
+
+describe("the calendar files are found on disk (M8, P23)", () => {
+  test("the route directory holds the index files and the service directory the members service", () => {
+    expect(CALENDAR_ROUTE_FILES).toContain("./src/modules/calendar/routes/index.ts");
+    expect(CALENDAR_ROUTE_FILES).toContain("./src/modules/calendar/routes/core.index.ts");
+    expect(CALENDAR_ROUTE_FILES).toContain("./src/modules/calendar/routes/waste.index.ts");
+    expect(CALENDAR_ROUTE_FILES.some((file) => file.endsWith(".api.ts"))).toBe(false);
+    expect(CALENDAR_SERVICE_FILES).toContain("./src/modules/calendar/services/members.ts");
+  });
+});
 
 describe("import order does not matter for the Effect composition", () => {
   for (const entry of [
@@ -123,6 +151,13 @@ describe("import order does not matter for the Effect composition", () => {
     "./src/http/middleware.ts",
     "./src/modules/recipe/routes/index.ts",
     "./src/modules/finance/routes/index.ts",
+    // M8-T02: the calendar module's manifest, composition, hooks and seed, then its route and service files (read from the tree)
+    "./src/modules/calendar/index.ts",
+    "./src/modules/calendar/layer.ts",
+    "./src/modules/calendar/hooks.ts",
+    "./src/modules/calendar/seed.ts",
+    ...CALENDAR_ROUTE_FILES,
+    ...CALENDAR_SERVICE_FILES,
   ]) {
     test(`${entry} loads first in a fresh process and the AppLayer builds after it`, async () => {
       const { code, stderr } = await importThenBuildInFreshProcess(entry);
@@ -170,6 +205,8 @@ describe("import order does not matter for the HTTP app's route layer", () => {
     "./src/modules/finance/routes/index.ts",
     "./src/modules/recipe/index.ts",
     "./src/modules/finance/index.ts",
+    "./src/modules/calendar/routes/index.ts",
+    "./src/modules/calendar/index.ts",
   ]) {
     test(`${entry} loads first in a fresh process and app.request("/api/health") answers 200 after it`, async () => {
       const { code, stdout, stderr } = await importThenServeInFreshProcess(entry);
