@@ -25,11 +25,11 @@ import {
 import { BunHttpServer, BunRuntime } from "@effect/platform-bun"
 ```
 
-`effect/http-api` is a barrel (`packages/effect/package.json` exports `"./http-api"`); `HttpApiTest`, `HttpApiSwagger` and `OpenApi` are in it
+`effect/http-api` is a barrel (`repos/effect/packages/effect/package.json` exports `"./http-api"`); `HttpApiTest`, `HttpApiSwagger` and `OpenApi` are in it
 too. The server modules (`HttpRouter`, `HttpServerRequest`, `HttpServerResponse`, `HttpEffect`, `HttpServer`, `Multipart`) are in `effect/http`.
 `BunHttpServer` and `BunRuntime` come from `@effect/platform-bun`. Never `effect/unstable/*`, never `@effect/platform`.
 
-## 2. Constructors and the call shapes this repo will use
+## 2. Constructors and the call shapes this repo uses
 
 **(a) An endpoint, a group, the API.** The definition imports no server code (it is shared with the web client). Path, query and header
 values are coerced from strings by the endpoint itself (`Schema.toCodecStringTree`), JSON payload/success/error by `Schema.toCodecJson`, so the
@@ -234,14 +234,14 @@ const error = yield* client.users.getById({ params: { id } }).pipe(Effect.flip) 
 
 ## 7. In this repo
 
-Applied by milestone E7 (`docs/EFFECT.md` decision E8, ADR 0015, plan `docs/plans/e7-http-api.md`); Hono is gone. What the code does, so that a new route is written the same way:
+Applied by milestone E7 (`docs/EFFECT.md` decision E8, ADR 0015, plan `docs/plans/e7-http-api.md`); the Hono app it replaced is history. What the code does, so that a new route is written the same way:
 
 - **One leaf per route file.** `apps/api/src/core/routes/auth.api.ts`, `households.api.ts`, `system.api.ts` and every `apps/api/src/modules/<id>/routes/X.api.ts` hold an `HttpApiGroup.make("<id>.<file>")` (core: `auth`, `health`, …) with endpoints and a `HttpApi.make(…).add(group)`; the matching
   `X.ts` holds the handlers as ONE `HttpApiBuilder.group(Api, "<id>.<file>", (handlers) => …)` layer. The `.api.ts` files are LEAVES: they import `effect`, `effect/http-api` and `apps/api/src/http/middleware.ts` only (the import cycle, CLAUDE.md "Middleware, APIs and handler layers are TDZ-safe"). Group
   identifiers are unique across the whole server (`HttpApiGroup.ts` keys handlers by identifier).
-- **An endpoint declares method, path, `params` and nothing else.** `HttpApiEndpoint.get("name", "/:cardId", { params: { cardId: Schema.String } })`: paths in Hono's `:name` syntax relative to the API (a `.prefix(...)` on the group or API), `params` listing EVERY `:name` of the FULL path (a partial `params` schema turns the
+- **An endpoint declares method, path, `params` and nothing else.** `HttpApiEndpoint.get("name", "/:cardId", { params: { cardId: Schema.String } })`: paths in the `:name` syntax, relative to the API (a `.prefix(...)` on the group or API), `params` listing EVERY `:name` of the FULL path (a partial `params` schema turns the
   missing names into a literal `::` and the route stops matching) and no `payload`, `query`, `success` or `error` schema: HttpApi's decoding would answer an empty 400 where `docs/API.md` pins the `422 validation_failed` envelope, and its success encoder would drop undeclared keys. The handler reads the body with
-  `jsonBody(schema)` / `queryParams(schema)` (`apps/api/src/http/request.ts`: Hono 4.13.7's JSON content-type rule, `ALL_ISSUES` decode, a refusal is `Schema.SchemaError`) and returns an `HttpServerResponse` from `apps/api/src/http/response.ts` (`json`, `created`, `noContent`, `redirect`, `fromWeb`), which bypasses the success
+  `jsonBody(schema)` / `queryParams(schema)` (`apps/api/src/http/request.ts`: a body that is not `application/json` reads as empty, as before E7; `ALL_ISSUES` decode, a refusal is `Schema.SchemaError`) and returns an `HttpServerResponse` from `apps/api/src/http/response.ts` (`json`, `created`, `noContent`, `redirect`, `fromWeb`), which bypasses the success
   encoder. Declared schemas are open work (`docs/open-work.md` X-5).
 - **Middleware order is the reverse of the attach order.** The middleware attached LAST runs FIRST. Always attach through `chain(A, B, C)` (EXECUTION order) at endpoint, group or API level; `coreApi(api)`, `householdModuleApi(id, api)` and `userModuleApi(id, api)` add `ApiErrorBoundary` (outermost) and, for a household module, `RequireSession`, `RequireHouseholdMember`,
   `RequireModule` with the `ModuleId` annotation. The tags are `HttpApiMiddleware.Service` classes in the leaf `apps/api/src/http/middleware.ts` (`RequireFinanceParticipant` in `apps/api/src/modules/finance/http.ts`); each declares `BoundaryFailure` as its error and provides what it resolves (`CurrentUser`, `CurrentMembership`, … in
@@ -252,4 +252,46 @@ Applied by milestone E7 (`docs/EFFECT.md` decision E8, ADR 0015, plan `docs/plan
   which builds concurrently). The fallback route (`fallbackRoutesLayer()`) is the path `*` once per explicit method but `HEAD`.
 - **Tests.** `app.request` is the in-memory handler (`apps/api/src/http/in-memory.ts`: `HttpRouter.toWebHandler` on a child memo map of `appMemoMap`, after the `AppLayer` is built); a mini API for one concern is `testHttpApp(apis, handlers, extra?)` from `apps/api/test/support/http.ts`. `apps/api/test/api-doc.test.ts` reads `httpApiRoutes()` (`apps/api/src/http/app.ts`). `OpenApi.fromApi(api)` lists methods,
   paths and path params only; `/docs` is not mounted.
+
+From `apps/api/src/core/routes/system.api.ts` (the definition: method, path, `params`, nothing else; `coreApi` puts `ApiErrorBoundary` outermost):
+
+```ts
+export const UploadsGroup = HttpApiGroup.make("uploads").add(
+  /** GET /uploads/:filename */
+  HttpApiEndpoint.get("getUploadsByFilename", "/uploads/:filename", { params: { filename: Schema.String } }),
+);
+
+export const SystemApi = coreApi(HttpApi.make("system").add(HealthGroup, UploadsGroup));
+```
+
+and its handler layer from `apps/api/src/core/routes/system.ts` (`UNINTERRUPTIBLE` is the third argument; the body returns an `HttpServerResponse`):
+
+```ts
+export const healthHandlers = HttpApiBuilder.group(SystemApi, "health", (handlers) =>
+  handlers
+    /** GET /api/health — liveness/readiness probe, the payload computed on the one runtime (core/health.ts). */
+    .handle(
+      "getApiHealth",
+      Effect.fn("health.getApiHealth")(function* () {
+        return json(yield* Effect.promise(() => runtime.runPromise(healthResponse)));
+      }),
+      UNINTERRUPTIBLE,
+    ),
+);
+```
+
+The middleware order is set by `chain` in `apps/api/src/http/middleware.ts` (execution order in, attached reversed):
+
+```ts
+export function chain(...tags: ReadonlyArray<Tag<HttpApiMiddleware.AnyId>>): (self: unknown) => unknown {
+  // The LAST tag is attached first (innermost), the FIRST last (outermost, runs first).
+  return (self) =>
+    tags.reduceRight(
+      (target: { middleware: (tag: Tag<HttpApiMiddleware.AnyId>) => unknown }, tag) =>
+        target.middleware(tag) as { middleware: (tag: Tag<HttpApiMiddleware.AnyId>) => unknown },
+      self as { middleware: (tag: Tag<HttpApiMiddleware.AnyId>) => unknown },
+    );
+}
+```
+
 - Rule served: **E8** (the observable contract is frozen; the middleware order is load-bearing), with **E12** (`Effect.fn`, `return yield*`, `Schema.TaggedError`), **E4** (one schema adapter) and **E2** (look every signature up in `repos/effect`) when this file is silent.

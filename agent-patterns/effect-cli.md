@@ -191,8 +191,29 @@ localize-images,finance-import-xlsx,migrate-legacy}.ts`; each is a hand parse fe
 `docs/plans/e5-scripts.md` P4, deviation 2): E10 says "may", the flags and usage texts are pinned byte for byte, and `Command.run` owns
 `--help`, `--version`, `--completions` and a parse-error exit of 1 that the scripts' exit 2 contract cannot take. The root scripts `scripts/{dev,typecheck,i18n-check,icons}.ts`
 stay plain Bun. A script's exit-code error lives next to its script or in `apps/api/src/lib/errors.ts` style (a `Schema.TaggedError`).
-Tests drive `Command.runWith` with `Stdio.layerTest` (`apps/api/test/support/effect.ts` for the layers); the subprocess tests of
-`apps/api/test/legacy-cli.test.ts` stay unchanged and are the proof that the output lines and exit codes did not move.
+Nothing here runs `Command.runWith`. The proof that the output lines and exit codes did not move is subprocess tests (`apps/api/test/legacy-cli.test.ts`,
+`apps/api/test/legacy-cli-usage.test.ts`, `apps/api/test/scripts-main.test.ts`, `apps/api/test/scripts-seed.test.ts`) plus unit cases of the runner's exit-code rules (`makeScriptTeardown`).
+
+From `apps/api/scripts/support/main.ts`, the one runner every `AppLayer` script goes through (`effect/cli` itself is not used):
+
+```ts
+export class ScriptExit extends Schema.TaggedError<ScriptExit>()("ScriptExit", { code: Schema.Number }) {
+  override readonly [Runtime.errorExitCode] = this.code;
+  override readonly [Runtime.errorReported] = false;
+}
+
+export function runScript<E>(program: Effect.Effect<number | void, E, never>): void {
+  BunRuntime.runMain(program, { teardown: makeScriptTeardown((code) => process.exit(code)) });
+}
+```
+
+and how a script uses it (`apps/api/scripts/plan-run.ts`: the program returns its exit code as a number, the layer is provided before the runner sees it):
+
+```ts
+if (import.meta.main) {
+  runScript(planRun(process.argv[2]).pipe(Effect.provide(AppLayer)));
+}
+```
 
 Rule served: **E10** (scripts are Effect programs with the same CLI surface: every flag, exit code 0/1/2 and output line that
 `docs/migration.md`, `docs/deployment.md` or a test pins is unchanged), together with **E12** (`Effect.fn`, `return yield*` when raising,

@@ -27,7 +27,7 @@ import {
 
 `effect/http` is the stable barrel (NOT `effect/unstable/http`; the idioms test refuses that path). `Cookies`, `Headers`, `UrlParams`,
 `HttpBody`, `HttpIncomingMessage` are in the same barrel. `@effect/platform-bun` re-exports `FetchHttpClient` as `BunHttpClient`
-(`packages/platform/bun/src/BunHttpClient.ts`), but `FetchHttpClient` from `effect/http` is the same layer and also what the web uses:
+(`repos/effect/packages/platform/bun/src/BunHttpClient.ts`), but `FetchHttpClient` from `effect/http` is the same layer and also what the web uses:
 import it from `effect/http` in both apps. `HttpClient.HttpClient` is the service (a `Context.Service` constant, id
 `"effect/HttpClient"`), not a class.
 
@@ -75,7 +75,7 @@ const createTodo = (todo: typeof TodoWithoutId.Type) =>
     Effect.flatMap(HttpClientResponse.schemaBodyJson(Todo))
   )
 ```
-(`packages/effect/test/HttpClient.test.ts`, `makeJsonPlaceholder`.) With a body known to be serialisable, the synchronous form is
+(`repos/effect/packages/effect/test/HttpClient.test.ts`, `makeJsonPlaceholder`.) With a body known to be serialisable, the synchronous form is
 `HttpClientRequest.bodyJsonUnsafe(todo)` inside the pipe, as in `10_basics.ts` `createTodo`; headers, bearer tokens and other bodies:
 `setHeader`, `setHeaders`, `bearerToken`, `basicAuth`, `bodyText`, `bodyUrlParams`, `bodyFormData`, `bodyUint8Array`, `bodyStream`.
 
@@ -216,12 +216,8 @@ program.pipe(
 
 ## 7. In this repo
 
-Applied at (milestone in brackets; paths exist now unless marked new):
-
-- `apps/api/src/lib/oauth.ts` (Google userinfo, GitHub user and emails) and `apps/api/src/core/services/mail/resend.ts` (Resend POST):
-  today `fetch`, to a service-held `HttpClient` with `filterStatusOk` and a mapped `Schema.TaggedError` (EFFECT.md names no milestone for these two; E3 to E5 or later).
-- `apps/api/src/modules/recipe/services/import/url/fetch.ts` and `ssrf.ts` (BUILT, E3-T03): the `ImportHttp` service. NOT a
-  `mapRequestEffect` guard and NOT `HttpClient.followRedirects`: the hop loop is the module's own, because every hop must
+- **Server side, only the URL importer uses `HttpClient`.** `apps/api/src/modules/recipe/services/import/url/fetch.ts` and `ssrf.ts` (E3): the `ImportHttp` service. NOT a
+  `mapRequestEffect` guard and NOT `HttpClient.followRedirects` for pages: the hop loop is the module's own, because every hop must
   re-run the SSRF guard BEFORE its request. Per hop: `checkPublicUrl(url, guard)` (a service-free `Effect.fnUntraced`; the DNS
   lookup is an `Effect.tryPromise` of an injectable resolver; failures are `SsrfError`, a `Schema.TaggedError` outside the API
   family, mapped once to a 400 `fetch_failed` `ApiFailure` with `details.reason`), then ONE `client.execute(HttpClientRequest.get(...))`
@@ -229,9 +225,10 @@ Applied at (milestone in brackets; paths exist now unless marked new):
   layer merges the fiber's context over its own, so a service provided around the call wins) and
   `Effect.provideService(HttpClient.TracerPropagationEnabled, false)` (no `traceparent` / `b3` to a third-party site; the test
   asserts the five headers and nothing else reach the fetch). The layer is `Layer.effect(ImportHttp, gen).pipe(Layer.provide(
-  FetchHttpClient.layer))`; the core (`fetchHtmlWith(client, guard, url, limits)`, `fetchImageWith`) is service-free and also
-  runs behind the Promise entry point `fetchHtml` with `Effect.provide(FetchHttpClient.layer)` and `Effect.provideService(
-  FetchHttpClient.Fetch, fetchImpl)`; tests provide the scripted fetch the same way (the client hands `fetch` a `URL`, and its
+  FetchHttpClient.layer))`; the core (`fetchHtmlWith(client, guard, url, limits)`, `fetchImageWith`) is service-free. A hero image is
+  fetched by `ImportHttp.fetchImage` (`image.ts`, `HeroImages`) with `redirect: "follow"` after the guard checked the FIRST URL, and is judged by its magic
+  bytes, never by `Content-Type`. Tests reach the core through the door `apps/api/test/support/bridges/recipe-fetch.ts`
+  (`fetchHtml(url, { fetchImpl })` provides `FetchHttpClient.layer` and `FetchHttpClient.Fetch`; the client hands `fetch` a `URL`, and its
   `init.headers` is a plain lower-cased record: `new Headers(init.headers)` reads it). Facts found while building it:
   a 3xx with `redirect: "manual"` is a SUCCESS (status 302, `response.headers["location"]`); a response body is read from
   `response.stream` with `Stream.runForEachWhile` (return `false` to stop: the reader is cancelled and the request aborted when
@@ -240,8 +237,10 @@ Applied at (milestone in brackets; paths exist now unless marked new):
   (`runForEachWhile(() => Effect.succeed(false))`, bounded with `Effect.timeout`); the overall budget is `Effect.timeoutOrElse`
   over the hop loop (interruption aborts the fetch through the client's signal). The seam `setImportGuardForTests({ allowHosts,
   resolve } | null)` is an exact-host allow list and has deliberately no "allow private hosts" switch (it would skip the metadata
-  address's refusal too). Image localisation (`image.ts`) moves onto `ImportHttp.fetchImage` in E3-T05.
-- The web (BUILT, E6; plan `docs/plans/e6-web-client.md`): `apps/web/src/lib/runtime.ts` is the one `ManagedRuntime` over
+  address's refusal too).
+- **Two outgoing calls are still plain `fetch`** (no milestone moves them; behaviour frozen): `apps/api/src/lib/oauth.ts` (Google userinfo, GitHub user and emails) and
+  `apps/api/src/core/services/mail/resend.ts` (the Resend POST). If one moves, it becomes a service-held `HttpClient` with `filterStatusOk` and a mapped `Schema.TaggedError`.
+- The web (E6; plan `docs/plans/e6-web-client.md`): `apps/web/src/lib/runtime.ts` is the one `ManagedRuntime` over
   `FetchHttpClient.layer` provided with `FetchHttpClient.RequestInit` `{ credentials: "include" }`, a late-bound `FetchHttpClient.Fetch`
   and `HttpClient.TracerPropagationEnabled` false; `apps/web/src/lib/api-client.ts` is the `ApiClient` service whose `execute` builds
   `HttpClientRequest.make(method)(url)` with `setHeaders` and sends it with `client.execute`, then maps the response by hand (no
@@ -267,6 +266,39 @@ Applied at (milestone in brackets; paths exist now unless marked new):
     "decode(body) equals body" is a test to run over the real routes (the API's `web-contract-*` tests).
   - An XHR upload (progress) is not an `HttpClient` call: wrap it in `Effect.callback` whose finalizer aborts the XHR.
 - Tests provide `FakeHttpClient` (2(d)) or a `FetchHttpClient.Fetch` stub instead of mocking `globalThis.fetch` (`agent-patterns/effect-testing.md`).
+
+From `apps/api/src/modules/recipe/services/import/url/fetch.ts`, one request through the client with the two per-call settings:
+
+```ts
+/** One request through `client`: the fetch option `redirect`, and no trace headers on the wire. */
+function send(client: HttpClient.HttpClient, request: HttpClientRequest.HttpClientRequest, redirect: "manual" | "follow") {
+  return client.execute(request).pipe(
+    Effect.provideService(FetchHttpClient.RequestInit, { redirect }),
+    Effect.provideService(HttpClient.TracerPropagationEnabled, false),
+  );
+}
+```
+
+and the service layer that provides the client once (same file):
+
+```ts
+static readonly layer = Layer.effect(
+  ImportHttp,
+  Effect.gen(function* () {
+    const config = yield* AppConfig;
+    const client = yield* HttpClient.HttpClient;
+    const guard = (): SsrfGuard =>
+      guardNow({ allowPrivateHosts: config.allowPrivateImportHosts, allowHosts: new Set() });
+    const fetchHtml = Effect.fn("ImportHttp.fetchHtml")(function* (url: string, limits: FetchLimits = {}) {
+      return yield* fetchHtmlWith(client, guard(), url, limits);
+    });
+    const fetchImage = Effect.fn("ImportHttp.fetchImage")(function* (url: string, options: FetchImageOptions = {}) {
+      return yield* fetchImageWith(client, guard(), url, options);
+    });
+    return ImportHttp.of({ fetchHtml, fetchImage });
+  }),
+).pipe(Layer.provide(FetchHttpClient.layer));
+```
 
 Rule served: **E11** (the web gets a runtime and an Effect API client: `HttpClient` from `effect/http` with `FetchHttpClient`, failures
 as the same tagged `ApiError`, `credentials: "include"` and the `PUBLIC_API_URL` / CSP `connect-src 'self'` rules kept), with **E6** (errors are tagged,
