@@ -1,14 +1,17 @@
 /**
- * The calendar module's waste area (plan m8 P27): `WastePdfText` and `WasteFlyerFetch` (leaves), then `CalendarWaste`.
+ * The calendar module's waste area (plan m8 P27): `WastePdfText` and `WasteFlyerFetch` (leaves; `WasteFlyerFetch.layer`
+ * provides `FetchHttpClient.layer` itself, `HttpClient` is no `ModuleRequirements` service).
  *
- * FOUNDATION STUB (M8-T02): the lane api-waste (M8-T12) replaces this file with the real area; until then it provides
- * nothing. The function and type names are the contract `../../layer.ts` composes.
+ * The function and type names are the contract `../../layer.ts` composes. Hoisted, nothing runs at import.
  */
 import { Layer } from "effect";
+import { WasteFlyerFetch } from "./fetch.ts";
+import { WastePdfText } from "./pdf-text.ts";
 
-/** Every service `calendarWasteAreaLayer()` provides (api-waste: the three waste services). */
-export type CalendarWasteAreaServices = never;
+/** Every service `calendarWasteAreaLayer()` provides. */
+export type CalendarWasteAreaServices = WastePdfText | WasteFlyerFetch;
 
+/** The waste area. */
 export function calendarWasteAreaLayer() {
-  return Layer.empty;
+  return Layer.mergeAll(WastePdfText.layer, WasteFlyerFetch.layer);
 }
