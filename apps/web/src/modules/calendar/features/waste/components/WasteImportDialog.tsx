@@ -11,7 +11,7 @@ import { useT } from "@/lib/i18n";
 import { WasteDot } from "@/modules/calendar/components/WasteDot";
 import { formatShortDate, wasteLabel } from "@/modules/calendar/lib/format";
 import { useImportWaste, usePreviewWaste, type WasteSource } from "@/modules/calendar/lib/queries";
-import { wasteErrorMessage } from "../lib/errors";
+import { wasteErrorMessage, wasteWarningGroups } from "../lib/errors";
 import { TOURS } from "./WasteSettingsForm";
 
 type SourceType = "url" | "file";
@@ -199,11 +199,17 @@ export function WasteImportDialog({
               <div className="flex flex-col gap-1 text-sm text-warning-soft-fg">
                 <p className="font-semibold">{t("calendar.waste.import.warnings")}</p>
                 <ul className="flex flex-col gap-0.5">
-                  {result.warnings.map((warning, index) => (
-                    <li key={`${warning.code}-${warning.date ?? ""}-${index}`}>
-                      {warning.date === null
-                        ? t("calendar.waste.import.warning", { code: warning.code })
-                        : t("calendar.waste.import.warningOn", { code: warning.code, date: formatShortDate(warning.date, today) })}
+                  {wasteWarningGroups(result.warnings).map((group) => (
+                    <li key={group.text}>
+                      {group.text}
+                      {group.dates.length > 0 ? (
+                        <>
+                          {" "}
+                          {t("calendar.waste.import.warningDates", {
+                            dates: group.dates.map((date) => formatShortDate(date, today)).join(", "),
+                          })}
+                        </>
+                      ) : null}
                     </li>
                   ))}
                 </ul>

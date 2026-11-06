@@ -52,7 +52,9 @@ export const calendarWasteDe = {
   "calendar.waste.import.total": { one: "Zusammen 1 Abholung.", other: "Zusammen {count} Abholungen." },
   "calendar.waste.import.warnings": "Hinweise",
   "calendar.waste.import.warning": "{code}",
-  "calendar.waste.import.warningOn": "{code} am {date}",
+  "calendar.waste.import.warningDates": "Betrifft: {dates}",
+  "calendar.waste.import.warningCode.hiddenCopyDiffers":
+    "Im PDF liegt unter dem sichtbaren Kalender eine ältere Fassung, die an einzelnen Tagen abweicht. Übernommen wird, was im Flyer zu sehen ist.",
   "calendar.waste.import.replaceHint": "Ein Import desselben Jahres ersetzt den alten. Abgehakte Termine bleiben abgehakt.",
   "calendar.waste.import.run": "Importieren",
   "calendar.waste.import.done": { one: "Importiert: 1 Abholung.", other: "Importiert: {count} Abholungen." },

@@ -28,6 +28,34 @@ const CHECKS = {
   noTourDates: "calendar.waste.error.check.noTourDates",
 } as const satisfies Record<string, MessageKey>;
 
+/** The preview's warning codes the module knows (plan m8 section 10: the flyer's hidden copies). */
+const WARNINGS = {
+  hiddenCopyDiffers: "calendar.waste.import.warningCode.hiddenCopyDiffers",
+} as const satisfies Record<string, MessageKey>;
+
+/** One line per warning CODE of a preview, with the dates it concerns in order (a code without a date has none). */
+export interface WasteWarningGroup {
+  readonly text: string;
+  readonly dates: ReadonlyArray<string>;
+}
+
+/**
+ * The preview's warnings grouped by code (the 2027 flyer yields seven `hiddenCopyDiffers`, one sentence is enough): a
+ * known code is its sentence, an unknown one (a newer server) the bare code.
+ */
+export function wasteWarningGroups(warnings: ReadonlyArray<{ readonly code: string; readonly date: string | null }>): WasteWarningGroup[] {
+  const byCode = new Map<string, string[]>();
+  for (const warning of warnings) {
+    const dates = byCode.get(warning.code) ?? [];
+    if (warning.date !== null && !dates.includes(warning.date)) dates.push(warning.date);
+    byCode.set(warning.code, dates);
+  }
+  return [...byCode].map(([code, dates]) => {
+    const key = lookup(WARNINGS, code);
+    return { text: key ? translate(key) : translate("calendar.waste.import.warning", { code }), dates: dates.sort() };
+  });
+}
+
 /** The first `details` item's string field `name`, if any. */
 function detail(details: unknown, name: string): string | undefined {
   if (!Array.isArray(details)) return undefined;
