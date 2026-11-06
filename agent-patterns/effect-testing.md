@@ -16,7 +16,7 @@ import { Clock, Context, Effect, Exit, Fiber, Layer, ManagedRuntime, Schema } fr
 import { TestClock, TestConsole, TestCrypto, TestSchema } from "effect/testing"
 ```
 
-`effect/testing` is the barrel (`packages/effect/src/testing/index.ts`: `TestClock`, `TestConsole`, `TestCrypto`,
+`effect/testing` is the barrel (`repos/effect/packages/effect/src/testing/index.ts`: `TestClock`, `TestConsole`, `TestCrypto`,
 `TestSchema`); it is a real export of the package (`"./testing"`), not an `effect/unstable/*` path. Never
 `import ... from "@effect/vitest"`, never from `repos/`.
 
@@ -38,7 +38,7 @@ test("runs", async () => {
 `Effect.runPromise(effect, options?)` needs `R = never`, so every service is provided first
 (`Effect.provide(layer)`). A typed failure rejects the promise with the squashed cause, i.e. the failure value
 itself (`internal/effect.ts` `runPromiseWith`: `throw causeSquash(exit.cause)`).
-Source: `packages/effect/src/Effect.ts` (`runPromise`, `runPromiseExit`, `provide`), `migration/v3-to-v4.md`
+Source: `repos/effect/packages/effect/src/Effect.ts` (`runPromise`, `runPromiseExit`, `provide`), `migration/v3-to-v4.md`
 ("`TestContext.TestContext` -> `Layer.mergeAll(TestConsole.layer, TestClock.layer())`: the v4 test layer used by
 `@effect/vitest`").
 
@@ -54,7 +54,7 @@ const program = Effect.gen(function*() {
 ```
 
 Source: `ai-docs/src/09_testing/10_effect-tests.ts` (the `it.effect("controls time with TestClock")` body, with
-`Effect.forkChild`), `packages/effect/src/testing/TestClock.ts` header. Also `TestClock.setTime(timestampMs)`
+`Effect.forkChild`), `repos/effect/packages/effect/src/testing/TestClock.ts` header. Also `TestClock.setTime(timestampMs)`
 (jump to an instant), `TestClock.withLive(effect)` (run one effect on the real clock),
 `TestClock.testClockWith((testClock) => ...)`. Time starts at epoch 0; read it with `Clock.currentTimeMillis`
 (virtual under the layer). `TestClock.layer(options?)` takes `{ warningDelay }`.
@@ -69,7 +69,7 @@ const program = Effect.gen(function*() {
 }).pipe(Effect.provide(TestConsole.layer))
 ```
 
-(add `Console` to the `effect` import.) Source: `packages/effect/src/testing/TestConsole.ts` (`layer`,
+(add `Console` to the `effect` import.) Source: `repos/effect/packages/effect/src/testing/TestConsole.ts` (`layer`,
 `logLines`, `errorLines`, `testConsoleWith`). Captured lines are the raw arguments, flattened per call.
 
 ### 2.4 Test layers for services (mock, hand-written, shared)
@@ -86,7 +86,7 @@ const testUser = Layer.mock(UserService, {
 })
 ```
 
-Source: `packages/effect/src/Layer.ts` (`Layer.mock`, `Layer.succeed(Service, value)`, `Layer.effect(Service,
+Source: `repos/effect/packages/effect/src/Layer.ts` (`Layer.mock`, `Layer.succeed(Service, value)`, `Layer.effect(Service,
 effect)`). A stateful in-memory double with a test `Ref` and `Layer.provideMerge` (so the test can reach the ref):
 `ai-docs/src/09_testing/20_layer-tests.ts` (`TodoRepo.layerTest` = `Layer.effect(...).pipe(Layer.provideMerge(
 TodoRepoTestRef.layer))`; `static readonly layerTest` on the service class).
@@ -101,7 +101,7 @@ afterAll(() => runtime.dispose())                       // closes the layer scop
 test("a", async () => { await runtime.runPromise(Effect.gen(function*() { /* yield* TodoRepo */ })) })
 ```
 
-(`afterAll` from `bun:test`.) Source: `packages/effect/src/ManagedRuntime.ts` (`make(layer, { memoMap? })`,
+(`afterAll` from `bun:test`.) Source: `repos/effect/packages/effect/src/ManagedRuntime.ts` (`make(layer, { memoMap? })`,
 `runPromise`, `runPromiseExit`, `dispose`, `disposeEffect`, `context`, `contextEffect`). The build is lazy and
 memoized: the first run builds the layer, later runs reuse it (state is shared between tests, as in the vendored
 example).
@@ -121,7 +121,7 @@ example).
   `Clock`, so provide `TestClock.layer()` as well when the full value must repeat.
 - Schemas: `new TestSchema.Asserts(schema).decoding().succeed(input, expected)` and `.fail(input, message)` return
   Promises (`.succeedEffect` / `.failEffect` are the lazy Effect forms); `.encoding()`, `.make()` likewise
-  (`packages/effect/src/testing/TestSchema.ts`, `@stability unstable`; it asserts with `node:assert`, a mismatch
+  (`repos/effect/packages/effect/src/testing/TestSchema.ts`, `@stability unstable`; it asserts with `node:assert`, a mismatch
   rejects with an `AssertionError`).
 
 ## 4. Error handling in tests
@@ -193,111 +193,85 @@ Sources: `migration/v3-to-v4.md` ("effect/TestClock", "effect/TestContext", "eff
 
 ## 7. In this repo
 
-- E9: "`bun test` stays; Effect tests run through layers." The support module `apps/api/test/support/effect.ts`
-  (created at milestone E2) is where `runTest(effect)` and `itEffect(name, effect)` live: they provide the test
-  `AppLayer` with the shared test database (ADR 0009), `TestClock.layer()` where a test today fakes time, and a
-  recording `Mailer`. A test file does not assemble these layers itself.
-- `packages/shared/test/*.test.ts` and the co-located `apps/web/src/**/*.test.ts(x)` call `Effect.runSync` /
-  `Effect.runPromise` directly (E9); `TestSchema.Asserts` suits the schema parity tests of milestone E1.
-- Time: the `start` hook / fixed-cost plan catch-up (`apps/api/src/modules/finance/`, milestone E4, CLAUDE.md
-  "The `start` hook and the clock") gets a `TestClock` test: fork, `TestClock.adjust` past the 6-hour tick, join.
-- Rule served: E9 (no vitest, tests through layers, pass count never below the previous milestone's record) with
-  E12 (services read `Clock`, so time is testable). `apps/api/test/effect-idioms.test.ts` forbids `repos/`
-  imports, v3 paths and `effect/unstable/*`; `effect/testing` is allowed.
+Where it lives:
+- `apps/api/test/support/effect.ts`: `runTest(effect, { clock? })`, `runTestExit`, `itEffect`, `recordingMailer`, `withMailer`. They run on the
+  APP `runtime` (`apps/api/src/runtime.ts`), the one the routes use, so its `Database` is the shared temp file DB of ADR 0009 and a row a
+  test writes through a service is the row `app.request` sees. `clock: "test"` wraps the effect in `Effect.provide(TestClock.layer())`.
+  A test file does not assemble these layers itself.
+- `apps/api/test/support/bridges/`: the "doors". `src` has no Promise or synchronous twin of an Effect function; a pinned test that still
+  calls one (`runMigrations`, `createSession`, `runFinanceBridge`, `nowMs`, the legacy `ApiError` class, ...) imports it from the one file here
+  that mirrors its source module, with the same name, signature and calling convention. `apps/api/test/bridges-core.test.ts` and
+  `apps/api/test/bridges-modules.test.ts` pin each door against the Effect form it wraps. A door is test support, never imported by
+  `src`, `scripts` or the web; a NEW test never needs one, it runs the service with `runTest`.
+- `apps/api/test/runtime.test.ts` (the first Effect test) and `apps/api/test/database.test.ts` are the only files that build and dispose a
+  THROWAWAY runtime from the real layers (`ManagedRuntime.make(AppLayer)`, its own memo map): safe because `Database.layer` never closes the shared
+  client under `NODE_ENV=test`. Never `dispose()` the shared one: every test file shares one process and one runtime.
+- `apps/api/test/import-order-effect.test.ts`: per entry a fresh `bun -e` child imports the entry first, then `./src/runtime.ts`, then awaits
+  `runtime.runPromise(Effect.void)`, which builds the whole `AppLayer` after that import order.
+- `apps/api/test/effect-idioms.test.ts`: the grep gate (one `describe` per rule, a pinned allow list, failures as `file:line: code`, a rule
+  self-check and a stale-entry check). It allows `effect/testing`; it forbids `repos/` imports, v3 paths and `effect/unstable/*`.
+- `packages/shared/test/*.test.ts` and the co-located `apps/web/src/**/*.test.ts(x)` call the decoders and `Effect.runPromise` directly.
 
-**As built (E0):** `apps/api/test/runtime.test.ts` is the first Effect test and stays on `bun:test`. It runs the
-real app through `app.request`, spies the shared runtime with `spyOn(runtime, "runPromise")` to prove the health route
-goes through it, and proves disposal on a THROWAWAY runtime (`ManagedRuntime.make(AppLayer)`, its own memo map) because
-every test file shares one process and one `runtime`: never `dispose()` the shared one in a test. Failures are
-asserted with `runPromiseExit` + `Exit.isFailure` + `Cause.hasDies`, a rejection with
-`await expect(...).rejects.toBe(...)`. `apps/api/test/effect-idioms.test.ts` is the grep gate (one `describe` per
-rule, a pinned allow list, failures as `file:line: code`).
+Rule served: E9 (`bun test` stays, no vitest; Effect tests run through layers; the pass count never drops below the previous record) with
+E12 (services read `Clock`, so time is testable).
 
-**As built (E1):** the schema tests stay on `bun:test` and call the decoders synchronously, no `Effect.runSync`. Two shapes:
-- **Golden parity** (`packages/shared/test/parity/{core,finance,recipe}.parity.test.ts`, runner `runGolden` in
-  `packages/shared/test/support/schema.ts`): the JSON under `packages/shared/test/fixtures/schema-golden/` was generated
-  once from Zod 4.5.4 and is never regenerated; each case becomes a `test`, which is why the pass count grew from 2463 to
-  14508. A case compares `ok`, the decoded output with `toStrictEqual`, the flattened issues and the `de` / `en` `details`.
-  A known divergence is an id in an allow map with its reason, and the runner fails a listed id that does NOT diverge
-  (`const P7_USER: Record<string, string> = { "PasswordSchema#type-[]": LENGTH_AFTER_TYPE, ... }`). `undefined` and
-  non-finite numbers survive JSON through the `$undefined` / `$number` markers.
-- **Wire pins** (`apps/api/test/validation-wire.test.ts`): a real route through `app.request` with a session cookie and
-  `Accept-Language`, asserting `path`, `code`, the localized `message` and `i18n` of `details` and the envelope keys.
-A test that runs `sharp` (`apps/api/test/thumbnails.test.ts`) takes an explicit budget, `SHARP_TEST_TIMEOUT_MS = 60_000` as the
-third argument of `test(...)`; bun's 5 s default fails on a loaded host, and a failing gate log must keep its `(fail)` and
-`Unhandled error` lines.
-
-**As built (E2, E2-T03):** the support module and the database tests.
-- `apps/api/test/support/effect.ts`: `runTest(effect, { clock? })` and `runTestExit(effect, { clock? })` run on the
-  APP `runtime` (the one the routes use; its `Database` is the shared temp file DB of ADR 0009, never disposed in a
-  test); `clock: "test"` wraps the effect in `Effect.provide(TestClock.layer())` (`Clock.currentTimeMillis` reads 0);
-  `itEffect(name, effect | () => effect, timeoutMs?, options?)` is a `bun:test` `test`. `AppServices` is re-exported
-  from `apps/api/src/runtime.ts`. E2-T04 adds the recording mailer.
-- A test that needs a database of its own builds one with `createDatabase({ url: "file:" + path })` and provides
-  `Database.layerFrom(created)` per run (`Effect.runPromise(effect.pipe(Effect.provide(Database.layerFrom(created))))`);
-  a hook-shaped test opens a drizzle transaction itself and provides `Database.layerFromExecutor(tx)` inside it
-  (`apps/api/test/database.test.ts`).
-- Only `apps/api/test/runtime.test.ts` (d) and `apps/api/test/database.test.ts` make throwaway runtimes from the
-  real layers (`ManagedRuntime.make(AppLayer)`) and dispose them: safe because `Database.layer` never closes the
-  shared client under `NODE_ENV=test`; both assert the shared client still answers afterwards.
-- `apps/api/test/import-order-effect.test.ts` (the second fresh-process import test): per entry a `bun -e` child
-  imports the entry first, then `./src/runtime.ts`, then awaits `runtime.runPromise(Effect.void)`, which builds the
-  whole `AppLayer` after that import order.
-
-**As built (E2, integration):** the idioms test gained rules (10) and (11) in the shape of the design-system gate: a pinned allow list per
-rule (a key ending in `/` is a path prefix, any other key one file), a failure of `file:line: code`, a test that the rule still BITES on a
-sample line, and a stale-entry test (an allow-list entry that no longer matches a hit fails, so a fixed file leaves the list in the same
-commit). The pinned test files of an exit criterion (`db-pragmas`, `middleware`, `import-order`, `placeholders`, `security` and the
-rate-limit block of `auth`) are verified unchanged with `git diff <base> -- <files>`, not by reading them.
-
-**In this repo (E2 example):** `apps/api/test/modules.test.ts`, a service test runs the call on the app runtime through `runTest` and reads a
-refusal with `Effect.flip`; the assertions are the ones the Promise version had:
+A service test runs the call on the app runtime through `runTest` and reads a refusal with `Effect.flip`; a typed failure rejects with the
+error itself, so `toBe(refusal)` holds (`apps/api/test/modules.test.ts`):
 ```ts
-const enable = (settings: Record<string, unknown> | undefined) =>
-  HouseholdModules.use((modules) =>
-    modules.enableModule(owner.householdId, "finance", settings, [fromPromiseModule(refusing)]),
-  );
-expect(await runTest(Effect.flip(enable(undefined)))).toBe(refusal);
-expect(await moduleRow(owner.householdId, "finance")).toBeUndefined();
+    const enable = (settings: Record<string, unknown> | undefined) =>
+      HouseholdModules.use((modules) =>
+        modules.enableModule(owner.householdId, "finance", settings, [refusing]),
+      );
+    expect(await runTest(Effect.flip(enable(undefined)))).toBe(refusal);
+    expect(calls).toEqual([{ householdId: owner.householdId, settings: null }]);
+    expect(await moduleRow(owner.householdId, "finance")).toBeUndefined();
 ```
 
-**As built (E3):** a recipe test that called a function directly now runs the service on the app runtime and, for another database, hands it in with
-`Database.withExecutor(db)` (`apps/api/test/import/commit.test.ts`):
-
+A test against another database hands it in with `Database.withExecutor(db)` (`apps/api/test/import/commit.test.ts`), a finance test with a
+private `Database.layerFrom(created)` under `withFinanceServices` (`apps/api/test/finance-services-local.test.ts`: the program reaches that
+database from inside the app runtime, never the shared one):
 ```ts
 function onDb<A, E>(effect: Effect.Effect<A, E, AppServices>): Promise<A> {
   return runTest(effect.pipe(Database.withExecutor(db)));
 }
 const commitDraft = (input: CommitDraftInput) => onDb(ImportCommit.use((s) => s.commitDraft(input)));
 ```
-
-A test against a real socket opens the SSRF guard for ONE host and hands it back (`apps/api/test/import/url-import-local.test.ts`): a `Bun.serve` fixture on
-`127.0.0.1:0`, `setImportGuardForTests({ allowHosts: ["127.0.0.1"] })` in `beforeAll`, `setImportGuardForTests(null)` and `server.stop(true)` in `afterAll`, an
-explicit `URL_IMPORT_TEST_TIMEOUT_MS = 30_000` as the third argument of every `test(...)`, and a refusal proved by the status, `details.reason`, a
-`performance.now()` bound and the fixture's own request log (the redirect route hit once, nothing sent to `169.254.169.254`). Never the
-`IMPORT_ALLOW_PRIVATE_HOSTS` escape hatch: it skips every host check. `apps/api/test/import-order-effect.test.ts` gained three recipe service files and
-deliberately not the two route files (`docs/open-work.md` O-6).
-
-**As built (E4-T06):** `apps/api/test/finance-scheduler.test.ts` drives the real 6-hour tick with the `TestClock` over a
-migrated legacy fixture database handed in with `Database.withExecutor(run.target.db)`. `TestClock.adjust` makes the
-tick FIRE, but the catch-up's database I/O is real and settles after `adjust` returns, so the test polls in real time
-(`Effect.promise(() => Bun.sleep(10))`, a bounded number of rounds) instead of asserting right after `adjust`; a
-"nothing ran yet" assertion also waits a few real rounds first, so a wrongly early tick has time to show. The whole
-fork-adjust-poll sequence is ONE effect inside one `runTest(..., { clock: "test" })` (a new `TestClock` per run), with
-`stopAccrualSchedule()` in `Effect.ensuring`, and carries an explicit 60 s test timeout (load, as the sharp tests).
-
-**As built (E4):** three new test files and the rewrite rule. `apps/api/test/finance-services-local.test.ts` and
-`apps/api/test/finance-clock.test.ts` prove the local memo map: a finance program built with `withFinanceServices` and provided a PRIVATE
-`Database.layerFrom(created)` reaches that database from inside the app runtime, never the shared test DB (which has no `probe` table):
-
 ```ts
-function onPrivate<A, E>(effect: Effect.Effect<A, E, FinanceParticipants | FinanceSettings | Database>): Promise<A> {
+function onPrivate<A, E>(
+  effect: Effect.Effect<A, E, FinanceParticipants | FinanceSettings | Database>,
+): Promise<A> {
   return runTest(withFinanceServices(effect).pipe(Effect.provide(Database.layerFrom(created))));
 }
 ```
 
-A test that pins "now" through the seam (`setClockForTest(ms)`) hands it back in `afterEach` (F gotcha 4: never `mock.module`); a test of the
-scheduler moves a `TestClock` instead (the E4-T06 section above). Pinned finance tests (`finance-security.test.ts`, `legacy-finance.test.ts`,
-`finance-module.test.ts`, `finance-participants.test.ts`) keep calling the nine bridges, which run through `runFinanceBridge` on the handed
-executor; E5 and E8 rewrite them onto the services. The idioms test after E4: rule (10)'s allow list is empty and rule (11)'s `nowMs(` scan
-covers `apps/api/src/modules/finance/` (the one allowed line is the definition in `lib/clock.ts`), both failing a stale entry.
+Time is the `TestClock`. `apps/api/test/finance-scheduler.test.ts` drives the real 6-hour tick: `TestClock.adjust` makes the tick FIRE, but the
+catch-up's database I/O is real and settles after `adjust` returns, so the test polls in real time (`Effect.promise(() => Bun.sleep(...))`, a
+bounded number of rounds) instead of asserting right after `adjust`, and a "nothing ran yet" assertion waits a few real rounds first. The whole
+fork-adjust-poll sequence is ONE effect inside one `runTest(..., { clock: "test" })` (a new `TestClock` per run), with `stopAccrualSchedule()` in
+`Effect.ensuring` and an explicit timeout on the `test(...)`:
+```ts
+      await runTest(
+        Effect.gen(function* () {
+          yield* TestClock.setTime(Date.UTC(2026, 9, 15, 8, 59, 36));
+          yield* startAccrualSchedule();
+        }).pipe(Effect.ensuring(stopAccrualSchedule()), Database.withExecutor(run.target.db)),
+        { clock: "test" },
+      );
+```
+A test that pins "now" through the finance seam `setClockForTest(ms)` hands it back in `afterEach` (F gotcha 4: never `mock.module`).
+
+A test seam that stays in `src` (`setMailer`, `resetRateLimits`, `setVerifiedEmailRequired`, `setImportGuardForTests`,
+`setImportDbForTests`, `setRemoteImageDownloaderForTests`, `setClockForTest`, listed in `effect-services.md` section 7) is installed in a
+`beforeAll` / `withMailer` and handed back in `afterAll`. A test against a real socket opens the SSRF guard for ONE host
+(`apps/api/test/import/url-import-local.test.ts`): a `Bun.serve` fixture on `127.0.0.1:0`,
+`setImportGuardForTests({ allowHosts: ["127.0.0.1"] })` in `beforeAll`, `setImportGuardForTests(null)` and `server.stop(true)` in `afterAll`, an
+explicit `URL_IMPORT_TEST_TIMEOUT_MS` as the third argument of every `test(...)`. Never the `IMPORT_ALLOW_PRIVATE_HOSTS` escape hatch: it skips
+every host check.
+
+Golden parity (`packages/shared/test/parity/{core,finance,recipe}.parity.test.ts`, runner `runGolden` in `packages/shared/test/support/schema.ts`):
+the JSON under `packages/shared/test/fixtures/schema-golden/` was generated once from Zod 4.5.4 and is never regenerated; each case becomes a
+`test`. A known divergence is an id in an allow map with its reason, and the runner fails a listed id that does NOT diverge. Wire pins
+(`apps/api/test/validation-wire.test.ts`) drive a real route through `app.request` with a session cookie and `Accept-Language`.
+
+A test that runs `sharp` (`apps/api/test/thumbnails.test.ts`) takes an explicit budget, `SHARP_TEST_TIMEOUT_MS = 60_000`, as the third argument of
+`test(...)`; bun's 5 s default fails on a loaded host, and a failing gate log must keep its `(fail)` and `Unhandled error` lines.

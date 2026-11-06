@@ -26,7 +26,7 @@ export class ReservedPortError extends Schema.TaggedError<ReservedPortError>()("
   port: Schema.Int
 }) {}
 ```
-(`repos/effect/LLMS.md` "Error handling basics"; signature `Schema.TaggedError` in `packages/effect/src/Schema.ts`.) The first type
+(`repos/effect/LLMS.md` "Error handling basics"; signature `Schema.TaggedError` in `repos/effect/packages/effect/src/Schema.ts`.) The first type
 argument is the class itself; omitting it is a type error (`MissingSelfGeneric`). Fields are a struct-fields object or a `Schema.Struct`.
 
 Raise with `return yield*` inside a generator, so TypeScript sees that control stops:
@@ -108,7 +108,7 @@ Other combinators, each with its source signature in `Effect.ts`:
 - **Cause**: v4 `Cause<E>` is `{ reasons: ReadonlyArray<Fail<E> | Die | Interrupt> }`, flat. Inspect with `Cause.hasFails`, `Cause.hasDies`,
   `Cause.hasInterruptsOnly`, `Cause.findErrorOption(cause)` (`Option<E>`), `Cause.isFailReason(reason)`, `Cause.isDieReason(reason)`;
   render for a log with `Cause.pretty(cause)`; `Cause.squash(cause)` gives the one `unknown` value (error or defect) to report.
-- **The boundary** runs the effect with `runtime.runPromiseExit(effect)` (`ManagedRuntime`) or `Effect.runPromiseExit` and reads the `Exit`,
+- **The boundary** (in this repo an `HttpApiMiddleware`, section 7; the generic form is) runs the effect with `runtime.runPromiseExit(effect)` (`ManagedRuntime`) or `Effect.runPromiseExit` and reads the `Exit`,
   instead of letting `runPromise` reject:
 
 ```ts
@@ -165,142 +165,117 @@ Source: `migration/error-handling.md`, `migration/cause.md`.
 
 ## 7. In this repo
 
-- `apps/api/src/lib/errors.ts`: the error family: `Schema.TaggedError` classes with the `status`, `code` and `text` of the old `ApiError` class (E2; the `ApiError` class itself remains as a compatibility class and no code throws it, idioms rule (10)), plus one `toApiError` / `errorBody` mapper at the HTTP boundary (`ERROR_CODES` in `packages/shared` stays the wire
-  contract; "As built (E2)" below). Since E7 the boundary is the `ApiErrorBoundary` `HttpApiMiddleware` (tag in `apps/api/src/http/middleware.ts`, layer in `apps/api/src/http/response.ts`, outermost on every
-  `HttpApi`): it recovers the whole cause of a handler and renders the envelope, so a handler just does `return yield* new NotFound()`.
-- `apps/api/src/core/services/**` and `apps/api/src/modules/<id>/services/**`: methods are `Effect.fn("Service.method")` with the failures in
-  the signature; handlers recover with `Effect.catchTag(s)`. `apps/api/src/runtime.ts` (E0) is the one `ManagedRuntime`; since E7 the HTTP server's own fiber runs the handlers on its services.
-- `apps/api/test/effect-idioms.test.ts` pins "no `Context.Tag(`" and, since E2, rule (10) "no `throw ApiError` outside the recipe and finance prefixes".
-- Tests assert a failure with `Effect.flip` or `Effect.exit` + `Exit.isFailure`; a defect shows up as `Cause.hasDies`.
+Where it lives:
+- `apps/api/src/lib/errors.ts`: the error family, one `Schema.TaggedError` per HTTP refusal (`BadRequest`, `Unauthorized`,
+  `InvalidCredentials`, `Forbidden`, `NotFound`, `Conflict`, `PayloadTooLarge`, `UnsupportedMediaType`, `ValidationFailed`, `Internal`,
+  `RateLimited` with `Retry-After`, and the generic `ApiFailure` with `status`, `code`, `text`, `details`), the union `ApiErrorFamily`,
+  `isApiError` (a `Predicate` over the tags, no `instanceof`), `toApiError(unknown, locale)`, `errorBody`, `logBoundaryFailure`,
+  `routeUnknown`. `DatabaseError` (`cause: Schema.Defect()`) sits OUTSIDE the family. `ERROR_CODES` in `packages/shared` stays the wire
+  contract. The pre-E2 `ApiError` class is not in `src`: the pinned tests that still say `instanceof ApiError` import it from
+  `apps/api/test/support/bridges/api-error.ts`, where it defers to `isApiError`.
+- `apps/api/src/http/response.ts`: the ONE boundary. `ApiErrorBoundaryLayer` implements the `ApiErrorBoundary` `HttpApiMiddleware`
+  (tag in `apps/api/src/http/middleware.ts`, outermost on every `HttpApi`): it recovers the whole cause of a handler (an interruption
+  passes through) and `errorResponse` renders the envelope once, with `Retry-After` for `RateLimited`. A handler just does
+  `return yield* new NotFound()`.
+- `apps/api/src/core/services/**` and `apps/api/src/modules/<id>/services/**`: methods are `Effect.fn("Service.method")` with the
+  failures in the signature; callers recover with `Effect.catchTag(s)`.
+- `packages/shared/src/core/i18n/issues.ts` (`toValidationIssues`) and `apps/api/src/lib/validate.ts`: a `Schema.SchemaError` is thrown by
+  the synchronous decode and mapped once, by `toApiError`, to `422 validation_failed`.
+- Pinned by `apps/api/test/errors.test.ts` (the mapper and the 5xx log line), `apps/api/test/effect-idioms.test.ts` (rule (10): no
+  `throw ApiError`; rules (16) and (17): `return yield*`, tagged errors) and `apps/api/test/oauth-callback.test.ts` (a defect still
+  redirects with `oauth_failed`).
 
-Rule served: **E6** ("Errors are tagged, typed and mapped once"; defects logged in English and answered as the same `500 internal_error`;
-handlers `Effect.catchTag(s)`, never `instanceof`), with **E12** for the idioms (`Schema.TaggedError`, `return yield*`).
+Rule served: **E6** ("Errors are tagged, typed and mapped once"; defects logged in English and answered as the same `500
+internal_error`; handlers `Effect.catchTag(s)`, never `instanceof`), with **E12** for the idioms (`Schema.TaggedError`, `return yield*`).
 
-**As built (E0):** there is no tagged error in the repo yet (`ApiError` is untouched until E2). What E0 proves is the
-defect side: after `ManagedRuntime.dispose`, `runPromise` REJECTS with the plain string `"ManagedRuntime disposed"`
-(the squashed `Effect.die`, not an `Error`, so `instanceof Error` is false), while `runPromiseExit` resolves to
-`Exit.isFailure(exit)` with `Cause.hasDies(exit.cause)` and `Cause.squash(exit.cause) === "ManagedRuntime disposed"`
-(`apps/api/test/runtime.test.ts`, test d). The E6 boundary mapper must therefore treat a non-`Error` rejection as a
-defect and answer `500 internal_error`, never read `.message` off it.
-
-**As built (E1):** the first Effect error on the wire is a library one, `Schema.SchemaError`, and it is THROWN, not failed: the
-API decodes synchronously (`Schema.decodeUnknownSync(schema, ALL_ISSUES)` in `apps/api/src/lib/validate.ts`) and `toApiError`
-in `apps/api/src/lib/errors.ts` maps it once, with the library's guard instead of `instanceof`:
+The boundary is a layer over the whole cause. `apps/api/src/http/response.ts`:
 ```ts
-if (Schema.isSchemaError(error)) {
-  return ApiError.validationFailed(toValidationIssues(error.issue, locale));
+export const ApiErrorBoundaryLayer: Layer.Layer<ApiErrorBoundary> = Layer.succeed(ApiErrorBoundary)((httpEffect) =>
+  Effect.catchCause(httpEffect, (cause) =>
+    Cause.hasInterruptsOnly(cause) ? Effect.failCause(cause) : errorResponse(Cause.squash(cause)),
+  ),
+);
+```
+and the one mapper, `apps/api/src/lib/errors.ts`: a family member renders as itself, a `SchemaError` is the `422` arm, and everything else (a
+`DatabaseError`, a defect, a non-`Error` value such as the string `"ManagedRuntime disposed"`) is `500 internal_error`:
+```ts
+export function toApiError(error: unknown, locale: Locale): ApiErrorFamily {
+  if (isApiError(error)) return error;
+
+  if (Schema.isSchemaError(error)) {
+    return new ValidationFailed({ details: toValidationIssues(error.issue, locale) });
+  }
+
+  return new Internal();
 }
 ```
-`error.issue` is the `SchemaIssue.Issue` tree; the adapter `packages/shared/src/core/i18n/issues.ts` walks it and never reads an
-Effect message (E4: the wording is the catalog's). `Schema.decodeUnknownResult` returns the same issue as `result.failure.issue`
-for callers that must not throw (tests, web forms). Never log a `SchemaError` built with `reportInput: true` (it can carry
-secrets). E2 puts the tagged `ApiError` family beside this branch and turns the `instanceof ApiError` line into `catchTag`;
-the `SchemaError` branch stays and becomes the `422 validation_failed` arm.
+A 5xx family member logs `[api] <METHOD> <path> -> <status> <code>: <English message>` plus its stack (`logBoundaryFailure`; a tagged error
+passed to `console.error` alone prints Bun's object dump, not a line); a 4xx warns outside production.
 
-**As built (E2):** `apps/api/src/lib/errors.ts` holds the family (plan `docs/plans/e2-api-core-services.md` P4): `BadRequest`,
-`Unauthorized`, `InvalidCredentials`, `Forbidden`, `NotFound`, `Conflict`, `PayloadTooLarge`, `UnsupportedMediaType`,
-`ValidationFailed`, `Internal`, `RateLimited` and the generic `ApiFailure` (`status`, `code`, `text`, `details`), the union type
-`ApiErrorFamily`, `isApiError` (a `Predicate` over the tags, no `instanceof`), `toApiError(unknown, locale)`, `errorBody(error,
-locale)`, `onErrorHandler`, `notFoundHandler`; `DatabaseError` (`cause: Schema.Defect()`) sits OUTSIDE the family. Raise with
-`return yield* new NotFound()` / `new NotFound({ text })` / `new Conflict({ code: "email_taken", text })` / `new ApiFailure({ status,
-code, text })` / `new RateLimited({ retryAfterSeconds })` (the mapper sets `Retry-After`). What the source showed while building it:
-- **A `Schema.TaggedError` constructor validates and THROWS** (`makeClass` in `Schema.ts` calls `struct.make(input, options)`; a
-  failure is `Error("Schema validation failed")` with the issue as `cause`). Inside an error path that would turn into a 500, so the
-  field schemas are permissive: `Schema.Number`, `Schema.String`, `text` a `Schema.declare<ErrorText>` that accepts any string or
-  object, `details: Schema.optional(Schema.Unknown)` (an explicit `undefined` included).
-- **`{ disableChecks: true }` (the second constructor argument, `MakeOptions`) skips only `.check(...)` refinements**, not the field
-  TYPES: `new E({ n: "x" }, { disableChecks: true })` with `n: Schema.Number` still throws. Permissive schemas are the real guarantee.
-- **Constructor defaults:** `text: Text.pipe(Schema.withConstructorDefault(Effect.succeed("server.error.notFound")))` makes the key
-  optional in the constructor input (`new NotFound()` works) while the instance type keeps it required; no `optionalKey` needed.
-- **Fixed per-class values are plain class fields** (`readonly status = 404; readonly code = "not_found"`), never schema fields, and
-  never a bare `readonly x: T` redeclaration of a schema field (with ES2022 class fields it would overwrite the constructor's value
-  with `undefined`).
-- **`message`:** the class passes `args.message` to `Error`, so a family without a `message` field has none of its own; an
-  `override get message(): string { return serverText("en", this.text) }` on each class gives the English log text (TS accepts the
-  accessor because `Error.message` is declared in an interface). The class `name` is the identifier (the tag).
-- **The legacy `ApiError extends ApiFailure`** keeps the positional constructor (it calls `super({ status, code, text, details },
-  { disableChecks: true })`), the ten helpers and `toBody`, sets `name = "ApiError"`, and has `static override
-  [Symbol.hasInstance](u): u is ApiError { return isApiError(u) }`, so `x instanceof ApiError` holds for every family member (TS
-  5.3+ narrows through it; only a legacy instance really has `toBody`, so code that may see a tagged member uses `errorBody`).
-- **The sync bridges:** `Effect.runSync(effect)` throws `Cause.squash(cause)`, i.e. the tagged error itself
-  (`internal/effect.ts` `runSyncWith`); `requireUser(c)` is `Effect.runSync(currentUser(c))` with the explicit return type `User`.
-- **Hono's `compose` passes only `Error` instances to `onError`**; a thrown non-`Error` (the string `"ManagedRuntime disposed"`)
-  is rethrown by Hono, so `toApiError` maps it to `Internal` for callers outside Hono, and a route never lets one escape (E2-era finding; Hono is gone since E7).
-- **Bun's `expect(() => new X()).not.toThrow()` fails when the arrow RETURNS an Error**; construct outside the arrow
-  (`apps/api/test/errors.test.ts`).
+What the source showed while building the family:
+- **A `Schema.TaggedError` constructor validates and THROWS** (`makeClass` in `repos/effect/packages/effect/src/Schema.ts` calls
+  `struct.make(input, options)`; a failure is `Error("Schema validation failed")` with the issue as `cause`). Inside an error path that
+  would turn into a 500, so the field schemas are permissive: `Schema.Number`, `Schema.String`, `text` a `Schema.declare<ErrorText>` that
+  accepts any string or object, `details: Schema.optional(Schema.Unknown)` (an explicit `undefined` included).
+- **`{ disableChecks: true }` (the second constructor argument, `MakeOptions`) skips only `.check(...)` refinements**, not the field TYPES:
+  permissive schemas are the real guarantee.
+- **Constructor defaults:** `text: Text.pipe(Schema.withConstructorDefault(Effect.succeed("server.error.notFound")))` makes the key optional
+  in the constructor input (`new NotFound()` works) while the instance type keeps it required.
+- **Fixed per-class values are plain class fields** (`readonly status = 404; readonly code = "not_found"`), never schema fields, and never a
+  bare `readonly x: T` redeclaration of a schema field (with ES2022 class fields it would overwrite the constructor's value with `undefined`).
+- **`message`:** an `override get message(): string { return serverText("en", this.text) }` on each class gives the English log text.
+- **Catch-all sites keep `Effect.catchCause`.** `Effect.catch` and `Effect.catchTag(s)` never see a synchronous throw or an `Effect.promise`
+  rejection (defects); the OAuth callback, `sendVerificationLinkQuietly`, `verifyPassword`, `trySendMail`, the expired-token sweeps and the
+  thumbnail generation use `Effect.catchCause` / `Effect.ignoreCause` and `Cause.squash(cause)` for the old `catch (error)` value.
+- **Bun's `expect(() => new X()).not.toThrow()` fails when the arrow RETURNS an Error**; construct outside the arrow.
 
-**As built (E2, integration):** `grep -rnE 'throw (new )?ApiError' apps/api/src` is now only `apps/api/src/modules/recipe/` and
-`apps/api/src/modules/finance/` (idioms rule (10), pinned allow list that E3 and E4 empty). Catch-all sites are the ones that went
-wrong in review, so keep them in mind when converting a `try { … } catch`: `Effect.catch` and `Effect.catchTag(s)` never see a synchronous
-throw or an `Effect.promise` rejection (defects); the OAuth callback, `sendVerificationLinkQuietly`, `verifyPassword`, `trySendMail`,
-the expired-token sweeps and the thumbnail generation all use `Effect.catchCause` / `Effect.ignoreCause` and `Cause.squash(cause)` for
-the old `catch (error)` value. `apps/api/test/oauth-callback.test.ts` pins the callback (a defect still redirects with `oauth_failed`).
-
-**As built (E2, review):** a 5xx family member logs the line the pre-E2 handler logged, `[api] <METHOD> <path> -> <status> <code>: <English
-message>` plus its stack (`apps/api/src/lib/errors.ts` `onErrorHandler`; a tagged error passed to `console.error` alone prints Bun's object
-dump, not a line); a raw defect and a `DatabaseError` (its `cause`) log as before. `apps/api/test/errors.test.ts` pins it.
-
-**In this repo (E2 example):** `apps/api/src/core/services/households/households.service.ts`, a refusal is the tagged error returned from
-the generator, with the catalog key as `text` and, where the wire code is not the class default, the `code`:
+A refusal is the tagged error returned from the generator, with the catalog key as `text` and, where the wire code is not the class
+default, the `code` (`apps/api/src/core/services/households/households.service.ts`):
 ```ts
-const loadHouseholdRow = Effect.fn("Households.loadHouseholdRow")(function* (householdId: string) {
-  const [row] = yield* database.use((db) => db.select().from(households).where(eq(households.id, householdId)).limit(1));
-  if (!row) return yield* new NotFound({ text: "server.group.notFound" });
-  return row;
-});
-// elsewhere: return yield* new Conflict({ code: "group_name_taken", text: "server.group.nameTaken" });
+      const loadHouseholdRow = Effect.fn("Households.loadHouseholdRow")(function* (householdId: string) {
+        const [row] = yield* database.use((db) =>
+          db.select().from(households).where(eq(households.id, householdId)).limit(1),
+        );
+        if (!row) return yield* new NotFound({ text: "server.group.notFound" });
+        return row;
+      });
+```
+A dedicated code with details is an `ApiFailure` (`apps/api/src/modules/finance/services/ledger/settlements.service.ts`, `409 balance_stale`
+with the current balance):
+```ts
+              return yield* new ApiFailure({
+                status: 409,
+                code: "balance_stale",
+                text: { key: "server.balance.stale", values: { amount: formatCents(currentBalanceCents) } },
+                details: { currentBalanceCents },
+              });
 ```
 A test reads the failure with `Effect.flip` (`apps/api/test/modules.test.ts`: `expect(await runTest(Effect.flip(enable(undefined)))).toBe(refusal)`).
 
-**As built (E3):** the recipe module raises only the family (`NotFound`, `Conflict`, `ValidationFailed`, `ApiFailure`; no `ApiError` is named under
-`apps/api/src/modules/recipe/`). Two shapes are new. A Promise from a test seam (`setOcrEngine`, `setPdfRasterizer`) keeps its Promise contract and
-enters Effect through `apps/api/src/modules/recipe/services/ocr/seam.ts`: a rejection that is a family member stays a typed failure, ANY other
-rejection is a defect carrying the original object (the route answers `500` and `runPromise` rejects with the very error the old code propagated):
-
+A Promise from a test seam (`setOcrEngine`, `setPdfRasterizer`) keeps its Promise contract and enters Effect through
+`apps/api/src/modules/recipe/services/ocr/seam.ts`: a rejection that is a family member stays a typed failure, ANY other rejection is a
+defect carrying the original object:
 ```ts
 export const fromSeamPromise = <A>(evaluate: (signal: AbortSignal) => PromiseLike<A>): Effect.Effect<A, OcrFailure> =>
   Effect.tryPromise({ try: evaluate, catch: (cause) => cause }).pipe(
+    // `orDie` turns the typed failure into a defect whose value is `cause` itself.
     Effect.catch((cause) => (isApiError(cause) ? Effect.fail(cause) : Effect.orDie(Effect.fail(cause)))),
   );
 ```
 
-The SSRF guard's `SsrfError` is a `Schema.TaggedError` OUTSIDE the family (`services/import/url/ssrf.ts`): the URL importer maps it once to
-`ApiFailure({ status: 400, code: "fetch_failed", text, details: { reason } })`, so the wire stays `400 fetch_failed` with `details.reason`
-(`private_ip` for a redirect into `169.254.169.254`, asserted by `apps/api/test/import/url-import-local.test.ts`). The one tolerated `throw` left
-in recipe code is the `NODE_ENV=test` guard of a test seam (`setImportGuardForTests`, `setImportDbForTests`, `setRemoteImageDownloaderForTests`): a
-seam is a plain synchronous function called outside any effect.
+The SSRF guard's `SsrfError` is a `Schema.TaggedError` OUTSIDE the family (`apps/api/src/modules/recipe/services/import/url/ssrf.ts`): the
+URL importer maps it once to `ApiFailure({ status: 400, code: "fetch_failed", text, details: { reason } })`.
 
-**As built (E4):** the finance module raises only the family too (no `ApiError` is named in finance code outside comments; idioms rule (10)
-is empty). A dedicated error code that a Zod `.refine()` could not carry (F gotcha 48) is an `ApiFailure` with `details`, raised with
-`return yield*`. From `apps/api/src/modules/finance/services/ledger/settlements.service.ts` (`409 balance_stale` with the current balance):
-
+A database failure inside a service is a `DatabaseError`, so the places that used to read the raw driver error unwrap its `cause`. The
+catch-all of the booking transaction (`apps/api/src/modules/finance/services/plan/accrual.service.ts`) recovers the WHOLE cause, lets an
+interruption through untouched and re-fails with the same cause; `accrual_runs.error` stores the error NAME only (the driver's message
+carries the failed SQL with its bound parameters, F gotcha 73):
 ```ts
-return yield* new ApiFailure({
-  status: 409,
-  code: "balance_stale",
-  text: { key: "server.balance.stale", values: { amount: formatCents(currentBalanceCents) } },
-  details: { currentBalanceCents },
-});
+                if (Cause.hasInterruptsOnly(cause)) return yield* Effect.failCause(cause);
+                const squashed = Cause.squash(cause);
+                const original = isDatabaseError(squashed) ? squashed.cause : squashed;
+                yield* Effect.sync(() => console.error(`[plan] catch-up failed for household ${householdId}:`, original));
+                const marker = Predicate.isError(original) ? `${original.name}: see server log` : "unknown error: see server log";
+                yield* recordRun(householdId, options.trigger, from, to, 0, 0, 0, marker, startedAt);
+                return yield* Effect.failCause(cause);
 ```
-
-A database failure inside a service is a `DatabaseError` (OUTSIDE the family), so the places that used to read the raw driver error unwrap
-its `cause`: the bridges reject with it (`isDatabaseError(error) ? error.cause : error`, `plan-run.ts` prints `error.message`), and the
-accrual's audit marker and its log line take the original, not the wrapper. The catch-all of the booking transaction
-(`services/plan/accrual.service.ts`) recovers the WHOLE cause, lets an interruption through untouched (no log line, no audit row) and
-re-fails with the same cause:
-
-```ts
-Effect.catchCause((cause) =>
-  Effect.gen(function* () {
-    if (Cause.hasInterruptsOnly(cause)) return yield* Effect.failCause(cause);
-    const squashed = Cause.squash(cause);
-    const original = isDatabaseError(squashed) ? squashed.cause : squashed;
-    yield* Effect.sync(() => console.error(`[plan] catch-up failed for household ${householdId}:`, original));
-    const marker = Predicate.isError(original) ? `${original.name}: see server log` : "unknown error: see server log";
-    yield* recordRun(householdId, options.trigger, from, to, 0, 0, 0, marker, startedAt);
-    return yield* Effect.failCause(cause);
-  }),
-)
-```
-
-`accrual_runs.error` stores the error NAME only (the driver's message carries the failed SQL with its bound parameters, F gotcha 73).
