@@ -96,7 +96,7 @@ The services (`Context.Service` classes, each with a static `layer` over `effect
 | --- | --- | --- |
 | `CalendarMembers` | `apps/api/src/modules/calendar/services/members.ts` | `list(householdId)`: `CalendarMember[]` in join order with `colorIndex` and `hasAccount`; `assertMembers(householdId, ids, path)`: the `422 memberNotInHousehold` at `<path>.<i>`. |
 | `CalendarResources` | `apps/api/src/modules/calendar/services/entries/resources.service.ts` | Cars: list, create, update (archive from the Clock), remove (`409 calendar_resource_in_use`), `assertBookable` (another household's car 404, an archived own car 422 at `resourceId`). |
-| `CalendarCarConflicts` | `apps/api/src/modules/calendar/services/entries/conflicts.service.ts` | `check(householdId, candidate, excludeEntryId)`: half-open wall-time intervals, all-day covers its whole days, recurring bookings over 366 days from the start, skipped occurrences block nothing; at most 10 conflicts by date. |
+| `CalendarCarConflicts` | `apps/api/src/modules/calendar/services/entries/conflicts.service.ts` | `check(householdId, candidate, excludeEntryId)`: half-open wall-time intervals, all-day covers its whole days, recurring bookings over 366 days from the later of their start and the client's `today` (the request's optional `today`), skipped occurrences block nothing; at most 10 conflicts by date. |
 | `CalendarEntries` | `apps/api/src/modules/calendar/services/entries/entries.service.ts` | list (never the waste entries), get, create, update (merge-then-validate, orphan marks deleted), remove; the P8 refusals of imported waste entries. |
 | `CalendarOccurrences` | `apps/api/src/modules/calendar/services/entries/occurrences.service.ts` | `list(householdId, query)` → `{ items, members }` with the P4 caps and the P10 filters and order; `setStatus` (P12). |
 | `WastePdfText` | `apps/api/src/modules/calendar/services/waste/pdf-text.ts` | The flyer's text items with their marked-content section (section 1.9). |
@@ -358,6 +358,10 @@ section 10 has the full list):
   warning.
 - **A PATCH re-runs the car conflict check only when the schedule or the car changed** (M8-T05): a note edit on a
   booking saved with `allowConflict` is not refused again.
+- **The conflict horizon starts at the client's today** (M8 review fix): P11 anchored a recurring booking's 366 days at
+  its start, so editing a series that began over a year ago was checked against past dates only. Create and PATCH take
+  an optional `today` (context, never stored; the web sends it with every car booking) and the window starts at the
+  later of the start and `today`; a single booking is checked over its own days.
 - **The Übersicht member filter runs on the client** with the P10 rule (`matchesMember`): one occurrence query serves the
   list, the Today card and the offline copy; `CalendarApi.fetchOccurrences` still supports `memberId`.
 

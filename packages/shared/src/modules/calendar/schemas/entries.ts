@@ -79,6 +79,11 @@ const entryFields = {
   resourceId: Schema.optional(Schema.NullOr(IdSchema)),
   /** Car bookings: save even when the car is taken (the conflict notice offers this). */
   allowConflict: Schema.optional(Bool),
+  /**
+   * The client's today (the server never decides it): a recurring car booking is checked for conflicts from the later
+   * of its start and this day (P11). Absent: from its start. Context, never stored.
+   */
+  today: Schema.optional(CalendarDateSchema),
 };
 
 type CreateFields = {

@@ -39,8 +39,8 @@ import { CalendarCarConflicts } from "./conflicts.service.ts";
 import { CalendarResources } from "./resources.service.ts";
 import { type EntryRecord, loadEntryOr404, loadEntryRecords, loadStates, seriesOf, toEntryDto, weekdaysToColumn } from "./rows.ts";
 
-/** The keys a PATCH of an imported waste entry may carry (P8); `allowConflict` is a flag, not a field. */
-const WASTE_PATCH_KEYS: ReadonlySet<string> = new Set(["notes", "assigneeMode", "assigneeIds", "allowConflict"]);
+/** The keys a PATCH of an imported waste entry may carry (P8); `allowConflict` and `today` are context, not fields. */
+const WASTE_PATCH_KEYS: ReadonlySet<string> = new Set(["notes", "assigneeMode", "assigneeIds", "allowConflict", "today"]);
 
 /** The create-shaped fields the merge of P7 overlays (every create field but `kind` and the flag). */
 const MERGE_KEYS = [
@@ -192,14 +192,25 @@ export class CalendarEntries extends Context.Service<
       const checkEntry = Effect.fnUntraced(function* (
         householdId: string,
         entry: NormalisedEntry,
-        options: { readonly resourceChanged: boolean; readonly scheduleChanged: boolean; readonly excludeEntryId: string | null },
+        options: {
+          readonly resourceChanged: boolean;
+          readonly scheduleChanged: boolean;
+          readonly excludeEntryId: string | null;
+          /** The client's today: a recurring booking is checked from here on (P11). */
+          readonly today: string | null;
+        },
       ) {
         yield* members.assertMembers(householdId, entry.attendeeIds, "attendeeIds");
         yield* members.assertMembers(householdId, entry.assigneeIds, "assigneeIds");
         if (entry.kind !== "car" || entry.resourceId === null) return;
         if (options.resourceChanged) yield* resources.assertBookable(householdId, entry.resourceId);
         if (entry.allowConflict || !(options.resourceChanged || options.scheduleChanged)) return;
-        const found = yield* conflicts.check(householdId, { ...entry, resourceId: entry.resourceId }, options.excludeEntryId);
+        const found = yield* conflicts.check(
+          householdId,
+          { ...entry, resourceId: entry.resourceId },
+          options.excludeEntryId,
+          options.today,
+        );
         if (found.length > 0) {
           return yield* new ApiFailure({ status: 409, code: "calendar_car_conflict", text: "server.calendar.carConflict", details: found });
         }
@@ -224,7 +235,12 @@ export class CalendarEntries extends Context.Service<
         body: CreateCalendarEntryRequest,
       ) {
         const entry = normalise(body);
-        yield* checkEntry(householdId, entry, { resourceChanged: true, scheduleChanged: true, excludeEntryId: null });
+        yield* checkEntry(householdId, entry, {
+          resourceChanged: true,
+          scheduleChanged: true,
+          excludeEntryId: null,
+          today: body.today ?? null,
+        });
         const now = yield* Clock.currentTimeMillis;
         const id = crypto.randomUUID();
         yield* database.transaction(
@@ -293,7 +309,7 @@ export class CalendarEntries extends Context.Service<
             repeat: seriesOf(row).repeat,
           });
         const resourceChanged = entry.resourceId !== row.resourceId;
-        yield* checkEntry(householdId, entry, { resourceChanged, scheduleChanged, excludeEntryId: entryId });
+        yield* checkEntry(householdId, entry, { resourceChanged, scheduleChanged, excludeEntryId: entryId, today: body.today ?? null });
 
         const now = yield* Clock.currentTimeMillis;
         yield* database.transaction(

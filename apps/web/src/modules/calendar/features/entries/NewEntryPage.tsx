@@ -12,7 +12,7 @@ import { memberMap } from "@/modules/calendar/lib/people";
 import { useCreateEntry } from "@/modules/calendar/lib/queries";
 import { CarConflictNotice } from "./components/CarConflictNotice";
 import { EntryForm } from "./components/EntryForm";
-import { emptyFormState, isEntryKind, toCreateBody } from "./lib/form";
+import { emptyFormState, isEntryKind, toCreateBody, withSaveContext } from "./lib/form";
 import { useEntryEditor } from "./lib/use-entry-submit";
 
 export function NewEntryPage() {
@@ -28,8 +28,7 @@ export function NewEntryPage() {
     initial: emptyFormState(isEntryKind(search.kind) ? search.kind : "event", search.date, today),
     pending: create.isPending,
     send: ({ state, allowConflict }, callbacks) => {
-      const body = toCreateBody(state);
-      create.mutate(allowConflict ? { ...body, allowConflict: true } : body, callbacks);
+      create.mutate(withSaveContext(toCreateBody(state), state.kind, today, allowConflict), callbacks);
     },
     successMessage: t("calendar.entries.toast.created"),
     destination: (entry) => ({ to: "/calendar/entries/$entryId", params: { entryId: entry.id }, search: { date: entry.startDate } }),

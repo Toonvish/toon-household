@@ -161,6 +161,19 @@ export function toUpdateBody(state: EntryFormState, imported: boolean): UpdateCa
   return rest;
 }
 
+/**
+ * What a save adds to its body: the client's `today` for a car booking (its conflict check starts there, so an edit of
+ * a long-running series is checked against the coming year, P11) and the "Trotzdem buchen" flag.
+ */
+export function withSaveContext<B extends object>(
+  body: B,
+  kind: CalendarEntryKind,
+  today: string,
+  allowConflict: boolean,
+): B & { today?: string; allowConflict?: boolean } {
+  return { ...body, ...(kind === "car" ? { today } : {}), ...(allowConflict ? { allowConflict: true } : {}) };
+}
+
 /** The series a draft describes, for the next-dates preview (null while the draft is not a valid rhythm). */
 export function draftSeries(state: EntryFormState) {
   if (state.freq === "none" || !isCalendarDate(state.startDate)) return null;

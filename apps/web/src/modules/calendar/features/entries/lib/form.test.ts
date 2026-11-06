@@ -14,6 +14,7 @@ import {
   toCreateBody,
   toUpdateBody,
   withKind,
+  withSaveContext,
 } from "./form";
 
 const TODAY = "2026-11-11";
@@ -101,6 +102,14 @@ describe("edit", () => {
     const body = toUpdateBody({ ...formStateFromEntry({ ...entry, title: "Bad", category: null, wasteImportId: null }) }, false);
     expect("kind" in body).toBe(false);
     expect(body.title).toBe("Bad");
+  });
+
+  test("a car booking carries the client's today for its conflict check; other kinds do not (P11)", () => {
+    expect(withSaveContext({ title: "Fahrt" }, "car", TODAY, false)).toEqual({ title: "Fahrt", today: TODAY });
+    expect(withSaveContext({ title: "Fahrt" }, "car", TODAY, true)).toEqual({ title: "Fahrt", today: TODAY, allowConflict: true });
+    expect(withSaveContext({ notes: "x" }, "task", TODAY, false)).toEqual({ notes: "x" });
+    const car = { ...emptyFormState("car", TODAY, TODAY), title: "Fahrt", attendeeIds: [A], resourceId: CAR };
+    expect(validate(CreateCalendarEntryRequestSchema, withSaveContext(toCreateBody(car), "car", TODAY, false)).ok).toBe(true);
   });
 
   test("an occurrence keeps the series' length", () => {

@@ -175,6 +175,55 @@ describe("recurring bookings", () => {
   });
 });
 
+describe("the client's today anchors a recurring booking's horizon", () => {
+  const patch = (id: string, payload: unknown) =>
+    call(calendarPath(householdId, `/entries/${id}`), { method: "PATCH", cookie: owner.cookie, body: payload });
+
+  test("editing a series that started over a year ago is checked against the coming year", async () => {
+    const car = await newCar();
+    // 2025-01-02 is a Thursday; the series runs on, and today is 2026-11-06.
+    const series = await book(
+      booking(car, { startDate: "2025-01-02", startTime: "10:00", endTime: "11:00", repeat: { freq: "weekly" } }),
+    );
+    // A single booking on a Thursday after today, 07:00-09:00: no overlap with 10:00-11:00.
+    const single = await book(booking(car, { startDate: "2026-11-12", startTime: "07:00", endTime: "09:00" }));
+    const longer = { startTime: "07:00", endTime: "18:00" };
+    // With the client's today the window starts there, so the coming Thursday is found.
+    const refused = await patch(series, { ...longer, today: "2026-11-06" });
+    expect(refused.status).toBe(409);
+    const conflicts = (await body<ErrorBody>(refused)).error.details ?? [];
+    expect(conflicts.map((conflict) => [conflict.entryId, conflict.date])).toEqual([[single, "2026-11-12"]]);
+    // Without it (an older client) the window is the series start's year, which lies in the past.
+    expect((await patch(series, longer)).status).toBe(200);
+  });
+
+  test("a new recurring booking that starts in the past is checked from today", async () => {
+    const car = await newCar();
+    const single = await book(booking(car, { startDate: "2026-11-12", startTime: "07:00", endTime: "09:00" }));
+    const old = booking(car, { startDate: "2025-01-02", startTime: "08:00", endTime: "12:00", repeat: { freq: "weekly" } });
+    const found = await conflictsOf(await post({ ...old, today: "2026-11-06" }));
+    expect(found.map((conflict) => [conflict.entryId, conflict.date])).toEqual([[single, "2026-11-12"]]);
+  });
+
+  test("a series that ended before today has nothing left to check; a single booking ignores today", async () => {
+    const car = await newCar();
+    await book(booking(car, { startDate: "2026-03-05", startTime: "08:00", endTime: "12:00" }));
+    const ended = booking(car, {
+      startDate: "2026-01-01",
+      startTime: "07:00",
+      endTime: "09:00",
+      repeat: { freq: "weekly", until: "2026-04-30" },
+    });
+    // The past series overlaps the 2026-03-05 booking, but nothing of it is left after today.
+    expect(await conflictsOf(await post({ ...ended, today: "2026-11-06" }))).toEqual([]);
+    // A single booking in the past is still checked over its own day.
+    const past = await conflictsOf(
+      await post(booking(car, { startDate: "2026-03-05", startTime: "09:00", endTime: "10:00", today: "2026-11-06" })),
+    );
+    expect(past.length).toBe(1);
+  });
+});
+
 describe("PATCH and allowConflict", () => {
   test("a PATCH never conflicts with itself, but with the others; a note change is no new check", async () => {
     const car = await newCar();
@@ -218,6 +267,7 @@ describe("PATCH and allowConflict", () => {
             repeat: { freq: "none", interval: 1, weekdays: [], until: null },
           },
           null,
+          null,
         ),
       ),
     );
@@ -236,6 +286,7 @@ describe("PATCH and allowConflict", () => {
             repeat: { freq: "none", interval: 1, weekdays: [], until: null },
           },
           first,
+          null,
         ),
       ),
     );

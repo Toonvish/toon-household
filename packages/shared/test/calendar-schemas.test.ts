@@ -141,13 +141,20 @@ const CASES: Record<string, { readonly schema: Decodable; readonly ok: ReadonlyA
   },
   CreateCalendarEntryRequestSchema: {
     schema: CreateCalendarEntryRequestSchema,
-    ok: [{ kind: "event", title: "Zahnarzt", allDay: false, startDate: "2027-01-05", startTime: "08:00" }],
-    bad: [{ kind: "event", title: "", allDay: true, startDate: "2027-01-05" }, { kind: "event", title: "x", allDay: false, startDate: "2027-01-05" }],
+    ok: [
+      { kind: "event", title: "Zahnarzt", allDay: false, startDate: "2027-01-05", startTime: "08:00" },
+      { kind: "event", title: "Zahnarzt", allDay: true, startDate: "2027-01-05", today: "2026-11-06" },
+    ],
+    bad: [
+      { kind: "event", title: "", allDay: true, startDate: "2027-01-05" },
+      { kind: "event", title: "x", allDay: false, startDate: "2027-01-05" },
+      { kind: "event", title: "x", allDay: true, startDate: "2027-01-05", today: "2026-11-31" },
+    ],
   },
   UpdateCalendarEntryRequestSchema: {
     schema: UpdateCalendarEntryRequestSchema,
-    ok: [{}, { notes: null }, { title: "Neu", allowConflict: true }],
-    bad: [{ title: "" }, { startDate: "2027-02-30" }],
+    ok: [{}, { notes: null }, { title: "Neu", allowConflict: true }, { startTime: "07:00", today: "2026-11-06" }],
+    bad: [{ title: "" }, { startDate: "2027-02-30" }, { today: "06.11.2026" }],
   },
   CalendarEntrySchema: { schema: CalendarEntrySchema, ok: [entry], bad: [{ ...entry, title: undefined }, { ...entry, kind: "chore" }] },
   CalendarEntryListQuerySchema: {

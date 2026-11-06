@@ -16,7 +16,7 @@ import { memberMap } from "@/modules/calendar/lib/people";
 import { entryQuery, useUpdateEntry } from "@/modules/calendar/lib/queries";
 import { CarConflictNotice } from "./components/CarConflictNotice";
 import { EntryForm } from "./components/EntryForm";
-import { formStateFromEntry, toUpdateBody } from "./lib/form";
+import { formStateFromEntry, toUpdateBody, withSaveContext } from "./lib/form";
 import { useEntryEditor } from "./lib/use-entry-submit";
 
 export function EditEntryPage() {
@@ -35,8 +35,7 @@ export function EditEntryPage() {
     pending: update.isPending,
     skipDraftCheck: imported,
     send: ({ state, allowConflict }, callbacks) => {
-      const body = toUpdateBody(state, imported);
-      update.mutate({ entryId, body: allowConflict ? { ...body, allowConflict: true } : body }, callbacks);
+      update.mutate({ entryId, body: withSaveContext(toUpdateBody(state, imported), state.kind, today, allowConflict) }, callbacks);
     },
     successMessage: t("calendar.entries.toast.saved"),
     destination: (entry) => ({ to: "/calendar/entries/$entryId", params: { entryId: entry.id } }),

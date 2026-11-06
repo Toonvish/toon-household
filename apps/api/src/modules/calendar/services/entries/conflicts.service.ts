@@ -2,10 +2,13 @@
  * `CalendarCarConflicts` (plan m8 P11): which other bookings of the same car overlap a candidate booking.
  *
  * Two bookings conflict when their half-open wall-time intervals overlap; an all-day booking covers
- * `[date 00:00, endDate+1 00:00)`. A recurring candidate is checked over its occurrences in `[startDate, min(until,
- * startDate + 366 days)]` (`CALENDAR_LIMITS.conflictHorizonDays`), every other booking of that car expanded over the
- * same window. An occurrence marked `skipped` blocks nothing (the other booking's, and on a PATCH the candidate's own).
- * `excludeEntryId` leaves the entry itself out on a PATCH.
+ * `[date 00:00, endDate+1 00:00)`. A recurring candidate is checked over its occurrences in `[anchor, min(until,
+ * anchor + 366 days)]` (`CALENDAR_LIMITS.conflictHorizonDays`), every other booking of that car expanded over the
+ * same window. The anchor is the later of the series start and the CLIENT's `today` (sent in the request body; the
+ * server never decides today): without it an edit of a series that started more than a year ago would only be
+ * checked against past dates. Without a `today` the anchor is the series start. A single booking is always checked
+ * over its own days. An occurrence marked `skipped` blocks nothing (the other booking's, and on a PATCH the
+ * candidate's own). `excludeEntryId` leaves the entry itself out on a PATCH.
  *
  * `check` answers the conflicts (at most `CALENDAR_LIMITS.conflictDetailsMax`, by date, time, entry id); the caller
  * decides (`CalendarEntries`: `409 calendar_car_conflict` unless `allowConflict`). Pure arithmetic over the shared
@@ -69,6 +72,7 @@ export class CalendarCarConflicts extends Context.Service<
       householdId: string,
       candidate: CarBookingCandidate,
       excludeEntryId: string | null,
+      today: string | null,
     ) => Effect.Effect<Array<CalendarCarConflict>, DatabaseError>;
   }
 >()("toon/api/modules/calendar/services/entries/conflicts.service/CalendarCarConflicts") {
@@ -81,17 +85,20 @@ export class CalendarCarConflicts extends Context.Service<
         householdId: string,
         candidate: CarBookingCandidate,
         excludeEntryId: string | null,
+        today: string | null,
       ) {
-        const horizon = addCalendarDays(candidate.startDate, CALENDAR_LIMITS.conflictHorizonDays);
-        const windowEnd =
-          candidate.repeat.freq === "none"
-            ? candidate.startDate
-            : candidate.repeat.until !== null && candidate.repeat.until < horizon
-              ? candidate.repeat.until
-              : horizon;
+        const recurring = candidate.repeat.freq !== "none";
+        const windowStart = recurring && today !== null && today > candidate.startDate ? today : candidate.startDate;
+        const horizon = addCalendarDays(windowStart, CALENDAR_LIMITS.conflictHorizonDays);
+        const windowEnd = !recurring
+          ? candidate.startDate
+          : candidate.repeat.until !== null && candidate.repeat.until < horizon
+            ? candidate.repeat.until
+            : horizon;
+        if (windowEnd < windowStart) return [];
         const own = expandOccurrences(
           { startDate: candidate.startDate, endDate: candidate.endDate, repeat: candidate.repeat },
-          candidate.startDate,
+          windowStart,
           windowEnd,
           Number.MAX_SAFE_INTEGER,
         ).occurrences.filter((occurrence) => occurrence.date >= candidate.startDate);
