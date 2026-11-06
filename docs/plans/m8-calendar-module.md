@@ -683,6 +683,30 @@ filterKey(filters)]`; `.entries(h, filters)` = `[…all, "entries", filterKey(fi
 `features/entries/OccurrenceDetailPage`; `/calendar/entries/$entryId/edit` `features/entries/EditEntryPage`; `/calendar/cars`
 `features/cars/CarsPage`; `/calendar/waste` `features/waste/WastePage`. Named exports equal the file names.
 
+### 5.6 Foundation as built (M8-T01 … M8-T04; additive to 5.1-5.5, no name above changed)
+
+- Shared extras: `compareDateTime(aDate, aTime, bDate, bTime)` (a `null` time sorts first); `calendarDateParts`,
+  `formatCalendarDate`, `weekdayOfDayNumber`, `CALENDAR_DATE_MIN` / `CALENDAR_DATE_MAX` (`CalendarDateSchema` accepts
+  1900-01-01 … 2199-12-31); `calendarColorIndex(position)`; `calendarPersonColors(members)` returns a
+  `ReadonlyMap<userId, colorIndex>`; `WASTE_PROVIDER_IDS`, type `WasteDetail`; `isWasteSourceHost` checks `https:`, no
+  credentials, default port and the exact host. `CalendarRepeatSchema` defaults `interval` 1, `weekdays` `[]`,
+  `until` `null` on decode; `CalendarWastePreviewSchema.warnings[].date` is `NullOr`; the upload fields decode
+  `tour` with `CoercedInt`. Resource names also refuse control characters (`server.validation.noControlChars`).
+- API stubs the lanes replace keep these names: `calendarEntriesAreaLayer()` / type `CalendarEntriesAreaServices`
+  (`services/entries/layer.ts`), `calendarWasteAreaLayer()` / type `CalendarWasteAreaServices`
+  (`services/waste/layer.ts`); `calendarCoreHandlers()` / `calendarWasteHandlers()` return `Layer.empty` cast to
+  `Layer.Layer<unknown>` only while they are stubs (a `never` output does not fit `ModuleHttpApi.handlers`).
+- `calendar_entries.resource_id` is `ON DELETE NO ACTION`, not RESTRICT (design §1.2): SQLite checks RESTRICT
+  inside the cascade of a household delete and refused it; the service's `409 calendar_resource_in_use` stays the
+  refusal for a booked car (`apps/api/test/db-calendar-migration.test.ts`).
+- Test support: `apps/api/test/support/calendar-harness.ts` also exports `enableCalendar(owner, householdId)`.
+- Web: `lib/api.ts` exports `calendarBase(householdId, rest)`; the placeholder screens share
+  `components/PlaceholderScreen.tsx` (the web lane deletes it with the last placeholder); `app.tsx` reads
+  `mutationDefaults` through the wide `WebModule` type; `MAX_MODULE_TABS` is exported.
+- `NEW_GERMAN_NAMESPACES` landed with M8-T01 (not M8-T04) so every commit keeps the parity half OK.
+- Gates at the foundation tip: typecheck OK; `bun test` 15414 pass, 1 skip, 0 fail in 192 files; i18n parity OK,
+  leftover 148; build exit 0.
+
 ## 6. Risks
 
 - **The parser on hidden copies** (design §5.3). Mitigation: test-first against the committed fixture and the eye-verified table; a
