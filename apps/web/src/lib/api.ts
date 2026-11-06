@@ -295,14 +295,22 @@ export function sendJson<S extends ResponseSchema>(
   );
 }
 
-/** A multipart upload of ONE file (`POST`, field `file`, the 15 MB cap inside the effect, plan e6 P11). */
+/**
+ * A multipart upload of ONE file (`POST`, field `file`, the 15 MB cap inside the effect, plan e6 P11). `fields`
+ * adds plain text parts after the file (the calendar's waste upload sends `tour`, plan m8 P17).
+ */
 export function sendForm<S extends ResponseSchema>(
   schema: SchemaSpec<S>,
   path: string,
   file: File,
   options?: RequestOptions,
+  fields?: Readonly<Record<string, string>>,
 ): Effect.Effect<Decoded<S>, ApiError, ApiClient> {
   return uploadForm(file).pipe(
+    Effect.map((form) => {
+      for (const [name, value] of Object.entries(fields ?? {})) form.append(name, value);
+      return form;
+    }),
     Effect.flatMap((form) =>
       execute({ method: "POST", url: apiUrl(path), form, allowUnauthorized: options?.allowUnauthorized }),
     ),
