@@ -6,7 +6,7 @@ import { AppLink } from "@/lib/nav";
 import { OccurrenceRow } from "@/modules/calendar/components/OccurrenceRow";
 import { WasteDot } from "@/modules/calendar/components/WasteDot";
 import { formatLongDate, formatTimeRange, wasteLabel } from "@/modules/calendar/lib/format";
-import { agendaRows, coversDate, occurrencesOn, tonightPickups } from "@/modules/calendar/lib/group";
+import { agendaRows, carBookingsOn, occurrencesOn, tonightPickups } from "@/modules/calendar/lib/group";
 import { memberName, type MemberMap } from "@/modules/calendar/lib/people";
 import type { OccurrenceStatusChange } from "@/modules/calendar/lib/queries";
 
@@ -85,7 +85,7 @@ export function TodayCard({
           <p className="text-sm text-fg-muted">{t("calendar.agenda.cars.none")}</p>
         ) : (
           cars.map((car) => {
-            const bookings = allItems.filter((item) => item.kind === "car" && item.resourceId === car.id && coversDate(item, today));
+            const bookings = carBookingsOn(allItems, car.id, today);
             return (
               <p key={car.id} className="flex min-w-0 items-start gap-2 text-sm text-fg">
                 <Car aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-fg-muted" />

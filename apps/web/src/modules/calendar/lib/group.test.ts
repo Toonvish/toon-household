@@ -4,6 +4,8 @@ import type { CalendarOccurrence } from "@toon/shared";
 import {
   addMonths,
   agendaRows,
+  carBookingsFrom,
+  carBookingsOn,
   groupByDay,
   isCalendarMonth,
   isWeekend,
@@ -136,5 +138,37 @@ describe("matchesMember (the P10 rule, client side)", () => {
     expect(matchesMember({ memberIds: [], assigneeId: "b" }, "a")).toBe(false);
     expect(matchesMember({ memberIds: [], assigneeId: null }, "a")).toBe(true);
     expect(matchesMember({ memberIds: ["b"], assigneeId: null }, undefined)).toBe(true);
+  });
+});
+
+describe("car bookings", () => {
+  const CAR = "44444444-4444-4444-8444-444444444444";
+  const OTHER = "55555555-5555-4555-8555-555555555555";
+  const ROBIN = "66666666-6666-4666-8666-666666666666";
+  const booking = (date: string, fields: Partial<CalendarOccurrence> = {}) =>
+    occ({ date, kind: "car", allDay: false, startTime: "08:00", endTime: "17:00", resourceId: CAR, memberIds: [ROBIN], ...fields });
+
+  test("a skipped booking holds nothing: the car is free today (P11)", () => {
+    const today = "2026-11-12";
+    const weekly = booking(today, { entryId: "77777777-7777-4777-8777-777777777777", recurring: true });
+    expect(carBookingsOn([weekly], CAR, today)).toEqual([weekly]);
+    expect(carBookingsOn([{ ...weekly, status: "skipped" }], CAR, today)).toEqual([]);
+    // A done mark is not a car state; only `skipped` frees it.
+    expect(carBookingsOn([{ ...weekly, status: "done" }], CAR, today)).toEqual([{ ...weekly, status: "done" }]);
+  });
+
+  test("only this car's bookings that cover the day, multi-day ones too", () => {
+    const multi = booking("2026-11-10", { endDate: "2026-11-12", key: "m" });
+    const other = booking("2026-11-12", { resourceId: OTHER, key: "o" });
+    const tomorrow = booking("2026-11-13", { key: "t" });
+    const event = occ({ date: "2026-11-12", key: "e" });
+    expect(carBookingsOn([multi, other, tomorrow, event], CAR, "2026-11-12")).toEqual([multi]);
+  });
+
+  test("the next bookings skip the skipped ones and the past, in list order", () => {
+    const past = booking("2026-11-05", { key: "p" });
+    const skipped = booking("2026-11-12", { status: "skipped", key: "s" });
+    const next = booking("2026-11-19", { key: "n" });
+    expect(carBookingsFrom([past, skipped, next], CAR, "2026-11-06")).toEqual([next]);
   });
 });

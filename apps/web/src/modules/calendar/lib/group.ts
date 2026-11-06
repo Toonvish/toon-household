@@ -58,6 +58,22 @@ export function coversDate(occurrence: Pick<CalendarOccurrence, "date" | "endDat
   return occurrence.date <= date && occurrence.endDate >= date;
 }
 
+/**
+ * The bookings of one car that still hold it on or after `from`, in list order. A skipped occurrence holds nothing
+ * (plan m8 P11: the server's conflict check ignores it, so the car is free for another booking).
+ */
+export function carBookingsFrom(items: ReadonlyArray<CalendarOccurrence>, carId: string, from: string): CalendarOccurrence[] {
+  return items.filter(
+    (occurrence) =>
+      occurrence.kind === "car" && occurrence.resourceId === carId && occurrence.status !== "skipped" && occurrence.endDate >= from,
+  );
+}
+
+/** The bookings that hold one car on `date` (a skipped occurrence holds nothing), in list order. */
+export function carBookingsOn(items: ReadonlyArray<CalendarOccurrence>, carId: string, date: string): CalendarOccurrence[] {
+  return carBookingsFrom(items, carId, date).filter((occurrence) => coversDate(occurrence, date));
+}
+
 /** The occurrences that cover `date`, in list order. */
 export function occurrencesOn(items: ReadonlyArray<CalendarOccurrence>, date: string): CalendarOccurrence[] {
   return items.filter((occurrence) => coversDate(occurrence, date));

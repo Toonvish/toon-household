@@ -4,7 +4,7 @@ import { Card } from "@/components/ui";
 import { useT } from "@/lib/i18n";
 import { AppLink } from "@/lib/nav";
 import { formatShortDate, formatTimeRange } from "@/modules/calendar/lib/format";
-import { coversDate } from "@/modules/calendar/lib/group";
+import { carBookingsFrom, coversDate } from "@/modules/calendar/lib/group";
 import { memberName, type MemberMap } from "@/modules/calendar/lib/people";
 
 /** The desktop rail's "Autos" card (design §4.2): each car with its current or next booking, then Autos verwalten. */
@@ -30,7 +30,7 @@ export function CarStatusCard({
       ) : (
         <ul className="flex flex-col gap-2.5">
           {cars.map((car) => {
-            const bookings = items.filter((item) => item.kind === "car" && item.resourceId === car.id && item.endDate >= today);
+            const bookings = carBookingsFrom(items, car.id, today);
             const current = bookings.find((booking) => coversDate(booking, today));
             const next = current ?? bookings[0];
             const who = next ? next.memberIds.map((id) => memberName(members, id)).join(", ") : "";
