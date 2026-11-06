@@ -28,7 +28,7 @@ import { openLegacy as bridgeOpenLegacy } from "../scripts/legacy/sources.ts";
 import type { LegacyDb, Report } from "../scripts/legacy/types.ts";
 import { migrateUsers as bridgeMigrateUsers } from "../scripts/legacy/users.ts";
 import { createDatabase } from "../src/db/client.ts";
-import { runMigrations as bridgeRunMigrations } from "../src/db/migrate.ts";
+import { runMigrations as bridgeRunMigrations } from "./support/bridges/migrate.ts";
 import { householdMembers, households, users } from "../src/db/schema.ts";
 import { DatabaseError, NotFound, isApiError } from "../src/lib/errors.ts";
 import { runFinanceBridge as bridgeRunFinanceBridge } from "../src/modules/finance/bridge.ts";

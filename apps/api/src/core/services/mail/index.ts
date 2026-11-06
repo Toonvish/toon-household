@@ -3,9 +3,9 @@
  *
  * Same shape as services/ocr/index.ts on purpose: `getMailer()` builds the
  * adapter selected by MAIL_TRANSPORT once, `setMailer()` replaces it (which is
- * how tests inject a fake and never open a socket), and `trySendMail()` is the
- * call every feature actually uses because a failed send may never break the
- * action that triggered it.
+ * how tests inject a fake and never open a socket), and `MailerService`'s
+ * `trySendMail` is the call every feature actually uses because a failed send may
+ * never break the action that triggered it.
  */
 import type { MailDelivery } from "@toon/shared";
 import { Cause, Context, DateTime, Effect, Layer, Predicate, Schema } from "effect";
@@ -119,6 +119,10 @@ export function makeMailer(base: Transport): MailerService["Service"] {
     });
   });
 
+  // Sends a message and NEVER fails. Every caller in this codebase is an action whose value does not depend on the
+  // mail arriving: an invite is valid because the row exists and the link was returned; `POST /password/forgot`
+  // answers 204 regardless so it cannot be used to probe for accounts. So the failure is logged with its reason and
+  // reported back as data, not raised.
   const trySendMail = Effect.fn("Mailer.trySendMail")(function* (message: MailMessage) {
     const transport = active();
     return yield* send(message).pipe(
@@ -170,7 +174,12 @@ function smtpConfigOf(config: MailConfig): SmtpConfig {
   };
 }
 
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
+/*
+ * test seams: module-level state that the one runtime's services read at call time; the tests drive the app through
+ * the in-memory handler on that same runtime (one process, one database, ADR 0009), so a test layer cannot reach it
+ * (plan e8 P2). `setMailer` installs a fake, `getMailer` and `isMailerOverridden` read the state, `isMailConfigured`
+ * (also read by `auth/verifiedEmail.ts`) reports the transport the state selects.
+ */
 
 let mailer: Mailer | null = null;
 /** True while a test-provided mailer is installed. */
@@ -187,7 +196,10 @@ function buildMailer(): Mailer {
   return env.isTest ? new ConsoleMailer(() => undefined) : new ConsoleMailer();
 }
 
-/** The shared mailer, created on first use. Callers: `trySendMail` and `isMailConfigured` below, `apps/api/test/mail.test.ts`. Synchronous. */
+/**
+ * The shared mailer, created on first use. Callers: `isMailConfigured` below, `apps/api/test/mail.test.ts` and the
+ * tests' door `trySendMail` (`apps/api/test/support/bridges/mail.ts`, plan e8 P1). Synchronous.
+ */
 export function getMailer(): Mailer {
   mailer ??= buildMailer();
   return mailer;
@@ -216,26 +228,8 @@ export function isMailConfigured(): boolean {
   return getMailer().name !== "console";
 }
 
-/**
- * Sends a message and NEVER throws.
- *
- * Every caller in this codebase is an action whose value does not depend on the
- * mail arriving: an invite is valid because the row exists and the link was
- * returned; `POST /password/forgot` answers 204 regardless so it cannot be used
- * to probe for accounts. So the failure is logged with its reason and reported
- * back as data, not raised.
- *
- * The bridge over `MailerService`'s logic for a caller that holds no runtime: it sends through `getMailer()`, which
- * honours `setMailer`. Callers: `apps/api/test/mail.test.ts` only (the `auth:reset-password` script yields
- * `MailerService` since E5); E8 removes it with its test case. Promise.
- */
-export function trySendMail(message: MailMessage): Promise<MailSendResult> {
-  const service = makeMailer(plain(getMailer()));
-  return Effect.runPromise(service.trySendMail(message));
-}
-
 // `mailDeliveryOf` and `redactAddress` are pure helpers (no I/O): plain exports that stay for good (plan e2 P1), not
-// bridges; `core/routes/auth.ts` and `households/invites.service.ts` call the first.
+// test seams; `core/routes/auth.ts` and `households/invites.service.ts` call the first.
 
 /**
  * Turns a send result into the three-state status the contract exposes.
@@ -254,7 +248,7 @@ export function mailDeliveryOf(result: MailSendResult): MailDelivery {
 /**
  * `max@beispiel.de` -> `m***@beispiel.de`.
  *
- * hono's `logger()` and every reverse proxy keep API logs around for a long
+ * The request log and every reverse proxy keep API logs around for a long
  * time; a failed-send line should not be the place a full member list leaks from.
  */
 export function redactAddress(address: string): string {

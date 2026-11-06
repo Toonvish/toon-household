@@ -1,18 +1,18 @@
 /**
  * The single error path of the API (docs/EFFECT.md E6, plan e2 P4).
  *
- * The API's errors are a family of `Schema.TaggedError` classes, one per former `ApiError` helper (`BadRequest`,
+ * The API's errors are a family of `Schema.TaggedError` classes, one per HTTP refusal (`BadRequest`,
  * `Unauthorized`, `InvalidCredentials`, `Forbidden`, `NotFound`, `Conflict`, `PayloadTooLarge`,
  * `UnsupportedMediaType`, `ValidationFailed`, `Internal`) plus `RateLimited` (429, sets `Retry-After`) and the generic
  * `ApiFailure` (any other status and code). Each carries `status`, `code` and `text`, and an Effect raises it with
  * `return yield* new NotFound()`. ONE mapper, `toApiError`, turns whatever reaches the boundary into a family member,
  * and the boundary renders it as the standard envelope
  *   { error: { code, message, details? } }
- * with the right HTTP status: `ApiErrorBoundary` of the Effect HTTP layer (`apps/api/src/http/response.ts`
- * `errorResponse`, plan `docs/plans/e7-http-api.md` P7) and, until E7-T12 deletes the Hono section at the end of this
- * file, `onErrorHandler` (mounted in src/index.ts). Both log through `logBoundaryFailure` and answer an unknown route
- * with `routeUnknown`. Stack traces are logged, never sent (a 5xx family member logs
- * `<status> <code>: <English message>` and its stack; a defect or a `DatabaseError` logs the raw value or its `cause`).
+ * with the right HTTP status: `errorResponse` (`apps/api/src/http/response.ts`, plan `docs/plans/e7-http-api.md` P7),
+ * which `ApiErrorBoundary` runs for every module and core API and the global middlewares call directly. It logs
+ * through `logBoundaryFailure`; an unknown route is answered with `routeUnknown`. Stack traces are logged, never sent (a 5xx
+ * family member logs `<status> <code>: <English message>` and its stack; a defect or a `DatabaseError` logs the raw
+ * value or its `cause`).
  *
  * `text` is a KEY into the server catalog (`ServerKey`, or `{ key, values }` for one that takes placeholders);
  * `errorBody(error, locale)` renders it in the locale the request negotiated (docs/i18n.md §4), and every instance's
@@ -22,12 +22,12 @@
  * Two rules keep the family safe inside an error path:
  * - The constructors never throw on a value today's code passes: a `Schema.TaggedError` constructor validates its
  *   fields, so the field schemas are permissive (`Schema.Number`, `Schema.String`, any string or object as `text`,
- *   `Schema.Unknown` as `details`), and the legacy `ApiError` constructs with `disableChecks`.
- * - `DatabaseError` is NOT a member: `isApiError` and `instanceof ApiError` are false for it, and the mapper answers it
- *   `500 internal_error` and logs its `cause`.
+ *   `Schema.Unknown` as `details`).
+ * - `DatabaseError` is NOT a member: `isApiError` is false for it, and the mapper answers it `500 internal_error` and
+ *   logs its `cause`.
  *
- * The legacy class `ApiError` (positional constructor, ten static helpers, `toBody`) stays for the recipe and finance
- * modules until E3 and E4 move them onto the family; `x instanceof ApiError` is true for EVERY family member.
+ * The tests' copy of the former positional class (ten static helpers, `toBody`, `instanceof` deferring to
+ * `isApiError`) lives in `apps/api/test/support/bridges/api-error.ts` (docs/EFFECT.md E6; plan e8 P4).
  *
  * Import cycle (CLAUDE.md "API import cycle", plan e2 P12): this file imports neither `runtime.ts` nor a service.
  */
@@ -220,14 +220,14 @@ const API_ERROR_TAGS: ReadonlySet<unknown> = new Set<ApiErrorFamily["_tag"]>([
   "ApiFailure",
 ]);
 
-/** `true` for every member of the family (the legacy `ApiError` included), `false` for `DatabaseError` and the rest. */
+/** `true` for every member of the family, `false` for `DatabaseError` and the rest. */
 export function isApiError(u: unknown): u is ApiErrorFamily {
   return Predicate.isError(u) && Predicate.hasProperty(u, "_tag") && API_ERROR_TAGS.has(u._tag);
 }
 
 /**
  * A database failure (a libSQL or drizzle rejection), raised by the `Database` service. Deliberately OUTSIDE the
- * family: no `instanceof ApiError` and no `isApiError` mistakes it for a domain error; the boundary answers it
+ * family: no `isApiError` mistakes it for a domain error; the boundary answers it
  * `500 internal_error` and logs its `cause`.
  */
 export class DatabaseError extends Schema.TaggedError<DatabaseError>()("DatabaseError", {
@@ -258,74 +258,9 @@ export function errorBody(error: ApiErrorShape, locale: Locale = DEFAULT_LOCALE)
 }
 
 /**
- * The legacy class for the recipe and finance modules (E3 and E4 remove it): `new ApiError(status, code, text,
- * details?)` and the ten static helpers build an `ApiFailure` with the same status, code and text as before, without
- * constructor checks. `x instanceof ApiError` is `isApiError(x)`, so it holds for every family member and never for a
- * `DatabaseError`. Its narrowing claims `ApiError`; only a legacy instance has `toBody`, so code that may see a tagged
- * member renders with `errorBody`.
- */
-export class ApiError extends ApiFailure {
-  override readonly name = "ApiError";
-
-  constructor(status: number, code: ErrorCode | string, text: ErrorText, details?: unknown) {
-    super({ status, code, text, details }, { disableChecks: true });
-  }
-
-  static override [Symbol.hasInstance](u: unknown): u is ApiError {
-    return isApiError(u);
-  }
-
-  /** Renders `message` in `locale` (default: the deployment's `DEFAULT_LOCALE`). */
-  toBody(locale: Locale = DEFAULT_LOCALE): ApiErrorBody {
-    return errorBody(this, locale);
-  }
-
-  static badRequest(text: ErrorText = "server.error.badRequest", details?: unknown): ApiError {
-    return new ApiError(400, "bad_request", text, details);
-  }
-
-  static unauthorized(text: ErrorText = "server.error.unauthorized"): ApiError {
-    return new ApiError(401, "unauthorized", text);
-  }
-
-  static invalidCredentials(text: ErrorText = "server.error.invalidCredentials"): ApiError {
-    return new ApiError(401, "invalid_credentials", text);
-  }
-
-  static forbidden(text: ErrorText = "server.error.forbidden"): ApiError {
-    return new ApiError(403, "forbidden", text);
-  }
-
-  static notFound(text: ErrorText = "server.error.notFound"): ApiError {
-    return new ApiError(404, "not_found", text);
-  }
-
-  static conflict(code: ErrorCode | string = "conflict", text: ErrorText = "server.error.conflict"): ApiError {
-    return new ApiError(409, code, text);
-  }
-
-  static payloadTooLarge(text: ErrorText = "server.error.payloadTooLarge"): ApiError {
-    return new ApiError(413, "payload_too_large", text);
-  }
-
-  static unsupportedMediaType(text: ErrorText = "server.error.unsupportedMediaType"): ApiError {
-    return new ApiError(415, "unsupported_media_type", text);
-  }
-
-  static validationFailed(details: unknown, text: ErrorText = "server.error.validationFailed"): ApiError {
-    return new ApiError(422, "validation_failed", text, details);
-  }
-
-  static internal(text: ErrorText = "server.error.internal"): ApiError {
-    return new ApiError(500, "internal_error", text);
-  }
-}
-
-/**
  * The one boundary mapper: a family member as is; a `Schema.SchemaError` as `422 validation_failed` with the
  * `toValidationIssues` details in `locale` (ADR 0013); a `DatabaseError` and anything else (a defect, a non-`Error`
- * value such as the string `"ManagedRuntime disposed"`) as `500 internal_error`. (A Hono `HTTPException` is mapped by
- * `honoExceptionToApiError` in the Hono section until E7-T12; the Effect HTTP layer raises none.)
+ * value such as the string `"ManagedRuntime disposed"`) as `500 internal_error`.
  */
 export function toApiError(error: unknown, locale: Locale): ApiErrorFamily {
   if (isApiError(error)) return error;
@@ -338,7 +273,7 @@ export function toApiError(error: unknown, locale: Locale): ApiErrorFamily {
 }
 
 /**
- * The boundary's log lines, written ONCE for both boundaries (`onErrorHandler` and `ApiErrorBoundary`, plan
+ * The boundary's log lines, written ONCE for the one renderer (`errorResponse`, which `ApiErrorBoundary` runs; plan
  * `docs/plans/e7-http-api.md` P7): a 5xx family member logs `[api] <METHOD> <path> -> <status> <code>: <English
  * message>` and its stack; any other 5xx (a defect, a `DatabaseError`'s `cause`, a raw value) logs `[api] <METHOD>
  * <path> ->` and the value; a 4xx logs a `console.warn` in development only. `path` is the pathname without the query.

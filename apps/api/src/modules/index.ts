@@ -1,7 +1,7 @@
 /**
  * The modules this BUILD contains (SPEC §2) — the core's only door into a module.
  * `/api/health` reports their ids, the module mount (modules/mount.ts) mounts their
- * routers, and `runMigrations`, `seed`, `uploads:gc` and the shutdown handler call
+ * routers, and `migrateDatabase`, `seed`, `uploads:gc` and the shutdown handler call
  * their hooks. Recipe joined in M2, finance joins in M3.
  *
  * The core sees only the Effect contract `ApiModule` (docs/EFFECT.md E7; plan e2 P11). Both

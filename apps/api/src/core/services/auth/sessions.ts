@@ -14,20 +14,18 @@
  * around one run reaches it (`apps/api/test/sessions-clock.test.ts`). The expired-session sweep stays fire-and-forget
  * and catch-all (plan e2 P2): `resolveSession` starts it as a detached fiber whose whole cause is ignored, never
  * awaited by the request, and a failed sweep never breaks the request that triggered it. The pure helpers
- * (`generateSessionId`, `sessionHandle`) stay plain; the one Promise bridge at the end of the file (`createSession`) keeps
- * the import tests and `middleware.test.ts` working until E3.
+ * (`generateSessionId`, `sessionHandle`) stay plain. The tests' Promise door `createSession` lives in
+ * `apps/api/test/support/bridges/sessions.ts` (plan e8 P1).
  */
 import type { SessionInfo } from "@toon/shared";
 import { desc, eq, lt } from "drizzle-orm";
 import { Clock, Context, Effect, Layer } from "effect";
-import type { DrizzleDatabase } from "../../../db/client.ts";
 import { Database } from "../../../db/database.ts";
 import { type SessionRow, type UserRow, sessions, users } from "../../../db/schema.ts";
 import { env } from "../../../env.ts";
 import { SESSION_RENEW_THRESHOLD_MS, SESSION_TTL_MS } from "../../../lib/cookies.ts";
 import type { DatabaseError } from "../../../lib/errors.ts";
 import { toIso } from "../../../lib/http.ts";
-import { runtime } from "../../../runtime.ts";
 
 /** `lastUsedAt` is only written again after this much time, to avoid a write per request. */
 const LAST_USED_WRITE_INTERVAL_MS = 60 * 1000;
@@ -99,8 +97,8 @@ export class Sessions extends Context.Service<
      * Resolves a public session handle back to the real session id of that user.
      *
      * ONLY the handle is accepted. It used to also match the raw session id, which
-     * meant `DELETE /api/auth/sessions/<real id>` worked — and hono's `logger()`
-     * writes `c.req.path`, so a live 30-day session token ended up in the API log and
+     * meant `DELETE /api/auth/sessions/<real id>` worked — and the pre-E7 request logger
+     * wrote the request path, so a live 30-day session token ended up in the API log and
      * in every reverse-proxy access log, where it could be replayed as a cookie.
      */
     readonly findSessionByHandle: (userId: string, handle: string) => Effect.Effect<SessionRow | null, DatabaseError>;
@@ -246,22 +244,5 @@ export class Sessions extends Context.Service<
         findSessionByHandle,
       });
     }),
-  );
-}
-
-/* legacy bridges: callers listed; E3 (recipe), E4 (finance), E5 (scripts) remove them */
-
-/**
- * Callers: `apps/api/test/middleware.test.ts`, `apps/api/test/import/routes.test.ts`,
- * `apps/api/test/import/ocr-disabled.test.ts` (the three pinned; E8) and `apps/api/test/import/url-import-local.test.ts`
- * (set up the way the pinned import route tests are). Promise.
- */
-export function createSession(
-  database: DrizzleDatabase,
-  userId: string,
-  fingerprint: RequestFingerprint = {},
-): Promise<SessionRow> {
-  return runtime.runPromise(
-    Sessions.use((service) => service.createSession(userId, fingerprint)).pipe(Database.withExecutor(database)),
   );
 }
