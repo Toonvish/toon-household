@@ -427,7 +427,13 @@ ICS import, per-occurrence edits, alarms (`VALARM`), a feed of several household
 
 ## 9. Integration record
 
-(Written by M9-T08 and M9-T09.)
+### 9.0 M9-T01 on `main` (`9498d9c5f`, 2026-11-09)
+
+`bun run typecheck` OK; `bun test` 15712 pass, 1 skip, 0 fail in 217 files (99.4 s; +15 tests and one file over the baseline: the new
+migration test and the feed cases of `calendar-schemas.test.ts`); `bun run i18n:check` parity OK, leftover 148 (none in the calendar);
+the drizzle drift check prints `No schema changes`; `git status --porcelain repos/` empty.
+
+(The rest is written by M9-T08 and M9-T09.)
 
 ## 10. What changed vs plan
 
