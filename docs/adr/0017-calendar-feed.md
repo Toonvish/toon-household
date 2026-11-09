@@ -2,7 +2,8 @@
 
 Date: 2026-11-09
 
-Status: accepted (M9, `docs/plans/m9-calendar-feed.md` P2, P3, P4, P15; built by lane api, M9-T02 to M9-T05).
+Status: accepted and built (M9, `docs/plans/m9-calendar-feed.md` P2, P3, P4, P15; lane api M9-T02 to M9-T05, merged
+and integrated on `main` by M9-T08 on 2026-11-09; the rate limit moved after the lookup by the M9-T09 review).
 
 ## Context
 
