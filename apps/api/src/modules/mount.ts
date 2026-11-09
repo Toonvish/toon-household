@@ -165,26 +165,22 @@ const assertPublicApis = Effect.fn("moduleRoutesLayer.assertPublicApis")(functio
   const prefix = publicPrefix(id);
   for (const api of apis) {
     for (const { group, endpoint } of endpointsOf(api)) {
-      const middlewares = [...endpoint.middlewares];
-      if (middlewares.length !== 1 || middlewares[0] !== ApiErrorBoundary) {
-        return yield* Effect.die(
-          wiringDefect(
-            id,
-            group,
-            endpoint,
-            "a public endpoint carries exactly one middleware, ApiErrorBoundary (build the API with publicModuleApi; no session middleware)",
-          ),
-        );
-      }
-      if (endpoint.method !== "GET") {
-        return yield* Effect.die(wiringDefect(id, group, endpoint, "a public endpoint must be a GET"));
-      }
-      if (!endpoint.path.startsWith(`${prefix}/`)) {
-        return yield* Effect.die(wiringDefect(id, group, endpoint, `the path must lie below ${prefix}/`));
-      }
+      const broken = publicRuleBroken(endpoint, prefix);
+      if (broken !== undefined) return yield* Effect.die(wiringDefect(id, group, endpoint, broken));
     }
   }
 });
+
+/** The first rule of a public endpoint that `endpoint` breaks, or `undefined` (see `assertPublicApis`). */
+function publicRuleBroken(endpoint: EndpointShape, prefix: string): string | undefined {
+  const middlewares = [...endpoint.middlewares];
+  if (middlewares.length !== 1 || middlewares[0] !== ApiErrorBoundary) {
+    return "a public endpoint carries exactly one middleware, ApiErrorBoundary (build the API with publicModuleApi; no session middleware)";
+  }
+  if (endpoint.method !== "GET") return "a public endpoint must be a GET";
+  if (!endpoint.path.startsWith(`${prefix}/`)) return `the path must lie below ${prefix}/`;
+  return undefined;
+}
 
 /** `HttpApiBuilder.layer` of every API over the module's one handler layer. */
 function apisLayer(contribution: ModuleHttpApi, apis: ReadonlyArray<AnyHttpApi>) {
