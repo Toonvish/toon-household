@@ -1,7 +1,9 @@
 /**
  * Mounts the build's modules (SPEC §2, D8):
  *
- *   userApi       -> /api/<id>/…                          (user-scoped, no household)
+ *   userApi       -> /api/<id>/…                          (user-scoped, no household; never below /api/<id>/feed/)
+ *   publicApi     -> /api/<id>/feed/…                     behind ApiErrorBoundary ONLY: no session, the URL is the
+ *                    credential (ADR 0017; the calendar's subscription feed); GET only, no catch-all
  *   householdApi  -> /api/households/:householdId/<id>/…  behind
  *                    ApiErrorBoundary -> RequireSession -> RequireHouseholdMember -> RequireModule
  *
@@ -14,7 +16,9 @@
  * - At layer build it ASSERTS, per module, that every household endpoint runs boundary, session, member, module as its
  *   four OUTERMOST middlewares (`householdModuleApi` attaches them; the attached-last runs first, P6) and lies BELOW
  *   `/api/households/:householdId/<id>/` (never the bare prefix: the catch-all below registers it), and that every user
- *   endpoint lies below `/api/<id>/`. A violation is an `Effect.die` naming the module and the endpoint, so a wiring
+ *   endpoint lies below `/api/<id>/` (never below `/api/<id>/feed/`), and that every public endpoint carries exactly
+ *   `{ ApiErrorBoundary }`, is a `GET` and lies below `/api/<id>/feed/` (ADR 0017; an unknown path there falls to the
+ *   global JSON 404, there is no public catch-all). A violation is an `Effect.die` naming the module and the endpoint, so a wiring
  *   bug fails the first build (a test, the boot), never a request in production.
  * - It registers each API with `HttpApiBuilder.layer(api)` over the module's `handlers` (one layer for every group of
  *   the module; `HttpApiBuilder.layer` dies when a group has no handler).
@@ -59,6 +63,11 @@ function householdPrefix(id: SharedModuleId): `/${string}` {
 /** Where a module's user routes live (`userModuleApi` adds it). */
 function userPrefix(id: SharedModuleId): `/${string}` {
   return `/api/${id}`;
+}
+
+/** Where a module's public routes live (`publicModuleApi` adds `/api/<id>`, the endpoints add `/feed/…`; ADR 0017). */
+function publicPrefix(id: SharedModuleId): `/${string}` {
+  return `/api/${id}/feed`;
 }
 
 /** What the assertion reads of an endpoint. */
@@ -119,14 +128,57 @@ const assertHouseholdApis = Effect.fn("moduleRoutesLayer.assertHouseholdApis")(f
   }
 });
 
-/** Every user endpoint of `apis` lies below `/api/<id>/`; dies with `wiringDefect` otherwise. */
+/**
+ * Every user endpoint of `apis` lies below `/api/<id>/` and NOT below `/api/<id>/feed/` (the public prefix, whose
+ * last path segment `logPathOf` redacts in every log line: a session route there would lose its log path; ADR 0017);
+ * dies with `wiringDefect` otherwise.
+ */
 const assertUserApis = Effect.fn("moduleRoutesLayer.assertUserApis")(function* (
   id: SharedModuleId,
   apis: ReadonlyArray<AnyHttpApi>,
 ) {
   const prefix = userPrefix(id);
+  const reserved = publicPrefix(id);
   for (const api of apis) {
     for (const { group, endpoint } of endpointsOf(api)) {
+      if (!endpoint.path.startsWith(`${prefix}/`)) {
+        return yield* Effect.die(wiringDefect(id, group, endpoint, `the path must lie below ${prefix}/`));
+      }
+      if (endpoint.path.startsWith(`${reserved}/`)) {
+        return yield* Effect.die(
+          wiringDefect(id, group, endpoint, `a user path must not lie below ${reserved}/ (reserved for publicApi, ADR 0017)`),
+        );
+      }
+    }
+  }
+});
+
+/**
+ * Every public endpoint of `apis` (ADR 0017): its middleware set is EXACTLY `{ ApiErrorBoundary }` (no session
+ * middleware, so a cookie is never read), its method is `GET` (`HEAD` reaches it through the router's `HEAD` -> `GET`
+ * fallback) and its path lies below `/api/<id>/feed/`. Dies with `wiringDefect` on the first endpoint that does not.
+ */
+const assertPublicApis = Effect.fn("moduleRoutesLayer.assertPublicApis")(function* (
+  id: SharedModuleId,
+  apis: ReadonlyArray<AnyHttpApi>,
+) {
+  const prefix = publicPrefix(id);
+  for (const api of apis) {
+    for (const { group, endpoint } of endpointsOf(api)) {
+      const middlewares = [...endpoint.middlewares];
+      if (middlewares.length !== 1 || middlewares[0] !== ApiErrorBoundary) {
+        return yield* Effect.die(
+          wiringDefect(
+            id,
+            group,
+            endpoint,
+            "a public endpoint carries exactly one middleware, ApiErrorBoundary (build the API with publicModuleApi; no session middleware)",
+          ),
+        );
+      }
+      if (endpoint.method !== "GET") {
+        return yield* Effect.die(wiringDefect(id, group, endpoint, "a public endpoint must be a GET"));
+      }
       if (!endpoint.path.startsWith(`${prefix}/`)) {
         return yield* Effect.die(wiringDefect(id, group, endpoint, `the path must lie below ${prefix}/`));
       }
@@ -207,6 +259,18 @@ function moduleLayer(module: ApiModule) {
           const apis = user.apis;
           yield* assertUserApis(module.id, apis);
           return apisLayer(user, apis);
+        }),
+      ),
+    );
+  }
+  const open = module.publicApi;
+  if (open !== undefined) {
+    layers.push(
+      Layer.unwrap(
+        Effect.gen(function* () {
+          const apis = open.apis;
+          yield* assertPublicApis(module.id, apis);
+          return apisLayer(open, apis);
         }),
       ),
     );

@@ -48,7 +48,8 @@ export type AnyHttpApi = HttpApi.HttpApi<string, any>;
  * A module's HTTP surface on the Effect side (docs/EFFECT.md E7, E8; plan `docs/plans/e7-http-api.md` P14, deviation
  * D7): the module's `HttpApi`s and ONE layer holding the handlers of every group they contain. `householdApi`'s APIs
  * are built with `householdModuleApi(id, …)` (prefix `/api/households/:householdId/<id>`, the chain boundary →
- * session → member → module), `userApi`'s with `userModuleApi(id, …)` (prefix `/api/<id>`, the boundary only).
+ * session → member → module), `userApi`'s with `userModuleApi(id, …)` (prefix `/api/<id>`, the boundary only),
+ * `publicApi`'s with `publicModuleApi(id, …)` (prefix `/api/<id>`, the boundary only, below `/api/<id>/feed/`; ADR 0017).
  * `moduleRoutesLayer` (`./mount.ts`) registers them.
  *
  * The two `any`s of `handlers` are deliberate. A contract cannot name a module's group services (each group's key is
@@ -109,6 +110,15 @@ export interface ApiModule<Services = never> {
    * `/api/<id>/…` behind `ApiErrorBoundary` only: the API runs `RequireSession` itself.
    */
   userApi?: ModuleHttpApi;
+  /**
+   * The PUBLIC routes (ADR 0017; the calendar's subscription feed) as `HttpApi`s built with `publicModuleApi(id, …)`,
+   * served at `/api/<id>/feed/…` behind `ApiErrorBoundary` ONLY: no session, no cookie; the URL is the credential (a
+   * capability URL like the signed `/uploads` URLs, SPEC D4). `moduleRoutesLayer` asserts at build that every endpoint
+   * carries exactly `{ ApiErrorBoundary }`, is a `GET` (`HEAD` reaches it through the router's fallback) and lies below
+   * `/api/<id>/feed/`, the prefix `logPathOf` redacts in every log line. A handler authenticates the URL itself and
+   * answers every refusal with the same `404 not_found`.
+   */
+  publicApi?: ModuleHttpApi;
   /** The module's drizzle tables, every one prefixed `<id>_` (SPEC D7). */
   schema: Record<string, SQLiteTable>;
   /**

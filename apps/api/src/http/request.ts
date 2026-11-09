@@ -68,6 +68,23 @@ export function pathOf(url: string): string {
   }
 }
 
+/** A path below a module's public prefix `/api/<id>/feed/` (ADR 0017): group 1 is the kept part. */
+const PUBLIC_FEED_PATH = /^(\/api\/[^/]+\/feed\/)(.+)$/;
+
+/**
+ * `pathOf(url)` for a LOG line (plan `docs/plans/m9-calendar-feed.md` P15, ADR 0017): a path below a module's public
+ * prefix `/api/<id>/feed/` carries a credential (the calendar's feed token), so everything after that prefix becomes
+ * `<redacted>`, plus `.ics` when the path ended in it (`/api/calendar/feed/<redacted>.ics`). Every other path is
+ * `pathOf(url)` unchanged; the query is dropped by `pathOf` already. It needs no module import: `moduleRoutesLayer`
+ * makes "below `/api/<id>/feed/`" the place of every public route and of no other module route.
+ */
+export function logPathOf(url: string): string {
+  const path = pathOf(url);
+  const match = PUBLIC_FEED_PATH.exec(path);
+  if (match === null) return path;
+  return `${match[1]}<redacted>${path.endsWith(".ics") ? ".ics" : ""}`;
+}
+
 /** The request's pathname (the pre-E7 Hono `c.req.path`), for log lines and the route-unknown answer. */
 export const requestPath: Effect.Effect<string, never, ServerRequest> = HttpServerRequest.HttpServerRequest.useSync(
   (request) => pathOf(request.originalUrl),

@@ -9,7 +9,7 @@
  *   (`/api/households`, the invite-token routes beside `/:householdId`; the router matches by specificity, so the old
  *   registration order no longer matters) with their handler layers;
  * - `moduleRoutesLayer(API_MODULES)` (`../modules/mount.ts`): every module's `householdApi` / `userApi` behind the
- *   module chain, plus the household catch-alls (P14);
+ *   module chain, plus the household catch-alls (P14), and its `publicApi` behind the boundary only (ADR 0017);
  * - `fallbackRoutesLayer()` (`./global.ts`): the static web for a `GET` when `WEB_DIST_DIR` is set, else the JSON
  *   route-unknown `404`, at the lowest specificity (as the pre-E7 Hono app's static web LAST and its `notFound` stood).
  * The core `HttpApiMiddleware` implementations (`httpMiddlewareLayer()`) are `Layer.provideMerge`d under the routes, so
@@ -56,9 +56,13 @@ function coreApis(): ReadonlyArray<AnyApi> {
   return [SystemApi, AuthApi, HouseholdsApi];
 }
 
-/** Every module API of the build: each module's `householdApi`, then its `userApi`. */
+/** Every module API of the build: each module's `householdApi`, then its `userApi`, then its `publicApi` (ADR 0017). */
 function moduleApis(): ReadonlyArray<AnyApi> {
-  return API_MODULES.flatMap((module) => [...(module.householdApi?.apis ?? []), ...(module.userApi?.apis ?? [])]);
+  return API_MODULES.flatMap((module) => [
+    ...(module.householdApi?.apis ?? []),
+    ...(module.userApi?.apis ?? []),
+    ...(module.publicApi?.apis ?? []),
+  ]);
 }
 
 /** Every endpoint of `api` (method, full path after every prefix), in the API's group and endpoint order. */
