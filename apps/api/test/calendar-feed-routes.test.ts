@@ -341,6 +341,20 @@ describe("the feed: GET /api/calendar/feed/:file (P2-P7)", () => {
     expect(probe.remaining).toBe(CALENDAR_FEED_RULE.limit - 1);
   });
 
+  test("a stored link of a household with the calendar off is 404 on every fetch, never 429 (M9-fix: never say which)", async () => {
+    const { owner, householdId } = await home("AusLimit");
+    const { url } = await createLink(householdId, owner);
+    expect((await call(`/api/households/${householdId}/modules/calendar`, { method: "DELETE", cookie: owner.cookie })).status).toBe(204);
+    for (let fetch = 1; fetch <= 61; fetch += 1) {
+      const response = await fetchFeed(url);
+      expect([fetch, response.status]).toEqual([fetch, 404]);
+    }
+    // The refused link opened no bucket: this first recorded attempt leaves 59 of 60.
+    const token = url.slice(url.lastIndexOf("/") + 1, -".ics".length);
+    const probe = await Effect.runPromise(checkIn(feedRateLimitKey(hashToken(token)), CALENDAR_FEED_RULE));
+    expect(probe.remaining).toBe(CALENDAR_FEED_RULE.limit - 1);
+  });
+
   test("other methods on the feed path are not served by the feed (the global JSON 404)", async () => {
     const { owner, householdId } = await home("Methode");
     const { url } = await createLink(householdId, owner);

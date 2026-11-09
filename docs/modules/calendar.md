@@ -117,7 +117,7 @@ The services (`Context.Service` classes, each with a static `layer` over `effect
 | `WastePdfText` | `apps/api/src/modules/calendar/services/waste/pdf-text.ts` | The flyer's text items with their marked-content section (section 1.9). |
 | `WasteFlyerFetch` | `apps/api/src/modules/calendar/services/waste/fetch.ts` | The flyer download over `effect/http`: exact hosts, hop loop, caps (section 1.9). |
 | `CalendarWaste` | `apps/api/src/modules/calendar/services/waste/waste.service.ts` | `overview`, `putSettings`, `preview`, `importFlyer`, `removeImport`. |
-| `CalendarFeedTokens` | `apps/api/src/modules/calendar/services/feed/tokens.service.ts` | M9: the member's link: `get`, `create` (create or replace in one upsert; the 201 body with the url), `updateScope`, `remove`, `resolve(file)` (pattern, hash, row, rate limit, membership, module; every refusal the one `404`), `touch` (`last_used_at` at most hourly). |
+| `CalendarFeedTokens` | `apps/api/src/modules/calendar/services/feed/tokens.service.ts` | M9: the member's link: `get`, `create` (create or replace in one upsert; the 201 body with the url), `updateScope`, `remove`, `resolve(file)` (pattern, hash, row, membership, module, rate limit; every refusal the one `404`), `touch` (`last_used_at` at most hourly). |
 | `CalendarFeed` | `apps/api/src/modules/calendar/services/feed/feed.service.ts` | M9: `render(resolved)` → `{ body, etag }`: the window from the Clock's Berlin date, `CalendarOccurrences.expand`, the locale, the writer. |
 
 Beside them the plain modules: `apps/api/src/modules/calendar/services/entries/rows.ts` (the entry loader with its
@@ -469,8 +469,9 @@ section 10 has the full list):
   A new public route goes below `/api/<id>/feed/` or amends ADR 0017 (the redaction knows that one prefix).
 - **Every feed refusal is the same 404.** Malformed, unknown, replaced, revoked, a former member, the calendar disabled:
   one `404 not_found` body (`CalendarFeedTokens.resolve`). The rate limit (60 per token hash and hour, `RateLimiter.check`,
-  on under `NODE_ENV=test` unlike `enforce`) runs AFTER the row lookup, so a guessed token opens no bucket in the
-  process-wide limiter store (M9-T09 review).
+  on under `NODE_ENV=test` unlike `enforce`) runs LAST, after the row lookup, the membership and the module check: a
+  guessed token opens no bucket in the process-wide limiter store (M9-T09 review), and a stored token that is refused
+  (the calendar off, a former member) is 404 on every fetch, never 429 after sixty (M9-fix).
 - **The feed's bytes change only with the data or the window.** `DTSTAMP` and `LAST-MODIFIED` are the entry's
   `updated_at`, never now, so the ETag is stable between data changes and moves once a day with the window. A done or
   skipped mark changes the body (the "✓", the omitted event) but not the entry's `updated_at`: a subscribed client sees
