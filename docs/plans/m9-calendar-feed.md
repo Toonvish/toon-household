@@ -1,7 +1,8 @@
 # M9 — calendar feed: plan
 
-**Status: M9-T01 done on `main`; lanes api and web next.** Base commit `e307a64c0` (`M8-ui: UI check record (plan 9.7) and the
-screenshots in both schemes`). Sections 9 and 10 (the integration record and "what changed vs plan") are written by M9-T08 and M9-T09.
+**Status: done (2026-11-09).** Base commit `e307a64c0` (`M8-ui: UI check record (plan 9.7) and the screenshots in both schemes`);
+T01 on `main`, lanes api (T02-T05) and web (T06-T07) merged by M9-T08, reviewed and recorded by M9-T09. Section 9 is the
+integration record, section 10 what changed vs plan.
 
 M9 lets a household member subscribe their phone calendar (iOS Calendar, Android through ICSx5 or Google Calendar, Samsung Calendar
 through either, Outlook, macOS) to the household calendar: one way, read only. It replaces the feed half of `docs/open-work.md` X-10
@@ -433,8 +434,107 @@ ICS import, per-occurrence edits, alarms (`VALARM`), a feed of several household
 migration test and the feed cases of `calendar-schemas.test.ts`); `bun run i18n:check` parity OK, leftover 148 (none in the calendar);
 the drizzle drift check prints `No schema changes`; `git status --porcelain repos/` empty.
 
-(The rest is written by M9-T08 and M9-T09.)
+### 9.1 M9-T08: the merges (2026-11-09)
+
+- `git merge --no-ff --no-edit m9/api` (`c46db9262`; lane commits `f0b4d8538` T02, `575bd7aa3` T03, `126b9aea9` T04, `c62398c1f`
+  T05): no conflict. `bun install --frozen-lockfile` no changes; `bun run typecheck` OK; the lane's 14 test files (feed ICS, service,
+  routes, `modules-public`, cross-household, `calendar-module`, `api-doc`, both import-order tests, `docs-paths`, occurrences, `modules`,
+  `deploy-caddyfile`, idioms) 354 pass, 0 fail.
+- `git merge --no-ff --no-edit m9/web` (`79bb2807b`; lane commits `a3b402b90` T06, `cc564a4bd` T07): no conflict. `bun run typecheck` OK;
+  `bun test apps/web/src/modules/calendar apps/web/src/styles apps/web/src/modules/persist.test.ts` 153 pass, 0 fail.
+- Both worktrees (`.worktrees/m9-api`, `.worktrees/m9-web`) removed with `git worktree remove --force`, `git worktree prune`, branches
+  `m9/api` and `m9/web` deleted.
+- `777dfd682`: the four web contract rows in `apps/api/test/web-contract-calendar.test.ts` (`fetchFeed` without and with a link,
+  `createFeed` 201 with the url shape, `updateFeed`, the void `deleteFeed`; decoded with `{ disableChecks: true }` and equal to the body;
+  the coverage test now counts 22 client exports, four of them void). 40 rows, no lenient row.
+- First full run on the merged tree (before the docs): `bun test` 15841 pass, 1 skip, 0 fail in 224 files (85.2 s).
+- `c2072c8e6`: the docs as built: `docs/modules/calendar.md` (intro, §1.2 eighth table and the P8 exception, §1.3 routes, services,
+  composition, §1.4 `publicApi` and the hook, §1.5, §1.6 the Kalender-Abo screen and 22 client members, §1.7 the feed key and the service
+  worker, three new §4a gotchas, the "server never decides today" gotcha with its exception, §5.1 LINKS with `feed`, §5.2 the feed tests,
+  §6 without the feed, §7 rewritten as built); `docs/open-work.md` X-10 is ICS import only; `CLAUDE.md` (ADR 0017 in the list, Status
+  with M9, Layout with `0005_calendar_feed` and the feed files and tests, the `publicApi` sentence in the middleware gotcha, the three
+  gotcha titles in the module index, open work "ICS import"); ADR 0017's status line.
+
+### 9.2 M9-T09: the review (high effort, against section 2)
+
+Three fixes, each its own commit with a test:
+
+1. `e0c4ec3fd` **The rate limit ran before the token lookup** (P4, P5 as planned). Every guessed token opened a bucket in the
+   process-wide `RateLimiter` store for an hour; the store prunes only EXPIRED buckets, so a flood of random tokens grew it without
+   bound and made every `check` above 10 000 buckets scan the whole store (a cost every login check shares). The check now runs after
+   the row lookup: an unknown token costs one indexed SELECT and no bucket; a real link keeps its 60 per hour. Test in
+   `apps/api/test/calendar-feed-routes.test.ts`: 61 misses of one guessed token stay `404` and leave its bucket untouched. `docs/API.md`
+   and ADR 0017 follow.
+2. `02806c6e0` **The feed query was fresh for 30 s.** `feedQuery` claimed "refetched on every mount (no stale time)" but inherited the
+   query client's `STALE_TIME.list`, so "Noch nicht abgerufen" could stay on screen right after the phone subscribed. Now
+   `staleTime: 0`, pinned in `apps/web/src/modules/calendar/lib/queries.test.ts`.
+3. `04715eeb4` the comment of fix 2 quoted German and raised `i18n:check` to 149; reworded (148 again).
+
+Checked without a finding: the `publicApi` assertions (exactly `{ ApiErrorBoundary }`, `GET`, below `/api/<id>/feed/`, no user path
+there); `logPathOf` in both log paths; the one 404 for every refusal; the upsert replacing id, hash, `created_at` and `last_used_at`;
+`touch` hourly and after the render; the strong ETag over the body with the weak `If-None-Match` comparison RFC 9110 prescribes; `HEAD`;
+the hook deleting the leaver's row first inside the core's transaction; the `mine` rule equal to P10; skipped dropped after the
+expansion; the window from `DateTime.now` zoned to Berlin (no `Date`); folding by code point at 75 octets; the URL only in component
+state; the management group behind `chain(RequireVerifiedEmail)`; the cross-household and contract sweeps.
+
+### 9.3 M9-T09: the feed end to end
+
+Scratch DB `file:<scratchpad>/e2e/m9.db`, `NODE_ENV=development`, `bun run seed` exit 0; the API on `:3901` with
+`WEB_ORIGIN=http://127.0.0.1:3901` and `WEB_DIST_DIR=./apps/web/dist` (background, log). `curl` login as `demo@toon.local` 200; `POST
+…/modules/calendar` 200; `GET …/calendar/feed` `{"feed":null}`; `POST { scope: "all" }` 201 with `url`
+`http://127.0.0.1:3901/api/calendar/feed/<43 chars>.ics`. The URL WITHOUT a cookie: 200, `Content-Type: text/calendar; charset=utf-8`,
+`Content-Disposition: inline; filename="haushalt.ics"`, `Cache-Control: private, max-age=300`, a strong 64-hex `ETag`, the global
+security headers; 90 368 bytes, 301 `VEVENT`s, CRLF only (no bare LF), the longest physical line 66 octets, `X-WR-CALNAME:Haushalt ·
+Familie`. `If-None-Match` → 304; `HEAD` → 200; a wrong token → 404. `GET …/calendar/feed` then shows `lastUsedAt`; `PATCH { scope:
+"mine" }` → 63 `VEVENT`s, `X-WR-CALNAME:Haushalt · Familie (meine Termine)`. The request log prints only
+`/api/calendar/feed/<redacted>.ics` (also in the boundary's `404` line); the token occurs 0 times in the log. Stopped by pid (SIGTERM:
+modules stopped, `[db] database closed`, `[api] runtime disposed`).
+
+**Strict parser:** `icalendar` 7.3.0 in a venv in the scratchpad (outside the repo), run with `python -I`: `Calendar.from_ical` parses the
+feed with no component errors; 301 events, 301 unique UIDs, one `VTIMEZONE`; `DTSTART` 195 `date` and 106 `datetime` in
+`Europe/Berlin`; every `DTEND` after its `DTSTART`; a serialise-parse round trip is equal; samples "Biotonne", "Blumen gießen · Demo
+Koch" with "Zuständig: Demo Koch".
+
+### 9.4 M9-T09: the headless pass
+
+Playwright 1.61.0 in a scratch directory with the installed `chromium_headless_shell-1248`, the built app served by the API above, the
+demo login through `fetch("/api/auth/login")` from a non-SPA page (one `storageState` reused), `locale: "de-DE"`. `/calendar/feed` at
+390x844 (`isMobile`, `hasTouch`, an iPhone user agent) and 1440x900, light and dark, in the three states: existing (link made through
+the API), none (deleted through the API, reload), created (through the "Link erstellen" button). Every state: `scrollWidth <=
+clientWidth` (390/390; 1425/1440 under the classic scrollbar gutter, CLAUDE.md "`scrollbar-gutter: stable`") and no element beyond
+the viewport; no console error. Created: the "Mit iPhone-Kalender verbinden" link is `webcal://127.0.0.1:3901/api/calendar/feed/….ics`
+and equals the read-only field with the scheme changed; the setup order on the iPhone UA and on desktop is iPhone und iPad · Android
+und Samsung · Google Kalender im Browser · Outlook und Mac. Twelve screenshots in `docs/plans/screenshots/m9/`
+(`feed-{none,created,existing}-{390,1440}-{light,dark}.png`; the token visible in the created ones belongs to the deleted scratch DB).
+
+### 9.5 Final gates (HEAD after the review fixes)
+
+`bun install --frozen-lockfile` exit 0; `bun run typecheck` OK; `bun test` **15843 pass, 1 skip, 0 fail in 224 files** (82.2 s; +146
+tests and 8 files over the M8 baseline of 15697 in 216); `bun run build` exit 0, **102 chunks, 470.31 kB** of gzipped JS (summed from the
+build log; M8 462.95 kB in 101); `bun run i18n:check` parity OK, leftover **148** (unchanged, none in the calendar); the three greps
+of `docs/modules/calendar.md` §5.1 (LINKS with `feed`, no `Date`, no effect import in the web module) empty; `git status --porcelain
+repos/` empty.
 
 ## 10. What changed vs plan
 
-(Written by M9-T08 and M9-T09.)
+1. **P1 worktree paths:** `.worktrees/m9-api` and `.worktrees/m9-web` inside the repo (the run's task said so), not
+   `../toon-household-m9-<lane>`.
+2. **P4/P5 order (review fix 1):** the rate limit runs AFTER the row lookup, not before it; an unknown token opens no bucket. ADR 0017's
+   decision text and `docs/API.md` say so.
+3. **P13 `resolve` takes `:file`:** `CalendarFeedTokens.resolve(file)` matches `CALENDAR_FEED_FILE_PATTERN` itself instead of taking a bare
+   token, and the rate-limit refusal comes out of `resolve` too.
+4. **P13 `create` returns the whole 201 body:** the service builds the url (first `WEB_ORIGIN`, trailing slashes trimmed); the route only
+   wraps it in `created(...)`.
+5. **P3 token helpers reused:** the core's `generateOpaqueToken()` and `hashToken()` (`apps/api/src/core/services/auth/tokens.ts`: 32 bytes
+   base64url, SHA-256 hex) instead of a calendar copy.
+6. **P6 `If-None-Match`:** the weak comparison (a `W/` tag or `*` also hits), as RFC 9110 prescribes for `If-None-Match`; the ETag sent is
+   still strong.
+7. **P17 `useCalendarMutation`** gained an optional third argument `invalidateKey`, so the three feed writes invalidate only
+   `calendarKeys.feed` (the default stays the whole calendar key); `feedQuery` got an explicit `staleTime: 0` (review fix 2).
+8. **P16 copy:** one line beyond the brief, the iOS 18 settings path ("Ab iOS 18 findest du den Kalender in den Einstellungen unter
+   „Apps“"), because the brief's path predates iOS 18. The scope choice is two radio rows, not a segmented control (the labels do not fit
+   at 390 px).
+9. **Recorded, not fixed (ADR 0017):** outside production, a non-GET request to a feed URL reaches the global fallback, whose
+   route-unknown `console.warn` carries the raw path; production writes no 4xx line, and the request log and the boundary log are
+   redacted.
+10. No new server catalog key beyond T01's, no new error code, no change to `apps/web/vite.config.ts` (P18 confirmed by reading it).
