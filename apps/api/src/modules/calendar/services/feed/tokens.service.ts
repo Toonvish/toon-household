@@ -9,11 +9,13 @@
  * - `get`, `create` (create or REPLACE in ONE upsert on `(household_id, user_id)`: a new id, hash, scope, `created_at`
  *   from the Clock and `last_used_at` NULL; the old token stops resolving at once), `updateScope` (`404 not_found`
  *   without a link), `remove` (idempotent): the caller's OWN link, by `(householdId, userId)` of the membership.
- * - `resolve(file)`, the feed route's checks in P4 order: `file` against `CALENDAR_FEED_FILE_PATTERN` -> the hash -> the
- *   rate limit (P5: 60 per token hash and hour through `RateLimiter.check`, always on; `429 rate_limited` with
- *   `Retry-After`; before the lookup, so an unknown token spends its bucket too) -> the row by hash -> the row's user is
- *   still a member of the row's household -> the household has the calendar enabled. EVERY refusal is the same
- *   `new NotFound()`.
+ * - `resolve(file)`, the feed route's checks: `file` against `CALENDAR_FEED_FILE_PATTERN` -> the hash -> the row by hash
+ *   -> the rate limit (P5: 60 per token hash and hour through `RateLimiter.check`, always on; `429 rate_limited` with
+ *   `Retry-After`) -> the row's user is still a member of the row's household -> the household has the calendar
+ *   enabled. EVERY refusal is the same `new NotFound()`. The rate limit runs AFTER the row lookup (M9-T09 review, plan
+ *   m9 section 10): before it, every guessed token opened a bucket in the process-wide limiter store for an hour, so a
+ *   flood of random tokens grew the store without bound and made every check above its 10 000 buckets scan it. An
+ *   unknown token now costs one indexed SELECT and no bucket; guessing a 256-bit token stays infeasible.
  * - `touch(feed)` (P7): writes `last_used_at` when it is NULL or at least an hour older than the Clock's now; never once
  *   per fetch.
  *
@@ -158,13 +160,14 @@ export class CalendarFeedTokens extends Context.Service<
         if (token === undefined) return yield* new NotFound();
         const tokenHash = hashToken(token);
 
-        const limit = yield* rateLimiter.check(feedRateLimitKey(tokenHash), CALENDAR_FEED_RULE);
-        if (!limit.allowed) return yield* new RateLimited({ retryAfterSeconds: limit.retryAfterSeconds });
-
         const [row] = yield* database.use((db) =>
           db.select().from(calendarFeedTokens).where(eq(calendarFeedTokens.tokenHash, tokenHash)).limit(1),
         );
         if (row === undefined) return yield* new NotFound();
+
+        // After the lookup: only a stored token gets a bucket (see the header).
+        const limit = yield* rateLimiter.check(feedRateLimitKey(tokenHash), CALENDAR_FEED_RULE);
+        if (!limit.allowed) return yield* new RateLimited({ retryAfterSeconds: limit.retryAfterSeconds });
         const membership = yield* database.use((db) =>
           db
             .select({ id: householdMembers.id })

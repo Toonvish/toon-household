@@ -6,19 +6,22 @@
  *   under the verified-e-mail gate (reads pass), no cookie 401, a non-member 403, the module off `404 module_disabled`;
  * - the public route `GET /api/calendar/feed/:file`: reachable WITHOUT a cookie (a foreign cookie is ignored), 200 with
  *   the four headers and a parseable body, the SAME 404 body for an unknown, malformed, rotated or revoked token, a
- *   removed member and a disabled module, ETag -> 304, HEAD 200 without a body, the 61st fetch in an hour 429 with
+ *   removed member and a disabled module, ETag -> 304, HEAD 200 without a body, an unknown token never 429 (no bucket), the 61st fetch in an hour 429 with
  *   `Retry-After`, `last_used_at` set by a fetch;
  * - the request log over the real routes never prints the token.
  */
 import { afterAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
-import { DateTime, Layer } from "effect";
+import { DateTime, Effect, Layer } from "effect";
+import { checkIn } from "../src/core/services/auth/rateLimit.ts";
+import { hashToken } from "../src/core/services/auth/tokens.ts";
 import { setVerifiedEmailRequired } from "../src/core/services/auth/verifiedEmail.ts";
 import { db } from "../src/db/client.ts";
 import { users } from "../src/db/schema.ts";
 import { globalHttpLayer } from "../src/http/global.ts";
 import { httpMiddlewareLayer } from "../src/http/middleware-layer.ts";
 import { API_MODULES } from "../src/modules/index.ts";
+import { CALENDAR_FEED_RULE, feedRateLimitKey } from "../src/modules/calendar/services/feed/tokens.service.ts";
 import { moduleRoutesLayer } from "../src/modules/mount.ts";
 import { runMigrations } from "./support/bridges/migrate.ts";
 import { calendarNameOf, feedPathOf, parseIcsEvents } from "./support/calendar-feed.ts";
@@ -325,6 +328,17 @@ describe("the feed: GET /api/calendar/feed/:file (P2-P7)", () => {
     const robin = await createUser("Robin");
     await addMember(owner, householdId, robin);
     expect((await fetchFeed((await createLink(householdId, robin)).url)).status).toBe(200);
+  });
+
+  test("an unknown token opens no rate-limit bucket: the 61st miss is still 404 (M9-T09 review)", async () => {
+    const guess = `/api/calendar/feed/${"Q".repeat(43)}.ics`;
+    for (let fetch = 1; fetch <= 61; fetch += 1) {
+      const response = await call(guess);
+      expect([fetch, response.status]).toEqual([fetch, 404]);
+    }
+    // The guess's bucket is untouched: this first recorded attempt leaves 59 of 60.
+    const probe = await Effect.runPromise(checkIn(feedRateLimitKey(hashToken("Q".repeat(43))), CALENDAR_FEED_RULE));
+    expect(probe.remaining).toBe(CALENDAR_FEED_RULE.limit - 1);
   });
 
   test("other methods on the feed path are not served by the feed (the global JSON 404)", async () => {

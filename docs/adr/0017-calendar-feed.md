@@ -40,7 +40,8 @@ authority, and anything else is a `404`.
 - **One answer for every refusal.** A malformed, unknown, replaced or revoked token, a token whose user is no longer a
   member of its household, and a household with the calendar disabled all answer the same `404 not_found` with the
   generic body. The feed never says which. A rate limit per token hash (60 fetches per hour, `429 rate_limited`
-  with `Retry-After`) runs before the lookup.
+  with `Retry-After`) runs after the row lookup, so only a stored token gets a bucket (M9-T09 review: before the
+  lookup, a flood of guessed tokens grew the process-wide limiter store without bound).
 - **The token never reaches a log** (P15). `logPathOf(url)` (`apps/api/src/http/request.ts`) reduces every path below
   `/api/<id>/feed/` to `/api/<id>/feed/<redacted>[.ics]`. The request log (`apps/api/src/middleware/requestLog.ts`)
   and the boundary's failure log (`errorResponse` in `apps/api/src/http/response.ts`) print that path, never the
@@ -57,7 +58,7 @@ authority, and anything else is a `404`.
   nothing outside the household's calendar entries (names of the people an entry names, car names, the household's
   name in `X-WR-CALNAME`).
 - **Guessing** a 256-bit token is not feasible. The lookup is by hash through a unique index, so no secret is
-  compared in application code, and the per-token-hash rate limit caps repeated probes of one URL.
+  compared in application code, and the per-token-hash rate limit caps the fetches of one real link (a guess costs one indexed lookup and opens no bucket).
 - **Logs** never carry the token (above). The `404` body of an UNKNOWN route, served by the global fallback,
   repeats the path to whoever requested it, and only to them. Outside production that fallback also writes a
   development-only `console.warn` with the route-unknown message, for example on a `POST` to a feed URL. Production
