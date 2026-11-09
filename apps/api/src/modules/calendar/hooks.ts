@@ -4,7 +4,7 @@
  * remaining positions, and degrade a rotation left with one person to `fixed`, with none to `none` (a `fixed` task left
  * with nobody becomes `none`); entries and waste settings alike. No veto: a placeholder's appointments never block a
  * removal. Car bookings keep their row without a person; `done_by` keeps the user id (the web shows an unknown id as a
- * former member).
+ * former member). The leaver's subscription link of this household (`calendar_feed_tokens`, M9 P14) is deleted first.
  *
  * An Effect over the CURRENT `Database` executor (the core's open transaction: `removeMember` runs every module's hook
  * inside it), with direct drizzle statements and no calendar service, so it also runs outside the runtime. Its
@@ -13,7 +13,13 @@
 import { and, asc, eq } from "drizzle-orm";
 import { Clock, Effect } from "effect";
 import { Database } from "../../db/database.ts";
-import { calendarEntries, calendarEntryMembers, calendarWasteAssignees, calendarWasteSettings } from "./schema.ts";
+import {
+  calendarEntries,
+  calendarEntryMembers,
+  calendarFeedTokens,
+  calendarWasteAssignees,
+  calendarWasteSettings,
+} from "./schema.ts";
 
 /** The mode a rule keeps with `count` people left (P14). */
 function degradedMode(mode: string, count: number): string {
@@ -25,6 +31,13 @@ function degradedMode(mode: string, count: number): string {
 export const calendarOnMemberRemoving = Effect.fn("calendar.onMemberRemoving")(function* (householdId: string, userId: string) {
   const database = yield* Database;
   const now = yield* Clock.currentTimeMillis;
+
+  // --- the leaver's subscription link of this household (plan m9 P14): it stops resolving at once ----------------------
+  yield* database.use((db) =>
+    db
+      .delete(calendarFeedTokens)
+      .where(and(eq(calendarFeedTokens.householdId, householdId), eq(calendarFeedTokens.userId, userId))),
+  );
 
   // --- entries: the leaving member's attendee and assignee rows -----------------------------------------------------
   const affected = yield* database.use((db) =>
