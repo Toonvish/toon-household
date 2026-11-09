@@ -2,7 +2,7 @@
 import { describe, expect, test } from "bun:test";
 import { QueryClient } from "@tanstack/react-query";
 import type { CalendarOccurrence, CalendarOccurrenceListResponse } from "@toon/shared";
-import { applyOccurrenceStatus, calendarKeys, canWriteNow, restoreOccurrences, withStatus } from "./queries";
+import { applyOccurrenceStatus, calendarKeys, canWriteNow, feedQuery, restoreOccurrences, withStatus } from "./queries";
 
 const H = "h1";
 const ENTRY = "11111111-1111-4111-8111-111111111111";
@@ -73,6 +73,12 @@ describe("writes are online only", () => {
   test("canWriteNow follows the online state", () => {
     expect(canWriteNow(true)).toBe(true);
     expect(canWriteNow(false)).toBe(false);
+  });
+
+  test("the feed query is never fresh: lastUsedAt is refetched on every mount (M9-T09 review)", () => {
+    const options = feedQuery(H);
+    expect(options.staleTime).toBe(0);
+    expect<readonly unknown[]>(options.queryKey).toEqual([...calendarKeys.feed(H)]);
   });
 
   test("the feed key (plan m9 P17) sits below the module prefix", () => {

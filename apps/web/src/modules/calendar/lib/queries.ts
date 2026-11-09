@@ -157,6 +157,9 @@ export const feedQuery = (householdId: string) =>
   queryOptions({
     queryKey: calendarKeys.feed(householdId),
     queryFn: ({ signal }) => runPromise(CalendarApi.fetchFeed(householdId), { signal }),
+    // Explicit: the query client's default is `STALE_TIME.list` (30 s), which would show a stale "Noch nicht
+    // abgerufen" right after the phone subscribed (M9-T09 review).
+    staleTime: 0,
   });
 
 /* -------------------------------------------------------------------------- */
