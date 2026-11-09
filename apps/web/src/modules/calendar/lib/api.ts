@@ -11,6 +11,8 @@
  */
 import {
   CalendarEntryListResponseSchema,
+  CalendarFeedCreatedResponseSchema,
+  CalendarFeedResponseSchema,
   CalendarEntrySchema,
   CalendarOccurrenceListResponseSchema,
   CalendarOccurrenceSchema,
@@ -23,6 +25,8 @@ import {
   type CalendarEntry,
   type CalendarEntryListQuery,
   type CalendarEntryListResponse,
+  type CalendarFeedCreatedResponse,
+  type CalendarFeedResponse,
   type CalendarOccurrence,
   type CalendarOccurrenceListResponse,
   type CalendarOccurrenceQuery,
@@ -34,10 +38,12 @@ import {
   type CalendarWasteSettings,
   type CalendarWasteSourceRequest,
   type CreateCalendarEntryRequest,
+  type CreateCalendarFeedRequest,
   type CreateCalendarResourceRequest,
   type PutCalendarWasteSettingsRequest,
   type SetCalendarOccurrenceStatusRequest,
   type UpdateCalendarEntryRequest,
+  type UpdateCalendarFeedRequest,
   type UpdateCalendarResourceRequest,
 } from "@toon/shared";
 import { getJson, queryString, seg, sendForm, sendJson, sendVoid, type RequestOptions } from "@/lib/api";
@@ -164,6 +170,24 @@ export const CalendarApi = {
 
   deleteWasteImport: (householdId: string, importId: string, options?: RequestOptions) =>
     sendVoid("DELETE", calendarPath(householdId, "waste", "imports", seg(importId)), undefined, options),
+
+  /*
+   * subscription feed (plan m9 P13, P17): the member's OWN link. Only the 201 of `createFeed` carries the URL with
+   * its token; `fetchFeed` and `updateFeed` never do. The feed itself (`/api/calendar/feed/<token>.ics`) is never
+   * fetched by the app.
+   */
+
+  fetchFeed: (householdId: string, options?: RequestOptions) =>
+    getJson(CalendarFeedResponseSchema, calendarPath(householdId, "feed"), options),
+
+  createFeed: (householdId: string, body: CreateCalendarFeedRequest, options?: RequestOptions) =>
+    sendJson("POST", CalendarFeedCreatedResponseSchema, calendarPath(householdId, "feed"), body, options),
+
+  updateFeed: (householdId: string, body: UpdateCalendarFeedRequest, options?: RequestOptions) =>
+    sendJson("PATCH", CalendarFeedResponseSchema, calendarPath(householdId, "feed"), body, options),
+
+  deleteFeed: (householdId: string, options?: RequestOptions) =>
+    sendVoid("DELETE", calendarPath(householdId, "feed"), undefined, options),
 };
 
 /* -------------------------------------------------------------------------- */
@@ -304,4 +328,28 @@ export function importWasteFromFile(
 
 export function deleteWasteImport(householdId: string, importId: string, options?: RequestOptions): Promise<void> {
   return runPromise(CalendarApi.deleteWasteImport(householdId, importId, options), options);
+}
+
+export function fetchFeed(householdId: string, options?: RequestOptions): Promise<CalendarFeedResponse> {
+  return runPromise(CalendarApi.fetchFeed(householdId, options), options);
+}
+
+export function createFeed(
+  householdId: string,
+  body: CreateCalendarFeedRequest,
+  options?: RequestOptions,
+): Promise<CalendarFeedCreatedResponse> {
+  return runPromise(CalendarApi.createFeed(householdId, body, options), options);
+}
+
+export function updateFeed(
+  householdId: string,
+  body: UpdateCalendarFeedRequest,
+  options?: RequestOptions,
+): Promise<CalendarFeedResponse> {
+  return runPromise(CalendarApi.updateFeed(householdId, body, options), options);
+}
+
+export function deleteFeed(householdId: string, options?: RequestOptions): Promise<void> {
+  return runPromise(CalendarApi.deleteFeed(householdId, options), options);
 }

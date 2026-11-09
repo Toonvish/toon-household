@@ -4,15 +4,18 @@
  * `tour` part, a READ decoded with the shared schema and refused on a mismatch, a WRITE passing its body through.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import type { CalendarOccurrenceListResponse } from "@toon/shared";
+import type { CalendarFeedCreatedResponse, CalendarFeedResponse, CalendarOccurrenceListResponse } from "@toon/shared";
 import {
   createEntry,
+  createFeed,
   createResource,
   deleteEntry,
+  deleteFeed,
   deleteResource,
   deleteWasteImport,
   fetchEntries,
   fetchEntry,
+  fetchFeed,
   fetchOccurrences,
   fetchResources,
   fetchWaste,
@@ -24,6 +27,7 @@ import {
   putWasteSettings,
   setOccurrenceStatus,
   updateEntry,
+  updateFeed,
   updateResource,
 } from "./api";
 
@@ -127,6 +131,72 @@ describe("every endpoint: method and path (ids stay inside one segment)", () => 
     }
     expect(pathOf(0)).toBe(`${BASE}/waste/preview`);
     expect(pathOf(1)).toBe(`${BASE}/waste/import`);
+  });
+});
+
+describe("the subscription feed (plan m9 P17)", () => {
+  const feed: CalendarFeedResponse = {
+    feed: { scope: "mine", createdAt: "2026-11-09T10:15:00.000Z", lastUsedAt: "2026-11-09T11:00:00.000Z" },
+  };
+  const created: CalendarFeedCreatedResponse = {
+    url: "https://haushalt.example.de/api/calendar/feed/AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_AbCdE.ics",
+    scope: "all",
+    createdAt: "2026-11-09T10:15:00.000Z",
+    lastUsedAt: null,
+  };
+
+  test("method and path of the four routes: one household-scoped path, the body is the scope", async () => {
+    await fetchFeed(H).catch(() => undefined);
+    await createFeed(H, { scope: "all" });
+    await updateFeed(H, { scope: "mine" });
+    await deleteFeed(H);
+    expect(calls.map((call, index) => [call.method, pathOf(index)])).toEqual([
+      ["GET", `${BASE}/feed`],
+      ["POST", `${BASE}/feed`],
+      ["PATCH", `${BASE}/feed`],
+      ["DELETE", `${BASE}/feed`],
+    ]);
+    expect(calls[1]?.body).toBe(JSON.stringify({ scope: "all" }));
+    expect(calls[2]?.body).toBe(JSON.stringify({ scope: "mine" }));
+    expect(calls[3]?.body).toBeNull();
+  });
+
+  test("fetchFeed decodes both answers: no link, and a link", async () => {
+    stub({ feed: null }, 200);
+    expect(await fetchFeed(H)).toEqual({ feed: null });
+    stub(feed, 200);
+    expect(await fetchFeed(H)).toEqual(feed);
+    stub({ feed: { ...feed.feed, lastUsedAt: null } }, 200);
+    expect(await fetchFeed(H)).toEqual({ feed: { scope: "mine", createdAt: "2026-11-09T10:15:00.000Z", lastUsedAt: null } });
+  });
+
+  test("fetchFeed refuses a body that is not the contract (an unknown scope)", async () => {
+    stub({ feed: { scope: "everything", createdAt: "2026-11-09T10:15:00.000Z", lastUsedAt: null } }, 200);
+    let failure: unknown;
+    try {
+      await fetchFeed(H);
+    } catch (error) {
+      failure = error;
+    }
+    expect(isApiError(failure) && failure.code).toBe("invalid_response");
+  });
+
+  test("createFeed resolves the 201 with the URL; updateFeed the link", async () => {
+    stub(created, 201);
+    expect(await createFeed(H, { scope: "all" })).toEqual(created);
+    stub(feed, 200);
+    expect(await updateFeed(H, { scope: "mine" })).toEqual(feed);
+  });
+
+  test("PATCH without a link arrives as the tagged 404", async () => {
+    stub({ error: { code: "not_found", message: "Nicht gefunden." } }, 404);
+    let failure: unknown;
+    try {
+      await updateFeed(H, { scope: "all" });
+    } catch (error) {
+      failure = error;
+    }
+    expect(isApiError(failure) && [failure.status, failure.code]).toEqual([404, "not_found"]);
   });
 });
 

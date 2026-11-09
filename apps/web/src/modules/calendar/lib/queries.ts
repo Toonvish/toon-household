@@ -9,6 +9,7 @@
  *   [...all, "entry", entryId]                                                     <- persisted
  *   [...all, "resources", { includeArchived }]                                     <- persisted
  *   [...all, "waste", from]                                                        <- persisted
+ *   [...all, "feed"]                                                               <- NOT persisted (plan m9 P17)
  *
  * Reads are `offlineFirst` and persisted (the manifest's `persistQueryAllowList`), so a cold offline start renders
  * the last-seen calendar. WRITES ARE ONLINE ONLY (P24): every mutation hook goes through the offline guard, which
@@ -27,6 +28,8 @@ import {
 import type {
   CalendarEntry,
   CalendarEntryListQuery,
+  CalendarFeedCreatedResponse,
+  CalendarFeedResponse,
   CalendarOccurrence,
   CalendarOccurrenceListResponse,
   CalendarResource,
@@ -35,9 +38,11 @@ import type {
   CalendarWasteSettings,
   CalendarWasteSourceRequest,
   CreateCalendarEntryRequest,
+  CreateCalendarFeedRequest,
   CreateCalendarResourceRequest,
   PutCalendarWasteSettingsRequest,
   UpdateCalendarEntryRequest,
+  UpdateCalendarFeedRequest,
   UpdateCalendarResourceRequest,
 } from "@toon/shared";
 import { useCallback } from "react";
@@ -48,8 +53,10 @@ import { runPromise } from "@/lib/runtime";
 import {
   CalendarApi,
   createEntry,
+  createFeed,
   createResource,
   deleteEntry,
+  deleteFeed,
   deleteResource,
   deleteWasteImport,
   importWasteFromFile,
@@ -59,6 +66,7 @@ import {
   putWasteSettings,
   setOccurrenceStatus,
   updateEntry,
+  updateFeed,
   updateResource,
   type CalendarOccurrenceFilters,
 } from "./api";
@@ -83,6 +91,8 @@ export const calendarKeys = {
   resources: (householdId: string, includeArchived = false) =>
     [ROOT, "household", householdId, "calendar", "resources", { includeArchived }] as const,
   waste: (householdId: string, from: string) => [ROOT, "household", householdId, "calendar", "waste", from] as const,
+  /** The member's subscription link (plan m9 P17): never persisted, so `lastUsedAt` is always the server's. */
+  feed: (householdId: string) => [ROOT, "household", householdId, "calendar", "feed"] as const,
 };
 
 /* -------------------------------------------------------------------------- */
@@ -138,6 +148,17 @@ export const wasteQuery = (householdId: string, from: string) =>
     networkMode: "offlineFirst",
   });
 
+/**
+ * The member's subscription link (plan m9 P17): `{ feed: null }` without one. Online only and refetched on every
+ * mount (no stale time): `lastUsedAt` is the proof that a phone subscribed, so a cached value would mislead. The
+ * answer never carries the token or the URL.
+ */
+export const feedQuery = (householdId: string) =>
+  queryOptions({
+    queryKey: calendarKeys.feed(householdId),
+    queryFn: ({ signal }) => runPromise(CalendarApi.fetchFeed(householdId), { signal }),
+  });
+
 /* -------------------------------------------------------------------------- */
 /* writes: online only                                                        */
 /* -------------------------------------------------------------------------- */
@@ -166,15 +187,20 @@ interface MutateCallbacks<TData> {
 
 /**
  * A calendar write: guarded (offline sends nothing), `networkMode: "always"` (a write is never paused into a queue
- * that no outbox would keep), and invalidating every calendar query of the household when it settles.
+ * that no outbox would keep), and invalidating every calendar query of the household when it settles (or only
+ * `invalidateKey` when given: the feed writes touch no entry).
  */
-function useCalendarMutation<TVars, TData>(mutationFn: (vars: TVars) => Promise<TData>, householdId: string) {
+function useCalendarMutation<TVars, TData>(
+  mutationFn: (vars: TVars) => Promise<TData>,
+  householdId: string,
+  invalidateKey: QueryKey = calendarKeys.all(householdId),
+) {
   const queryClient = useQueryClient();
   const guard = useOfflineGuard();
   const mutation = useMutation<TData, unknown, TVars>({
     mutationFn,
     networkMode: "always",
-    onSettled: () => queryClient.invalidateQueries({ queryKey: calendarKeys.all(householdId) }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: invalidateKey }),
   });
   const mutate = (vars: TVars, callbacks: MutateCallbacks<TData> = {}): void => {
     if (!guard()) return;
@@ -252,6 +278,31 @@ export function useImportWaste(householdId: string) {
 
 export function useDeleteWasteImport(householdId: string) {
   return useCalendarMutation((importId: string): Promise<void> => deleteWasteImport(householdId, importId), householdId);
+}
+
+/*
+ * The subscription link (plan m9 P13, P17): each write invalidates only `calendarKeys.feed`. The URL of a created
+ * link reaches the caller through `onSuccess` and lives in component state; it is never written to the cache.
+ */
+
+export function useCreateFeed(householdId: string) {
+  return useCalendarMutation(
+    (body: CreateCalendarFeedRequest): Promise<CalendarFeedCreatedResponse> => createFeed(householdId, body),
+    householdId,
+    calendarKeys.feed(householdId),
+  );
+}
+
+export function useUpdateFeed(householdId: string) {
+  return useCalendarMutation(
+    (body: UpdateCalendarFeedRequest): Promise<CalendarFeedResponse> => updateFeed(householdId, body),
+    householdId,
+    calendarKeys.feed(householdId),
+  );
+}
+
+export function useDeleteFeed(householdId: string) {
+  return useCalendarMutation((): Promise<void> => deleteFeed(householdId), householdId, calendarKeys.feed(householdId));
 }
 
 /* -------------------------------------------------------------------------- */

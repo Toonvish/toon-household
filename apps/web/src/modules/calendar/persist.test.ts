@@ -68,6 +68,9 @@ describe("calendar queries — what may NOT be written", () => {
   test("a foreign or unknown segment, the bare module prefix, another module's keys", () => {
     expect(persists(h("conflicts"))).toBe(false);
     expect(persists(h("waste-preview"))).toBe(false);
+    // The subscription link is live data (plan m9 P17): `lastUsedAt` must come from the server.
+    expect(persists(h("feed"))).toBe(false);
+    expect(persists(calendarKeys.feed(householdId))).toBe(false);
     expect(persists(h())).toBe(false);
     expect(persists(["toon", "household", householdId, "finance", "transactions"])).toBe(false);
     expect(persists(["toon", "household", householdId, "occurrences"])).toBe(false);
