@@ -20,7 +20,7 @@ import { feedQuery, useCreateFeed, useDeleteFeed, useOfflineGuard, useUpdateFeed
 import { FeedView } from "./components/FeedView";
 import { feedPlatformOrder } from "./lib/platforms";
 import type { CalendarFeedScope } from "./lib/scopes";
-import { feedViewState } from "./lib/state";
+import { feedViewState, withChosenScope } from "./lib/state";
 
 /** Rejects a confirm dialog's action without a toast of its own: the offline guard already showed one. */
 class OfflineRefusal {
@@ -38,6 +38,8 @@ export function FeedPage() {
   const update = useUpdateFeed(householdId);
   const remove = useDeleteFeed(householdId);
   const [created, setCreated] = useState<CalendarFeedCreatedResponse | null>(null);
+  // The scope just chosen, shown until its PATCH and the refetch after it settle (`withChosenScope`).
+  const [chosenScope, setChosenScope] = useState<CalendarFeedScope | null>(null);
   const order = useMemo(() => feedPlatformOrder(typeof navigator === "undefined" ? "" : navigator.userAgent), []);
 
   function onCreate(scope: CalendarFeedScope) {
@@ -60,11 +62,15 @@ export function FeedPage() {
   }
 
   function onScopeChange(scope: CalendarFeedScope) {
+    if (!guard()) return;
+    setChosenScope(scope);
     update.mutate(
       { scope },
       {
         onSuccess: () => toast.success(t("calendar.feed.manage.scopeSaved")),
         onError: (error) => toast.fromError(error),
+        // Runs after the mutation's own onSettled, which awaits the refetch: the GET answer shows the scope by then.
+        onSettled: () => setChosenScope(null),
       },
     );
   }
@@ -125,10 +131,7 @@ export function FeedPage() {
   const state = feedViewState(query.data, created);
   const feed = state.kind === "none" ? null : state.feed;
   // While a scope change is on its way, the radios show the chosen scope (the refetch confirms it).
-  const shown =
-    state.kind !== "none" && update.isPending && update.variables !== undefined
-      ? { ...state, feed: { ...state.feed, scope: update.variables.scope } }
-      : state;
+  const shown = withChosenScope(state, chosenScope);
 
   return (
     <div className="flex flex-col">

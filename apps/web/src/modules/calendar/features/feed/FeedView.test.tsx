@@ -12,7 +12,7 @@ import { translate } from "@/lib/i18n";
 import { FeedView, type FeedViewProps } from "./components/FeedView";
 import { ICSX5_FDROID_URL, ICSX5_PLAY_STORE_URL } from "./components/FeedSetupGuide";
 import { feedPlatformOrder } from "./lib/platforms";
-import { feedViewState, type FeedViewState } from "./lib/state";
+import { feedViewState, withChosenScope, type FeedViewState } from "./lib/state";
 
 const TOKEN = "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_AbCdE";
 const URL_ = `https://haushalt.example.de/api/calendar/feed/${TOKEN}.ics`;
@@ -159,5 +159,28 @@ describe("feedViewState", () => {
   test("after the refetch the GET answer's values win (a scope change, the first fetch)", () => {
     const live = feed({ scope: "mine", lastUsedAt: "2026-11-09T11:00:00.000Z" });
     expect(feedViewState({ feed: live }, created)).toEqual({ kind: "created", url: URL_, feed: live });
+  });
+});
+
+describe("withChosenScope", () => {
+  test("nothing chosen: the state unchanged", () => {
+    const state = feedViewState({ feed: feed({ scope: "mine" }) }, null);
+    expect(withChosenScope(state, null)).toBe(state);
+  });
+
+  test("a chosen scope overrides the link's scope in both link states, nothing else", () => {
+    expect(withChosenScope({ kind: "existing", feed: feed({ scope: "mine" }) }, "all")).toEqual({
+      kind: "existing",
+      feed: feed({ scope: "all" }),
+    });
+    expect(withChosenScope({ kind: "created", url: URL_, feed: feed({ scope: "all" }) }, "mine")).toEqual({
+      kind: "created",
+      url: URL_,
+      feed: feed({ scope: "mine" }),
+    });
+  });
+
+  test("no link: nothing to override", () => {
+    expect(withChosenScope({ kind: "none" }, "mine")).toEqual({ kind: "none" });
   });
 });

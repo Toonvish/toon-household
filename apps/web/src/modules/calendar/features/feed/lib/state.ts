@@ -10,6 +10,7 @@
  * scope change or the first fetch by a phone shows up.
  */
 import type { CalendarFeed, CalendarFeedCreatedResponse, CalendarFeedResponse } from "@toon/shared";
+import type { CalendarFeedScope } from "./scopes";
 
 export type FeedViewState =
   | { readonly kind: "none" }
@@ -25,4 +26,15 @@ export function feedViewState(data: CalendarFeedResponse, created: CalendarFeedC
     return { kind: "created", url: created.url, feed };
   }
   return data.feed === null ? { kind: "none" } : { kind: "existing", feed: data.feed };
+}
+
+/**
+ * The state with the scope the member just chose, while its PATCH and the refetch after it are on their way (`null`:
+ * nothing chosen, the state as it is). The page sets the choice in the radio's change handler itself, in the same
+ * render as the click: a scope read from the mutation's pending variables arrives one task later, so React restored
+ * the controlled radio to the old scope in between and the choice flickered back for a frame (M9 UI check).
+ */
+export function withChosenScope(state: FeedViewState, scope: CalendarFeedScope | null): FeedViewState {
+  if (scope === null || state.kind === "none") return state;
+  return { ...state, feed: { ...state.feed, scope } };
 }
