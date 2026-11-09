@@ -38,12 +38,23 @@ describe("the calendar manifest", () => {
     expect(calendarModule.schema).toBe(calendarTables);
   });
 
-  test("no setup hooks, no user API, no background work (design §2)", () => {
+  test("no setup hooks, no user API, the feed as its public API, no background work (design §2, M9)", () => {
     expect(calendarModule.onHouseholdCreated).toBeUndefined();
     expect(calendarModule.onEnable).toBeUndefined();
     expect(calendarModule.start).toBeUndefined();
     expect(calendarModule.shutdown).toBeUndefined();
     expect(calendarModule.userApi).toBeUndefined();
+    // M9 (ADR 0017): the subscription feed is the module's one public API, GET /api/calendar/feed/:file.
+    expect(calendarModule.publicApi).toBeDefined();
+    expect(
+      calendarModule.publicApi!.apis.flatMap((api) =>
+        Object.values(api.groups).flatMap((group) =>
+          Object.values((group as { endpoints: Record<string, { method: string; path: string }> }).endpoints).map(
+            (endpoint) => `${endpoint.method} ${endpoint.path}`,
+          ),
+        ),
+      ),
+    ).toEqual(["GET /api/calendar/feed/:file"]);
     expect(calendarModule.uploadReferences).toBeUndefined();
     expect(calendarModule.onMemberRemoving).toBeDefined();
     expect(calendarModule.seedDemo).toBeDefined();
