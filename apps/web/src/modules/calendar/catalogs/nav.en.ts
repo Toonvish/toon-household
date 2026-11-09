@@ -7,4 +7,5 @@ export const calendarNavEn: LocaleCatalog<CalendarNavCatalog> = {
   "calendar.nav.tasks": "Tasks",
   "calendar.nav.cars": "Cars",
   "calendar.nav.waste": "Waste collection",
+  "calendar.nav.feed": "Calendar feed",
 };

@@ -68,10 +68,17 @@ describe("calendarModule — navigation (design §4.1, D6)", () => {
     expect(calendarModule.navItems.map((item) => item.exact)).toEqual([true, false, false]);
   });
 
-  test("sidebar-only: Autos, Müllabfuhr, then the shell's Gruppen", () => {
+  test("sidebar-only: Autos, Müllabfuhr, Kalender-Abo (plan m9 P16), then the shell's Gruppen", () => {
     const items = secondaryNavItems({ ...context, pathname: "/calendar" });
-    expect(items.map((item) => item.labelKey)).toEqual(["calendar.nav.cars", "calendar.nav.waste", HOUSEHOLDS_NAV_ITEM.labelKey]);
-    expect(items.map((item) => item.to)).toEqual(["/calendar/cars", "/calendar/waste", "/households"]);
+    expect(items.map((item) => item.labelKey)).toEqual([
+      "calendar.nav.cars",
+      "calendar.nav.waste",
+      "calendar.nav.feed",
+      HOUSEHOLDS_NAV_ITEM.labelKey,
+    ]);
+    expect(items.map((item) => item.to)).toEqual(["/calendar/cars", "/calendar/waste", "/calendar/feed", "/households"]);
+    expect(calendarModule.secondaryNavItems).toHaveLength(3);
+    expect(calendarModule.catalogs.de["calendar.nav.feed"]).toBe("Kalender-Abo");
   });
 
   test("outside a module the phone tab bar shows Home · Rezepte · Finanzen · Kalender · Profil (ADR 0016)", async () => {
@@ -103,13 +110,14 @@ describe("calendarModule — route tree (plan m8 section 5.5)", () => {
         "/calendar/entries/$entryId/edit",
         "/calendar/cars",
         "/calendar/waste",
+        "/calendar/feed",
       ].sort(),
     );
   });
 
   test("every screen is lazy (`lazyRouteComponent` carries `.preload`)", () => {
     const screens = childrenOf(calendarModule.route);
-    expect(screens).toHaveLength(8);
+    expect(screens).toHaveLength(9);
     for (const route of screens) {
       const component = (route.options as { component?: { preload?: unknown } }).component;
       expect(typeof component?.preload).toBe("function");
@@ -136,6 +144,7 @@ describe("calendarModule — route tree (plan m8 section 5.5)", () => {
 type AppRouter = typeof router;
 const registered: AppRouter["routeTree"] | undefined = undefined;
 const good: LinkProps["to"] = "/calendar/waste";
+const goodFeed: LinkProps["to"] = "/calendar/feed";
 const goodDetail: LinkProps["to"] = "/calendar/entries/$entryId/edit";
 // @ts-expect-error unknown route
 const bad: LinkProps["to"] = "/calendar/does-not-exist";
@@ -143,6 +152,7 @@ const bad: LinkProps["to"] = "/calendar/does-not-exist";
 const unprefixed: LinkProps["to"] = "/overview";
 void registered;
 void good;
+void goodFeed;
 void goodDetail;
 void bad;
 void unprefixed;

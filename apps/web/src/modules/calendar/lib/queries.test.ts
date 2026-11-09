@@ -75,6 +75,11 @@ describe("writes are online only", () => {
     expect(canWriteNow(false)).toBe(false);
   });
 
+  test("the feed key (plan m9 P17) sits below the module prefix", () => {
+    expect<readonly unknown[]>(calendarKeys.feed(H)).toEqual(["toon", "household", H, "calendar", "feed"]);
+    expect(calendarKeys.feed(H).slice(0, 4)).toEqual([...calendarKeys.all(H)]);
+  });
+
   test("the occurrence root is a prefix of every occurrence key and below the module prefix", () => {
     const root = calendarKeys.occurrencesRoot(H);
     expect(calendarKeys.occurrences(H, "a", "b").slice(0, root.length)).toEqual([...root]);

@@ -12,6 +12,8 @@ import { calendarCommonDe } from "./common.de.ts";
 import { calendarCommonEn } from "./common.en.ts";
 import { calendarEntriesDe } from "./entries.de.ts";
 import { calendarEntriesEn } from "./entries.en.ts";
+import { calendarFeedDe } from "./feed.de.ts";
+import { calendarFeedEn } from "./feed.en.ts";
 import { calendarHomeDe } from "./home.de.ts";
 import { calendarHomeEn } from "./home.en.ts";
 import { calendarMonthDe } from "./month.de.ts";
@@ -36,6 +38,7 @@ export const calendarDe = {
   ...calendarEntriesDe,
   ...calendarCarsDe,
   ...calendarWasteDe,
+  ...calendarFeedDe,
 } as const;
 
 export const calendarEn = {
@@ -49,4 +52,5 @@ export const calendarEn = {
   ...calendarEntriesEn,
   ...calendarCarsEn,
   ...calendarWasteEn,
+  ...calendarFeedEn,
 } as const;

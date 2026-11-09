@@ -10,14 +10,15 @@
  * this file, `routes.tsx`, `HomeCard.tsx` and the catalogs never import the module registry, the shell (the layout
  * components, `use-nav-items`) or a screen. `persist.test.ts` imports this manifest FIRST on purpose.
  *
- * Navigation (design §4.1, D6): tabs Übersicht · Monat · Aufgaben (the shell appends Profil); sidebar-only Autos and
- * Müllabfuhr (the shell appends Gruppen). Their phone routes: the car card on Übersicht links to Autos, the
- * Müllabfuhr card on Aufgaben to Müllabfuhr. Creating is the one header action of every tab screen, not a tab.
+ * Navigation (design §4.1, D6): tabs Übersicht · Monat · Aufgaben (the shell appends Profil); sidebar-only Autos,
+ * Müllabfuhr and Kalender-Abo (the shell appends Gruppen). Their phone routes: the car card on Übersicht links to
+ * Autos, the Müllabfuhr card on Aufgaben to Müllabfuhr, a link on Übersicht to Kalender-Abo (plan m9 P16).
+ * Creating is the one header action of every tab screen, not a tab.
  *
  * Offline (P24): the reads persist; writes are online only, so there is no outbox (`persistMutationNamespaces`,
  * `mutationDefaults`) and no `enableDialog` (the module needs no settings) or `settingsSections`.
  */
-import { CalendarDays, Car, CheckSquare, LayoutList, Trash2 } from "lucide-react";
+import { CalendarDays, CalendarSync, Car, CheckSquare, LayoutList, Trash2 } from "lucide-react";
 import type { WebModule } from "@/modules/types";
 import { calendarDe, calendarEn } from "./catalogs/index.ts";
 import { CalendarHomeCard } from "./HomeCard";
@@ -37,12 +38,14 @@ export const calendarModule = {
   secondaryNavItems: [
     { to: "/calendar/cars", labelKey: "calendar.nav.cars", icon: Car, exact: false },
     { to: "/calendar/waste", labelKey: "calendar.nav.waste", icon: Trash2, exact: false },
+    { to: "/calendar/feed", labelKey: "calendar.nav.feed", icon: CalendarSync, exact: false },
   ],
   homeCard: CalendarHomeCard,
   /**
    * What is persisted for offline reading (SPEC D9, P24). Keys are `["toon","household",<id>,"calendar",<segment>,…]`
    * (`lib/queries.ts` `calendarKeys`): the occurrence lists (with their `members`, so names and colours render
-   * offline), the series, one series, the cars and the waste overview.
+   * offline), the series, one series, the cars and the waste overview. Never the subscription link (`feed`, plan
+   * m9 P17): its `lastUsedAt` must be live.
    */
   persistQueryAllowList: [
     { scope: "household", path: ["calendar", "occurrences"] },

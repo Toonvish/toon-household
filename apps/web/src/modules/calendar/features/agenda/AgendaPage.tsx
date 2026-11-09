@@ -1,7 +1,8 @@
 /**
  * The overview (`/calendar`, design §4.2). Phone: the Today card, the member chips, the overdue tasks, then the next
  * 14 days by day (empty days skipped). Desktop: the agenda on the left (two thirds) and a rail with the Today card,
- * the cars and the next pickups.
+ * the cars and the next pickups. The link to the subscription screen (plan m9 P16) follows the Today card on phones
+ * and closes the rail from `lg`.
  *
  * ONE occurrence request covers the overdue window and the 14 days (`today - 7` … `today + 13`); the member chips
  * filter it client side with the API's rule (`matchesMember`), so the list, the card and the offline copy share one
@@ -22,6 +23,7 @@ import { useCalendarContext, useCars, useOccurrenceToggle } from "@/modules/cale
 import { memberMap } from "@/modules/calendar/lib/people";
 import { occurrencesQuery } from "@/modules/calendar/lib/queries";
 import { CarStatusCard } from "./components/CarStatusCard";
+import { FeedLink } from "./components/FeedLink";
 import { NextPickupsCard } from "./components/NextPickupsCard";
 import { TodayCard } from "./components/TodayCard";
 
@@ -88,6 +90,7 @@ export function AgendaPage() {
             <CarStatusCard today={today} cars={activeCars} items={allItems} members={members} />
             <NextPickupsCard householdId={householdId} today={today} />
           </div>
+          <FeedLink />
         </aside>
 
         <section aria-label={t("calendar.agenda.title")} className="flex min-w-0 flex-col gap-5 lg:order-1 lg:col-span-2">
