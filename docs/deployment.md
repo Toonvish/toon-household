@@ -1041,6 +1041,16 @@ environment, and the issuer opened up with `acme { dns <provider> {env.<TOKEN>} 
 global `cert_issuer` and in the `tls` block of the main site. The comment at the top of
 `docker/Caddyfile` says the same.
 
+### The space-miner game on the same server
+
+The separate game stack (`Toonvish/space-miner`, installed in `/opt/space-miner`) has no proxy of its
+own: this stack's Caddy serves it ([ADR 0018](adr/0018-caddy-fronts-space-miner.md)). Point a DNS record
+at this server, set `SPACE_MINER_HOSTNAME=<name>` in this stack's `.env`, then
+`docker compose up -d caddy` (Caddy picks up the new variable and fetches a certificate). The game
+container joins the `toon-household_toon` network as `space-miner`, so this stack has to be running
+first. Everything else (image, deploy key, `space-miner-deploy`) lives in the game's repository,
+`docs/deployment.md` there.
+
 ### Photo and PDF import are optional
 
 Off by default, and the published image can do photos only. Import by web address and by pasted text

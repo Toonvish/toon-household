@@ -148,6 +148,27 @@
 }
 
 # -----------------------------------------------------------------------------
+# space-miner (optional, ADR 0018): a separate game stack on this same machine.
+#
+# Its own compose project (/opt/space-miner, repository Toonvish/space-miner)
+# joins THIS stack's `toon` network under the name `space-miner`, and this Caddy
+# terminates TLS for it, because only one process can own ports 80 and 443. The
+# game is a WebSocket app on one port; `reverse_proxy` upgrades WebSockets on its
+# own. Unset, the address falls back to the same `.invalid` placeholder pattern as
+# the old hostnames, so no request ever reaches it. While the game container is
+# down this site answers 502 and nothing else on the stack is affected.
+# -----------------------------------------------------------------------------
+{$SPACE_MINER_HOSTNAME:http://space-miner.unset.invalid} {
+	encode zstd gzip
+
+	reverse_proxy space-miner:8080 {
+		import fwd
+	}
+
+	import hardening
+}
+
+# -----------------------------------------------------------------------------
 # The old hostnames (ADR 0008): the self-retiring service worker.
 #
 # An installed old PWA asks for /sw.js on its update check. A redirect there is a

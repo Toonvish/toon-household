@@ -56,7 +56,9 @@ server fiber outside the runtime's fiber scope); 0016 a third module, `calendar`
 `MODULE_IDS` gains `calendar`, three module tabs outside a module, eleven waste and person tokens, new German admitted by
 namespace, an exact-host outbound fetch of the waste flyer); 0017 the calendar's subscription feed, a public module route (M9;
 D4, D8, SPEC §2: `ApiModule.publicApi` built with `publicModuleApi`, served at `/api/<id>/feed/…` behind `ApiErrorBoundary` only, the
-token in the URL as the credential like the signed `/uploads` URLs, every feed path redacted in the logs by `logPathOf`).
+token in the URL as the credential like the signed `/uploads` URLs, every feed path redacted in the logs by `logPathOf`);
+0018 the stack's Caddy also fronts the separate space-miner game stack on its own optional `SPACE_MINER_HOSTNAME` (D11: a
+second `reverse_proxy`, to `space-miner:8080` on the `toon` network, pinned by the Caddyfile guard test).
 
 `docs/EFFECT.md` §1 (E1–E12) is fixed in the same way as D1–D15: it changes only through an ADR, and a task that
 forces a deviation makes the smallest one and records it (ADR 0012, `docs/adr/0012-effect-application-framework.md`).

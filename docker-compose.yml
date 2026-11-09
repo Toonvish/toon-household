@@ -173,6 +173,8 @@ services:
       # set, so compose's `:-` is what covers the set-but-empty case).
       RECIPE_HOSTNAME: ${RECIPE_HOSTNAME:-http://old-recipe-hostname.unset.invalid}
       FINANCE_HOSTNAME: ${FINANCE_HOSTNAME:-http://old-finance-hostname.unset.invalid}
+      # The space-miner game stack on this machine (ADR 0018); unset = no site.
+      SPACE_MINER_HOSTNAME: ${SPACE_MINER_HOSTNAME:-http://space-miner.unset.invalid}
     ports:
       - "80:80"
       - "443:443"

@@ -143,7 +143,9 @@ changes none of them.
   optional and removed after cutover. The image is published to `ghcr.io/toonvish/toon-household` by `release.yml`
   (`WITH_OCR=1 WITH_PDF=0` as toon-recipe does), deployed by `deploy.yml` + `docker/toon-deploy.sh`
   with a forced-command SSH key, as toon-recipe does. The old stacks are stopped at cutover, their
-  volumes kept until the owner deletes them (`docs/deployment.md` "Cutover from toon-edge").
+  volumes kept until the owner deletes them (`docs/deployment.md` "Cutover from toon-edge"). The same
+  Caddy also serves the separate space-miner game stack on its own optional `SPACE_MINER_HOSTNAME`,
+  proxied to `space-miner:8080` on the `toon` network (ADR 0018).
 - **D12 — Migration = one idempotent CLI, dry-run by default.** `bun run migrate:legacy` reads the
   two old libSQL files and the recipe uploads directory and writes into the household DB (§6).
   Users are matched by `email_normalized`; every recipe group becomes a household; a finance

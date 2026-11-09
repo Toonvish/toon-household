@@ -147,11 +147,28 @@ describe("what the stack's Caddy must not do", () => {
     expect(directives(LINES).filter((line) => line.includes("Content-Security-Policy"))).toEqual([]);
   });
 
-  test("no path-prefixed app (SPEC §9): one reverse_proxy, at the site root", () => {
+  test("no path-prefixed app (SPEC §9): the app's reverse_proxy, plus space-miner's on its own host (ADR 0018)", () => {
     expect(directives(LINES).filter((line) => line.includes("reverse_proxy"))).toEqual([
       "\treverse_proxy app:3001 {",
+      "\treverse_proxy space-miner:8080 {",
     ]);
     expect(directives(LINES).filter((line) => /^\s*(handle_path|uri strip_prefix)\b/.test(line))).toEqual([]);
+  });
+});
+
+describe("the space-miner site (ADR 0018)", () => {
+  const site = topLevelBlock(LINES, "{$SPACE_MINER_HOSTNAME:http://space-miner.unset.invalid}");
+  test("is a placeholder address unless SPACE_MINER_HOSTNAME is set", () => {
+    expect(site[0]).toBe("{$SPACE_MINER_HOSTNAME:http://space-miner.unset.invalid} {");
+  });
+  test("proxies to the game container with the fwd snippet, hardening and compression", () => {
+    const text = site.join("\n");
+    expect(text).toContain("\treverse_proxy space-miner:8080 {\n\t\timport fwd\n\t}");
+    expect(site).toContain("\timport hardening");
+    expect(site).toContain("\tencode zstd gzip");
+  });
+  test("no tls block of its own (the global cert_issuer covers it; a tls block on the http:// placeholder fails)", () => {
+    expect(site.map((line) => line.trim())).not.toContain("tls {");
   });
 });
 
