@@ -515,12 +515,42 @@ build log; M8 462.95 kB in 101); `bun run i18n:check` parity OK, leftover **148*
 of `docs/modules/calendar.md` §5.1 (LINKS with `feed`, no `Date`, no effect import in the web module) empty; `git status --porcelain
 repos/` empty.
 
+### 9.6 The fix round after the review (M9-fix, 2026-11-09)
+
+Two review findings, both verified in the code first and both real; each its own commit with a regression test that fails
+before the fix:
+
+1. `47e121d37` **A 429 told a refused token from an unknown one.** `CalendarFeedTokens.resolve` ran the rate limit after the row
+   lookup but BEFORE the membership and module checks, so a stored token of a household with the calendar off (or of a user who left
+   without the hook having run) answered `404` sixty times and then `429` with `Retry-After`, while an unknown token stays `404`
+   forever: against "one answer for every refusal" (brief item 1, ADR 0017). The rate limit now runs last, just before the resolved
+   feed is returned; a refused token opens no bucket. Test in `apps/api/test/calendar-feed-routes.test.ts`: 61 fetches of a
+   calendar-off link are all `404` and its bucket stays untouched. ADR 0017, `docs/API.md` and `docs/modules/calendar.md` (section 1.2
+   and the gotcha "Every feed refusal is the same 404.") give the new order.
+2. `ac9dca290` **The token reached the log on a path the router normalises.** `HttpRouter`'s FindMyWay collapses runs of `/`
+   (`ignoreDuplicateSlashes: true`) and matches static segments case-insensitively (`caseSensitive: false`; both read in
+   `repos/effect/packages/effect/src/http/FindMyWay/internal/router.ts`), so `/api//calendar/feed/<token>.ics`, `//api/calendar/feed/…`,
+   `/api/calendar//feed/…` and `/API/Calendar/Feed/…` all answered `200` with the calendar, while `logPathOf` matched only the literal
+   lowercase single-slash form and printed the raw path, token included, in the request log and the boundary log. `logPathOf` now
+   matches on the path with runs of `/` collapsed and a case-insensitive prefix (a trailing `/` after `.ics`, which the router trims,
+   still prints `.ics`). Tests: nine new rows in the `logPathOf` table of `apps/api/test/modules-public.test.ts` (the slash and case
+   variants, an encoded `%66eed`, and a household path with doubled slashes left alone) and a route-level test in
+   `apps/api/test/calendar-feed-routes.test.ts` that serves four variants (`200` each) through the real request log and finds the token
+   in no line. ADR 0017 says the match follows the router.
+
+Gates after the fix round (background logs ending in `exit=$?`): `bun run typecheck` exit 0; `bun test` **15854 pass, 1 skip, 0 fail
+in 224 files** (84.2 s; +11 over section 9.5: the nine table rows and two route tests), no `(fail)` line; `bun run i18n:check` parity OK,
+leftover **148** (none in the calendar; exit 1 by design); `bun run build` exit 0, **102 chunks, 470.31 kB** of gzipped JS (unchanged,
+the fixes are API-only); `git status --porcelain repos/` empty.
+
 ## 10. What changed vs plan
 
 1. **P1 worktree paths:** `.worktrees/m9-api` and `.worktrees/m9-web` inside the repo (the run's task said so), not
    `../toon-household-m9-<lane>`.
-2. **P4/P5 order (review fix 1):** the rate limit runs AFTER the row lookup, not before it; an unknown token opens no bucket. ADR 0017's
-   decision text and `docs/API.md` say so.
+2. **P4/P5 order (review fix 1, then M9-fix 1):** the rate limit runs LAST, after the row lookup, the membership and the module check,
+   not first as planned: an unknown token opens no bucket (section 9.2), and a stored token that is refused stays `404` on every
+   fetch instead of turning `429` after sixty, which would tell it from an unknown one (section 9.6). ADR 0017's decision text,
+   `docs/API.md` and `docs/modules/calendar.md` say so.
 3. **P13 `resolve` takes `:file`:** `CalendarFeedTokens.resolve(file)` matches `CALENDAR_FEED_FILE_PATTERN` itself instead of taking a bare
    token, and the rate-limit refusal comes out of `resolve` too.
 4. **P13 `create` returns the whole 201 body:** the service builds the url (first `WEB_ORIGIN`, trailing slashes trimmed); the route only
@@ -537,4 +567,7 @@ repos/` empty.
 9. **Recorded, not fixed (ADR 0017):** outside production, a non-GET request to a feed URL reaches the global fallback, whose
    route-unknown `console.warn` carries the raw path; production writes no 4xx line, and the request log and the boundary log are
    redacted.
-10. No new server catalog key beyond T01's, no new error code, no change to `apps/web/vite.config.ts` (P18 confirmed by reading it).
+10. **P15 redaction follows the router (M9-fix 2):** `logPathOf` matches below `/api/<id>/feed/` on the path with runs of `/`
+    collapsed and the prefix case-insensitive, because the router serves `/api//calendar/feed/…` and `/API/Calendar/Feed/…` too; the
+    plan's literal prefix match leaked the token for those (section 9.6).
+11. No new server catalog key beyond T01's, no new error code, no change to `apps/web/vite.config.ts` (P18 confirmed by reading it).
