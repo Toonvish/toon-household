@@ -13,6 +13,10 @@
  * `tour`, the parts the web's `sendForm` sends. The occurrence list then carries waste pickups (category, `bio_cleaning`
  * detail), a done task, a skipped occurrence and a car booking.
  *
+ * M9-T08 (docs/plans/m9-calendar-feed.md P13, P17): the four routes of the subscription feed's management, the member's
+ * OWN link: `fetchFeed` without a link (`feed: null`) and with one, `createFeed` (201, the one answer with the URL),
+ * `updateFeed` and the void `deleteFeed`. The feed itself (`/api/calendar/feed/<token>.ics`) is never fetched by the app.
+ *
  * A row the oracle cannot satisfy would carry `lenient: { schema, reason }` ON ONE LINE and need `lenient(X)` in the
  * client (CLAUDE.md "One web runtime"); at M8 there is none.
  */
@@ -22,6 +26,8 @@ import { Schema } from "effect";
 import {
   CalendarEntryListResponseSchema,
   CalendarEntrySchema,
+  CalendarFeedCreatedResponseSchema,
+  CalendarFeedResponseSchema,
   CalendarOccurrenceListResponseSchema,
   CalendarOccurrenceSchema,
   CalendarResourceListResponseSchema,
@@ -372,6 +378,32 @@ describe("calendar contract: the routes the web client decodes", () => {
       });
       expect(year.items.some((o: { categoryDetail: string | null }) => o.categoryDetail === "bio_cleaning")).toBe(true);
 
+      // the subscription feed (M9): the member's own link, never the token outside the 201
+      const noFeed = await check(robin, { name: "fetchFeed (no link)", path: base("/feed"), schema: CalendarFeedResponseSchema });
+      expect(noFeed.feed).toBeNull();
+      const created = await check(robin, {
+        name: "createFeed",
+        method: "POST",
+        path: base("/feed"),
+        body: { scope: "mine" },
+        status: 201,
+        schema: CalendarFeedCreatedResponseSchema,
+      });
+      expect(created.url).toMatch(/\/api\/calendar\/feed\/[A-Za-z0-9_-]{43}\.ics$/);
+      expect(created.lastUsedAt).toBeNull();
+      const withFeed = await check(robin, { name: "fetchFeed (a link)", path: base("/feed"), schema: CalendarFeedResponseSchema });
+      expect(withFeed.feed).toEqual({ scope: "mine", createdAt: created.createdAt, lastUsedAt: null });
+      expect(JSON.stringify(withFeed)).not.toContain(created.url.split("/").pop()!.slice(0, 43));
+      const changed = await check(robin, {
+        name: "updateFeed",
+        method: "PATCH",
+        path: base("/feed"),
+        body: { scope: "all" },
+        schema: CalendarFeedResponseSchema,
+      });
+      expect(changed.feed.scope).toBe("all");
+      await check(robin, { name: "deleteFeed", method: "DELETE", path: base("/feed"), schema: null });
+
       // the void routes
       await check(owner, { name: "deleteWasteImport", method: "DELETE", path: base(`/waste/imports/${fromFile.import.id}`), schema: null });
       await check(owner, { name: "deleteEntry", method: "DELETE", path: base(`/entries/${event.id}`), schema: null });
@@ -390,9 +422,9 @@ describe("calendar contract: the routes the web client decodes", () => {
       .map((m) => [m[0], m[1]!, /^Promise<(\w+)>$/.exec(m[2]!)?.[1]] as const)
       .filter((m) => m[2] !== undefined);
     const voidExports = all.filter((m) => m[2] === "void").map((m) => m[1]!);
-    // plan m8 section 5.4: 18 members, three of them void deletes.
-    expect(all.length).toBe(18);
-    expect(voidExports.sort()).toEqual(["deleteEntry", "deleteResource", "deleteWasteImport"]);
+    // plan m8 section 5.4: 18 members, three of them void deletes; plan m9 P17 adds the four feed members (one void).
+    expect(all.length).toBe(22);
+    expect(voidExports.sort()).toEqual(["deleteEntry", "deleteFeed", "deleteResource", "deleteWasteImport"]);
     const covered = rows.map((row) => row.split(" ")[0]);
     for (const [, fn] of all) {
       expect(covered, `no contract row for ${fn}`).toContain(fn!);
