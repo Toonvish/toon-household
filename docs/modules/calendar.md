@@ -477,5 +477,58 @@ Run them all with `bun test calendar` (a path filter).
 ## 6. Out of scope (deferred)
 
 Recorded in `docs/open-work.md` (X-8 to X-14): per-occurrence edits ("nur diesen Termin"), reminders (Web Push or
-e-mail), an ICS subscription feed, offline writes (an outbox like finance's), other cities' waste providers and a street
+e-mail), an ICS subscription feed (being built by M9: section 7), offline writes (an outbox like finance's), other cities' waste providers and a street
 search over the flyer's directory, ICS import, calendar sharing outside the household.
+
+## 7. Subscription feed (M9, DESIGN; rewritten as built at M9-T08)
+
+The binding decisions are plan m9 section 2 (`docs/plans/m9-calendar-feed.md`, P1-P19); ADR 0017 (written by M9-T02) records the one
+deviation, a module route without a session. This section is the design until the milestone integrates; paths below the module are
+written relative to it until the files exist.
+
+**What it is.** A household member subscribes their phone calendar (iOS Calendar, Android through ICSx5 or Google Calendar, Samsung
+Calendar through either, Outlook, macOS) to `GET /api/calendar/feed/<token>.ics`: one way, read only, no session, the token alone
+authenticates (a capability URL like the signed `/uploads` URLs, SPEC D4). It replaces the feed half of `docs/open-work.md` X-10; ICS
+import stays deferred.
+
+**The link** (table `calendar_feed_tokens`, migration `apps/api/drizzle/0005_calendar_feed.sql`): one per member and household, 32
+random bytes in base64url (43 characters); only its SHA-256 hex is stored. It is created or REPLACED by `POST …/calendar/feed`
+(`{ scope }`, answers `201 { url, scope, createdAt, lastUsedAt: null }`, the ONLY place the token appears; `url` uses the first
+`WEB_ORIGIN`, as claim links do), read by `GET …/calendar/feed` (`{ feed: null | { scope, createdAt, lastUsedAt } }`), changed by `PATCH`
+(scope only, token unchanged, `404` without a link) and ended by `DELETE` (`204`, idempotent); all four below
+`/api/households/:householdId/calendar` in a group `calendar.feed` with `chain(RequireVerifiedEmail)`, the caller's own link only. A
+member who leaves loses the link (the member-removal hook deletes the row); an account or household delete cascades.
+
+**Scope.** `all`: every entry of the household. `mine`: the P10 member filter of `GET …/occurrences` (an occurrence naming nobody is
+for everybody: an event without attendees, an unassigned task or waste pickup; else the member is an attendee, the person of a car
+booking, or the assignee of THAT occurrence with the rotation resolved).
+
+**The feed route.** A malformed, unknown, replaced or revoked token, a user who is no member of the token's household any more, and a
+household with the calendar disabled all answer the same `404 not_found`. 60 fetches per token and hour, else `429 rate_limited` with
+`Retry-After`. `200` with `text/calendar; charset=utf-8`, `Content-Disposition: inline; filename="haushalt.ics"`,
+`Cache-Control: private, max-age=300`, a strong `ETag` over the body (`If-None-Match` → `304`); `HEAD` through the router's fallback.
+`last_used_at` is written at most once per hour ("Zuletzt abgerufen" on the screen is the proof the phone subscribed). The token never
+reaches a log: the request log and the boundary's failure log print `/api/calendar/feed/<redacted>.ics`, and `docker/Caddyfile` keeps
+no access log.
+
+**Contents** (RFC 5545, a pure writer in the module's `services/feed/`): CRLF lines folded at 75 octets without splitting a UTF-8
+sequence, TEXT escaping of `\ ; ,` and line breaks; `VCALENDAR` with `VERSION:2.0`, `PRODID:-//toon-household//Kalender//DE`,
+`CALSCALE:GREGORIAN`, `METHOD:PUBLISH`, `X-WR-CALNAME` ("Haushalt · <name>", "(meine Termine)" for scope `mine`),
+`X-WR-TIMEZONE:Europe/Berlin`, `REFRESH-INTERVAL;VALUE=DURATION:PT1H`, `X-PUBLISHED-TTL:PT1H` and a `VTIMEZONE` for Europe/Berlin.
+EXPANDED occurrences (no RRULE) in the window `[today - 30 days, today + 365 days]`, the same items `GET …/occurrences` answers for that
+range, skipped ones omitted. **Exception to "The server never decides today" (§1.2):** a subscribed calendar has no client to send a
+date, so the feed's today is the Clock's date in Europe/Berlin. One `VEVENT` per occurrence: `UID:<entryId>-<date>@toon-household`,
+`DTSTAMP` and `LAST-MODIFIED` from the entry's `updated_at` (UTC), all-day as `VALUE=DATE` with an exclusive end, timed with
+`TZID=Europe/Berlin` (no `DTEND` without an end time), `TRANSP:TRANSPARENT` for all-day tasks and waste pickups, `OPAQUE` otherwise,
+`LOCATION` when set. `SUMMARY` in the token user's locale (`users.locale`, else the deployment default; German catalog keys
+`server.calendar.feed.*`): an event its title; a task its title and " · <assignee>", "✓ " before a done one; a car booking
+"<car>: <title or Autobuchung> · <person>"; a waste pickup its label ("Biotonne + Reinigung"). `DESCRIPTION`: "Für: …" / "Zuständig: …"
+/ "Auto: …" lines, then the notes.
+
+**Web** (`/calendar/feed`, "Kalender-Abo", sidebar-only beside Autos and Müllabfuhr, linked from Übersicht; `PhoneHeaderRow`): no link
+→ a short explanation, the scope (Alle Termine des Haushalts / Nur meine Termine), "Link erstellen"; just created → the URL read-only with
+"Kopieren", the button "Mit iPhone-Kalender verbinden" (`webcal://` + host + path), the setup per platform ordered by the user agent
+(iPhone/iPad, Android with ICSx5 from the Play Store or F-Droid, Google Kalender on the web with its slow refresh, Outlook/Mac) and the
+note that the link is personal and works without a password; existing link → the scope (changeable), created, "Zuletzt abgerufen: …" or
+"Noch nicht abgerufen", "Neuen Link erzeugen" (confirm: the old link stops on every device) and "Abo beenden" (confirm). The app never
+fetches the feed; `calendarKeys.feed` is not persisted; the service worker caches nothing below `/api/calendar/feed/`.

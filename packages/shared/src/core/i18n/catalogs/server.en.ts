@@ -364,4 +364,24 @@ export const serverEn: LocaleCatalog<ServerCatalog> = {
   /* ------------------------------------------------------------------------- */
 
   /* calendar: api-waste additions (M8) */
+
+  /* calendar: subscription feed (M9, plan m9 P10-P12; content such as titles and names is never translated) */
+  "server.calendar.feed.calendarName": "Household · {household}",
+  "server.calendar.feed.calendarNameMine": "Household · {household} (my events)",
+  "server.calendar.feed.done": "✓ {summary}",
+  "server.calendar.feed.withPeople": "{summary} · {names}",
+  "server.calendar.feed.carSummary": "{car}: {title}",
+  "server.calendar.feed.carDefaultTitle": "Car booking",
+  "server.calendar.feed.unknownCar": "Car",
+  "server.calendar.feed.for": "For: {names}",
+  "server.calendar.feed.assignee": "Assigned: {names}",
+  "server.calendar.feed.car": "Car: {car}",
+  "server.calendar.feed.everybody": "Everybody",
+  "server.calendar.feed.formerMember": "Former member",
+  "server.calendar.feed.waste.waste_rest": "Residual waste",
+  "server.calendar.feed.waste.waste_yellow": "Yellow bag",
+  "server.calendar.feed.waste.waste_bio": "Organic bin",
+  "server.calendar.feed.waste.waste_paper": "Paper bin",
+  "server.calendar.feed.waste.waste_tree": "Christmas tree",
+  "server.calendar.feed.waste.withCleaning": "{label} + cleaning",
 };

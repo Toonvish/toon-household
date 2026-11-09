@@ -38,3 +38,32 @@ export const CALENDAR_WEEKDAYS = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"] as c
 
 /** The number of person colour tokens (`--person-1` … `--person-6`, design §4.6). */
 export const CALENDAR_PERSON_COLORS = 6;
+
+/**
+ * The subscription feed `GET /api/calendar/feed/<token>.ics` (plan m9 P3-P8, ADR 0017). The token is 32 random bytes in
+ * base64url without padding (43 characters); the database stores only its SHA-256 hex.
+ */
+export const CALENDAR_FEED_LIMITS = {
+  /** Random bytes per token. */
+  tokenBytes: 32,
+  /** Characters of the base64url token (no padding). */
+  tokenLength: 43,
+  /** The feed's window starts this many days before the server's today in `timeZone` (P8). */
+  pastDays: 30,
+  /** … and ends this many days after it (inclusive): 396 days, under `CALENDAR_LIMITS.maxRangeDays`. */
+  futureDays: 365,
+  /** Fetches per token and hour; more is `429 rate_limited` with `Retry-After` (P5). */
+  fetchesPerHour: 60,
+  /** `last_used_at` is written at most once per this many milliseconds and token (P7). */
+  lastUsedResolutionMs: 3_600_000,
+  /** `Cache-Control: private, max-age=<this>` on the feed (P6). */
+  maxAgeSeconds: 300,
+  /** The household's time zone: the feed's today and every timed `DTSTART` / `DTEND` (`TZID`). */
+  timeZone: "Europe/Berlin",
+} as const;
+
+/** Where the feed lives; the full URL is `<first WEB_ORIGIN><prefix><token>.ics` (P13). */
+export const CALENDAR_FEED_PATH_PREFIX = "/api/calendar/feed/";
+
+/** The feed route's `:file`: a 43-character base64url token plus `.ics`; group 1 is the token. Anything else is `404`. */
+export const CALENDAR_FEED_FILE_PATTERN = /^([A-Za-z0-9_-]{43})\.ics$/;

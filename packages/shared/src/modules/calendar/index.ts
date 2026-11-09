@@ -15,6 +15,7 @@ export * from "./waste.ts";
 // --- contract: schemas + inferred types -------------------------------------
 export * from "./schemas/common.ts";
 export * from "./schemas/entries.ts";
+export * from "./schemas/feed.ts";
 export * from "./schemas/occurrences.ts";
 export * from "./schemas/resources.ts";
 export * from "./schemas/waste.ts";

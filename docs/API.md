@@ -1391,7 +1391,7 @@ Notes
 
 ### Tables (SQLite, `apps/api/src/modules/calendar/schema.ts`)
 
-Seven tables, all prefixed `calendar_` (the drizzle identifiers carry a `calendar` prefix too); the migration is `apps/api/drizzle/0004_calendar.sql`, generated. Every household-scoped table cascades from `households`. Timestamps are integer unix milliseconds stamped by the services from the `Clock` (no column default); dates and times are text with a `glob` CHECK.
+Eight tables, all prefixed `calendar_` (the drizzle identifiers carry a `calendar` prefix too); the migrations are `apps/api/drizzle/0004_calendar.sql` and `apps/api/drizzle/0005_calendar_feed.sql` (M9: `calendar_feed_tokens`), generated. Every household-scoped table cascades from `households`. Timestamps are integer unix milliseconds stamped by the services from the `Clock` (no column default); dates and times are text with a `glob` CHECK.
 
 | Table | Primary key | Notes |
 | --- | --- | --- |
@@ -1402,6 +1402,7 @@ Seven tables, all prefixed `calendar_` (the drizzle identifiers carry a `calenda
 | `calendar_waste_settings` | `household_id` | `provider` (`hattingen`), `tour` (1 to 9), `source_url`, `assignee_mode`, `updated_at`. |
 | `calendar_waste_assignees` | `(household_id, user_id)` | The settings' rotation, `position`; cascades with the settings row and the user. |
 | `calendar_waste_imports` | `id` | `provider`, `year`, `tour`, `source` (`url`, `upload`), `source_name`, `entry_count`, `imported_at`, `imported_by` (`set null`). Unique `(household_id, provider, year)`: a re-import of a year replaces it; its entries cascade. |
+| `calendar_feed_tokens` | `id` | A member's subscription link (M9, ADR 0017, plan `docs/plans/m9-calendar-feed.md`): `household_id` and `user_id` (both cascade), `token_hash` (the SHA-256 hex of the token, 64 characters, CHECK `calendar_feed_tokens_token_hash_format`; the token itself is never stored), `scope` (`all`, `mine`), `created_at`, `last_used_at` (written at most once per hour). Unique `token_hash` and unique `(household_id, user_id)`: one link per member and household, a new link replaces the old one. The member-removal hook deletes the leaver's row. |
 
 ### Waste — apps/api/src/modules/calendar/routes/waste.ts
 

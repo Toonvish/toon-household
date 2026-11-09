@@ -16,6 +16,14 @@ import {
   CalendarEntryListQuerySchema,
   CalendarEntryListResponseSchema,
   CalendarEntrySchema,
+  CALENDAR_FEED_FILE_PATTERN,
+  CALENDAR_FEED_LIMITS,
+  CALENDAR_FEED_PATH_PREFIX,
+  CALENDAR_LIMITS,
+  CalendarFeedCreatedResponseSchema,
+  CalendarFeedResponseSchema,
+  CalendarFeedSchema,
+  CalendarFeedScopeSchema,
   CalendarMemberSchema,
   CalendarOccurrenceListResponseSchema,
   CalendarOccurrenceQuerySchema,
@@ -41,11 +49,13 @@ import {
   CalendarWasteUploadFieldsSchema,
   CalendarWeekdaySchema,
   CreateCalendarEntryRequestSchema,
+  CreateCalendarFeedRequestSchema,
   CreateCalendarResourceRequestSchema,
   ERROR_CODES,
   PutCalendarWasteSettingsRequestSchema,
   SetCalendarOccurrenceStatusRequestSchema,
   UpdateCalendarEntryRequestSchema,
+  UpdateCalendarFeedRequestSchema,
   UpdateCalendarResourceRequestSchema,
   toValidationIssues,
 } from "../src/index.ts";
@@ -120,6 +130,9 @@ const wasteImport = {
 };
 const pickup = { category: "waste_rest", date: "2027-01-08", detail: null };
 const counts = { waste_rest: 26, waste_yellow: 26, waste_bio: 40, waste_paper: 13, waste_tree: 1 };
+const feed = { scope: "mine", createdAt: ISO, lastUsedAt: null };
+const TOKEN = "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_AbCdE";
+const feedCreated = { url: `https://haushalt.example${"/api/calendar/feed/"}${TOKEN}.ics`, scope: "all", createdAt: ISO, lastUsedAt: null };
 
 /** Every calendar schema: inputs that decode and inputs that are refused (P22 reads the names from this table). */
 const CASES: Record<string, { readonly schema: Decodable; readonly ok: ReadonlyArray<unknown>; readonly bad: ReadonlyArray<unknown> }> = {
@@ -242,6 +255,32 @@ const CASES: Record<string, { readonly schema: Decodable; readonly ok: ReadonlyA
     ok: [{ import: wasteImport, entryCount: 80 }],
     bad: [{ import: wasteImport, entryCount: -1 }],
   },
+  CalendarFeedScopeSchema: { schema: CalendarFeedScopeSchema, ok: ["all", "mine"], bad: ["mein", "", null] },
+  CalendarFeedSchema: {
+    schema: CalendarFeedSchema,
+    ok: [feed, { ...feed, scope: "all", lastUsedAt: ISO }],
+    bad: [{ ...feed, lastUsedAt: undefined }, { ...feed, scope: "everyone" }, { ...feed, url: undefined, createdAt: "gestern" }],
+  },
+  CalendarFeedResponseSchema: {
+    schema: CalendarFeedResponseSchema,
+    ok: [{ feed: null }, { feed }],
+    bad: [{}, { feed: { scope: "all" } }],
+  },
+  CreateCalendarFeedRequestSchema: {
+    schema: CreateCalendarFeedRequestSchema,
+    ok: [{ scope: "all" }, { scope: "mine" }],
+    bad: [{}, { scope: "ALL" }, { scope: 1 }],
+  },
+  UpdateCalendarFeedRequestSchema: {
+    schema: UpdateCalendarFeedRequestSchema,
+    ok: [{ scope: "mine" }],
+    bad: [{}, { scope: null }],
+  },
+  CalendarFeedCreatedResponseSchema: {
+    schema: CalendarFeedCreatedResponseSchema,
+    ok: [feedCreated],
+    bad: [{ ...feedCreated, url: undefined }, { ...feedCreated, scope: "both" }],
+  },
 };
 
 describe("every calendar schema decodes its ok inputs and refuses its bad ones", () => {
@@ -268,6 +307,8 @@ describe("every calendar schema decodes its ok inputs and refuses its bad ones",
       ]!;
       expect(parse(schema, value)).toEqual(value as never);
     }
+    expect(parse(CalendarFeedResponseSchema, { feed })).toEqual({ feed } as never);
+    expect(parse(CalendarFeedCreatedResponseSchema, feedCreated)).toEqual(feedCreated as never);
   });
 });
 
@@ -445,5 +486,28 @@ describe("error codes", () => {
     ]) {
       expect(ERROR_CODES as readonly string[]).toContain(code);
     }
+  });
+});
+
+describe("the subscription feed (plan m9 P3-P8, P13)", () => {
+  test("a missing or unknown scope is a details item at scope", () => {
+    expect(details(CreateCalendarFeedRequestSchema, {}).map(([path]) => path)).toEqual(["scope"]);
+    expect(details(UpdateCalendarFeedRequestSchema, { scope: "everyone" }).map(([path]) => path)).toEqual(["scope"]);
+  });
+
+  test("the file pattern takes exactly a 43-character base64url token plus .ics", () => {
+    expect(TOKEN).toHaveLength(CALENDAR_FEED_LIMITS.tokenLength);
+    expect(CALENDAR_FEED_FILE_PATTERN.exec(`${TOKEN}.ics`)?.[1]).toBe(TOKEN);
+    for (const file of [TOKEN, `${TOKEN}.ICS`, `${TOKEN}x.ics`, `${TOKEN.slice(1)}.ics`, `${TOKEN.slice(1)}+.ics`, `${TOKEN.slice(1)}=.ics`, `../${TOKEN}.ics`, ""]) {
+      expect(CALENDAR_FEED_FILE_PATTERN.test(file), file).toBe(false);
+    }
+  });
+
+  test("32 random bytes are 43 base64url characters; the window fits the range cap", () => {
+    const token = Buffer.from(new Uint8Array(CALENDAR_FEED_LIMITS.tokenBytes).fill(255)).toString("base64url");
+    expect(token).toHaveLength(CALENDAR_FEED_LIMITS.tokenLength);
+    expect(CALENDAR_FEED_FILE_PATTERN.test(`${token}.ics`)).toBe(true);
+    expect(CALENDAR_FEED_LIMITS.pastDays + CALENDAR_FEED_LIMITS.futureDays + 1).toBeLessThanOrEqual(CALENDAR_LIMITS.maxRangeDays);
+    expect(CALENDAR_FEED_PATH_PREFIX).toBe("/api/calendar/feed/");
   });
 });

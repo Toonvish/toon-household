@@ -385,6 +385,26 @@ export const serverDe = {
   /* ------------------------------------------------------------------------- */
 
   /* calendar: api-waste additions (M8) */
+
+  /* calendar: subscription feed (M9, plan m9 P10-P12; content such as titles and names is never translated) */
+  "server.calendar.feed.calendarName": "Haushalt · {household}",
+  "server.calendar.feed.calendarNameMine": "Haushalt · {household} (meine Termine)",
+  "server.calendar.feed.done": "✓ {summary}",
+  "server.calendar.feed.withPeople": "{summary} · {names}",
+  "server.calendar.feed.carSummary": "{car}: {title}",
+  "server.calendar.feed.carDefaultTitle": "Autobuchung",
+  "server.calendar.feed.unknownCar": "Auto",
+  "server.calendar.feed.for": "Für: {names}",
+  "server.calendar.feed.assignee": "Zuständig: {names}",
+  "server.calendar.feed.car": "Auto: {car}",
+  "server.calendar.feed.everybody": "Alle",
+  "server.calendar.feed.formerMember": "Ehemaliges Mitglied",
+  "server.calendar.feed.waste.waste_rest": "Restmüll",
+  "server.calendar.feed.waste.waste_yellow": "Gelber Sack",
+  "server.calendar.feed.waste.waste_bio": "Biotonne",
+  "server.calendar.feed.waste.waste_paper": "Papiertonne",
+  "server.calendar.feed.waste.waste_tree": "Tannenbaum",
+  "server.calendar.feed.waste.withCleaning": "{label} + Reinigung",
 } as const satisfies NamespaceCatalog<"server">;
 
 export type ServerCatalog = typeof serverDe;

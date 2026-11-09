@@ -28,6 +28,7 @@ describe("the calendar manifest", () => {
     expect(names).toEqual([
       "calendar_entries",
       "calendar_entry_members",
+      "calendar_feed_tokens",
       "calendar_occurrence_states",
       "calendar_resources",
       "calendar_waste_assignees",

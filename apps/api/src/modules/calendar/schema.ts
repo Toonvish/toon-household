@@ -15,7 +15,8 @@
  *   checked at the end of the statement, when the cascade has removed both rows (db-calendar-migration.test.ts).
  *
  * `users` and `households` come from `db/schema/core.ts` directly, never from `db/schema.ts` (which re-exports
- * this file: a cycle). The migration `apps/api/drizzle/0004_calendar.sql` is GENERATED from this file.
+ * this file: a cycle). The migrations `apps/api/drizzle/0004_calendar.sql` and `apps/api/drizzle/0005_calendar_feed.sql` (M9) are
+ * GENERATED from this file.
  */
 import { sql } from "drizzle-orm";
 import { check, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
@@ -236,6 +237,42 @@ export const calendarWasteAssignees = sqliteTable(
 export type CalendarWasteAssigneeRow = typeof calendarWasteAssignees.$inferSelect;
 export type NewCalendarWasteAssigneeRow = typeof calendarWasteAssignees.$inferInsert;
 
+/* -------------------------------------------------------------------------- */
+/* calendar_feed_tokens — one subscription link per member and household (M9) */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A member's calendar subscription link (plan m9 P3, P13; ADR 0017): the feed route
+ * `GET /api/calendar/feed/<token>.ics` authenticates by the token alone. Only the token's SHA-256 (64 lower-case hex
+ * characters) is stored; the token itself is shown once, in the answer of the POST that creates it. One row per
+ * `(household, user)`: a new link REPLACES the old one (the old token dies at once). `scope` is `all` (every entry of
+ * the household) or `mine` (the P10 member filter). `last_used_at` is written at most once per hour (P7). The row
+ * cascades with the household and the user; the member-removal hook deletes it when the member leaves (P14).
+ */
+export const calendarFeedTokens = sqliteTable(
+  "calendar_feed_tokens",
+  {
+    id: text("id").primaryKey(),
+    householdId: text("household_id").notNull().references(() => households.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    // 'all' | 'mine'
+    scope: text("scope").notNull(),
+    createdAt: integer("created_at").notNull(),
+    lastUsedAt: integer("last_used_at"),
+  },
+  (t) => [
+    uniqueIndex("calendar_feed_tokens_token_hash_uidx").on(t.tokenHash),
+    uniqueIndex("calendar_feed_tokens_household_user_uidx").on(t.householdId, t.userId),
+    index("calendar_feed_tokens_user_idx").on(t.userId),
+    check("calendar_feed_tokens_scope", sql`${t.scope} in ('all', 'mine')`),
+    check("calendar_feed_tokens_token_hash_format", sql`length(${t.tokenHash}) = 64`),
+  ],
+);
+
+export type CalendarFeedTokenRow = typeof calendarFeedTokens.$inferSelect;
+export type NewCalendarFeedTokenRow = typeof calendarFeedTokens.$inferInsert;
+
 /** Every calendar table, for the manifest's `schema` (SPEC D7: all prefixed `calendar_`). */
 export const calendarTables = {
   calendarResources,
@@ -245,4 +282,5 @@ export const calendarTables = {
   calendarOccurrenceStates,
   calendarWasteSettings,
   calendarWasteAssignees,
+  calendarFeedTokens,
 };

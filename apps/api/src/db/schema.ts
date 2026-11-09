@@ -10,7 +10,7 @@
  *   must give its own identifiers a `finance` prefix (`financeTags`, …).
  * - `modules/finance/schema.ts` — the 11 `finance_` tables (M3), TS identifiers
  *   prefixed `finance…` (`financeTransactions`, `financeParticipants`, …).
- * - `modules/calendar/schema.ts` — the 7 `calendar_` tables (M8, ADR 0016), TS
+ * - `modules/calendar/schema.ts` — the 8 `calendar_` tables (M8, ADR 0016; `calendar_feed_tokens` M9), TS
  *   identifiers prefixed `calendar…` (`calendarEntries`, `calendarResources`, …).
  *
  * These re-exports are the one place outside `modules/index.ts` where the core names a
