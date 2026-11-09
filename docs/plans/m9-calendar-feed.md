@@ -543,6 +543,52 @@ in 224 files** (84.2 s; +11 over section 9.5: the nine table rows and two route 
 leftover **148** (none in the calendar; exit 1 by design); `bun run build` exit 0, **102 chunks, 470.31 kB** of gzipped JS (unchanged,
 the fixes are API-only); `git status --porcelain repos/` empty.
 
+### 9.7 UI check (M9-ui, 2026-11-09)
+
+Scratch DB `file:<scratchpad>/ui/m9ui.db` (`NODE_ENV=development bun run seed` exit 0), `PUBLIC_API_URL="" bun run build` exit 0, the
+API with `WEB_DIST_DIR=./apps/web/dist`, `API_PORT=3902`, `WEB_ORIGIN=http://127.0.0.1:3902` (background, log, stopped by pid).
+Playwright 1.61.0 and ical.js 2.2.1 in a scratch directory outside the repo (`bun add` log `exit=0`), the installed
+`chromium_headless_shell-1248`, `locale: "de-DE"`, clipboard permissions granted, the login through `fetch("/api/auth/login")` from
+`/api/health` with one `storageState` per user.
+
+- **Flow as `demo@toon.local` (1440):** Kalender enabled through the Home card's "Aktivieren"; the Übersicht row "Kalender-Abo" and
+  the sidebar item (Organisieren) both land on `/calendar/feed`; "Nur meine Termine" + "Link erstellen" gives a field
+  `http://127.0.0.1:3902/api/calendar/feed/<43 chars>.ics`, the GET says `scope: "mine"`, the "Mit iPhone-Kalender verbinden" href is
+  `webcal://127.0.0.1:3902/api/calendar/feed/<token>.ics`; "Kopieren" puts exactly the URL on the clipboard with the toast "Link
+  kopiert."; the scope radio to "Alle Termine" saves (`scope: "all"`, toast); the URL fetched without a cookie answers `200
+  text/calendar; charset=utf-8`; "Neuen Link erzeugen" opens its confirm, and after it the OLD URL is `404` and the new one `200`;
+  "Abo beenden" (confirm) brings back "Link erstellen", the URL is `404` and the GET `{ feed: null }`. No console error.
+- **ical.js (scope all, plain `fetch`, no cookie):** parses without an error, one `VTIMEZONE` (`Europe/Berlin`) registered and
+  resolved by all 105 timed events (`Zahnarzt` 10:30 local = 09:30Z); one task occurrence marked done and one event occurrence
+  skipped first: 300 `VEVENT`s with 300 unique UIDs equal, UID for UID, the 300 non-skipped of the 301 occurrences `GET
+  …/calendar/occurrences` answers for `[2026-10-10, 2027-11-09]` (today in Berlin −30/+365), the skipped one absent, the done one
+  `✓ Blumen gießen · Demo Koch`; all 195 all-day events have `DATE` start and end.
+- **Scope mine as `kim@toon.local`** (own login, own link through the screen): `X-WR-CALNAME:Haushalt · Familie (meine Termine)`, 165
+  `VEVENT`s, equal to the occurrences that name nobody or Kim (tasks by the occurrence's resolved assignee, the 82 occurrences
+  assigned to someone else all absent) and equal to `?memberId=<kim>` minus the skipped one. After the fetch both screens show
+  "Zuletzt abgerufen: 09.11.2026, 11:14".
+- **Platform order:** iPhone UA and desktop: iPhone und iPad · Android und Samsung · Google Kalender im Browser · Outlook und Mac;
+  Android UA (`Android 14; SM-S921B`): Android und Samsung · Google Kalender im Browser · iPhone und iPad · Outlook und Mac.
+- **Screenshots** (16, `docs/plans/screenshots/m9/`): `feed-{none,created,existing}-{390,1440}-{light,dark}.png` (the existing state after
+  one fetch, so it shows "Zuletzt abgerufen"; the token in the created ones belongs to the deleted scratch DB) and the new
+  `overview-{390,1440}-{light,dark}.png`. Every one: `scrollWidth <= clientWidth` (390/390; 1425/1440 under the classic scrollbar
+  gutter) and no element beyond `innerWidth + 0.5`, `header[data-app-shell]` present (visible at 390, `lg:hidden` at 1440), no console
+  error (CSP included). Each looked at: no clipped text, the cards in two thirds/one third from `lg`, the URL field truncates inside its
+  card at 390. The tab bar in the middle of the 390 full-page shots and the sidebar ending at 900 px in the 1440 ones are the capture
+  of fixed/sticky elements, not the layout.
+- **Service worker:** `/api/calendar/feed/…` matches no runtime rule of `apps/web/vite.config.ts` (nothing cached) and is outside the
+  navigation fallback (`navigateFallbackDenylist` `/^\/api\//`); the app never fetches it. The request log printed 20 feed lines, all
+  `/api/calendar/feed/<redacted>.ics`.
+
+One defect, fixed (`2800d3856`): **the scope radio flickered back for a frame.** The radios read the chosen scope from the update
+mutation's pending variables, which arrive one task after the click (TanStack's notify scheduler), so React restored the controlled
+radio to the old scope in between; Playwright saw it unchecked right after the click. `FeedPage` now keeps the choice in its own state,
+set in the change handler after the offline guard and cleared in the mutate call's `onSettled` (after the hook's own `onSettled` has
+awaited the refetch); the pure `withChosenScope` (`apps/web/src/modules/calendar/features/feed/lib/state.ts`) applies it, three cases in
+`FeedView.test.tsx`. Re-run: checked right after the click and after it. Gates for it: `bun run typecheck` exit 0; `bun test
+apps/web/src/modules/calendar apps/web/src/styles` 150 pass, 0 fail (the design-system test included); `bun run build` exit 0;
+`git status --porcelain repos/` empty. The scratch server, DB and build inputs were removed.
+
 ## 10. What changed vs plan
 
 1. **P1 worktree paths:** `.worktrees/m9-api` and `.worktrees/m9-web` inside the repo (the run's task said so), not
@@ -571,3 +617,5 @@ the fixes are API-only); `git status --porcelain repos/` empty.
     collapsed and the prefix case-insensitive, because the router serves `/api//calendar/feed/…` and `/API/Calendar/Feed/…` too; the
     plan's literal prefix match leaked the token for those (section 9.6).
 11. No new server catalog key beyond T01's, no new error code, no change to `apps/web/vite.config.ts` (P18 confirmed by reading it).
+12. **P16 scope radio (M9-ui):** the shown scope comes from the page's own state set in the change handler (`withChosenScope`), not
+    from the mutation's pending variables, which arrive a task late and let the radio flicker back (section 9.7).
