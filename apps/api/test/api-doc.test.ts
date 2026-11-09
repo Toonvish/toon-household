@@ -40,7 +40,7 @@ const DOC_ONLY = ["GET /uploads/:filename.thumb.webp"];
 const MODULE_PREFIXES: Record<string, string[]> = {
   recipe: ["/api/households/:householdId/recipe", "/api/recipe/"],
   finance: ["/api/households/:householdId/finance"],
-  calendar: ["/api/households/:householdId/calendar"],
+  calendar: ["/api/households/:householdId/calendar", "/api/calendar/"],
 };
 
 const DOC_PATH = join(import.meta.dir, "..", "..", "..", "docs", "API.md");

@@ -3,13 +3,15 @@
  * `docs/plans/e7-http-api.md` P11.1): `<-- METHOD path` when a request arrives and `--> METHOD path STATUS TIME` when
  * its response is known, the format and the colouring of pre-E7 `hono/dist/middleware/logger/index.js`. Two differences,
  * both deliberate: the path is the PATHNAME only, never the query (a signed upload URL carries `sig`), and the time
- * comes from the `Clock`. Off under `NODE_ENV=test` (the caller decides: `http/global.ts`); Effect's own
- * `HttpMiddleware.logger` is off everywhere (`disableLogger: true`).
+ * comes from the `Clock`. A path below a module's public prefix `/api/<id>/feed/` is logged REDACTED
+ * (`/api/calendar/feed/<redacted>.ics`, `logPathOf`; ADR 0017): its last segment is a credential. Off under
+ * `NODE_ENV=test` (the caller decides: `http/global.ts`); Effect's own `HttpMiddleware.logger` is off everywhere
+ * (`disableLogger: true`).
  */
 import { Cause, Clock, Effect, Exit } from "effect";
 import { HttpServerRequest } from "effect/http";
 import type { GlobalMiddleware } from "../http/global.ts";
-import { pathOf } from "../http/request.ts";
+import { logPathOf } from "../http/request.ts";
 
 /** The pre-E7 Hono `humanize(time(start))`: milliseconds under a second, else whole seconds, thousands separated by commas. */
 export function elapsedLabel(deltaMs: number): string {
@@ -39,7 +41,7 @@ export function requestLogMiddleware(write: (line: string) => void = console.log
   return (httpEffect) =>
     Effect.gen(function* () {
       const request = yield* HttpServerRequest.HttpServerRequest;
-      const path = pathOf(request.originalUrl);
+      const path = logPathOf(request.originalUrl);
       yield* Effect.sync(() => write(`<-- ${request.method} ${path}`));
       const start = yield* Clock.currentTimeMillis;
       return yield* Effect.onExit(httpEffect, (exit) =>

@@ -1,7 +1,7 @@
 /**
  * The middleware vocabulary of the Effect HTTP layer (docs/EFFECT.md E8; plan `docs/plans/e7-http-api.md` P5, P6, P9,
  * P14): the `HttpApiMiddleware` tags every `*.api.ts` attaches, the `ModuleId` group annotation, `chain`, the API
- * helpers `coreApi`, `householdModuleApi`, `userModuleApi`, and `UNINTERRUPTIBLE`.
+ * helpers `coreApi`, `householdModuleApi`, `userModuleApi`, `publicModuleApi` (ADR 0017), and `UNINTERRUPTIBLE`.
  *
  * - The tags name what a middleware PROVIDES to the handlers behind it (`apps/api/src/http/context.ts`) and what it
  *   REQUIRES from the ones in front of it; their implementations are layers elsewhere (`ApiErrorBoundaryLayer` in
@@ -196,5 +196,19 @@ export function userModuleApi<const Mod extends SharedModuleId, Id extends strin
   id: Mod,
   api: HttpApi.HttpApi<Id, Groups>,
 ) {
+  return api.prefix(`/api/${id}`).pipe(chain(ApiErrorBoundary));
+}
+
+/**
+ * A module's PUBLIC API (ADR 0017; plan `docs/plans/m9-calendar-feed.md` P2): every path prefixed with `/api/<id>`,
+ * `ApiErrorBoundary` and NOTHING else. No session middleware runs and no cookie is read: the URL itself is the
+ * credential (a capability URL, as the signed `/uploads` URLs are). `moduleRoutesLayer` asserts that every endpoint
+ * carries exactly the boundary, is a `GET` and lies below `/api/<id>/feed/` (the one place `logPathOf` redacts).
+ */
+export function publicModuleApi<
+  const Mod extends SharedModuleId,
+  Id extends string,
+  Groups extends HttpApiGroup.Constraint,
+>(id: Mod, api: HttpApi.HttpApi<Id, Groups>) {
   return api.prefix(`/api/${id}`).pipe(chain(ApiErrorBoundary));
 }

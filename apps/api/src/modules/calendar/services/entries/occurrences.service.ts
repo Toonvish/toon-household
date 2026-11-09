@@ -5,6 +5,9 @@
  *   server never decides "today"), filtered (`memberId`: an occurrence naming that member as attendee or assignee, or
  *   naming nobody; `kind`) and in P10 order, plus the household's members (P9a). A range above 400 days, or an entry
  *   expanding to more than 2000 occurrences in it, is `422 calendar_range_too_large` at `to` (P4: never truncated).
+ * - `expand(householdId, query)` (plan m9 P9): the same expansion, states, caps, filters and order as `list`, each item
+ *   with the `EntryRecord` it came from (the subscription feed reads the entry's notes and `updated_at`); `list` is
+ *   `expand` mapped to its occurrences, behaviour unchanged.
  * - `setStatus(householdId, entryId, date, status, userId)`: `done` (tasks only, else `409 calendar_not_a_task`) or
  *   `skipped` (any kind) upserts the state row, `null` deletes it; `date` must be an occurrence START of the series
  *   (else `404 not_found`). Answers that occurrence.
@@ -27,7 +30,28 @@ import { Database } from "../../../../db/database.ts";
 import { ApiFailure, type DatabaseError, NotFound } from "../../../../lib/errors.ts";
 import { calendarEntries, calendarOccurrenceStates } from "../../schema.ts";
 import { CalendarMembers } from "../members.ts";
-import { compareOccurrences, loadEntryOr404, loadEntryRecords, loadStates, rangeTooLarge, seriesOf, toOccurrenceDto } from "./rows.ts";
+import {
+  type EntryRecord,
+  compareOccurrences,
+  loadEntryOr404,
+  loadEntryRecords,
+  loadStates,
+  rangeTooLarge,
+  seriesOf,
+  toOccurrenceDto,
+} from "./rows.ts";
+
+/** One expanded occurrence with the series it belongs to (plan m9 P9). */
+export interface ExpandedOccurrence {
+  readonly occurrence: CalendarOccurrence;
+  readonly entry: EntryRecord;
+}
+
+/** What `CalendarOccurrences.expand` answers: the occurrences with their entries, in P10 order, and the members. */
+export interface ExpandedOccurrences {
+  readonly items: Array<ExpandedOccurrence>;
+  readonly members: CalendarOccurrenceListResponse["members"];
+}
 
 export class CalendarOccurrences extends Context.Service<
   CalendarOccurrences,
@@ -36,6 +60,11 @@ export class CalendarOccurrences extends Context.Service<
       householdId: string,
       query: CalendarOccurrenceQuery,
     ) => Effect.Effect<CalendarOccurrenceListResponse, ApiFailure | DatabaseError>;
+    /** `list` with each occurrence's `EntryRecord` (plan m9 P9: the subscription feed). */
+    readonly expand: (
+      householdId: string,
+      query: CalendarOccurrenceQuery,
+    ) => Effect.Effect<ExpandedOccurrences, ApiFailure | DatabaseError>;
     readonly setStatus: (
       householdId: string,
       entryId: string,
@@ -51,7 +80,7 @@ export class CalendarOccurrences extends Context.Service<
       const database = yield* Database;
       const members = yield* CalendarMembers;
 
-      const list = Effect.fn("CalendarOccurrences.list")(function* (householdId: string, query: CalendarOccurrenceQuery) {
+      const expand = Effect.fn("CalendarOccurrences.expand")(function* (householdId: string, query: CalendarOccurrenceQuery) {
         const { from, to } = query;
         if (calendarDaysBetween(from, to) + 1 > CALENDAR_LIMITS.maxRangeDays) {
           return yield* rangeTooLarge("server.calendar.rangeTooLarge");
@@ -84,14 +113,24 @@ export class CalendarOccurrences extends Context.Service<
               );
 
         const items = expanded
-          .map((item) => toOccurrenceDto(item.record, item, states.get(`${item.record.row.id}:${item.date}`)))
-          .filter((occurrence) => {
+          .map(
+            (item): ExpandedOccurrence => ({
+              occurrence: toOccurrenceDto(item.record, item, states.get(`${item.record.row.id}:${item.date}`)),
+              entry: item.record,
+            }),
+          )
+          .filter(({ occurrence }) => {
             if (query.memberId === undefined) return true;
             if (occurrence.memberIds.length === 0 && occurrence.assigneeId === null) return true;
             return occurrence.memberIds.includes(query.memberId) || occurrence.assigneeId === query.memberId;
           })
-          .sort(compareOccurrences);
+          .sort((a, b) => compareOccurrences(a.occurrence, b.occurrence));
         return { items, members: yield* members.list(householdId) };
+      });
+
+      const list = Effect.fn("CalendarOccurrences.list")(function* (householdId: string, query: CalendarOccurrenceQuery) {
+        const { items, members: householdMembers } = yield* expand(householdId, query);
+        return { items: items.map((item) => item.occurrence), members: householdMembers };
       });
 
       const setStatus = Effect.fn("CalendarOccurrences.setStatus")(function* (
@@ -127,7 +166,7 @@ export class CalendarOccurrences extends Context.Service<
         return toOccurrenceDto(record, { date, ordinal }, state);
       });
 
-      return CalendarOccurrences.of({ list, setStatus });
+      return CalendarOccurrences.of({ list, expand, setStatus });
     }),
   );
 }

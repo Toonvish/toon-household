@@ -11,6 +11,10 @@
  *
  * A coverage test reads those three `.api.ts` files and fails when a declared `:param` endpoint has no probe, so a
  * route added later cannot silently skip the sweep. The waste routes have their own sweep (lane api-waste).
+ *
+ * The subscription link (M9, plan `docs/plans/m9-calendar-feed.md` M9-T05): `…/calendar/feed` has no id (the caller's
+ * own link), so the sweep is U addressing B's household path (403 before anything is read, B's link untouched) and U's
+ * token of A never rendering B's entries.
  */
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -24,6 +28,7 @@ import {
   calendarResources,
 } from "../src/modules/calendar/schema.ts";
 import { runMigrations } from "./support/bridges/migrate.ts";
+import { feedPathOf, parseIcsEvents } from "./support/calendar-feed.ts";
 import { type TestUser, body, calendarPath, call, createCalendarHousehold, createUser } from "./support/calendar-harness.ts";
 
 await runMigrations(db);
@@ -249,5 +254,46 @@ describe("calendar cross-household sweep (SPEC D8)", () => {
     // entry x3, occurrence state x1, car x2; and the scan saw the three files.
     expect(byId.length).toBe(6);
     expect(declared.length).toBe(11);
+  });
+});
+
+describe("the subscription link across households (M9, P13)", () => {
+  let bLink = "";
+  let aLink = "";
+  beforeAll(async () => {
+    const created = await call(calendarPath(b.householdId, "/feed"), { method: "POST", cookie: b.owner.cookie, body: { scope: "all" } });
+    expect(created.status).toBe(201);
+    bLink = (await body<{ url: string }>(created)).url;
+    const own = await call(calendarPath(a.householdId, "/feed"), { method: "POST", cookie: a.owner.cookie, body: { scope: "all" } });
+    expect(own.status).toBe(201);
+    aLink = (await body<{ url: string }>(own)).url;
+  });
+
+  test("U's GET, POST, PATCH and DELETE on B's …/calendar/feed are 403; B's link is untouched", async () => {
+    const before = await body(await call(calendarPath(b.householdId, "/feed"), { cookie: b.owner.cookie }));
+    for (const [method, payload] of [
+      ["GET", undefined],
+      ["POST", { scope: "mine" }],
+      ["PATCH", { scope: "mine" }],
+      ["DELETE", undefined],
+    ] as const) {
+      const response = await call(calendarPath(b.householdId, "/feed"), { method, cookie: a.owner.cookie, body: payload });
+      expect([method, response.status]).toEqual([method, 403]);
+      expect((await body<{ error: { code: string } }>(response)).error.code).toBe("forbidden");
+    }
+    expect(await body<unknown>(await call(calendarPath(b.householdId, "/feed"), { cookie: b.owner.cookie }))).toEqual(before);
+    expect((await call(feedPathOf(bLink))).status).toBe(200);
+  });
+
+  test("U's own link in A shows U's own link only, and U's token of A never renders B's entries", async () => {
+    const mine = await body<{ feed: { scope: string } | null }>(await call(calendarPath(a.householdId, "/feed"), { cookie: a.owner.cookie }));
+    expect(mine.feed?.scope).toBe("all");
+    const feed = await call(feedPathOf(aLink));
+    expect(feed.status).toBe(200);
+    const entryOf = (uid: string): string => uid.slice(0, 36);
+    const ours = new Set(parseIcsEvents(await feed.text()).map((item) => entryOf(item.uid)));
+    expect([...ours].sort()).toEqual([a.eventId, a.taskId, a.bookingId].sort());
+    const theirs = new Set(parseIcsEvents(await (await call(feedPathOf(bLink))).text()).map((item) => entryOf(item.uid)));
+    expect([...theirs].sort()).toEqual([b.eventId, b.taskId, b.bookingId].sort());
   });
 });

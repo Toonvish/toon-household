@@ -138,6 +138,11 @@ describe("what the stack's Caddy must not do", () => {
     expect(directives(LINES).filter((line) => line.includes("trusted_proxies"))).toEqual([]);
   });
 
+  test("no log directive: no access log, so a calendar feed URL (its token) is never written by the proxy (ADR 0017)", () => {
+    expect(directives(LINES).filter((line) => /^\s*log(\s|\{|$)/.test(line))).toEqual([]);
+    expect(directives(LINES).filter((line) => /\b(output file|format json)\b/.test(line))).toEqual([]);
+  });
+
   test("no Content-Security-Policy header (the API sends its own, ADR 0007)", () => {
     expect(directives(LINES).filter((line) => line.includes("Content-Security-Policy"))).toEqual([]);
   });

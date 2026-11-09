@@ -9,7 +9,8 @@
  *
  * `errorResponse(error)` renders whatever reached a boundary: `toApiError` in the negotiated locale, the envelope of
  * `errorBody` with the family member's status, `Retry-After: <seconds>` for `RateLimited`, and the log lines of
- * `logBoundaryFailure` (the ones the `onErrorHandler` of the pre-E7 Hono app wrote; never a copied line). `ApiErrorBoundaryLayer`
+ * `logBoundaryFailure` (the ones the `onErrorHandler` of the pre-E7 Hono app wrote; never a copied line), with the path
+ * of `logPathOf` (a public feed path redacted, ADR 0017). `ApiErrorBoundaryLayer`
  * implements `ApiErrorBoundary`, outermost on every API: it recovers the WHOLE cause (a defect and a `DatabaseError`
  * included, "Catch-all stays catch-all") and re-raises a cause that is interruption only.
  */
@@ -18,7 +19,7 @@ import { HttpServerRequest, HttpServerResponse } from "effect/http";
 import { errorBody, logBoundaryFailure, toApiError } from "../lib/errors.ts";
 import { negotiateRequestLocale } from "../lib/locale.ts";
 import { ApiErrorBoundary } from "./middleware.ts";
-import { pathOf } from "./request.ts";
+import { logPathOf } from "./request.ts";
 
 type ServerResponse = HttpServerResponse.HttpServerResponse;
 
@@ -60,7 +61,7 @@ export const errorResponse = Effect.fnUntraced(function* (
   const locale = negotiateRequestLocale(request.headers["accept-language"]);
   const apiError = toApiError(error, locale);
   yield* Effect.sync(() =>
-    logBoundaryFailure({ method: request.method, path: pathOf(request.originalUrl), error, apiError }),
+    logBoundaryFailure({ method: request.method, path: logPathOf(request.originalUrl), error, apiError }),
   );
   const response = HttpServerResponse.jsonUnsafe(errorBody(apiError, locale), { status: apiError.status });
   return Predicate.isTagged(apiError, "RateLimited")

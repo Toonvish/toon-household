@@ -63,7 +63,8 @@ changes none of them.
   generalisation is explicitly out of scope.
 - **D4 — Auth = toon-recipe's.** E-mail + password (argon2id via `Bun.password`), Google and GitHub
   OAuth with explicit linking only, the e-mail confirmation gate that follows the configured mailer,
-  password reset, the signed `/uploads` URLs. Finance's auth is a strict subset and its users
+  password reset, the signed `/uploads` URLs and the calendar's feed tokens (a capability URL for a subscribed
+  phone calendar: 32 random bytes, only their SHA-256 stored, one link per member and household; ADR 0017). Finance's auth is a strict subset and its users
   migrate with their password hashes (same algorithm, same `Bun.password` format).
   Placeholder accounts without e-mail or password exist (a household member added by name, so the
   finance ledger can name them); they cannot sign in and become accounts only through a claim
@@ -102,7 +103,8 @@ changes none of them.
   `/api/households/:householdId/<module>/…` (e.g. `/api/households/:id/recipe/recipes`,
   `/api/households/:id/finance/transactions`, `/api/households/:id/calendar/occurrences`; the
   calendar has no user-scoped routes, ADR 0016). User-scoped module routes mount under
-  `/api/<module>/…` (`/api/recipe/cards`). Error envelope, codes-as-wire-contract, list envelopes,
+  `/api/<module>/…` (`/api/recipe/cards`). Public module routes (no session; a capability URL like the signed
+  `/uploads` URLs) mount under `/api/<module>/feed/…`; the calendar's subscription feed is the one (ADR 0017). Error envelope, codes-as-wire-contract, list envelopes,
   PATCH semantics and the `requireSession()` / `requireHouseholdRole()` / `requireVerifiedEmail()`
   middleware chain are toon-recipe's; a fourth middleware `requireModule("finance")` answers
   `404 module_disabled`. Mount order rules of both sources (invites before `:id`, summary before
@@ -197,6 +199,8 @@ export interface ApiModule<Services = never> {   // Services: what the module's 
                                   // householdModuleApi(id, …), which runs ApiErrorBoundary -> RequireSession ->
                                   // RequireHouseholdMember -> RequireModule before the module's own chain
   userApi?: ModuleHttpApi         // served at /api/<id>/… (user-scoped, e.g. recipe cards): userModuleApi(id, …)
+  publicApi?: ModuleHttpApi       // served at /api/<id>/feed/… behind ApiErrorBoundary only; the URL is the credential
+                                  // (ADR 0017): publicModuleApi(id, …); the calendar's subscription feed
   schema: Record<string, Table>   // drizzle tables, all prefixed `<id>_`
   healthFeatures?(): Effect<Record<string, boolean>, never, AppConfig>   // merged into /api/health features,
                                               // in module order after the core's verifiedEmailRequired (an Effect since E3)
@@ -306,7 +310,12 @@ Rules:
   route-unknown 404). A module group attaches `RequireVerifiedEmail` itself and an endpoint
   `RequireHouseholdAdmin` where it needs it (`chain(...)`, in execution order); a `userApi` is built with
   `userModuleApi(id, api)` (prefix `/api/<id>`, the boundary only), runs `RequireSession` itself and is not behind
-  `RequireModule` (a user-owned row, e.g. a recipe card, follows its owner, not a household). A module may narrow
+  `RequireModule` (a user-owned row, e.g. a recipe card, follows its owner, not a household). A `publicApi` (ADR 0017)
+  is built with `publicModuleApi(id, api)` (prefix `/api/<id>`, the boundary only) and serves a capability URL with no
+  session: `moduleRoutesLayer` asserts that every public endpoint carries exactly `ApiErrorBoundary`, is a `GET` and lies
+  below `/api/<id>/feed/` (no catch-all; a user path there is refused), its handler authenticates the URL itself and
+  answers every refusal with the same `404 not_found`, and `logPathOf` redacts every path below `/api/<id>/feed/` in the
+  request log and the boundary's log. A module may narrow
   access further with its own `HttpApiMiddleware`: finance's `RequireFinanceParticipant` (every ledger group, every
   method; `apps/api/src/modules/finance/http.ts`, implemented by `RequireFinanceParticipantLayer`, which the
   module's `handlers` provide) answers a household member without one of the two slots
