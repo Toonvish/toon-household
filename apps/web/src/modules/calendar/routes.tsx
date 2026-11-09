@@ -11,6 +11,7 @@
  *     /entries/$entryId/edit             Bearbeiten           features/entries/EditEntryPage
  *     /cars                              Autos (sidebar)      features/cars/CarsPage
  *     /waste                             Müllabfuhr (sidebar) features/waste/WastePage
+ *     /feed                              Kalender-Abo (sidebar, plan m9 P16) features/feed/FeedPage
  *
  * SCREENS ARE CODE-SPLIT WITH `lazyRouteComponent` (a hand-rolled lazy wrapper hides `.preload` from the router):
  * it is also what keeps this file's static import graph clear of the shell (CLAUDE.md "A module owns its layout
@@ -104,6 +105,12 @@ const wasteRoute = createRoute({
   component: lazyRouteComponent(() => import("./features/waste/WastePage"), "WastePage"),
 });
 
+const feedRoute = createRoute({
+  getParentRoute: () => calendarLayoutRoute,
+  path: "feed",
+  component: lazyRouteComponent(() => import("./features/feed/FeedPage"), "FeedPage"),
+});
+
 /* -------------------------------------------------------------------------- */
 /* tree                                                                       */
 /* -------------------------------------------------------------------------- */
@@ -118,4 +125,5 @@ export const calendarRouteTree = calendarLayoutRoute.addChildren([
   editEntryRoute,
   carsRoute,
   wasteRoute,
+  feedRoute,
 ]);

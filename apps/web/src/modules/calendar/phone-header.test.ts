@@ -15,7 +15,7 @@ const routeSource = read("routes.tsx");
 const screens = [...routeSource.matchAll(/import\(\s*"(\.\/features\/[^"]+)"\s*\)/g)].map((m) => `${m[1]}.tsx`);
 
 describe("calendar phone header row", () => {
-  test("routes.tsx lazy-loads the eight screens of plan m8 section 5.5", () => {
+  test("routes.tsx lazy-loads the eight screens of plan m8 section 5.5 and the feed screen of plan m9 P16", () => {
     expect([...screens].sort()).toEqual(
       [
         "./features/agenda/AgendaPage.tsx",
@@ -26,6 +26,7 @@ describe("calendar phone header row", () => {
         "./features/entries/EditEntryPage.tsx",
         "./features/cars/CarsPage.tsx",
         "./features/waste/WastePage.tsx",
+        "./features/feed/FeedPage.tsx",
       ].sort(),
     );
   });
@@ -48,6 +49,15 @@ describe("calendar phone header row", () => {
       expect(source).not.toMatch(/from "[^"]*use-nav-items"/);
       expect(source).not.toMatch(/from "[^"]*CalendarPageHeader"/);
     }
+  });
+});
+
+describe("the feed screen (plan m9 P16)", () => {
+  test("renders CalendarPageHeader without a header action", () => {
+    const source = read("features/feed/FeedPage.tsx");
+    const headers = [...source.matchAll(/<CalendarPageHeader\b[^>]*\/>/g)].map((m) => m[0]);
+    expect(headers.length).toBeGreaterThan(0);
+    for (const header of headers) expect(header).not.toContain("actions=");
   });
 });
 

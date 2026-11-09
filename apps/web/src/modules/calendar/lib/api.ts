@@ -174,7 +174,9 @@ export const CalendarApi = {
   /*
    * subscription feed (plan m9 P13, P17): the member's OWN link. Only the 201 of `createFeed` carries the URL with
    * its token; `fetchFeed` and `updateFeed` never do. The feed itself (`/api/calendar/feed/<token>.ics`) is never
-   * fetched by the app.
+   * fetched by the app, and no runtime rule of the service worker matches it (P18: the calendar's NetworkOnly rule
+   * is household-scoped, the one NetworkFirst rule is recipe's), so a browser that opens the link never gets a
+   * cached copy.
    */
 
   fetchFeed: (householdId: string, options?: RequestOptions) =>
