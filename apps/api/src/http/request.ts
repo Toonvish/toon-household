@@ -68,21 +68,29 @@ export function pathOf(url: string): string {
   }
 }
 
-/** A path below a module's public prefix `/api/<id>/feed/` (ADR 0017): group 1 is the kept part. */
-const PUBLIC_FEED_PATH = /^(\/api\/[^/]+\/feed\/)(.+)$/;
+/**
+ * A path below a module's public prefix `/api/<id>/feed/` (ADR 0017), matched on the ROUTER's reading of the path:
+ * `HttpRouter`'s FindMyWay collapses runs of `/` (`ignoreDuplicateSlashes`) and matches static segments
+ * case-insensitively (`caseSensitive: false`), so `/api//calendar/feed/…`, `//api/calendar/feed/…` and
+ * `/API/Calendar/Feed/…` are served by the feed too (M9-fix). Group 1 is the kept part.
+ */
+const PUBLIC_FEED_PATH = /^(\/api\/[^/]+\/feed\/)(.+)$/i;
 
 /**
  * `pathOf(url)` for a LOG line (plan `docs/plans/m9-calendar-feed.md` P15, ADR 0017): a path below a module's public
  * prefix `/api/<id>/feed/` carries a credential (the calendar's feed token), so everything after that prefix becomes
- * `<redacted>`, plus `.ics` when the path ended in it (`/api/calendar/feed/<redacted>.ics`). Every other path is
- * `pathOf(url)` unchanged; the query is dropped by `pathOf` already. It needs no module import: `moduleRoutesLayer`
- * makes "below `/api/<id>/feed/`" the place of every public route and of no other module route.
+ * `<redacted>`, plus `.ics` when the path ended in it (`/api/calendar/feed/<redacted>.ics`). The match runs on the path
+ * with runs of `/` collapsed and the prefix compared case-insensitively, as the router matches (above); a redacted line
+ * shows that collapsed form. Every other path is `pathOf(url)` unchanged; the query is dropped by `pathOf` already. It
+ * needs no module import: `moduleRoutesLayer` makes "below `/api/<id>/feed/`" the place of every public route and of no
+ * other module route.
  */
 export function logPathOf(url: string): string {
   const path = pathOf(url);
-  const match = PUBLIC_FEED_PATH.exec(path);
+  const collapsed = path.replace(/\/{2,}/g, "/");
+  const match = PUBLIC_FEED_PATH.exec(collapsed);
   if (match === null) return path;
-  return `${match[1]}<redacted>${path.endsWith(".ics") ? ".ics" : ""}`;
+  return `${match[1]}<redacted>${/\.ics\/?$/i.test(collapsed) ? ".ics" : ""}`;
 }
 
 /** The request's pathname (the pre-E7 Hono `c.req.path`), for log lines and the route-unknown answer. */

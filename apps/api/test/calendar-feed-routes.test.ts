@@ -389,4 +389,33 @@ describe("the request log over the real feed route (P15)", () => {
     expect(lines.join("\n")).not.toContain(token);
     expect(lines.join("\n")).not.toContain("B".repeat(43));
   });
+
+  test("a path the router serves despite doubled slashes or another case is redacted too (M9-fix)", async () => {
+    const { owner, householdId } = await home("LogSlash");
+    const { url } = await createLink(householdId, owner);
+    const token = url.slice(url.lastIndexOf("/") + 1, -".ics".length);
+    const lines: string[] = [];
+    const logged = testHttpApp(
+      [],
+      Layer.empty,
+      Layer.mergeAll(
+        globalHttpLayer({ requestLog: true, logLine: (line) => lines.push(line), webDistDir: null, webOrigins: [] }),
+        moduleRoutesLayer(API_MODULES),
+      ).pipe(Layer.provideMerge(httpMiddlewareLayer())),
+    );
+    const variants = [
+      `/api//calendar/feed/${token}.ics`,
+      `//api/calendar/feed/${token}.ics`,
+      `/api/calendar//feed/${token}.ics`,
+      `/API/Calendar/Feed/${token}.ics`,
+    ];
+    for (const path of variants) {
+      const response = await logged.request(path);
+      // The router serves every variant: the redaction must follow it.
+      expect([path, response.status]).toEqual([path, 200]);
+    }
+    expect(lines).toHaveLength(variants.length * 2);
+    expect(lines.every((line) => /\/api\/calendar\/feed\/<redacted>\.ics/i.test(line))).toBe(true);
+    expect(lines.join("\n")).not.toContain(token);
+  });
 });
