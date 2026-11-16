@@ -14,7 +14,7 @@ import { Button, Dialog, IconButton, Input, Textarea } from "@/components/ui";
 import { useT } from "@/lib/i18n";
 import type { FieldErrors } from "@/lib/validation";
 import { moveItem, moveTargetIndex, patchRow, removeRow } from "../lib/hooks";
-import { sectionNames } from "../lib/format";
+import { joinableSectionAbove, sectionNames } from "../lib/format";
 import {
   emptyIngredientRow,
   ingredientToRow,
@@ -128,6 +128,7 @@ export function IngredientsEditor({
         {rows.map((row, index) => {
           const prefix = `ingredients.${index}`;
           const isFirstOfSection = index === 0 || rows[index - 1]?.section !== row.section;
+          const sectionAbove = joinableSectionAbove(rows, index);
           return (
             <li
               key={row.key}
@@ -145,6 +146,19 @@ export function IngredientsEditor({
                   error={errors[`${prefix}.section`]}
                   containerClassName="mb-1"
                 />
+              ) : null}
+              {sectionAbove !== undefined ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="self-start"
+                  onClick={() => patch(index, { section: sectionAbove })}
+                  disabled={disabled}
+                  leftIcon={<ArrowUp className="size-4" />}
+                >
+                  {t("recipe.recipes.editor.joinSectionAction", { section: sectionAbove })}
+                </Button>
               ) : null}
 
               {/* Arbitrary-value grid columns bypass Tailwind's own `grid-cols-N` safety

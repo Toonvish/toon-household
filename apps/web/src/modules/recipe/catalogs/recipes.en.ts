@@ -137,6 +137,7 @@ export const recipesEn: LocaleCatalog<RecipesCatalog> = {
   "recipe.recipes.steps.empty": "No steps recorded for this recipe.",
   "recipe.recipes.steps.doneSr": "done",
   "recipe.recipes.steps.markDoneSr": "mark as done",
+  "recipe.recipes.editor.joinSectionAction": "Join section “{section}”",
   "recipe.recipes.editor.positionOf": "Item {index} of {total}",
   "recipe.recipes.editor.cancel": "Cancel",
   "recipe.recipes.editor.apply": "Apply",

@@ -168,6 +168,7 @@ export const recipesDe = {
   "recipe.recipes.steps.empty": "Für dieses Rezept sind keine Schritte erfasst.",
   "recipe.recipes.steps.doneSr": "erledigt",
   "recipe.recipes.steps.markDoneSr": "als erledigt markieren",
+  "recipe.recipes.editor.joinSectionAction": "Zum Abschnitt „{section}“",
   "recipe.recipes.editor.positionOf": "Position {index} von {total}",
   "recipe.recipes.editor.cancel": "Abbrechen",
   "recipe.recipes.editor.apply": "Übernehmen",

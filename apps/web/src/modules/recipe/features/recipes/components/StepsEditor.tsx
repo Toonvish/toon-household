@@ -9,7 +9,7 @@ import { Button, Dialog, IconButton, Input, Textarea } from "@/components/ui";
 import { useT } from "@/lib/i18n";
 import type { FieldErrors } from "@/lib/validation";
 import { moveItem, moveTargetIndex, patchRow, removeRow } from "../lib/hooks";
-import { sectionNames } from "../lib/format";
+import { joinableSectionAbove, sectionNames } from "../lib/format";
 import { emptyStepRow, rowsFromPastedSteps, type StepRow } from "../lib/formState";
 
 export interface StepsEditorProps {
@@ -87,6 +87,7 @@ export function StepsEditor({ rows, onChange, errors = {}, disabled = false }: S
         {rows.map((row, index) => {
           const prefix = `steps.${index}`;
           const isFirstOfSection = index === 0 || rows[index - 1]?.section !== row.section;
+          const sectionAbove = joinableSectionAbove(rows, index);
           return (
             <li
               key={row.key}
@@ -103,6 +104,19 @@ export function StepsEditor({ rows, onChange, errors = {}, disabled = false }: S
                   disabled={disabled}
                   error={errors[`${prefix}.section`]}
                 />
+              ) : null}
+              {sectionAbove !== undefined ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="self-start"
+                  onClick={() => patch(index, { section: sectionAbove })}
+                  disabled={disabled}
+                  leftIcon={<ArrowUp className="size-4" />}
+                >
+                  {t("recipe.recipes.editor.joinSectionAction", { section: sectionAbove })}
+                </Button>
               ) : null}
 
               <Textarea

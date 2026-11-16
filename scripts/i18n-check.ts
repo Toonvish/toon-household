@@ -127,6 +127,8 @@ const NEW_GERMAN = new Set<string>([
   "household.placeholder.removeConfirm",
   "household.claim.hint",
   "household.claim.linkHint",
+  // 2026-11-16: one-tap "join the section above" in the ingredient and step editors (bug fix)
+  "recipe.recipes.editor.joinSectionAction",
 ]);
 
 /**

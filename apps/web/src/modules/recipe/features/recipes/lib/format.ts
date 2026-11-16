@@ -104,6 +104,21 @@ export function sectionNames(rows: readonly { section?: string | null }[]): stri
 }
 
 /**
+ * The section a row could join: the previous row's non-empty section, offered only while the row
+ * itself has no section (a row joins a section by carrying the same name, which nobody guesses).
+ */
+export function joinableSectionAbove(
+  rows: readonly { section?: string | null }[],
+  index: number,
+): string | undefined {
+  if (index <= 0) return undefined;
+  const own = rows[index]?.section?.trim() ?? "";
+  if (own.length > 0) return undefined;
+  const above = rows[index - 1]?.section?.trim() ?? "";
+  return above.length > 0 ? above : undefined;
+}
+
+/**
  * Plain-text rendering of a whole recipe — used by share and the clipboard fallback.
  * Called from event handlers, not rendered continuously, so the ambient `translate()`
  * is the right tool here (see docs/i18n.md §7/§10 rule 6): a component body must use
