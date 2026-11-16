@@ -154,6 +154,30 @@ export const shoppingHandlers = HttpApiBuilder.group(RecipeShoppingApi, "recipe.
       UNINTERRUPTIBLE,
     )
 
+    /** PUT /:listId/primary — any member; the household's previous primary list is cleared. */
+    .handle(
+      "putByListIdPrimary",
+      Effect.fn("recipe.shopping.putByListIdPrimary")(function* ({ params }) {
+        const listService = yield* ShoppingLists;
+        const membership = yield* CurrentMembership;
+        const list = yield* listService.setPrimaryShoppingList(membership.householdId, params.listId, true);
+        return json({ list });
+      }),
+      UNINTERRUPTIBLE,
+    )
+
+    /** DELETE /:listId/primary — any member; idempotent, the household then has no primary list. */
+    .handle(
+      "deleteByListIdPrimary",
+      Effect.fn("recipe.shopping.deleteByListIdPrimary")(function* ({ params }) {
+        const listService = yield* ShoppingLists;
+        const membership = yield* CurrentMembership;
+        const list = yield* listService.setPrimaryShoppingList(membership.householdId, params.listId, false);
+        return json({ list });
+      }),
+      UNINTERRUPTIBLE,
+    )
+
     /** DELETE /:listId — creator or admin+; items, catalog and ledger cascade. */
     .handle(
       "deleteByListId",

@@ -84,6 +84,15 @@ export class ShoppingLists extends Context.Service<
       input: UpdateShoppingListRequest,
     ) => Effect.Effect<ShoppingList, NotFound | Conflict | DatabaseError>;
     /**
+     * Makes a list the household's primary list (`primary` true), clearing the previous one in the same
+     * transaction, or clears it (`primary` false; idempotent). Any member may, like a rename.
+     */
+    readonly setPrimaryShoppingList: (
+      householdId: string,
+      listId: string,
+      primary: boolean,
+    ) => Effect.Effect<ShoppingList, NotFound | DatabaseError>;
+    /**
      * Deletes a list; items, catalog and ledger entries cascade.
      * Creator or admin+, matching collections — a shared list is not something one member
      * should be able to throw away on everyone else's behalf.
@@ -252,6 +261,7 @@ export class ShoppingLists extends Context.Service<
           name: input.name,
           createdBy: userId,
           boughtClearedAt: null,
+          isPrimary: false,
           createdAt: now,
           updatedAt: now,
         };
@@ -279,6 +289,41 @@ export class ShoppingLists extends Context.Service<
         const patch = { name: input.name, updatedAt: yield* Clock.currentTimeMillis };
         yield* database.use((db) => db.update(shoppingLists).set(patch).where(eq(shoppingLists.id, listId)));
         return toShoppingList({ ...row, ...patch }, { itemCount: yield* countListItems(listId) });
+      });
+
+      const setPrimaryShoppingList = Effect.fn("ShoppingLists.setPrimaryShoppingList")(function* (
+        householdId: string,
+        listId: string,
+        primary: boolean,
+      ) {
+        const row = yield* loadShoppingListRow(householdId, listId);
+        const updatedAt = yield* Clock.currentTimeMillis;
+        yield* database.transaction(
+          Effect.gen(function* () {
+            if (primary) {
+              // Clear the old one first: the partial unique index allows one primary list per household.
+              yield* database.use((db) =>
+                db
+                  .update(shoppingLists)
+                  .set({ isPrimary: false, updatedAt })
+                  .where(
+                    and(
+                      eq(shoppingLists.householdId, householdId),
+                      eq(shoppingLists.isPrimary, true),
+                      ne(shoppingLists.id, listId),
+                    ),
+                  ),
+              );
+            }
+            if (row.isPrimary !== primary) {
+              yield* database.use((db) =>
+                db.update(shoppingLists).set({ isPrimary: primary, updatedAt }).where(eq(shoppingLists.id, listId)),
+              );
+            }
+          }),
+        );
+        const next = row.isPrimary === primary ? row : { ...row, isPrimary: primary, updatedAt };
+        return toShoppingList(next, { itemCount: yield* countListItems(listId) });
       });
 
       const deleteShoppingList = Effect.fn("ShoppingLists.deleteShoppingList")(function* (
@@ -410,6 +455,7 @@ export class ShoppingLists extends Context.Service<
         loadShoppingListRow,
         createShoppingList,
         updateShoppingList,
+        setPrimaryShoppingList,
         deleteShoppingList,
         countListItems,
         getShoppingListDetail,

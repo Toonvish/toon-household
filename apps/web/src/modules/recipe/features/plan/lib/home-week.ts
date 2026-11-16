@@ -37,7 +37,7 @@ export function upcomingEntries<T extends EntryOrder>(entries: readonly T[], tod
     .slice(0, max);
 }
 
-/** The list `/recipe/shopping` shows first, or `null` when there is none. */
-export function activeShoppingList<T extends Pick<ShoppingList, "id">>(lists: readonly T[]): T | null {
-  return lists[0] ?? null;
+/** The Home card's list: the household's primary list, else the first one listed, or `null` when there is none. */
+export function activeShoppingList<T extends Pick<ShoppingList, "id" | "isPrimary">>(lists: readonly T[]): T | null {
+  return lists.find((list) => list.isPrimary === true) ?? lists[0] ?? null;
 }

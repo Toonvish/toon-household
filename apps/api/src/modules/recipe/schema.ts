@@ -20,7 +20,7 @@
  * below is toon-recipe's own spec, referenced by path from this repo's docs.
  */
 import type { ImportSourceMeta, ParsedRecipe, TagKind } from "@toon/shared";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { households, users } from "../../db/schema/core.ts";
 
@@ -474,11 +474,20 @@ export const shoppingLists = sqliteTable(
      * clearing — the history panel and `/shopping/history` read past the watermark.
      */
     boughtClearedAt: integer("bought_cleared_at"),
+    /**
+     * The household's primary list ("Hauptliste"): the Home card's list, first in the overview and the
+     * default target when adding a recipe or the week plan. At most one per household (the partial
+     * unique index below); none set means the clients fall back to their own order.
+     */
+    isPrimary: integer("is_primary", { mode: "boolean" }).notNull().default(false),
     createdAt: integer("created_at").notNull().$defaultFn(now),
     updatedAt: integer("updated_at").notNull().$defaultFn(now),
   },
   (table) => [
     uniqueIndex("recipe_shopping_lists_household_name_unique").on(table.householdId, table.name),
+    uniqueIndex("recipe_shopping_lists_household_primary_unique")
+      .on(table.householdId)
+      .where(sql`${table.isPrimary} = 1`),
     index("recipe_shopping_lists_household_id_idx").on(table.householdId),
     index("recipe_shopping_lists_created_by_idx").on(table.createdBy),
   ],

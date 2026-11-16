@@ -36,7 +36,7 @@ and carry no prefix (section 3, decision H2). `group_id` of the source is `house
 | `recipe_meal_plan_entries` | `mealPlanEntries` | the meal plan; `planned_on` is text `YYYY-MM-DD` |
 | `recipe_recipe_cook_log` | `recipeCookLog` | one row per "Gekocht" |
 | `recipe_import_drafts` | `importDrafts` | editable import drafts (nothing reaches `recipe_recipes` before commit) |
-| `recipe_shopping_lists` | `shoppingLists` | named lists; `bought_cleared_at` watermark |
+| `recipe_shopping_lists` | `shoppingLists` | named lists; `bought_cleared_at` watermark; `is_primary`, the household's one primary list (partial unique index, `apps/api/drizzle/0006_shopping_primary.sql`) |
 | `recipe_shopping_list_items` | `shoppingListItems` | list lines, unique on `(list_id, merge_key)`, no `checked` column |
 | `recipe_shopping_list_catalog` | `shoppingListCatalog` | the "Häufig gekauft" feed; `hidden_at`, `use_count` |
 | `recipe_shopping_bought_items` | `shoppingBoughtItems` | the bought-item log (90-day TTL) |

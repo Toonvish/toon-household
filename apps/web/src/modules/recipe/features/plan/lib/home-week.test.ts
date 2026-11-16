@@ -65,6 +65,9 @@ describe("activeShoppingList", () => {
   test("the first list", () => {
     expect(activeShoppingList([{ id: "a" }, { id: "b" }])?.id).toBe("a");
   });
+  test("the household's primary list wins", () => {
+    expect(activeShoppingList([{ id: "a" }, { id: "b", isPrimary: true }])?.id).toBe("b");
+  });
   test("no lists", () => {
     expect(activeShoppingList([])).toBeNull();
   });

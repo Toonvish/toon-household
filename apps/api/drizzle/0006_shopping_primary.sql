@@ -1,0 +1,2 @@
+ALTER TABLE `recipe_shopping_lists` ADD `is_primary` integer DEFAULT false NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX `recipe_shopping_lists_household_primary_unique` ON `recipe_shopping_lists` (`household_id`) WHERE "recipe_shopping_lists"."is_primary" = 1;

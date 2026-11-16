@@ -24,6 +24,7 @@ import {
   createShoppingList,
   deleteShoppingCatalogEntry,
   deleteShoppingList,
+  setPrimaryShoppingList,
   updateShoppingList,
 } from "@/modules/recipe/lib/api";
 import { invalidate, queryKeys, shoppingListQuery, shoppingListsQuery } from "@/modules/recipe/lib/queries";
@@ -96,6 +97,22 @@ export function useRenameShoppingList(householdId: string | null) {
   return useMutation<ShoppingList, Error, { listId: string; name: string }>({
     mutationFn: async ({ listId, name }) =>
       (await updateShoppingList(householdId ?? "", listId, { name })).list,
+    onSuccess: async (list) => {
+      if (!householdId) return;
+      await Promise.all([
+        invalidate.shoppingLists(client, householdId),
+        invalidate.shoppingList(client, householdId, list.id),
+      ]);
+    },
+  });
+}
+
+/** Makes a list the household's primary list (`primary` true) or clears it; the listing is refetched. */
+export function useSetPrimaryShoppingList(householdId: string | null) {
+  const client = useQueryClient();
+  return useMutation<ShoppingList, Error, { listId: string; primary: boolean }>({
+    mutationFn: async ({ listId, primary }) =>
+      (await setPrimaryShoppingList(householdId ?? "", listId, primary)).list,
     onSuccess: async (list) => {
       if (!householdId) return;
       await Promise.all([

@@ -6,7 +6,7 @@
  * ("Rewe", "Drogerie", "Getränkemarkt") — locked decision 7. The artboard draws
  * exactly ONE list-preview cell because its mock household has one list; R46 is what
  * makes that survive a real household with several: column 1 becomes a vertical STACK of
- * `ShoppingListPreviewCard`s, last-opened-first then alphabetically, while columns 2
+ * `ShoppingListPreviewCard`s, the primary list first, then the last-opened one, then alphabetically (`lib/target.ts`), while columns 2
  * (`WeekPlanPanel`) and 3 (`CardsCard` + `BoughtHistoryPanel`) stay fixed. The phone
  * layout stacks everything full-width, except the trailing Cards/History row, which
  * is the ONE 2-up grid on this screen (unchanged from the artboard either way).
@@ -26,7 +26,6 @@
  */
 import { useState } from "react";
 import { ListPlus, ShoppingBasket } from "lucide-react";
-import { foldText } from "@toon/shared";
 import { CreateShoppingListRequestSchema, type ShoppingList } from "@toon/shared";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -45,41 +44,22 @@ import { formatRelativeShort } from "@/modules/recipe/lib/format";
 import { useT } from "@/lib/i18n";
 import { boughtHistoryQuery } from "@/modules/recipe/lib/queries";
 import { useActiveHousehold, useEmailVerificationBlock, useRequiredHouseholdId, useSession } from "@/lib/session";
-import { readStorage, storageKeys } from "@/lib/storage";
 import { apiFieldErrors, validate, type FieldErrors } from "@/lib/validation";
 import { CardsCard } from "@/modules/recipe/features/cards/components/CardsCard";
 import {
   useCreateShoppingList,
   useDeleteShoppingList,
   useRenameShoppingList,
+  useSetPrimaryShoppingList,
   useShoppingLists,
 } from "./lib/queries";
 import { ShoppingListPreviewCard } from "./components/ShoppingListPreviewCard";
+import { orderShoppingListsForOverview } from "./lib/target";
 import { WeekPlanPanel } from "./components/WeekPlanPanel";
 import { BoughtHistoryPanel } from "./components/BoughtHistoryPanel";
 
 /** A shopper counts as "active" for this long after their last check-off (R33). */
 const SHOPPER_ACTIVE_WINDOW_MS = 15 * 60 * 1000;
-
-/**
- * R46's stacking order for column 1: the last-opened list first
- * (`storageKeys.lastShoppingListId`, R9), then every other list alphabetically by
- * its FOLDED name (`foldText`, never a raw `localeCompare` — see CLAUDE.md,
- * "Äpfel" would otherwise sort after "Z").
- */
-function orderForOverview(householdId: string, lists: readonly ShoppingList[]): ShoppingList[] {
-  const saved = readStorage(storageKeys.lastShoppingListId);
-  let lastId: string | null = null;
-  if (saved) {
-    const [savedHouseholdId, savedListId] = saved.split(":");
-    if (savedHouseholdId === householdId) lastId = savedListId ?? null;
-  }
-  const rest = [...lists]
-    .filter((list) => list.id !== lastId)
-    .sort((a, b) => foldText(a.name).localeCompare(foldText(b.name)) || a.name.localeCompare(b.name));
-  const last = lastId ? lists.find((list) => list.id === lastId) : undefined;
-  return last ? [last, ...rest] : rest;
-}
 
 export default function ShoppingListsPage() {
   const t = useT();
@@ -100,9 +80,22 @@ export default function ShoppingListsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [renaming, setRenaming] = useState<ShoppingList | null>(null);
   const [deleting, setDeleting] = useState<ShoppingList | null>(null);
+  const toast = useToast();
+  const setPrimary = useSetPrimaryShoppingList(householdId);
+  function handleSetPrimary(list: ShoppingList, primary: boolean) {
+    setPrimary.mutate(
+      { listId: list.id, primary },
+      {
+        onSuccess: () => {
+          if (primary) toast.success(t("recipe.shopping.lists.primarySet", { name: list.name }));
+        },
+        onError: (error) => toast.error(t("recipe.shopping.lists.primaryError"), errorMessage(error)),
+      },
+    );
+  }
 
   const items = lists.data ?? [];
-  const ordered = orderForOverview(householdId, items);
+  const ordered = orderShoppingListsForOverview(householdId, items);
 
   const syncedAt = lists.dataUpdatedAt > 0 ? formatRelativeShort(new Date(lists.dataUpdatedAt).toISOString()) : null;
   const activeShopperRow = latestBought.data?.items[0];
@@ -209,6 +202,7 @@ export default function ShoppingListsPage() {
                   manageHint={manageHint}
                   onRename={setRenaming}
                   onDelete={setDeleting}
+                  onSetPrimary={handleSetPrimary}
                 />
               ))}
             </div>
@@ -232,6 +226,7 @@ export default function ShoppingListsPage() {
                 manageHint={manageHint}
                 onRename={setRenaming}
                 onDelete={setDeleting}
+                  onSetPrimary={handleSetPrimary}
               />
             ))}
             <WeekPlanPanel householdId={householdId} lists={items} listsLoading={lists.isPending} />

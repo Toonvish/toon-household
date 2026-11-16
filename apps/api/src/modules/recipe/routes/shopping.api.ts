@@ -21,6 +21,14 @@ export const RecipeShoppingGroup = HttpApiGroup.make("recipe.shopping")
     HttpApiEndpoint.delete("deleteByListId", "/:listId", {
       params: { householdId: Schema.String, listId: Schema.String },
     }),
+    /** PUT /api/households/:householdId/recipe/shopping-lists/:listId/primary */
+    HttpApiEndpoint.put("putByListIdPrimary", "/:listId/primary", {
+      params: { householdId: Schema.String, listId: Schema.String },
+    }),
+    /** DELETE /api/households/:householdId/recipe/shopping-lists/:listId/primary */
+    HttpApiEndpoint.delete("deleteByListIdPrimary", "/:listId/primary", {
+      params: { householdId: Schema.String, listId: Schema.String },
+    }),
     /** POST /api/households/:householdId/recipe/shopping-lists/:listId/items */
     HttpApiEndpoint.post("postByListIdItems", "/:listId/items", {
       params: { householdId: Schema.String, listId: Schema.String },

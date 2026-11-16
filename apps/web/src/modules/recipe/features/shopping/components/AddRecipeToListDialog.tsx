@@ -29,31 +29,18 @@ import {
 } from "@toon/shared";
 import { Button, Dialog, Field, Input, Select, Spinner } from "@/components/ui";
 import { useT } from "@/lib/i18n";
-import { readStorage, storageKeys } from "@/lib/storage";
+import { defaultTargetList } from "../lib/target";
 import { ServingsScaler } from "@/modules/recipe/features/recipes/components/ServingsScaler";
 
 /**
- * R9's target-list resolution, reused here for the same reason `WeekPlanPanel.tsx` and
- * `ShoppingListsPage.tsx` carry their own copy (there is no shared constant to
- * import): `storageKeys.lastShoppingListId` first
- * — so a cook who picked "Wocheneinkauf" last time gets it again without re-choosing —
- * then the alphabetically first list, never a server-side default. `householdId` comes off
- * `lists[0]` rather than a prop of its own: every list this dialog is ever handed belongs
- * to the one active household, so there is nothing to pass through that the lists don't
- * already carry.
+ * The preselected list: the household's primary list, then the last-opened one, then the alphabetically first
+ * (`defaultTargetList`, `../lib/target.ts`). `householdId` comes off `lists[0]`: every list this dialog is handed
+ * belongs to the one active household.
  */
 function resolveInitialListId(lists: readonly ShoppingList[]): string {
-  if (lists.length === 0) return "";
   const householdId = lists[0]?.householdId;
-  const saved = readStorage(storageKeys.lastShoppingListId);
-  if (saved) {
-    const [savedHouseholdId, savedListId] = saved.split(":");
-    if (savedHouseholdId === householdId) {
-      const match = lists.find((list) => list.id === savedListId);
-      if (match) return match.id;
-    }
-  }
-  return [...lists].sort((a, b) => a.name.localeCompare(b.name, "de"))[0]?.id ?? "";
+  if (householdId === undefined) return "";
+  return defaultTargetList(householdId, lists)?.id ?? "";
 }
 
 export interface AddRecipeToListDialogProps {

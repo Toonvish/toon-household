@@ -332,6 +332,8 @@ function householdProbes(): Probe[] {
     // shopping lists, the parent is B's
     { label: "list GET", method: "GET", path: foreignList },
     { label: "list PATCH", method: "PATCH", path: foreignList, body: { name: "Geklaut" } },
+    { label: "list primary PUT", method: "PUT", path: `${foreignList}/primary` },
+    { label: "list primary DELETE", method: "DELETE", path: `${foreignList}/primary` },
     { label: "list DELETE", method: "DELETE", path: foreignList },
     { label: "list items POST", method: "POST", path: `${foreignList}/items`, body: { items: [{ name: "Spam" }] } },
     { label: "list items DELETE (empty)", method: "DELETE", path: `${foreignList}/items` },

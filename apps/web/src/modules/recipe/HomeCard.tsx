@@ -3,8 +3,8 @@
  * name, this week as a compact strip with the next planned titles (`HomeWeekStrip`), and
  * the active shopping list with its open-item count.
  *
- * The "active" list is the first one `shoppingListsQuery` returns, the order
- * `/recipe/shopping` shows. No lists: a secondary "Einkauf" link instead (Home is not a
+ * The "active" list is the household's primary list ("Hauptliste"), else the first one
+ * `shoppingListsQuery` returns (name order). No lists: a secondary "Einkauf" link instead (Home is not a
  * second empty state). Recipe titles and list names are CONTENT and never go through
  * `t()`; every label reuses an existing key, no new German.
  *

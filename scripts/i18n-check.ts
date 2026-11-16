@@ -129,6 +129,12 @@ const NEW_GERMAN = new Set<string>([
   "household.claim.linkHint",
   // 2026-11-16: one-tap "join the section above" in the ingredient and step editors (bug fix)
   "recipe.recipes.editor.joinSectionAction",
+  // 2026-11-16: the household's primary shopping list ("Hauptliste")
+  "recipe.shopping.lists.primaryBadge",
+  "recipe.shopping.lists.makePrimary",
+  "recipe.shopping.lists.unsetPrimary",
+  "recipe.shopping.lists.primarySet",
+  "recipe.shopping.lists.primaryError",
 ]);
 
 /**

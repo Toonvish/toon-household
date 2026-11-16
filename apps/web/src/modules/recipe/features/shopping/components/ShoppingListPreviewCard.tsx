@@ -12,7 +12,7 @@
  * `WeekPlanPanel`, a recipe detail's "add all"): the list you last opened is the one
  * a one-tap "add" targets next, so this tap has to be the thing that updates it.
  */
-import { ArrowRight, Pencil, ShoppingBasket, Trash2 } from "lucide-react";
+import { ArrowRight, Pencil, ShoppingBasket, Star, StarOff, Trash2 } from "lucide-react";
 import { formatShoppingAmount, formatQuantity, shoppingProgressPercent, type ShoppingList } from "@toon/shared";
 import { ActionMenu, ProgressBar } from "@/components/ui";
 import { useT } from "@/lib/i18n";
@@ -27,6 +27,8 @@ export interface ShoppingListPreviewCardProps {
   manageHint: string | undefined;
   onRename: (list: ShoppingList) => void;
   onDelete: (list: ShoppingList) => void;
+  /** Makes the list the household's primary list, or clears it (`primary` false). */
+  onSetPrimary: (list: ShoppingList, primary: boolean) => void;
 }
 
 export function ShoppingListPreviewCard({
@@ -36,6 +38,7 @@ export function ShoppingListPreviewCard({
   manageHint,
   onRename,
   onDelete,
+  onSetPrimary,
 }: ShoppingListPreviewCardProps) {
   const t = useT();
   const itemCount = list.itemCount ?? 0;
@@ -46,6 +49,7 @@ export function ShoppingListPreviewCard({
   // "hide when 0" condition the done-when clause asks for — no separate check.
   const hasProgress = itemCount + boughtCount > 0;
   const overflow = Math.max(0, itemCount - previewItems.length);
+  const isPrimary = list.isPrimary === true;
 
   return (
     <div className="relative">
@@ -63,6 +67,12 @@ export function ShoppingListPreviewCard({
             <span className="font-display block truncate text-display-md font-medium">
               {list.name}
             </span>
+            {isPrimary ? (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-brand-soft-fg">
+                <Star aria-hidden="true" className="size-3.5 fill-current" />
+                {t("recipe.shopping.lists.primaryBadge")}
+              </span>
+            ) : null}
             <span className="text-sm text-fg-muted">
               {t("recipe.shopping.lists.counts", { open: itemCount, bought: boughtCount })}
             </span>
@@ -126,6 +136,13 @@ export function ShoppingListPreviewCard({
           label={t("recipe.shopping.lists.cardMenuLabel", { name: list.name })}
           triggerVariant="ghost"
           items={[
+            {
+              label: t(isPrimary ? "recipe.shopping.lists.unsetPrimary" : "recipe.shopping.lists.makePrimary"),
+              icon: isPrimary ? <StarOff /> : <Star />,
+              disabled: !canManage,
+              description: !canManage ? manageHint : undefined,
+              onSelect: () => onSetPrimary(list, !isPrimary),
+            },
             {
               label: t("recipe.shopping.lists.rename"),
               icon: <Pencil />,

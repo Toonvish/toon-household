@@ -46,6 +46,7 @@ export function toShoppingList(
     createdAt: toIso(row.createdAt),
     updatedAt: toIso(row.updatedAt),
     boughtClearedAt: toIsoOrNull(row.boughtClearedAt),
+    isPrimary: row.isPrimary,
   };
   if (extras?.itemCount !== undefined) list.itemCount = extras.itemCount;
   if (extras?.boughtCount !== undefined) list.boughtCount = extras.boughtCount;

@@ -292,7 +292,13 @@ export const migrateRecipeEffect = Effect.fn("legacy.migrateRecipe")(function* (
       if (isSkip(householdId)) return householdId;
       const createdBy = userOf(ctx, row.created_by);
       if (isSkip(createdBy)) return createdBy;
-      return { ...renameColumns(row, { group_id: "household_id" }), household_id: householdId, created_by: createdBy };
+      // `is_primary` is new in toon-household (0006): no legacy list is the household's primary one.
+      return {
+        ...renameColumns(row, { group_id: "household_id" }),
+        household_id: householdId,
+        created_by: createdBy,
+        is_primary: 0,
+      };
     },
   });
   const listIds = yield* mapOf(ctx, "recipe_shopping_lists");

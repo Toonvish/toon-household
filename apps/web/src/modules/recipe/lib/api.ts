@@ -438,6 +438,16 @@ export const RecipeApi = {
   deleteShoppingList: (householdId: string, listId: string, options?: RequestOptions) =>
     sendVoid("DELETE", shoppingBase(householdId, listId), undefined, options),
 
+  /** PUT makes the list the household's primary list (clearing the previous one), DELETE clears it. */
+  setPrimaryShoppingList: (householdId: string, listId: string, primary: boolean, options?: RequestOptions) =>
+    sendJson(
+      primary ? "PUT" : "DELETE",
+      ShoppingListResponseSchema,
+      `${shoppingBase(householdId, listId)}/primary`,
+      undefined,
+      options,
+    ),
+
   addShoppingItems: (
     householdId: string,
     listId: string,
@@ -1008,6 +1018,15 @@ export function updateShoppingList(
   options?: RequestOptions,
 ): Promise<ShoppingListResponse> {
   return runPromise(RecipeApi.updateShoppingList(householdId, listId, body, options), options);
+}
+
+export function setPrimaryShoppingList(
+  householdId: string,
+  listId: string,
+  primary: boolean,
+  options?: RequestOptions,
+): Promise<ShoppingListResponse> {
+  return runPromise(RecipeApi.setPrimaryShoppingList(householdId, listId, primary, options), options);
 }
 
 export function deleteShoppingList(

@@ -81,6 +81,11 @@ export const ShoppingListSchema = Schema.Struct({
   boughtClearedAt: Schema.optional(Schema.NullOr(IsoDateSchema)),
   /** First `SHOPPING_LIMITS.listPreviewItems` items, `position` order. Index-only. */
   previewItems: Schema.optional(Schema.Array(ShoppingItemPreviewSchema)),
+  /**
+   * The household's primary list ("Hauptliste"), at most one per household: the Home card's list, first
+   * in the overview, the default target when adding. Optional on the wire (an older server omits it).
+   */
+  isPrimary: Schema.optional(Schema.Boolean),
 });
 export type ShoppingList = Types.DeepMutable<typeof ShoppingListSchema.Type>;
 

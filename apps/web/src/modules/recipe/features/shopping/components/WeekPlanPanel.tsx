@@ -11,8 +11,8 @@
  * resolves; the honest fix is silence, not a spinner, so this panel simply is not
  * there when there is no connection — never a loading/error state either.
  *
- * The target list is the CLIENT's choice (R9), never a server default:
- * `storageKeys.lastShoppingListId` first, then the alphabetically first list, and
+ * The target list is the CLIENT's choice (R9): the household's primary list, then
+ * `storageKeys.lastShoppingListId`, then the alphabetically first list (`../lib/target.ts`), and
  * the panel NAMES that target in its button ("Add all to Einkaufsliste") so the
  * choice is never invisible. `pickList` lets the viewer override it for THIS
  * panel's adds without leaving the screen; picking writes the same storage key, so
@@ -27,8 +27,9 @@ import { formatWeekdayShort } from "@/modules/recipe/lib/format";
 import { useT } from "@/lib/i18n";
 import { invalidate, planShoppingQuery } from "@/modules/recipe/lib/queries";
 import { useEmailVerificationBlock, useSession } from "@/lib/session";
-import { readStorage, storageKeys, writeStorage } from "@/lib/storage";
+import { storageKeys, writeStorage } from "@/lib/storage";
 import { useAddRecipeToShoppingList } from "../lib/queries";
+import { defaultTargetList } from "../lib/target";
 import { AddPlanToListDialog, type PlanAddSelection } from "./AddPlanToListDialog";
 
 export interface WeekPlanPanelProps {
@@ -37,22 +38,6 @@ export interface WeekPlanPanelProps {
   lists: readonly ShoppingList[];
   /** True while `useShoppingLists` itself is still pending — see the module doc. */
   listsLoading: boolean;
-}
-
-/** R9's target-list resolution — same rule as `RecipeDetailPage`'s own copy of it. */
-function resolveTargetList(
-  householdId: string,
-  lists: ReadonlyArray<{ id: string; name: string }>,
-): { id: string; name: string } | null {
-  const saved = readStorage(storageKeys.lastShoppingListId);
-  if (saved) {
-    const [savedHouseholdId, savedListId] = saved.split(":");
-    if (savedHouseholdId === householdId) {
-      const match = lists.find((list) => list.id === savedListId);
-      if (match) return match;
-    }
-  }
-  return [...lists].sort((a, b) => a.name.localeCompare(b.name, "de"))[0] ?? null;
 }
 
 export function WeekPlanPanel({ householdId, lists, listsLoading }: WeekPlanPanelProps) {
@@ -71,7 +56,7 @@ export function WeekPlanPanel({ householdId, lists, listsLoading }: WeekPlanPane
    */
   const [picking, setPicking] = useState<readonly PlanShoppingPreviewRecipe[] | null>(null);
 
-  const resolved = resolveTargetList(householdId, lists);
+  const resolved = defaultTargetList(householdId, lists);
   const target =
     (overrideListId ? lists.find((list) => list.id === overrideListId) : undefined) ?? resolved;
 

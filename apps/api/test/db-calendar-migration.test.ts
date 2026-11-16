@@ -67,7 +67,7 @@ async function refused(insert: Promise<unknown>, constraint: string): Promise<vo
 }
 
 describe("migration 0004_calendar", () => {
-  test("it is the journal's fifth entry and creates the seven tables and their indexes (plus 0005's feed table, M9)", async () => {
+  test("it is the journal's fifth entry and creates the seven tables and their indexes (plus 0005's feed table, M9; 0006 follows)", async () => {
     const journal = JSON.parse(readFileSync(join(MIGRATIONS_FOLDER, "meta/_journal.json"), "utf8")) as { entries: Array<{ tag: string }> };
     expect(journal.entries.map((entry) => entry.tag)).toEqual([
       "0000_core",
@@ -76,6 +76,7 @@ describe("migration 0004_calendar", () => {
       "0003_placeholder_members",
       "0004_calendar",
       "0005_calendar_feed",
+      "0006_shopping_primary",
     ]);
     const tables = (await client.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'calendar\\_%' ESCAPE '\\' ORDER BY name"))
       .rows.map((row) => String(row.name));

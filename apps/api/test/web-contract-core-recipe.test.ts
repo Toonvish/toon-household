@@ -1026,6 +1026,30 @@ const rows: Row[] = [
     schema: ShoppingListResponseSchema,
   },
   {
+    name: "set primary shopping list",
+    method: "PUT",
+    path: (c) => `${listBase(c)}/primary`,
+    as: "A",
+    status: 200,
+    schema: ShoppingListResponseSchema,
+  },
+  {
+    name: "shopping lists with a primary one",
+    method: "GET",
+    path: (c) => `${base(c)}/shopping-lists`,
+    as: "A",
+    status: 200,
+    schema: ShoppingListListResponseSchema,
+  },
+  {
+    name: "clear primary shopping list",
+    method: "DELETE",
+    path: (c) => `${listBase(c)}/primary`,
+    as: "A",
+    status: 200,
+    schema: ShoppingListResponseSchema,
+  },
+  {
     name: "add shopping items",
     method: "POST",
     path: (c) => `${listBase(c)}/items`,
@@ -1311,7 +1335,7 @@ const rows: Row[] = [
 /* -------------------------------------------------------------------------- */
 
 /** The number of JSON rows (rows with a response schema); the commit body states it. */
-const JSON_ROWS = 83;
+const JSON_ROWS = 86;
 
 describe("web contract: core and recipe responses decode as the identity", () => {
   for (const row of rows) {

@@ -929,6 +929,8 @@ first).
 | GET | `/api/households/:householdId/recipe/shopping-lists/:listId` | household:member+module:recipe | – | `ShoppingListDetailResponse` | 200, 403, 404 |
 | PATCH | `/api/households/:householdId/recipe/shopping-lists/:listId` | household:member+module:recipe+verified | `UpdateShoppingListRequest` | `ShoppingListResponse` | 200, 403, 404, 409, 422 |
 | DELETE | `/api/households/:householdId/recipe/shopping-lists/:listId` | household:member+module:recipe+verified (creator or admin) | – | – | 204, 403, 404 |
+| PUT | `/api/households/:householdId/recipe/shopping-lists/:listId/primary` | household:member+module:recipe+verified | – | `ShoppingListResponse` | 200, 403, 404 |
+| DELETE | `/api/households/:householdId/recipe/shopping-lists/:listId/primary` | household:member+module:recipe+verified | – | `ShoppingListResponse` | 200, 403, 404 |
 | POST | `/api/households/:householdId/recipe/shopping-lists/:listId/items` | household:member+module:recipe+verified | `AddShoppingItemsRequest` | `ShoppingListDetailResponse` | 200, 403, 404, 409 `recipe_shopping_list_full`, 422 |
 | DELETE | `/api/households/:householdId/recipe/shopping-lists/:listId/items` | household:member+module:recipe+verified | – | `ShoppingListDetailResponse` | 200, 403, 404 |
 | PATCH | `/api/households/:householdId/recipe/shopping-lists/:listId/items/:itemId` | household:member+module:recipe+verified | `UpdateShoppingItemRequest` | `ShoppingListDetailResponse` | 200, 403, 404, 422 |
@@ -956,6 +958,12 @@ Notes
   Units with no fixed ratio (`EL`, `Dose`) only merge with themselves, and an **amount-less line
   never merges with a measured one** — folding "Mehl" into "200 g Mehl" would invent or lose a
   quantity.
+- **The primary list (`isPrimary`, "Hauptliste") is one per household.** `PUT /api/households/:householdId/recipe/shopping-lists/:listId/primary`
+  makes the list primary and clears the household's previous one in the same transaction (a partial unique index on
+  `recipe_shopping_lists (household_id) WHERE is_primary = 1` holds the rule); `DELETE` on the same path clears it. Both are
+  idempotent, open to any member (like a rename) and answer the list. The listing keeps its name order: the web client
+  puts the primary list first in the overview, links it from the Home card and preselects it when adding a recipe or
+  the week plan; with none set it falls back to the last-opened list.
 - **Checking off is a DELETE, not a flag.** There is no `checked` field anywhere: the row is removed
   and its `recipe_shopping_list_catalog` entry is bumped, so the item leaves the list and reappears under
   "Häufig gekauft". `use_count` counts check-offs, not adds, so the ranking reflects what actually

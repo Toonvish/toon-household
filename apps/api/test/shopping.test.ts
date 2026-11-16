@@ -281,6 +281,75 @@ describe("shopping lists CRUD", () => {
 /* access control                                                             */
 /* -------------------------------------------------------------------------- */
 
+describe("the primary shopping list", () => {
+  interface ListPayload {
+    id: string;
+    name: string;
+    isPrimary?: boolean;
+  }
+
+  test("a new list is not primary; any member sets one and the previous one is cleared", async () => {
+    const fixture = await setup();
+    const base = `/api/households/${fixture.householdId}/recipe/shopping-lists`;
+    const second = await call(base, { method: "POST", cookie: fixture.owner.cookie, body: { name: "Drogerie" } });
+    const drogerie = (await body<{ list: ListPayload }>(second)).list;
+    expect(drogerie.isPrimary).toBe(false);
+
+    const setRewe = await call(`${base}/${fixture.listId}/primary`, { method: "PUT", cookie: fixture.member.cookie });
+    expect(setRewe.status).toBe(200);
+    expect((await body<{ list: ListPayload }>(setRewe)).list.isPrimary).toBe(true);
+
+    const setDrogerie = await call(`${base}/${drogerie.id}/primary`, { method: "PUT", cookie: fixture.member.cookie });
+    expect(setDrogerie.status).toBe(200);
+    // Setting it again is a no-op, not a conflict.
+    expect((await call(`${base}/${drogerie.id}/primary`, { method: "PUT", cookie: fixture.owner.cookie })).status).toBe(200);
+
+    const listed = await body<{ items: ListPayload[] }>(await call(base, { cookie: fixture.owner.cookie }));
+    expect(listed.items.map((list) => [list.name, list.isPrimary])).toEqual([
+      ["Drogerie", true],
+      ["Rewe", false],
+    ]);
+  });
+
+  test("DELETE clears it, idempotently; the detail reports the flag too", async () => {
+    const fixture = await setup();
+    const url = `/api/households/${fixture.householdId}/recipe/shopping-lists/${fixture.listId}`;
+    await call(`${url}/primary`, { method: "PUT", cookie: fixture.owner.cookie });
+    expect((await body<{ list: ListPayload }>(await call(url, { cookie: fixture.owner.cookie }))).list.isPrimary).toBe(true);
+
+    for (let round = 0; round < 2; round += 1) {
+      const cleared = await call(`${url}/primary`, { method: "DELETE", cookie: fixture.owner.cookie });
+      expect(cleared.status).toBe(200);
+      expect((await body<{ list: ListPayload }>(cleared)).list.isPrimary).toBe(false);
+    }
+  });
+
+  test("each household has its own primary list", async () => {
+    const one = await setup();
+    const two = await setup();
+    for (const fixture of [one, two]) {
+      const response = await call(
+        `/api/households/${fixture.householdId}/recipe/shopping-lists/${fixture.listId}/primary`,
+        { method: "PUT", cookie: fixture.owner.cookie },
+      );
+      expect(response.status).toBe(200);
+    }
+    const listed = await body<{ items: ListPayload[] }>(
+      await call(`/api/households/${one.householdId}/recipe/shopping-lists`, { cookie: one.owner.cookie }),
+    );
+    expect(listed.items[0]?.isPrimary).toBe(true);
+  });
+
+  test("an unknown list is 404", async () => {
+    const fixture = await setup();
+    const response = await call(
+      `/api/households/${fixture.householdId}/recipe/shopping-lists/${crypto.randomUUID()}/primary`,
+      { method: "PUT", cookie: fixture.owner.cookie },
+    );
+    expect(response.status).toBe(404);
+  });
+});
+
 describe("shopping list access control", () => {
   test("no session is 401", async () => {
     const fixture = await setup();
